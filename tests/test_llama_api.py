@@ -330,6 +330,9 @@ def _parse_host() -> str:
     return HOST
 
 
+# Mark: not a pytest module (standalone script)
+__test__ = False
+
 if __name__ == "__main__":
     skip_chat = "--skip-chat" in sys.argv
     HOST = _parse_host()
