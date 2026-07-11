@@ -24,6 +24,8 @@ DEFAULT_CONFIG = {
     "max_tokens_narrator": 2048,
     "max_tokens_character": 1024,
     "language": "Portuguese",
+    "compaction_keep_recent_turns": 8,
+    "summarizer_max_tokens": 1024,
 }
 
 def load_config() -> dict[str, Any]:

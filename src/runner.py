@@ -15,13 +15,20 @@ import httpx
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.agents.narrator import suggest as narrator_suggest
-from src.llm.client import log_undo
+from src.agents.summarizer import summarize
+from src.llm.client import log_compact, log_undo
 from src.models import (
     GameState,
     Player,
     TurnRecord,
 )
-from src.store.sessions import _get_lock, generate_session_id, load_game, save_game
+from src.store.sessions import (
+    _get_lock,
+    backup_session,
+    generate_session_id,
+    load_game,
+    save_game,
+)
 
 
 class Runner:
@@ -291,6 +298,71 @@ class Runner:
             turn_number=turn_number,
         )
         return {"suggestions": suggestions}
+
+    async def compact_session(self, session_id: str) -> dict:
+        """Compactação de sessão — evento discreto e manual (Task 3 do plano).
+
+        Mantém verbatim os últimos ``compaction_keep_recent_turns`` passos
+        (turn_numbers distintos) e resume tudo antes disso num
+        ``story_summary``/``character_notes`` atualizados, via o agente
+        Resumidor (cego, igual o Narrador). Faz backup do arquivo original
+        ANTES de qualquer mudança (``backup_session``) — depois de compactar,
+        o ``undo`` não alcança mais os turnos resumidos; recuperação só
+        restaurando manualmente um ``{session_id}.kb_N.json``.
+
+        Returns:
+            Se não há nada a compactar (histórico menor que a janela):
+            ``{"compacted": False, "reason": "..."}``.
+            Senão: ``{"compacted": True, "backup_path", "evicted_turns",
+            "kept_turns"}``.
+        """
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return {"error": f"Sessão {session_id} não encontrada"}
+
+            keep_recent = self.config.get("compaction_keep_recent_turns", 8)
+            turn_numbers = list(dict.fromkeys(rec.turn_number for rec in game.history))
+            if len(turn_numbers) <= keep_recent:
+                return {
+                    "compacted": False,
+                    "reason": "Histórico menor que a janela — nada a compactar.",
+                }
+
+            cutoff = turn_numbers[-keep_recent]
+            evicted = [rec for rec in game.history if rec.turn_number < cutoff]
+            kept = [rec for rec in game.history if rec.turn_number >= cutoff]
+
+            # Backup ANTES de mudar qualquer coisa — o disco ainda reflete o
+            # estado pré-compactação neste ponto (só mudamos `game` em memória).
+            backup_path = backup_session(session_id)
+
+            new_summary, changed_notes = await summarize(
+                client=self.client,
+                characters=game.characters,
+                controlled_id=game.player.controlled_character_id,
+                story_summary=game.story_summary,
+                character_notes=game.character_notes,
+                evicted_turns=evicted,
+                config=self.config,
+                narrator_directives=game.narrator_directives,
+                session_id=game.session_id,
+                turn_number=cutoff,
+            )
+
+            game.character_notes.update(changed_notes)
+            game.story_summary = new_summary
+            game.history = kept
+
+            save_game(game)
+            log_compact(session_id, cutoff, len(evicted), len(kept))
+
+            return {
+                "compacted": True,
+                "backup_path": backup_path,
+                "evicted_turns": len(evicted),
+                "kept_turns": len(kept),
+            }
 
     # ── Privados ──────────────────────────────────────────────────────────
 

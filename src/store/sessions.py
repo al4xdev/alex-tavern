@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -87,6 +88,36 @@ def load_game(session_id: str) -> GameState | None:
 
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     return dict_to_game_state(data)
+
+
+def backup_session(session_id: str) -> str:
+    """Copia o {session_id}.json atual para {session_id}.kb_N.json (N incremental).
+
+    Feito ANTES de qualquer edição destrutiva (ex.: compactação) para permitir
+    recuperação manual. Cópia de bytes crus, sem reserializar — o backup é
+    bit-a-bit idêntico ao arquivo original no momento da chamada.
+
+    Returns:
+        Path (string) do arquivo de backup criado.
+
+    Raises:
+        FileNotFoundError: se a sessão não existir.
+    """
+    path = _session_path(session_id)
+    if not path.exists():
+        raise FileNotFoundError(f"Sessão {session_id} não encontrada para backup.")
+
+    _ensure_sessions_dir()
+    pattern = re.compile(rf"^{re.escape(session_id)}\.kb_(\d+)\.json$")
+    indices = [
+        int(m.group(1))
+        for f in SESSIONS_DIR.iterdir()
+        if (m := pattern.match(f.name))
+    ]
+    next_index = max(indices, default=-1) + 1
+    backup_path = SESSIONS_DIR / f"{session_id}.kb_{next_index}.json"
+    backup_path.write_bytes(path.read_bytes())
+    return str(backup_path)
 
 
 def delete_session(session_id: str) -> None:
