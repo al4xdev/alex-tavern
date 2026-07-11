@@ -43,6 +43,20 @@ nano .data/config.json
 > [!NOTE]
 > The `./install.sh` script automatically creates a default `.data/config.json`. Make sure to configure the `llm_host` (like `http://localhost:8888` for llama.cpp) and the `language` parameter (default is `Portuguese`) before running.
 
+### 💻 Other Operating Systems (Windows / macOS)
+
+Since the project is built in Python and standard web technologies, it is fully cross-platform. If you are on Windows (PowerShell/CMD) or macOS, you can set it up manually:
+
+```powershell
+# Install dependencies
+uv sync
+
+# Start the server (runs on port 8889)
+uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
+```
+
+*Note: The server will automatically generate the default `.data/config.json` on its first launch. You can then edit it manually.*
+
 > [!WARNING]
 > **Docker Support**: A `Dockerfile` and GitHub Action workflow are available, but they have **not** been heavily tested yet. Use Docker at your own discretion.
 
