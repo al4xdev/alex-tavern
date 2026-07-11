@@ -220,13 +220,39 @@ function escHtml(str) {
     return div.innerHTML;
 }
 
+/* Clears the chat log and re-renders it from the authoritative backend
+   history — merges the Player's speech+action of a turn into one bubble
+   (same as the live echo in sendTurn). Used on session load AND after undo,
+   so the DOM never has to guess how many bubbles a turn produced. */
+function renderHistory(history) {
+    chatLog.innerHTML = '';
+    chatLog.appendChild(emptyState);
+    emptyState.style.display = 'none';
+
+    let playerBuffer = null; // { turnNumber, speech, action }
+    const flushPlayerBuffer = () => {
+        if (!playerBuffer) return;
+        addMessage('Player', buildPlayerEcho(playerBuffer.speech, playerBuffer.action), 'speech');
+        playerBuffer = null;
+    };
+    for (const record of (history || [])) {
+        if (record.speaker === 'Player' && (record.content_type === 'speech' || record.content_type === 'action')) {
+            if (!playerBuffer || playerBuffer.turnNumber !== record.turn_number) {
+                flushPlayerBuffer();
+                playerBuffer = { turnNumber: record.turn_number, speech: '', action: '' };
+            }
+            playerBuffer[record.content_type] = record.content;
+            continue;
+        }
+        flushPlayerBuffer();
+        addMessage(record.speaker, record.content, record.content_type);
+    }
+    flushPlayerBuffer();
+}
+
 async function loadSession(sessionId) {
     try {
         const gameState = await api.getState(sessionId);
-        // Reset view
-        chatLog.innerHTML = '';
-        chatLog.appendChild(emptyState);
-        emptyState.style.display = 'none';
         clearSuggestions();
         debugContent.innerHTML = '<p class="debug-placeholder">Clique em "🔄 Log" ou "Preview do prompt".</p>';
 
@@ -237,10 +263,7 @@ async function loadSession(sessionId) {
         updateActionPopup();
         ingestState(gameState);
 
-        // Replay history
-        for (const record of (gameState.history || [])) {
-            addMessage(record.speaker, record.content, record.content_type);
-        }
+        renderHistory(gameState.history);
 
         inputSpeech.disabled = false;
         inputAction.disabled = false;
@@ -263,16 +286,14 @@ async function undoLastTurn() {
         const data = await api.undo(state.sessionId);
         if (!data.undone) { toast('Nada a desfazer', 'info', 2500); setLoading(false); return; }
 
-        // Remove last DOM messages: player echo + narrator + optional character
-        const msgs = [...chatLog.querySelectorAll('.msg')];
-        // Remove up to 3 messages from the end (player, narrator, character)
-        let removed = 0;
-        for (let i = msgs.length - 1; i >= 0 && removed < 3; i--) {
-            msgs[i].remove();
-            removed++;
+        // Re-render from the authoritative history returned by the backend,
+        // instead of guessing how many DOM bubbles the undone step had — a
+        // step can produce fewer than 3 (e.g. no character response), and
+        // removing a fixed count desyncs the DOM from the real state.
+        if (data.state) {
+            renderHistory(data.state.history);
+            ingestState(data.state);
         }
-
-        if (data.state) ingestState(data.state);
         state.lastTurnFailed = false;
         state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
         updateActionPopup();
@@ -388,6 +409,12 @@ function addMessage(speaker, content, contentType) {
     chatLog.appendChild(msg);
     emptyState.style.display = 'none';
     scrollToBottom();
+}
+
+/* Combines the player's speech + action into the single echo bubble text
+   (used both for the live echo in sendTurn and for replaying history). */
+function buildPlayerEcho(speech, action) {
+    return [speech, action ? `🎬 ${action}` : ''].filter(Boolean).join('\n');
 }
 
 /* ── Sugestão de jogada ("sugira pra mim") ─────────────────────────────── */
@@ -622,8 +649,7 @@ async function sendTurn(isRetry = false) {
 
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
     if (!isRetry && (speech || action)) {
-        const echo = [speech, action ? `🎬 ${action}` : ''].filter(Boolean).join('\n');
-        addMessage('Player', echo, 'speech');
+        addMessage('Player', buildPlayerEcho(speech, action), 'speech');
     }
 
     setLoading(true);
