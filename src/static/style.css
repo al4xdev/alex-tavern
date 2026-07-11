@@ -587,7 +587,7 @@ select.text-input { cursor: pointer; }
     color: var(--text-2);
     font-style: italic;
     max-width: 100%;
-    text-align: center;
+    text-align: left;
     font-size: 0.88rem;
     border-color: transparent;
     border-left: 2px solid var(--glass-border-hi);
@@ -612,7 +612,7 @@ select.text-input { cursor: pointer; }
     gap: 6px;
     letter-spacing: 0.02em;
 }
-.msg-narrator .msg-header { color: var(--text-3); justify-content: center; }
+.msg-narrator .msg-header { color: var(--text-3); }
 .msg-avatar {
     width: 18px; height: 18px;
     border-radius: 50%;
@@ -732,13 +732,13 @@ select.text-input { cursor: pointer; }
 /* Stop button — inside spinner, only visible when loading */
 .stop-btn {
     display: none;
-    width: 36px;
-    height: 36px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
-    border: 2px solid var(--danger);
+    border: 1px solid var(--danger);
     background: transparent;
     color: var(--danger);
-    font-size: 1rem;
+    font-size: 0.7rem;
     cursor: pointer;
     user-select: none;
     -webkit-user-select: none;
