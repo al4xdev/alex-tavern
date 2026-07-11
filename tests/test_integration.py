@@ -513,7 +513,7 @@ class TestRunnerLogic:
             assert game is not None
             original_door = game.scene.physical_facts["door"]
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "Você entra na taverna.", "narration")
+            runner._append_history(game, "Narrator", "Você entra na taverna.", "narration", 1)
             # Modifica cena após o turno
             game.scene.physical_facts["door"] = "aberta"
             save_game(game)
@@ -536,8 +536,8 @@ class TestRunnerLogic:
             assert game is not None
             original_door = game.scene.physical_facts["door"]
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "O vento uiva.", "narration")
-            runner._append_history(game, "C1", "Não gosto disso.", "speech")
+            runner._append_history(game, "Narrator", "O vento uiva.", "narration", 1)
+            runner._append_history(game, "C1", "Não gosto disso.", "speech", 1)
             game.scene.physical_facts["door"] = "aberta"
             save_game(game)
 
@@ -572,7 +572,7 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "Teste.", "narration")
+            runner._append_history(game, "Narrator", "Teste.", "narration", 1)
             save_game(game)
 
         r1 = await self.runner.undo_turn(sid)
@@ -588,7 +588,7 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "Turno 1.", "narration")
+            runner._append_history(game, "Narrator", "Turno 1.", "narration", 1)
             game.scene.physical_facts["door"] = "entreaberta"
             save_game(game)
 
@@ -597,8 +597,8 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "Turno 2.", "narration")
-            runner._append_history(game, "C1", "Resposta 2.", "speech")
+            runner._append_history(game, "Narrator", "Turno 2.", "narration", 2)
+            runner._append_history(game, "C1", "Resposta 2.", "speech", 2)
             game.scene.physical_facts["door"] = "aberta"
             save_game(game)
 
@@ -607,7 +607,7 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "Turno 3.", "narration")
+            runner._append_history(game, "Narrator", "Turno 3.", "narration", 3)
             game.scene.physical_facts["door"] = "escancarada"
             save_game(game)
 
@@ -1043,7 +1043,7 @@ class TestEdgeCases:
         """_append_history usa deepcopy — modificar cena posterior não afeta snapshot."""
         game = _make_test_game()
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-        runner._append_history(game, "Narrator", "Teste", "narration")
+        runner._append_history(game, "Narrator", "Teste", "narration", 1)
         assert len(game.history) == 1
         snapshot_door = game.history[0].scene_snapshot.physical_facts["door"]
         assert snapshot_door == "fechada"

@@ -163,11 +163,15 @@ class Runner:
             if game.pending_options and chosen_option is not None:
                 action = self._resolve_chosen_option(game, chosen_option, action)
 
+            # Todos os registros desta jogada compartilham o mesmo turn_number
+            # (pré-requisito do undo desfazer o passo inteiro).
+            step = (game.history[-1].turn_number + 1) if game.history else 1
+
             # Persiste a jogada ANTES de chamar o Narrador (cego).
             if speech:
-                self._append_history(game, "Player", speech, "speech")
+                self._append_history(game, "Player", speech, "speech", step)
             if action:
-                self._append_history(game, "Player", action, "action")
+                self._append_history(game, "Player", action, "action", step)
 
             # Chama Narrador
             narrator_raw, narrator_messages = await self._call_narrator(game)
@@ -190,7 +194,7 @@ class Runner:
 
             # Avança o turno
             narration = narrator_raw["narration"]
-            self._append_history(game, "Narrator", narration, "narration")
+            self._append_history(game, "Narrator", narration, "narration", step)
 
             speaker = narrator_raw["next_speaker"]
             controlled = game.player.controlled_character_id
@@ -205,7 +209,7 @@ class Runner:
                 character_response, character_messages = await self._call_character(
                     game, speaker, ctx
                 )
-                self._append_history(game, speaker, character_response, "speech")
+                self._append_history(game, speaker, character_response, "speech", step)
 
             # Atualiza cena
             scene_up = narrator_raw.get("scene_update")
@@ -220,14 +224,13 @@ class Runner:
             game.pending_options = None
             save_game(game)
 
-            turn_number = game.history[-1].turn_number if game.history else 0
             result = {
                 "narration": narration,
                 "character_response": character_response,
                 "next_speaker": speaker,
                 "player_options": player_opts,
                 "scene_update": scene_up,
-                "turn_number": turn_number,
+                "turn_number": step,
             }
             if debug:
                 char_debug: dict | None = None
@@ -403,10 +406,16 @@ class Runner:
         speaker: str,
         content: str,
         content_type: str,
+        turn_number: int,
     ) -> None:
-        """Cria TurnRecord com deepcopy da Scene e adiciona ao histórico."""
+        """Cria TurnRecord com deepcopy da Scene e adiciona ao histórico.
+
+        ``turn_number`` é explícito — todos os registros de uma mesma jogada
+        (fala/ação do humano, narração, fala do Personagem) compartilham o
+        mesmo número, pré-requisito para o undo desfazer o passo inteiro.
+        """
         record = TurnRecord(
-            turn_number=len(game.history) + 1,
+            turn_number=turn_number,
             speaker=speaker,
             content=content,
             content_type=content_type,
