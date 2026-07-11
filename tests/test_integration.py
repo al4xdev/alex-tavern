@@ -517,23 +517,6 @@ class TestRunnerLogic:
             assert game.scene.physical_facts["door"] == "fechada"
 
     @pytest.mark.asyncio
-    async def test_undo_pending_options(self) -> None:
-        """Undo em sessão pausada em options limpa pending_options."""
-        sid = self.runner.start_session()
-        async with _get_lock(sid):
-            game = load_game(sid)
-            assert game is not None
-            game.pending_options = [{"index": 0, "label": "Abrir porta", "description": "..."}]
-            save_game(game)
-        result = await self.runner.undo_turn(sid)
-        assert result["undone"] is True
-        # pending_options foi limpo
-        async with _get_lock(sid):
-            game = load_game(sid)
-            assert game is not None
-            assert game.pending_options is None
-
-    @pytest.mark.asyncio
     async def test_undo_simple_turn(self) -> None:
         """Undo de um turno com narrador apenas — history fica vazio, cena restaurada."""
         sid = self.runner.start_session()
@@ -707,8 +690,8 @@ class TestRunnerWithLLM:
                 assert "narration" in result
                 assert result["narration"] is not None
                 assert len(result["narration"]) > 10
-                # next_speaker deve ser um valor válido
-                assert result["next_speaker"] in ("C1", "C2", "Player", "Narrator")
+                # next_speaker deve ser um valor válido (o Narrador não conhece "Player")
+                assert result["next_speaker"] in ("C1", "C2", "Narrator")
                 # Verifica que o estado foi salvo
                 state = runner.get_state(sid)
                 assert state is not None
@@ -727,42 +710,48 @@ class TestRunnerWithLLM:
                     speech="",
                     action="Thorn se levanta e caminha até a porta, espiando pela fresta.",
                 )
-                if result.get("type") == "options":
-                    assert "options" in result
-                    opt = result["options"][0]
-                    result = await runner.player_turn(
-                        session_id=sid,
-                        chosen_option=opt["index"],
-                    )
                 assert "narration" in result
                 assert result["narration"] is not None
-                assert result["next_speaker"] in ("C1", "C2", "Player", "Narrator")
+                assert result["next_speaker"] in ("C1", "C2", "Narrator")
             finally:
                 delete_session(sid)
 
-    async def test_options_flow(self) -> None:
-        """Turno que gera options → próximo turno com chosen_option."""
+    async def test_force_speaker_overrides_narrator(self) -> None:
+        """force_speaker faz o personagem indicado agir, mesmo que não-controlado."""
         client, runner = await self._make_runner()
         async with client:
             sid = runner.start_session()
             try:
-                # Primeiro turno: pede uma decisão
-                result1 = await runner.player_turn(
+                result = await runner.player_turn(
                     session_id=sid,
                     speech="Precisamos decidir o que fazer.",
                     action="Thorn coloca as mãos na mesa e espera.",
+                    force_speaker="C2",
                 )
-                # Narrador pode ou não ter gerado options
-                if result1.get("type") == "options":
-                    assert "options" in result1
-                    assert len(result1["options"]) > 0
-                    # Segundo turno: escolhe opção 0
-                    opt = result1["options"][0]
-                    result2 = await runner.player_turn(
-                        session_id=sid,
-                        chosen_option=opt["index"],
-                    )
-                    assert "narration" in result2
+                assert "narration" in result
+                assert result["next_speaker"] == "C2"
+                assert result["character_response"]
+            finally:
+                delete_session(sid)
+
+    async def test_suggest_actions(self) -> None:
+        """suggest_actions devolve sugestões pro personagem controlado sem persistir nada."""
+        client, runner = await self._make_runner()
+        async with client:
+            sid = runner.start_session()
+            try:
+                state_before = runner.get_state(sid)
+                assert state_before is not None
+                result = await runner.suggest_actions(sid)
+                assert "suggestions" in result
+                assert len(result["suggestions"]) == 3
+                for s in result["suggestions"]:
+                    assert "speech" in s
+                    assert "action" in s
+                # suggest_actions não grava nada na sessão
+                state_after = runner.get_state(sid)
+                assert state_after is not None
+                assert len(state_after.history) == len(state_before.history)
             finally:
                 delete_session(sid)
 
@@ -772,19 +761,9 @@ class TestRunnerWithLLM:
         async with client:
             sid = runner.start_session()
             try:
-                turn_count = 0
-                while turn_count < 3:
+                for turn_count in range(3):
                     speech = f"Fala do turno {turn_count + 1}"
-                    result = await runner.player_turn(
-                        session_id=sid, speech=speech, action="",
-                    )
-                    if result.get("type") == "options":
-                        opts = result.get("options", [])
-                        if opts:
-                            result = await runner.player_turn(
-                                session_id=sid, chosen_option=opts[0]["index"],
-                            )
-                    turn_count += 1
+                    await runner.player_turn(session_id=sid, speech=speech, action="")
 
                 state = runner.get_state(sid)
                 assert state is not None
@@ -1013,44 +992,6 @@ class TestCustomSessionAndDebug:
 
 class TestEdgeCases:
     """Casos de borda e validações críticas."""
-
-    def test_resolve_chosen_option_valid(self) -> None:
-        """_resolve_chosen_option com índice válido."""
-        game = _make_test_game()
-        game.pending_options = [
-            {"index": 0, "label": "Open door", "description": "Abra a porta"},
-            {"index": 1, "label": "Ignore", "description": "Ignore a porta"},
-        ]
-        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-        result = runner._resolve_chosen_option(game, 0, "")
-        assert result == "Open door"
-
-    def test_resolve_chosen_option_with_action(self) -> None:
-        """_resolve_chosenOption com action + option label."""
-        game = _make_test_game()
-        game.pending_options = [
-            {"index": 0, "label": "Open door", "description": "Abra a porta"},
-        ]
-        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-        result = runner._resolve_chosen_option(game, 0, "Thorn walks slowly")
-        assert "Thorn walks slowly" in result
-        assert "Open door" in result
-
-    def test_resolve_chosen_option_invalid_index(self) -> None:
-        """_resolve_chosen_option com índice inválido mantém action original."""
-        game = _make_test_game()
-        game.pending_options = [{"index": 0, "label": "Open door", "description": "..."}]
-        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-        result = runner._resolve_chosen_option(game, 99, "original action")
-        assert result == "original action"
-
-    def test_resolve_chosen_option_no_pending(self) -> None:
-        """_resolve_chosen_option sem pending_options mantém action."""
-        game = _make_test_game()
-        game.pending_options = None
-        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-        result = runner._resolve_chosen_option(game, 0, "original action")
-        assert result == "original action"
 
     def test_update_scene(self) -> None:
         """_update_scene atualiza physical_facts."""

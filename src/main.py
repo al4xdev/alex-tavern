@@ -113,7 +113,7 @@ class StartSessionResponse(BaseModel):
 class PlayerTurnRequest(BaseModel):
     speech: str = ""
     action: str = ""
-    chosen_option: int | None = Field(default=None, ge=0)
+    force_speaker: str | None = None
     debug: bool = False
 
 
@@ -121,11 +121,8 @@ class PlayerTurnResponse(BaseModel):
     narration: str | None = None
     character_response: str | None = None
     next_speaker: str | None = None
-    player_options: list[dict] | None = None
     scene_update: dict | None = None
     turn_number: int | None = None
-    type: str | None = None
-    options: list[dict] | None = None
     error: str | None = None
     debug: dict | None = None
 
@@ -133,6 +130,12 @@ class PlayerTurnResponse(BaseModel):
 class PreviewPromptRequest(BaseModel):
     speech: str = ""
     action: str = ""
+
+
+class SuggestResponse(BaseModel):
+    suggestions: list[dict] | None = None
+    error: str | None = None
+    debug: dict | None = None
 
 
 # ── Rotas ─────────────────────────────────────────────────────────────────
@@ -285,9 +288,19 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         session_id=session_id,
         speech=body.speech,
         action=body.action,
-        chosen_option=body.chosen_option,
+        force_speaker=body.force_speaker,
         debug=body.debug,
     )
+    return result
+
+
+@app.post("/session/{session_id}/suggest", response_model=SuggestResponse)
+async def suggest_actions(session_id: str, debug: bool = False) -> dict:
+    """Sugestões de jogada do Narrador para o personagem controlado (gatilho manual)."""
+    assert runner is not None, "Runner não inicializado"
+    result = await runner.suggest_actions(session_id, debug=debug)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
     return result
 
 

@@ -15,6 +15,7 @@ import httpx
 
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
+from src.agents.narrator import suggest as narrator_suggest
 from src.models import (
     GameState,
     Player,
@@ -125,43 +126,41 @@ class Runner:
         session_id: str,
         speech: str = "",
         action: str = "",
-        chosen_option: int | None = None,
+        force_speaker: str | None = None,
         debug: bool = False,
     ) -> dict:
         """Processa um turno do Player.
 
         Fluxo:
         1. load_game + lock
-        2. Resolve chosen_option se houver
-        3. Persiste a jogada do humano no histórico (marcada "Player" internamente,
+        2. Persiste a jogada do humano no histórico (marcada "Player" internamente,
            mas nunca renderizada assim em prompt — vira a última entrada do
            HISTORY que o Narrador cego lê)
-        4. Chama Narrador
-        5. Se Narrador gerou options e player não escolheu → retorna options
-        6. Grava narração no histórico
-        7. Se next_speaker é personagem presente e NÃO é o controlado → chama
-           personagem. Se for o controlado, pausa e devolve o controle ao humano.
-        8. Atualiza cena e humor
-        9. save_game → retorna resultado
+        3. Chama Narrador
+        4. Grava narração no histórico
+        5. Quem age a seguir é ``force_speaker`` (gatilho manual, se informado)
+           ou o ``next_speaker`` do Narrador. Se for personagem presente e NÃO
+           for o controlado → chama personagem. Se for o controlado, pausa e
+           devolve o controle ao humano.
+        6. Atualiza cena e humor
+        7. save_game → retorna resultado
 
         Args:
             session_id: ID da sessão.
             speech: Fala/pensamento do Player.
             action: Ação física do Player.
-            chosen_option: Índice da opção escolhida (se veio de pending_options).
+            force_speaker: Gatilho manual — id de personagem presente ou
+                "Narrator", para forçar quem age a seguir em vez de deixar o
+                Narrador decidir.
 
         Returns:
             Dict com: narration, character_response, next_speaker,
-            player_options, scene_update, turn_number.
+            scene_update, turn_number.
         """
         async with _get_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Sessão {session_id} não encontrada"}
-
-            # Resolve pending_options do turno anterior
-            if game.pending_options and chosen_option is not None:
-                action = self._resolve_chosen_option(game, chosen_option, action)
 
             # Todos os registros desta jogada compartilham o mesmo turn_number
             # (pré-requisito do undo desfazer o passo inteiro).
@@ -176,27 +175,12 @@ class Runner:
             # Chama Narrador
             narrator_raw, narrator_messages = await self._call_narrator(game)
 
-            # Se Narrador gerou novas options E player não escolheu → pausa
-            player_opts = narrator_raw.get("player_options")
-            if player_opts and chosen_option is None:
-                game.pending_options = player_opts
-                save_game(game)
-                result: dict = {"type": "options", "options": player_opts}
-                if debug:
-                    result["debug"] = {
-                        "narrator": {
-                            "messages": narrator_messages,
-                            "raw": json.dumps(narrator_raw, ensure_ascii=False, indent=2),
-                        },
-                        "character": None,
-                    }
-                return result
-
             # Avança o turno
             narration = narrator_raw["narration"]
             self._append_history(game, "Narrator", narration, "narration", step)
 
-            speaker = narrator_raw["next_speaker"]
+            valid_force = force_speaker in game.characters or force_speaker == "Narrator"
+            speaker = force_speaker if valid_force else narrator_raw["next_speaker"]
             controlled = game.player.controlled_character_id
             character_response: str | None = None
             character_messages: list[dict] | None = None
@@ -221,14 +205,12 @@ class Runner:
             if mood_updates:
                 self._update_moods(game, mood_updates)
 
-            game.pending_options = None
             save_game(game)
 
             result = {
                 "narration": narration,
                 "character_response": character_response,
                 "next_speaker": speaker,
-                "player_options": player_opts,
                 "scene_update": scene_up,
                 "turn_number": step,
             }
@@ -260,7 +242,7 @@ class Runner:
         return game.history[-limit:]
 
     async def undo_turn(self, session_id: str) -> dict:
-        """Desfaz o último passo-de-jogador inteiro (ou limpa pending_options se pausou).
+        """Desfaz o último passo-de-jogador inteiro.
 
         Desfaz um passo por chamada — chamadas repetidas desfazem múltiplos níveis. Um
         "passo" é todo registro que compartilha o maior ``turn_number`` (jogada do
@@ -280,18 +262,12 @@ class Runner:
             if game is None:
                 return {"undone": False, "error": f"Sessão {session_id} não encontrada"}
 
-            # Caso 1: sessão pausada em options (sem entradas novas no histórico)
-            if game.pending_options is not None:
-                game.pending_options = None
-                save_game(game)
-                return {"undone": True, "state": game_state_to_dict(game)}
-
-            # Caso 2: sem histórico → nada a desfazer
+            # Sem histórico → nada a desfazer
             if not game.history:
                 return {"undone": False}
 
-            # Caso 3: desfaz o passo inteiro — remove todos os registros do
-            # maior turn_number e restaura cena + humor a partir do snapshot.
+            # Remove todos os registros do maior turn_number e restaura cena +
+            # humor a partir do snapshot.
             last_turn_number = game.history[-1].turn_number
             restore: TurnRecord | None = None
             while game.history and game.history[-1].turn_number == last_turn_number:
@@ -303,9 +279,37 @@ class Runner:
                 if cid in game.characters:
                     game.characters[cid].mind.current_mood = mood
 
-            game.pending_options = None
             save_game(game)
             return {"undone": True, "state": game_state_to_dict(game)}
+
+    async def suggest_actions(self, session_id: str, debug: bool = False) -> dict:
+        """Pede ao Narrador (cego) sugestões de jogada para o personagem controlado.
+
+        Gatilho manual "sugira pra mim" (Task 6): não persiste nada — só devolve
+        as sugestões para o front preencher as caixas de fala/ação. O Narrador
+        não sabe que o personagem-alvo é o humano.
+
+        Returns:
+            Dict com ``suggestions`` (lista de ``{"speech", "action"}``).
+        """
+        game = load_game(session_id)
+        if game is None:
+            return {"error": f"Sessão {session_id} não encontrada"}
+
+        target_id = game.player.controlled_character_id
+        suggestions, messages = await narrator_suggest(
+            client=self.client,
+            scene=game.scene,
+            characters=game.characters,
+            target_id=target_id,
+            history=game.history,
+            config=self.config,
+            narrator_directives=game.narrator_directives,
+        )
+        result: dict = {"suggestions": suggestions}
+        if debug:
+            result["debug"] = {"messages": messages}
+        return result
 
     # ── Privados ──────────────────────────────────────────────────────────
 
@@ -425,16 +429,3 @@ class Runner:
             mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
         )
         game.history.append(record)
-
-    def _resolve_chosen_option(
-        self, game: GameState, chosen_option: int, action: str
-    ) -> str:
-        """Resolve índice da option escolhida → injeta label no action."""
-        opts = game.pending_options
-        if not opts or chosen_option >= len(opts):
-            return action  # índice inválido, mantém action original
-
-        label = str(opts[chosen_option]["label"])
-        if action:
-            return f"{action} [Chose: {label}]"
-        return label

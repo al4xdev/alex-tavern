@@ -32,8 +32,6 @@ def _build_system_prompt(
         '  {"door": "open", "weather": "rain"}). Use null if nothing changed.\n'
         "  Set a key's value to null to remove that fact from the scene entirely\n"
         "  (e.g., an item that no longer exists).\n"
-        '- "player_options": null OR an array of {index, label, description} when\n'
-        "  a choice between distinct actions is needed. Index starts at 0. Max 5 options.\n"
         '- "mood_updates": null OR an object mapping character_id to their new mood,\n'
         "  only for characters whose mood actually changed this turn (e.g.\n"
         '  {"C1": "furioso"}). Omit characters whose mood is unchanged.\n'
@@ -54,16 +52,6 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
     "no markdown, no code fences".
     """
     speakers = [*character_ids, "Narrator"]
-    option_schema = {
-        "type": "object",
-        "properties": {
-            "index": {"type": "integer"},
-            "label": {"type": "string"},
-            "description": {"type": "string"},
-        },
-        "required": ["index", "label", "description"],
-        "additionalProperties": False,
-    }
     return {
         "name": "narrator_turn",
         "schema": {
@@ -76,10 +64,6 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
                     "type": ["object", "null"],
                     "additionalProperties": {"type": ["string", "null"]},
                 },
-                "player_options": {
-                    "type": ["array", "null"],
-                    "items": option_schema,
-                },
                 "mood_updates": {
                     "type": ["object", "null"],
                     "additionalProperties": {"type": "string"},
@@ -90,7 +74,6 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
                 "next_speaker",
                 "context_for_character",
                 "scene_update",
-                "player_options",
                 "mood_updates",
             ],
             "additionalProperties": False,
@@ -198,7 +181,7 @@ async def narrate(
     Returns:
         Tupla ``(result, messages)``:
         - ``result``: dict com chaves narration, next_speaker,
-          context_for_character, scene_update, player_options (opcional).
+          context_for_character, scene_update, mood_updates.
         - ``messages``: os messages enviados ao LLM (para o modo debug).
 
     Raises:
@@ -239,9 +222,108 @@ async def narrate(
         # Fallback: normaliza para Narrator (o Narrador não conhece "Player")
         result["next_speaker"] = "Narrator"
 
-    # scene_update, player_options e mood_updates podem ser None
+    # scene_update e mood_updates podem ser None
     result.setdefault("scene_update", None)
-    result.setdefault("player_options", None)
     result.setdefault("mood_updates", None)
 
     return result, messages
+
+
+def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") -> str:
+    prompt = (
+        "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
+        f"Suggest 3 plausible next moves for {target_id}, given their personality, mood,\n"
+        "knowledge and the current scene/history. Each suggestion is a distinct, in-\n"
+        "character option — vary tone/approach across the 3.\n"
+        "\n"
+        'Return an object with a "suggestions" array of exactly 3 items, each with\n'
+        '"speech" (what they say, or empty string) and "action" (what they physically\n'
+        'do, or empty string).\n'
+    )
+    if narrator_directives.strip():
+        prompt += (
+            "\nWORLD DIRECTIVES (tone, rules, setting — always respect these):\n"
+            f"{narrator_directives.strip()}\n"
+        )
+    return prompt
+
+
+def build_suggest_json_schema() -> dict:
+    """JSON schema da resposta de sugestão de jogadas (gatilho manual, Task 6)."""
+    suggestion_schema = {
+        "type": "object",
+        "properties": {
+            "speech": {"type": "string"},
+            "action": {"type": "string"},
+        },
+        "required": ["speech", "action"],
+        "additionalProperties": False,
+    }
+    return {
+        "name": "narrator_suggestions",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "suggestions": {
+                    "type": "array",
+                    "items": suggestion_schema,
+                    "minItems": 3,
+                    "maxItems": 3,
+                },
+            },
+            "required": ["suggestions"],
+            "additionalProperties": False,
+        },
+    }
+
+
+async def suggest(
+    client: httpx.AsyncClient,
+    scene: Scene,
+    characters: dict[str, Character],
+    target_id: str,
+    history: list[TurnRecord],
+    config: dict,
+    narrator_directives: str = "",
+) -> tuple[list[dict], list[dict]]:
+    """Pede ao Narrador (cego) uma lista de jogadas possíveis para ``target_id``.
+
+    Usado pelo gatilho "sugira pra mim": o Narrador não sabe que ``target_id``
+    é o personagem controlado pelo humano — a pergunta é genérica ("sugira
+    jogadas para este personagem"), igual seria para qualquer outro. Não
+    persiste nada; quem chama decide o que fazer com as sugestões.
+
+    Returns:
+        Tupla ``(suggestions, messages)``: lista de ``{"speech", "action"}``
+        e os messages enviados ao LLM (para o modo debug).
+    """
+    max_tokens_narrator = config.get("max_tokens_narrator", 2048)
+    messages = [
+        {
+            "role": "system",
+            "content": _build_suggest_system_prompt(target_id, narrator_directives),
+        },
+        {
+            "role": "user",
+            "content": _build_user_prompt(
+                scene=scene,
+                characters=characters,
+                player_controlled_id=target_id,
+                history=history,
+                context_max=config.get("context_max"),
+                max_tokens_narrator=max_tokens_narrator,
+            ),
+        },
+    ]
+
+    result = await chat_completion_json(
+        client,
+        messages,
+        model=config.get("model", ""),
+        language=config.get("language", ""),
+        max_tokens=max_tokens_narrator,
+        json_schema=build_suggest_json_schema(),
+    )
+
+    suggestions = result.get("suggestions", [])
+    return suggestions, messages

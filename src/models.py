@@ -73,7 +73,6 @@ class GameState:
     player: Player
     scene: Scene
     history: list[TurnRecord] = field(default_factory=list)
-    pending_options: list[dict] | None = None  # options do turno anterior não consumidas
     created_at: str = ""  # ISO timestamp
     narrator_directives: str = ""  # instruções de mundo/tom/regras extras p/ o Narrador
 
@@ -213,7 +212,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         player=player,
         scene=scene,
         history=history,
-        pending_options=data.get("pending_options"),
         created_at=data.get("created_at", ""),
         narrator_directives=data.get("narrator_directives", ""),
     )
