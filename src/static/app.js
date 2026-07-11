@@ -792,4 +792,4 @@ if ('serviceWorker' in navigator) {
 
 /* ── Init ─────────────────────────────────────────────────────────────── */
 Setup.init({ onStart: (cfg) => startSession(cfg) });
-Setup.open(); // show setup on first load
+openSessionsModal(); // show sessions list on first load (empty state offers "Nova sessão")
