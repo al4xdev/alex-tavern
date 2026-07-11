@@ -35,20 +35,21 @@ def save_preset(name: str, config: dict) -> None:
     _ensure_dirs()
     path = _preset_path(name)
 
-    fd, tmp_path = tempfile.mkstemp(
+    fd, tmp_name = tempfile.mkstemp(
         dir=str(PRESETS_DIR),
         prefix=f"{name}_",
         suffix=".tmp",
     )
+    tmp_path = Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(fd)
-        os.replace(tmp_path, path)
+        tmp_path.replace(path)
     except BaseException:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        if tmp_path.exists():
+            tmp_path.unlink()
         raise
 
 
