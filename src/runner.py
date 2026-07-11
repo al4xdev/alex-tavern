@@ -19,7 +19,6 @@ from src.models import (
     GameState,
     Player,
     TurnRecord,
-    TurnState,
 )
 from src.store.sessions import _get_lock, generate_session_id, load_game, save_game
 
@@ -134,12 +133,15 @@ class Runner:
         Fluxo:
         1. load_game + lock
         2. Resolve chosen_option se houver
-        3. Cria TurnState local
+        3. Persiste a jogada do humano no histórico (marcada "Player" internamente,
+           mas nunca renderizada assim em prompt — vira a última entrada do
+           HISTORY que o Narrador cego lê)
         4. Chama Narrador
         5. Se Narrador gerou options e player não escolheu → retorna options
         6. Grava narração no histórico
-        7. Se next_speaker é personagem → chama personagem
-        8. Atualiza cena
+        7. Se next_speaker é personagem presente e NÃO é o controlado → chama
+           personagem. Se for o controlado, pausa e devolve o controle ao humano.
+        8. Atualiza cena e humor
         9. save_game → retorna resultado
 
         Args:
@@ -161,14 +163,14 @@ class Runner:
             if game.pending_options and chosen_option is not None:
                 action = self._resolve_chosen_option(game, chosen_option, action)
 
-            turn = TurnState(
-                turn_number=len(game.history) + 1,
-                player_speech=speech,
-                player_action=action,
-            )
+            # Persiste a jogada ANTES de chamar o Narrador (cego).
+            if speech:
+                self._append_history(game, "Player", speech, "speech")
+            if action:
+                self._append_history(game, "Player", action, "action")
 
             # Chama Narrador
-            narrator_raw, narrator_messages = await self._call_narrator(game, turn)
+            narrator_raw, narrator_messages = await self._call_narrator(game)
 
             # Se Narrador gerou novas options E player não escolheu → pausa
             player_opts = narrator_raw.get("player_options")
@@ -191,10 +193,14 @@ class Runner:
             self._append_history(game, "Narrator", narration, "narration")
 
             speaker = narrator_raw["next_speaker"]
+            controlled = game.player.controlled_character_id
             character_response: str | None = None
             character_messages: list[dict] | None = None
 
-            if speaker in game.characters:
+            # O Narrador é cego e pode rotear para o personagem controlado —
+            # nesse caso o runner NÃO gera a fala dele; pausa e devolve o
+            # controle ao humano (a UI decide o que fazer com next_speaker).
+            if speaker in game.characters and speaker != controlled:
                 ctx = narrator_raw.get("context_for_character", "")
                 character_response, character_messages = await self._call_character(
                     game, speaker, ctx
@@ -214,13 +220,14 @@ class Runner:
             game.pending_options = None
             save_game(game)
 
+            turn_number = game.history[-1].turn_number if game.history else 0
             result = {
                 "narration": narration,
                 "character_response": character_response,
                 "next_speaker": speaker,
                 "player_options": player_opts,
                 "scene_update": scene_up,
-                "turn_number": turn.turn_number,
+                "turn_number": turn_number,
             }
             if debug:
                 char_debug: dict | None = None
@@ -298,16 +305,12 @@ class Runner:
 
     # ── Privados ──────────────────────────────────────────────────────────
 
-    async def _call_narrator(
-        self, game: GameState, turn: TurnState
-    ) -> tuple[dict, list[dict]]:
-        """Chama agente Narrador com contexto completo. Devolve (result, messages)."""
+    async def _call_narrator(self, game: GameState) -> tuple[dict, list[dict]]:
+        """Chama agente Narrador (cego) com contexto completo. Devolve (result, messages)."""
         return await narrate(
             client=self.client,
             scene=game.scene,
             characters=game.characters,
-            player_speech=turn.player_speech,
-            player_action=turn.player_action,
             player_controlled_id=game.player.controlled_character_id,
             history=game.history,
             config=self.config,
@@ -323,6 +326,8 @@ class Runner:
             character=game.characters[character_id],
             context=context,
             history=game.history,
+            characters=game.characters,
+            controlled_id=game.player.controlled_character_id,
             config=self.config,
         )
 
@@ -331,7 +336,10 @@ class Runner:
     ) -> list[dict]:
         """Monta e retorna os messages do Narrador para o estado atual.
 
-        NÃO chama o LLM — útil para inspecionar o prompt exato offline.
+        NÃO chama o LLM nem persiste nada — útil para inspecionar o prompt
+        exato offline. Se ``speech``/``action`` forem informados, simula a
+        jogada como a última entrada do HISTORY (sem gravar), exatamente como
+        aconteceria de verdade.
 
         Returns:
             Lista de messages (system + user), ou lista vazia se a sessão
@@ -340,13 +348,35 @@ class Runner:
         game = load_game(session_id)
         if game is None:
             return []
+
+        history = list(game.history)
+        next_turn = (history[-1].turn_number + 1) if history else 1
+        if speech:
+            history.append(
+                TurnRecord(
+                    turn_number=next_turn,
+                    speaker="Player",
+                    content=speech,
+                    content_type="speech",
+                    scene_snapshot=game.scene,
+                )
+            )
+        if action:
+            history.append(
+                TurnRecord(
+                    turn_number=next_turn,
+                    speaker="Player",
+                    content=action,
+                    content_type="action",
+                    scene_snapshot=game.scene,
+                )
+            )
+
         return build_narrator_messages(
             scene=game.scene,
             characters=game.characters,
-            player_speech=speech,
-            player_action=action,
             player_controlled_id=game.player.controlled_character_id,
-            history=game.history,
+            history=history,
             narrator_directives=game.narrator_directives,
             context_max=self.config.get("context_max"),
             max_tokens_narrator=self.config.get("max_tokens_narrator", 2048),

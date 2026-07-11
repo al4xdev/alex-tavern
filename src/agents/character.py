@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from src.llm.client import chat_completion
-from src.models import Character, TurnRecord, trim_history_by_tokens
+from src.models import Character, TurnRecord, speaker_label, trim_history_by_tokens
 
 
 def _build_system_prompt(character: Character) -> str:
@@ -28,7 +28,8 @@ def _build_system_prompt(character: Character) -> str:
 
 def _format_history_for_character(
     history: list[TurnRecord],
-    char_name: str,
+    characters: dict[str, Character],
+    controlled_id: str,
     context_max: int | None = None,
     max_tokens_character: int = 1024,
 ) -> str:
@@ -45,7 +46,8 @@ def _format_history_for_character(
         return "(none)"
     lines: list[str] = []
     for rec in hist:
-        lines.append(f"Turn {rec.turn_number} — {rec.speaker}: {rec.content}")
+        label = speaker_label(rec.speaker, characters, controlled_id)
+        lines.append(f"Turn {rec.turn_number} — {label}: {rec.content}")
     return "\n".join(lines)
 
 
@@ -54,6 +56,8 @@ async def act(
     character: Character,
     context: str,
     history: list[TurnRecord],
+    characters: dict[str, Character],
+    controlled_id: str,
     config: dict,
 ) -> tuple[str, list[dict]]:
     """Constrói prompt do Personagem, chama LLM, retorna fala/pensamento + messages.
@@ -64,6 +68,11 @@ async def act(
         context: ``context_for_character`` vindo do Narrador.
         history: Histórico completo da sessão (usado para construir parte
                  do contexto de eventos recentes).
+        characters: Todos os personagens da sessão — só usado para traduzir
+                    ``speaker_label`` no histórico (nunca vaza `body`/personalidade
+                    de outros para o prompt).
+        controlled_id: ID do personagem controlado pelo humano — usado só para
+                       traduzir o marcador interno "Player" no nome do personagem.
         config: Config do servidor (temperatura, max_tokens).
 
     Returns:
@@ -73,7 +82,8 @@ async def act(
     max_tokens_character = config.get("max_tokens_character", 1024)
     history_text = _format_history_for_character(
         history,
-        character.mind.name,
+        characters,
+        controlled_id,
         context_max=config.get("context_max"),
         max_tokens_character=max_tokens_character,
     )

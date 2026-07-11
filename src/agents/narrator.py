@@ -7,27 +7,24 @@ import json
 import httpx
 
 from src.llm.client import chat_completion_json
-from src.models import Character, Scene, TurnRecord, trim_history_by_tokens
+from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
 
 
 def _build_system_prompt(
     character_ids: list[str], narrator_directives: str = ""
 ) -> str:
-    speakers = ", ".join([*character_ids, "Player", "Narrator"])
+    speakers = ", ".join([*character_ids, "Narrator"])
     prompt = (
         "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
-        "You describe scenes, process player actions, and decide who speaks next.\n"
+        "You describe scenes, process what happens, and decide who speaks next.\n"
         "\n"
         "FIELDS:\n"
-        '- "narration": describe what happens in the scene based on the player\'s action\n'
-        "  and the current state. Be vivid but concise (2-4 sentences).\n"
+        '- "narration": describe what happens in the scene based on the last event in\n'
+        "  HISTORY and the current state. Be vivid but concise (2-4 sentences).\n"
         f'- "next_speaker": who should speak/act next. One of: {speakers}.\n'
-        '  - Use "Player" when the player needs to make a choice or respond.\n'
+        "  - Use a character id when that character should react.\n"
         '  - Use "Narrator" when you need to describe something before anyone speaks\n'
-        "    (e.g., an environmental event).\n"
-        "  - If the Player only performed an action without speaking, prefer\n"
-        '    "Player" or "Narrator" as next_speaker — don\'t force a character\n'
-        "    to respond to silence unless it makes narrative sense.\n"
+        "    (e.g., an environmental event), or when no reaction is needed yet.\n"
         '- "context_for_character": a string with filtered information for the next\n'
         "  speaker. Include only what THAT character would perceive. If next_speaker\n"
         "  is Narrator, use empty string.\n"
@@ -36,7 +33,7 @@ def _build_system_prompt(
         "  Set a key's value to null to remove that fact from the scene entirely\n"
         "  (e.g., an item that no longer exists).\n"
         '- "player_options": null OR an array of {index, label, description} when\n'
-        "  the player needs to choose an action. Index starts at 0. Max 5 options.\n"
+        "  a choice between distinct actions is needed. Index starts at 0. Max 5 options.\n"
         '- "mood_updates": null OR an object mapping character_id to their new mood,\n'
         "  only for characters whose mood actually changed this turn (e.g.\n"
         '  {"C1": "furioso"}). Omit characters whose mood is unchanged.\n'
@@ -56,7 +53,7 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
     LLM é restrita por gramática, não depende de instrução textual tipo
     "no markdown, no code fences".
     """
-    speakers = [*character_ids, "Player", "Narrator"]
+    speakers = [*character_ids, "Narrator"]
     option_schema = {
         "type": "object",
         "properties": {
@@ -104,14 +101,16 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
 def _build_user_prompt(
     scene: Scene,
     characters: dict[str, Character],
-    player_speech: str,
-    player_action: str,
     player_controlled_id: str,
     history: list[TurnRecord],
     context_max: int | None = None,
     max_tokens_narrator: int = 2048,
 ) -> str:
-    """Constrói o user prompt com cena, personagens, input do Player e histórico."""
+    """Constrói o user prompt com cena, personagens e histórico.
+
+    Sem bloco de input separado: a última jogada (de quem quer que seja,
+    incluindo o personagem controlado) já está no fim do HISTORY.
+    """
     lines: list[str] = []
 
     # Cena atual
@@ -130,13 +129,6 @@ def _build_user_prompt(
         lines.append(f"    Appearance: {ch.body.physical_description}")
         lines.append(f"    Outfit: {ch.body.outfit}")
         lines.append(f"    Mood: {ch.mind.current_mood}")
-    lines.append(f"  Player controls: {player_controlled_id} (o Player age como este personagem)")
-    lines.append("")
-
-    # Input do Player
-    lines.append("PLAYER INPUT:")
-    lines.append(f"  Speech: {player_speech or '(nothing said)'}")
-    lines.append(f"  Action: {player_action or '(no action)'}")
     lines.append("")
 
     # Histórico — janela completa, ou trimada por orçamento de tokens se context_max informado
@@ -146,7 +138,8 @@ def _build_user_prompt(
         hist = trim_history_by_tokens(history, context_max, max_tokens_narrator)
     if hist:
         for rec in hist:
-            lines.append(f"  Turn {rec.turn_number} — {rec.speaker}: {rec.content}")
+            label = speaker_label(rec.speaker, characters, player_controlled_id)
+            lines.append(f"  Turn {rec.turn_number} — {label}: {rec.content}")
     else:
         lines.append("  (none — first turn)")
     lines.append("")
@@ -157,8 +150,6 @@ def _build_user_prompt(
 def build_narrator_messages(
     scene: Scene,
     characters: dict[str, Character],
-    player_speech: str,
-    player_action: str,
     player_controlled_id: str,
     history: list[TurnRecord],
     narrator_directives: str = "",
@@ -179,8 +170,6 @@ def build_narrator_messages(
             "content": _build_user_prompt(
                 scene=scene,
                 characters=characters,
-                player_speech=player_speech,
-                player_action=player_action,
                 player_controlled_id=player_controlled_id,
                 history=history,
                 context_max=context_max,
@@ -194,14 +183,17 @@ async def narrate(
     client: httpx.AsyncClient,
     scene: Scene,
     characters: dict[str, Character],
-    player_speech: str,
-    player_action: str,
     player_controlled_id: str,
     history: list[TurnRecord],
     config: dict,
     narrator_directives: str = "",
 ) -> tuple[dict, list[dict]]:
     """Constrói prompt do Narrador, chama LLM, devolve dict validado + messages.
+
+    O Narrador é cego: não sabe que existe um humano. Ele reage à última
+    entrada do HISTORY, seja de quem for. ``player_controlled_id`` só é usado
+    para traduzir o marcador interno ``"Player"`` no nome do personagem ao
+    montar o histórico — nunca aparece como texto no prompt.
 
     Returns:
         Tupla ``(result, messages)``:
@@ -216,8 +208,6 @@ async def narrate(
     messages = build_narrator_messages(
         scene=scene,
         characters=characters,
-        player_speech=player_speech,
-        player_action=player_action,
         player_controlled_id=player_controlled_id,
         history=history,
         narrator_directives=narrator_directives,
@@ -244,10 +234,10 @@ async def narrate(
         )
 
     # Valida next_speaker — speakers válidos derivados dinamicamente dos IDs
-    valid_speakers = set(characters) | {"Player", "Narrator"}
+    valid_speakers = set(characters) | {"Narrator"}
     if result["next_speaker"] not in valid_speakers:
-        # Fallback: normaliza para Player
-        result["next_speaker"] = "Player"
+        # Fallback: normaliza para Narrator (o Narrador não conhece "Player")
+        result["next_speaker"] = "Narrator"
 
     # scene_update, player_options e mood_updates podem ser None
     result.setdefault("scene_update", None)

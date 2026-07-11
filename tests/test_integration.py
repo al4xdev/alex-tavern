@@ -21,7 +21,6 @@ from src.models import (
     Player,
     Scene,
     TurnRecord,
-    TurnState,
     deepcopy_scene,
     dict_to_game_state,
     game_state_to_dict,
@@ -202,13 +201,6 @@ class TestModels:
         data = game_state_to_dict(original)
         restored = dict_to_game_state(data)
         assert len(restored.history) == 0
-
-    def test_turn_state_defaults(self) -> None:
-        """TurnState com valores default."""
-        t = TurnState(turn_number=1, player_speech="", player_action="")
-        assert t.turn_number == 1
-        assert t.player_speech == ""
-        assert t.player_action == ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -867,7 +859,8 @@ class TestCustomSessionAndDebug:
         from src.agents.narrator import _build_system_prompt
 
         prompt = _build_system_prompt(["C1", "C2", "C3"], "Regras do mundo aqui.")
-        assert "C1, C2, C3, Player, Narrator" in prompt
+        assert "C1, C2, C3, Narrator" in prompt
+        assert "Player" not in prompt
         assert "Regras do mundo aqui." in prompt
 
     def test_build_system_prompt_no_directives(self) -> None:
@@ -896,8 +889,6 @@ class TestCustomSessionAndDebug:
             scene=Scene(location="x", time_of_day="y", present_characters=[],
                         physical_facts={}),
             characters=chars,
-            player_speech="oi",
-            player_action="",
             player_controlled_id="C3",
             history=[],
             config={},
@@ -907,7 +898,7 @@ class TestCustomSessionAndDebug:
 
     @pytest.mark.asyncio
     async def test_valid_speakers_fallback_invalid(self, monkeypatch) -> None:  # noqa: ANN001
-        """next_speaker inválido cai para Player."""
+        """next_speaker inválido cai para Narrator (o Narrador não conhece "Player")."""
         from src.agents import narrator as narrator_mod
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
@@ -923,13 +914,11 @@ class TestCustomSessionAndDebug:
             scene=Scene(location="x", time_of_day="y", present_characters=[],
                         physical_facts={}),
             characters={"C1": _custom_char("Solo")},
-            player_speech="oi",
-            player_action="",
             player_controlled_id="C1",
             history=[],
             config={},
         )
-        assert result["next_speaker"] == "Player"
+        assert result["next_speaker"] == "Narrator"
 
     @pytest.mark.asyncio
     async def test_player_turn_debug_returns_messages(self, monkeypatch) -> None:  # noqa: ANN001
@@ -950,7 +939,12 @@ class TestCustomSessionAndDebug:
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
         monkeypatch.setattr(character_mod, "chat_completion", fake_chat)
 
-        sid = self.runner.start_session({"characters": {"C1": _custom_char("Solo")}})
+        # next_speaker="C1" precisa ser diferente do controlado, senão o
+        # runner pausa (agência do jogador) em vez de chamar o Personagem.
+        sid = self.runner.start_session({
+            "characters": {"C1": _custom_char("Solo"), "C2": _custom_char("Outro")},
+            "controlled_character_id": "C2",
+        })
         self.created.append(sid)
         result = await self.runner.player_turn(sid, speech="oi", debug=True)
         assert "debug" in result
@@ -967,11 +961,15 @@ class TestCustomSessionAndDebug:
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
         # IDs dinâmicos + diretivas no system prompt
-        assert "C1, C2, C3, Player, Narrator" in messages[0]["content"]
+        assert "C1, C2, C3, Narrator" in messages[0]["content"]
+        assert "Player" not in messages[0]["content"]
         assert "horror gótico" in messages[0]["content"]
-        # input do player no user prompt
+        # jogada do humano aparece no HISTORY, renderizada com o nome do
+        # personagem controlado (C2 = Bron) — nunca como "Player".
         assert "olá" in messages[1]["content"]
         assert "acena" in messages[1]["content"]
+        assert "Bron" in messages[1]["content"]
+        assert "Player" not in messages[1]["content"]
 
     def test_preview_narrator_prompt_missing_session(self) -> None:
         """preview de sessão inexistente retorna lista vazia."""

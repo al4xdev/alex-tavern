@@ -64,15 +64,6 @@ class TurnRecord:
 
 
 @dataclass
-class TurnState:
-    """Resetado a cada turno — nunca persiste entre turnos."""
-
-    turn_number: int
-    player_speech: str
-    player_action: str
-
-
-@dataclass
 class GameState:
     """Persiste entre turnos no JSON da sessão."""
 
@@ -115,6 +106,21 @@ def trim_history_by_tokens(
 def deepcopy_scene(scene: Scene) -> Scene:
     """Retorna uma cópia profunda da Scene (obrigatório para snapshots)."""
     return copy.deepcopy(scene)
+
+
+def speaker_label(speaker: str, characters: dict[str, Character], controlled_id: str) -> str:
+    """Traduz o ``speaker`` armazenado no rótulo a exibir em qualquer prompt de LLM.
+
+    ``"Player"`` é o marcador interno da jogada do humano — nunca deve chegar a
+    uma LLM (Narrador ou Personagem). É sempre traduzido para o nome do
+    personagem controlado. Os demais speakers (IDs de personagem, "Narrator")
+    voltam como estão.
+    """
+    if speaker == "Player":
+        controlled = characters.get(controlled_id)
+        if controlled is not None:
+            return controlled.mind.name
+    return speaker
 
 
 def game_state_to_dict(game: GameState) -> dict[str, Any]:
