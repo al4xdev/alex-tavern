@@ -656,6 +656,7 @@ class TestRunnerLogic:
 
 @pytest.mark.skipif(SKIP_LLM, reason="Servidor llama.cpp não está acessível")
 @pytest.mark.asyncio
+@pytest.mark.llm
 class TestRunnerWithLLM:
     """Testes do Runner que REQUEREM servidor llama.cpp."""
 
