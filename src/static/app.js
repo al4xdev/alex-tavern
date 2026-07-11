@@ -130,7 +130,10 @@ function closeSessionsModal() {
 function renderSessionList(sessions) {
     sessionList.innerHTML = '';
     if (!sessions || sessions.length === 0) {
-        sessionList.innerHTML = '<p class="session-empty">Nenhuma sessão ainda. Crie uma nova!</p>';
+        const empty = document.createElement('p');
+        empty.className = 'session-empty';
+        empty.textContent = 'Nenhuma sessão ainda. Crie uma nova!';
+        sessionList.appendChild(empty);
         return;
     }
     sessions.forEach((s) => {
@@ -138,31 +141,61 @@ function renderSessionList(sessions) {
         card.className = 'session-card';
         if (s.session_id === state.sessionId) card.classList.add('active');
 
-        // Character tags
-        const tagsHtml = (s.characters || [])
-            .filter((c) => c.name)
-            .map((c) => `<span class="session-char-tag">${escHtml(c.name)}</span>`)
-            .join('');
-
         const sceneText = s.scene_location || '';
         const turnText = s.turn_count > 0 ? `${s.turn_count} turnos` : '0 turnos';
         const dateText = timeAgo(s.created_at);
         const extra = [turnText, dateText].filter(Boolean).join(' · ');
 
-        card.innerHTML = `
-            <div class="session-info">
-                <div class="session-char-tags">${tagsHtml}</div>
-                <div class="session-meta">
-                    <span class="session-meta-item">${escHtml(sceneText)}</span>
-                    ${extra ? `<span class="session-meta-item">${extra}</span>` : ''}
-                </div>
-            </div>
-            <div class="session-scene">${escHtml(sceneText)}</div>
-            <div class="session-actions">
-                <button class="session-action-btn" data-action="fork" title="Fork (copiar)">🔀</button>
-                <button class="session-action-btn danger" data-action="delete" title="Apagar">🗑️</button>
-            </div>
-        `;
+        // Built via createElement/textContent (not innerHTML) so untrusted
+        // fields (character names, scene text) can never be interpreted as
+        // markup — no manual escaping to remember at each interpolation.
+        const info = document.createElement('div');
+        info.className = 'session-info';
+
+        const tagsWrap = document.createElement('div');
+        tagsWrap.className = 'session-char-tags';
+        (s.characters || []).filter((c) => c.name).forEach((c) => {
+            const tag = document.createElement('span');
+            tag.className = 'session-char-tag';
+            tag.textContent = c.name;
+            tagsWrap.appendChild(tag);
+        });
+        info.appendChild(tagsWrap);
+
+        const meta = document.createElement('div');
+        meta.className = 'session-meta';
+        const sceneMetaItem = document.createElement('span');
+        sceneMetaItem.className = 'session-meta-item';
+        sceneMetaItem.textContent = sceneText;
+        meta.appendChild(sceneMetaItem);
+        if (extra) {
+            const extraItem = document.createElement('span');
+            extraItem.className = 'session-meta-item';
+            extraItem.textContent = extra;
+            meta.appendChild(extraItem);
+        }
+        info.appendChild(meta);
+        card.appendChild(info);
+
+        const sceneDiv = document.createElement('div');
+        sceneDiv.className = 'session-scene';
+        sceneDiv.textContent = sceneText;
+        card.appendChild(sceneDiv);
+
+        const actions = document.createElement('div');
+        actions.className = 'session-actions';
+        const forkBtn = document.createElement('button');
+        forkBtn.className = 'session-action-btn';
+        forkBtn.dataset.action = 'fork';
+        forkBtn.title = 'Fork (copiar)';
+        forkBtn.textContent = '🔀';
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'session-action-btn danger';
+        deleteBtn.dataset.action = 'delete';
+        deleteBtn.title = 'Apagar';
+        deleteBtn.textContent = '🗑️';
+        actions.append(forkBtn, deleteBtn);
+        card.appendChild(actions);
 
         // Click to load
         card.addEventListener('click', (e) => {
@@ -180,7 +213,7 @@ function renderSessionList(sessions) {
         card.addEventListener('contextmenu', (e) => { e.preventDefault(); card.classList.toggle('show-actions'); });
 
         // Action buttons
-        card.querySelector('[data-action="fork"]').addEventListener('click', async (e) => {
+        forkBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             card.classList.remove('show-actions');
             try {
@@ -193,7 +226,7 @@ function renderSessionList(sessions) {
                 toast(`Erro no fork: ${err.message}`, 'error');
             }
         });
-        card.querySelector('[data-action="delete"]').addEventListener('click', async (e) => {
+        deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             card.classList.remove('show-actions');
             if (!confirm(`Apagar sessão ${s.session_id}?`)) return;
@@ -217,12 +250,6 @@ function renderSessionList(sessions) {
 
         sessionList.appendChild(card);
     });
-}
-
-function escHtml(str) {
-    const div = document.createElement('div');
-    div.appendChild(document.createTextNode(str || ''));
-    return div.innerHTML;
 }
 
 /* Clears the chat log and re-renders it from the authoritative backend

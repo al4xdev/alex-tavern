@@ -53,21 +53,22 @@ def save_game(game: GameState) -> None:
     path = _session_path(game.session_id)
 
     # Write-to-temp-then-rename atômico
-    fd, tmp_path = tempfile.mkstemp(
+    fd, tmp_name = tempfile.mkstemp(
         dir=str(SESSIONS_DIR),
         prefix=f"{game.session_id}_",
         suffix=".tmp",
     )
+    tmp_path = Path(tmp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(fd)
-        os.replace(tmp_path, path)
+        tmp_path.replace(path)
     except BaseException:
         # Limpa o temp se algo falhar
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        if tmp_path.exists():
+            tmp_path.unlink()
         raise
 
 
@@ -109,11 +110,7 @@ def backup_session(session_id: str) -> str:
 
     _ensure_sessions_dir()
     pattern = re.compile(rf"^{re.escape(session_id)}\.kb_(\d+)\.json$")
-    indices = [
-        int(m.group(1))
-        for f in SESSIONS_DIR.iterdir()
-        if (m := pattern.match(f.name))
-    ]
+    indices = [int(m.group(1)) for f in SESSIONS_DIR.iterdir() if (m := pattern.match(f.name))]
     next_index = max(indices, default=-1) + 1
     backup_path = SESSIONS_DIR / f"{session_id}.kb_{next_index}.json"
     backup_path.write_bytes(path.read_bytes())
@@ -129,9 +126,7 @@ def find_latest_backup(session_id: str) -> Path | None:
     _ensure_sessions_dir()
     pattern = re.compile(rf"^{re.escape(session_id)}\.kb_(\d+)\.json$")
     candidates = [
-        (int(m.group(1)), f)
-        for f in SESSIONS_DIR.iterdir()
-        if (m := pattern.match(f.name))
+        (int(m.group(1)), f) for f in SESSIONS_DIR.iterdir() if (m := pattern.match(f.name))
     ]
     if not candidates:
         return None
@@ -176,12 +171,8 @@ def restore_last_backup(session_id: str) -> dict:
     except (json.JSONDecodeError, OSError) as e:
         return {"restored": False, "reason": f"Backup ou sessão corrompidos: {e}"}
 
-    backup_max_turn = max(
-        (h["turn_number"] for h in backup_data.get("history", [])), default=0
-    )
-    live_max_turn = max(
-        (h["turn_number"] for h in live_data.get("history", [])), default=0
-    )
+    backup_max_turn = max((h["turn_number"] for h in backup_data.get("history", [])), default=0)
+    live_max_turn = max((h["turn_number"] for h in live_data.get("history", [])), default=0)
     if live_max_turn > backup_max_turn:
         return {
             "restored": False,
@@ -227,20 +218,19 @@ def list_sessions() -> list[dict]:
             continue  # pula arquivos corrompidos
 
         chars = data.get("characters", {})
-        char_names = [
-            {"name": ch.get("mind", {}).get("name", "")}
-            for ch in chars.values()
-        ]
+        char_names = [{"name": ch.get("mind", {}).get("name", "")} for ch in chars.values()]
         scene = data.get("scene", {})
         history = data.get("history", [])
 
-        summaries.append({
-            "session_id": data.get("session_id", fpath.stem),
-            "characters": char_names,
-            "scene_location": scene.get("location", ""),
-            "turn_count": len(history),
-            "created_at": data.get("created_at", ""),
-        })
+        summaries.append(
+            {
+                "session_id": data.get("session_id", fpath.stem),
+                "characters": char_names,
+                "scene_location": scene.get("location", ""),
+                "turn_count": len(history),
+                "created_at": data.get("created_at", ""),
+            }
+        )
     # Ordena por created_at decrescente (mais recentes primeiro)
     summaries.sort(key=lambda s: s["created_at"], reverse=True)
     return summaries
