@@ -18,8 +18,7 @@ def _build_system_prompt(
         "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
         "You describe scenes, process player actions, and decide who speaks next.\n"
         "\n"
-        "RULES:\n"
-        "- Return ONLY valid JSON, no markdown, no code fences.\n"
+        "FIELDS:\n"
         '- "narration": describe what happens in the scene based on the player\'s action\n'
         "  and the current state. Be vivid but concise (2-4 sentences).\n"
         f'- "next_speaker": who should speak/act next. One of: {speakers}.\n'
@@ -36,6 +35,9 @@ def _build_system_prompt(
         '  {"door": "open", "weather": "rain"}). Use null if nothing changed.\n'
         '- "player_options": null OR an array of {index, label, description} when\n'
         "  the player needs to choose an action. Index starts at 0. Max 5 options.\n"
+        '- "mood_updates": null OR an object mapping character_id to their new mood,\n'
+        "  only for characters whose mood actually changed this turn (e.g.\n"
+        '  {"C1": "furioso"}). Omit characters whose mood is unchanged.\n'
     )
     if narrator_directives.strip():
         prompt += (
@@ -43,6 +45,58 @@ def _build_system_prompt(
             f"{narrator_directives.strip()}\n"
         )
     return prompt
+
+
+def build_narrator_json_schema(character_ids: list[str]) -> dict:
+    """Monta o JSON schema estrutural da resposta do Narrador.
+
+    Usado com ``response_format: {"type": "json_schema", ...}`` — a saída do
+    LLM é restrita por gramática, não depende de instrução textual tipo
+    "no markdown, no code fences".
+    """
+    speakers = [*character_ids, "Player", "Narrator"]
+    option_schema = {
+        "type": "object",
+        "properties": {
+            "index": {"type": "integer"},
+            "label": {"type": "string"},
+            "description": {"type": "string"},
+        },
+        "required": ["index", "label", "description"],
+        "additionalProperties": False,
+    }
+    return {
+        "name": "narrator_turn",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "narration": {"type": "string"},
+                "next_speaker": {"type": "string", "enum": speakers},
+                "context_for_character": {"type": "string"},
+                "scene_update": {
+                    "type": ["object", "null"],
+                    "additionalProperties": {"type": "string"},
+                },
+                "player_options": {
+                    "type": ["array", "null"],
+                    "items": option_schema,
+                },
+                "mood_updates": {
+                    "type": ["object", "null"],
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+            "required": [
+                "narration",
+                "next_speaker",
+                "context_for_character",
+                "scene_update",
+                "player_options",
+                "mood_updates",
+            ],
+            "additionalProperties": False,
+        },
+    }
 
 
 def _build_user_prompt(
@@ -175,6 +229,7 @@ async def narrate(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens_narrator,
+        json_schema=build_narrator_json_schema(list(characters)),
     )
 
     # Valida campos obrigatórios
@@ -192,8 +247,9 @@ async def narrate(
         # Fallback: normaliza para Player
         result["next_speaker"] = "Player"
 
-    # scene_update e player_options podem ser None
+    # scene_update, player_options e mood_updates podem ser None
     result.setdefault("scene_update", None)
     result.setdefault("player_options", None)
+    result.setdefault("mood_updates", None)
 
     return result, messages

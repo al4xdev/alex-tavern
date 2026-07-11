@@ -82,10 +82,16 @@ async def chat_completion_json(
     model: str = "",
     language: str = "",
     max_tokens: int = 1024,
+    json_schema: dict | None = None,
     retries: int = 2,
     timeout: float = 60.0,
 ) -> dict:
-    """Wrapper que força ``response_format`` json_object e faz ``json.loads()``.
+    """Wrapper que força saída JSON e faz ``json.loads()``.
+
+    Se ``json_schema`` for informado (``{"name": ..., "schema": {...}}``), usa
+    ``response_format: {"type": "json_schema", "json_schema": ...}`` — a saída
+    é restrita por gramática no servidor. Sem schema, cai para
+    ``{"type": "json_object"}``.
 
     Faz retries com backoff exponencial se o JSON retornado for malformado,
     se o conteúdo for vazio, ou se o servidor retornar erro HTTP (5xx).
@@ -96,6 +102,7 @@ async def chat_completion_json(
         model: O nome do modelo.
         language: Idioma de resposta a ser injetado.
         max_tokens: Máximo de tokens na resposta.
+        json_schema: Schema opcional para saída estruturada via grammar.
         retries: Número de retries se resposta inválida (backoff: 0.5s, 1s, ...).
         timeout: Timeout em segundos.
 
@@ -105,6 +112,11 @@ async def chat_completion_json(
     Raises:
         ValueError: Se não conseguir obter JSON válido depois de N+1 tentativas.
     """
+    response_format: dict[str, Any] = (
+        {"type": "json_schema", "json_schema": json_schema}
+        if json_schema is not None
+        else {"type": "json_object"}
+    )
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
@@ -113,7 +125,7 @@ async def chat_completion_json(
                 messages,
                 model=model,
                 language=language,
-                response_format={"type": "json_object"},
+                response_format=response_format,
                 max_tokens=max_tokens,
                 timeout=timeout,
             )
