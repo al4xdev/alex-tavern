@@ -353,9 +353,13 @@ class Runner:
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
-        """Aplica mudanças físicas à Scene."""
+        """Aplica mudanças físicas à Scene. Valor ``None`` remove a chave."""
         if scene_update:
-            game.scene.physical_facts.update(scene_update)
+            for key, value in scene_update.items():
+                if value is None:
+                    game.scene.physical_facts.pop(key, None)
+                else:
+                    game.scene.physical_facts[key] = value
 
     def _update_moods(self, game: GameState, mood_updates: dict[str, str]) -> None:
         """Aplica o novo humor decidido pelo Narrador a cada personagem afetado."""

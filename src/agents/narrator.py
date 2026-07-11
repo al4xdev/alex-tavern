@@ -33,6 +33,8 @@ def _build_system_prompt(
         "  is Narrator, use empty string.\n"
         '- "scene_update": object with physical changes to the scene (e.g.,\n'
         '  {"door": "open", "weather": "rain"}). Use null if nothing changed.\n'
+        "  Set a key's value to null to remove that fact from the scene entirely\n"
+        "  (e.g., an item that no longer exists).\n"
         '- "player_options": null OR an array of {index, label, description} when\n'
         "  the player needs to choose an action. Index starts at 0. Max 5 options.\n"
         '- "mood_updates": null OR an object mapping character_id to their new mood,\n'
@@ -75,7 +77,7 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
                 "context_for_character": {"type": "string"},
                 "scene_update": {
                     "type": ["object", "null"],
-                    "additionalProperties": {"type": "string"},
+                    "additionalProperties": {"type": ["string", "null"]},
                 },
                 "player_options": {
                     "type": ["array", "null"],
