@@ -1039,6 +1039,28 @@ class TestEdgeCases:
         runner._update_scene(game, None)
         assert game.scene.physical_facts["door"] == "fechada"
 
+    def test_format_history_for_character_only_speech(self) -> None:
+        """O Personagem só vê falas — narração e ação são filtradas do histórico."""
+        from src.agents.character import _format_history_for_character
+
+        scene = deepcopy_scene(DEFAULT_SCENE)
+        history = [
+            TurnRecord(turn_number=1, speaker="Player", content="oi",
+                       content_type="speech", scene_snapshot=scene),
+            TurnRecord(turn_number=1, speaker="Player", content="Thorn acena",
+                       content_type="action", scene_snapshot=scene),
+            TurnRecord(turn_number=1, speaker="Narrator", content="A porta range.",
+                       content_type="narration", scene_snapshot=scene),
+            TurnRecord(turn_number=1, speaker="C2", content="Oi Thorn.",
+                       content_type="speech", scene_snapshot=scene),
+        ]
+        text = _format_history_for_character(history, DEFAULT_CHARACTERS, "C1")
+        assert "Thorn acena" not in text
+        assert "porta range" not in text
+        assert "Thorn: oi" in text  # "Player" traduzido pro nome do controlado
+        assert "Player" not in text
+        assert "Oi Thorn." in text
+
     def test_append_history_deepcopy(self) -> None:
         """_append_history usa deepcopy — modificar cena posterior não afeta snapshot."""
         game = _make_test_game()

@@ -35,13 +35,14 @@ def _format_history_for_character(
 ) -> str:
     """Formata o histórico como texto linear para o personagem.
 
-    O personagem vê todas as falas/narrações do histórico (o Narrador já
-    filtrou o que é relevante via context_for_character), trimado por
+    O personagem só vê falas anteriores — nunca narrações nem ações (isso
+    quebraria o modelo de papéis: só o Narrador narra/descreve/age). Ele reage
+    à mensagem atual do Narrador (``context_for_character``), trimado por
     orçamento de tokens se ``context_max`` informado.
     """
-    hist = history
+    hist = [rec for rec in history if rec.content_type == "speech"]
     if context_max is not None:
-        hist = trim_history_by_tokens(history, context_max, max_tokens_character)
+        hist = trim_history_by_tokens(hist, context_max, max_tokens_character)
     if not hist:
         return "(none)"
     lines: list[str] = []
