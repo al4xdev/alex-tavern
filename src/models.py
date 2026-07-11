@@ -36,9 +36,9 @@ class Character:
 
 @dataclass
 class Player:
-    """O humano que joga."""
+    """O humano que joga. Sem `name` — nenhum agente sabe que existe um humano
+    (ver regra de imersão no agent.md); o jogador é só o `controlled_character_id`."""
 
-    name: str
     controlled_character_id: str  # qual personagem o jogador controla, fixo na sessão
 
 
@@ -173,7 +173,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
 
     player_data = data["player"]
     player = Player(
-        name=player_data["name"],
         controlled_character_id=player_data["controlled_character_id"],
     )
 

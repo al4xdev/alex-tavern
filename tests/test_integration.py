@@ -106,7 +106,7 @@ def _make_test_game(session_id: str | None = None) -> GameState:
     return GameState(
         session_id=session_id or generate_session_id(),
         characters=DEFAULT_CHARACTERS.copy(),
-        player=Player(name="Testador", controlled_character_id="C1"),
+        player=Player(controlled_character_id="C1"),
         scene=copy.deepcopy(DEFAULT_SCENE),
     )
 
@@ -171,7 +171,7 @@ class TestModels:
         restored = dict_to_game_state(data)
         assert restored.session_id == original.session_id
         assert len(restored.characters) == len(original.characters)
-        assert restored.player.name == original.player.name
+        assert restored.player.controlled_character_id == original.player.controlled_character_id
         assert restored.scene.location == original.scene.location
         assert restored.scene.physical_facts == original.scene.physical_facts
 
@@ -226,18 +226,18 @@ class TestSessions:
         loaded = load_game(self.sid)
         assert loaded is not None
         assert loaded.session_id == original.session_id
-        assert loaded.player.name == original.player.name
+        assert loaded.player.controlled_character_id == original.player.controlled_character_id
 
     def test_save_idempotent(self) -> None:
         """Salvar duas vezes não corrompe o estado."""
         original = _make_test_game(self.sid)
-        original.player.name = "Versão 1"
+        original.player.controlled_character_id = "Versão 1"
         save_game(original)
-        original.player.name = "Versão 2"
+        original.player.controlled_character_id = "Versão 2"
         save_game(original)
         loaded = load_game(self.sid)
         assert loaded is not None
-        assert loaded.player.name == "Versão 2"
+        assert loaded.player.controlled_character_id == "Versão 2"
 
     def test_load_nonexistent(self) -> None:
         """load_game de sessão inexistente retorna None."""
@@ -254,13 +254,13 @@ class TestSessions:
             async with _get_lock(self.sid):
                 game = load_game(self.sid)
                 assert game is not None
-                game.player.name = name
+                game.player.controlled_character_id = name
                 save_game(game)
 
         await asyncio.gather(save_modify("A"), save_modify("B"))
         loaded = load_game(self.sid)
         assert loaded is not None
-        assert loaded.player.name in ("A", "B")
+        assert loaded.player.controlled_character_id in ("A", "B")
 
     def test_atomic_write_integrity(self) -> None:
         """Escrita atômica: arquivo intermediário não fica se algo quebrar."""
@@ -415,14 +415,12 @@ class TestRunnerLogic:
         assert data["session_id"] == sid
 
     def test_start_session_custom_player(self) -> None:
-        """start_session com nome de jogador customizado."""
+        """start_session com personagem controlado customizado."""
         sid = self.runner.start_session({
-            "player_name": "Alex",
             "controlled_character_id": "C2",
         })
         game = load_game(sid)
         assert game is not None
-        assert game.player.name == "Alex"
         assert game.player.controlled_character_id == "C2"
 
     def test_get_state_nonexistent(self) -> None:
@@ -822,7 +820,6 @@ class TestCustomSessionAndDebug:
         sid = self.runner.start_session({
             "characters": chars,
             "scene": scene,
-            "player_name": "Alex",
             "controlled_character_id": "C2",
             "narrator_directives": "Mundo de horror gótico. Tom sombrio.",
         })
@@ -836,7 +833,6 @@ class TestCustomSessionAndDebug:
         assert game is not None
         assert set(game.characters) == {"C1", "C2", "C3"}
         assert game.characters["C1"].mind.name == "Aria"
-        assert game.player.name == "Alex"
         assert game.player.controlled_character_id == "C2"
         assert game.narrator_directives == "Mundo de horror gótico. Tom sombrio."
 
