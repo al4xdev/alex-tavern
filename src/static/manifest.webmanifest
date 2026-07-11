@@ -1,6 +1,6 @@
 {
-  "name": "Roleplay Tavern",
-  "short_name": "Roleplay",
+  "name": "Alex Tavern",
+  "short_name": "Alex Tavern",
   "description": "Roleplay multi-agente: Narrador + personagens, configurável pela UI.",
   "start_url": "/",
   "scope": "/",

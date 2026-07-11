@@ -1,5 +1,5 @@
 [project]
-name = "roleplay"
+name = "alex-tavern"
 version = "0.1.0"
 description = "Multi-agent roleplay system with Narrator + Characters"
 requires-python = ">=3.14"
