@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -12,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.runner import Runner
+from src.store.sessions import delete_session, fork_session, list_sessions
 
 # ── Config ────────────────────────────────────────────────────────────────
 
@@ -183,6 +185,16 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
     return result
 
 
+@app.post("/session/{session_id}/undo")
+async def undo_turn(session_id: str) -> dict:
+    """Desfaz o último turno da sessão."""
+    assert runner is not None, "Runner não inicializado"
+    result = await runner.undo_turn(session_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
 @app.get("/session/{session_id}/state")
 def get_state(session_id: str) -> dict:
     """Retorna o estado completo da sessão."""
@@ -232,6 +244,33 @@ def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
     if not messages:
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
     return {"narrator_messages": messages}
+
+
+
+
+@app.get("/sessions")
+def get_sessions() -> list[dict]:
+    """Lista todas as sessões com resumo."""
+    return list_sessions()
+
+
+@app.post("/session/{session_id}/fork")
+def fork_session_endpoint(session_id: str) -> dict:
+    """Cria cópia da sessão com novo ID."""
+    new_id = fork_session(session_id)
+    if new_id is None:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    return {"session_id": new_id}
+
+
+@app.delete("/session/{session_id}")
+def delete_session_endpoint(session_id: str) -> dict:
+    """Remove uma sessão."""
+    path = Path(f".data/sessions/{session_id}.json")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    delete_session(session_id)
+    return {"deleted": True}
 
 
 @app.get("/health")

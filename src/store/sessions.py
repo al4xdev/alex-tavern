@@ -95,3 +95,60 @@ def delete_session(session_id: str) -> None:
     if path.exists():
         path.unlink()
     _session_locks.pop(session_id, None)
+
+
+def list_sessions() -> list[dict]:
+    """Lista todas as sessões com resumo (personagens, cena, turnos, data).
+
+    Returns:
+        Lista de dicts ordenada por ``created_at`` decrescente.
+        Cada dict: {session_id, characters: [{name}], scene_location,
+                    turn_count, created_at}
+    """
+    _ensure_sessions_dir()
+    summaries: list[dict] = []
+    for fpath in sorted(SESSIONS_DIR.iterdir(), reverse=True):
+        if fpath.suffix != ".json":
+            continue
+        try:
+            data: dict[str, Any] = json.loads(fpath.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue  # pula arquivos corrompidos
+
+        chars = data.get("characters", {})
+        char_names = [
+            {"name": ch.get("mind", {}).get("name", "")}
+            for ch in chars.values()
+        ]
+        scene = data.get("scene", {})
+        history = data.get("history", [])
+
+        summaries.append({
+            "session_id": data.get("session_id", fpath.stem),
+            "characters": char_names,
+            "scene_location": scene.get("location", ""),
+            "turn_count": len(history),
+            "created_at": data.get("created_at", ""),
+        })
+    # Ordena por created_at decrescente (mais recentes primeiro)
+    summaries.sort(key=lambda s: s["created_at"], reverse=True)
+    return summaries
+
+
+def fork_session(session_id: str) -> str | None:
+    """Cria uma cópia da sessão com novo ID.
+
+    Args:
+        session_id: ID da sessão original.
+
+    Returns:
+        Novo session_id, ou None se a sessão original não existir.
+    """
+    game = load_game(session_id)
+    if game is None:
+        return None
+
+    new_id = generate_session_id()
+    game.session_id = new_id
+    save_game(game)
+    return new_id

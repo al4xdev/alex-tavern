@@ -275,6 +275,53 @@ class Runner:
             return []
         return game.history[-limit:]
 
+    async def undo_turn(self, session_id: str) -> dict:
+        """Desfaz o último turno (ou limpa pending_options se a sessão pausou).
+
+        Desfaz um turno por chamada — chamadas repetidas desfazem múltiplos níveis.
+        Restaura a Scene a partir do scene_snapshot do TurnRecord do Narrador.
+
+        Returns:
+            Dict com ``state`` (GameState serializado) e ``undone`` (bool).
+            Se não houver nada a desfazer, retorna ``{"undone": False}``.
+        """
+        from src.models import game_state_to_dict
+
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return {"undone": False, "error": f"Sessão {session_id} não encontrada"}
+
+            # Caso 1: sessão pausada em options (sem entradas novas no histórico)
+            if game.pending_options is not None:
+                game.pending_options = None
+                save_game(game)
+                return {"undone": True, "state": game_state_to_dict(game)}
+
+            # Caso 2: sem histórico → nada a desfazer
+            if not game.history:
+                return {"undone": False}
+
+            # Caso 3: desfaz um turno completo
+            # Pop último registro (character speech, se houver)
+            last = game.history[-1]
+            if last.speaker != "Narrator":
+                game.history.pop()
+
+            # Pop o registro do Narrador → extrai scene_snapshot
+            if not game.history or game.history[-1].speaker != "Narrator":
+                # Estado inesperado — restaura o que der
+                if game.history:
+                    game.scene = copy.deepcopy(game.history[-1].scene_snapshot)
+                save_game(game)
+                return {"undone": True, "state": game_state_to_dict(game)}
+
+            narrator_record = game.history.pop()
+            game.scene = copy.deepcopy(narrator_record.scene_snapshot)
+            game.pending_options = None
+            save_game(game)
+            return {"undone": True, "state": game_state_to_dict(game)}
+
     # ── Privados ──────────────────────────────────────────────────────────
 
     async def _call_narrator(

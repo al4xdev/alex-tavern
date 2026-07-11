@@ -72,21 +72,22 @@ async def chat_completion_json(
 ) -> dict:
     """Wrapper que força ``response_format`` json_object e faz ``json.loads()``.
 
-    Faz retries com backoff exponencial se o JSON retornado for malformado.
+    Faz retries com backoff exponencial se o JSON retornado for malformado,
+    se o conteúdo for vazio, ou se o servidor retornar erro HTTP (5xx).
 
     Args:
         client: httpx.AsyncClient compartilhado.
         messages: Lista de mensagens no formato OpenAI.
         max_tokens: Máximo de tokens na resposta.
         temperature: Temperatura (default 0 para JSON determinístico).
-        retries: Número de retries se JSON malformado (backoff: 0.5s, 1s, ...).
+        retries: Número de retries se resposta inválida (backoff: 0.5s, 1s, ...).
         timeout: Timeout em segundos.
 
     Returns:
         JSON parseado como dict.
 
     Raises:
-        ValueError: Se não conseguir parsear JSON depois de N retries.
+        ValueError: Se não conseguir obter JSON válido depois de N+1 tentativas.
     """
     last_error: Exception | None = None
     for attempt in range(retries + 1):
@@ -99,8 +100,10 @@ async def chat_completion_json(
                 temperature=temperature,
                 timeout=timeout,
             )
+            if not content or not content.strip():
+                raise json.JSONDecodeError("Empty response from LLM", content or "", 0)
             return cast(dict, json.loads(content))
-        except (json.JSONDecodeError, KeyError) as e:
+        except (json.JSONDecodeError, KeyError, httpx.HTTPStatusError, httpx.RequestError) as e:
             last_error = e
             if attempt < retries:
                 await asyncio.sleep(0.5 * (2**attempt))  # backoff: 0.5s, 1s

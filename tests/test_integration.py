@@ -29,7 +29,9 @@ from src.store.sessions import (
     SESSIONS_DIR,
     _get_lock,
     delete_session,
+    fork_session,
     generate_session_id,
+    list_sessions,
     load_game,
     save_game,
 )
@@ -241,6 +243,90 @@ class TestSessions:
         assert len(loaded.history) == 3
         assert loaded.history[-1].content == "Narração 3"
 
+    # ── List / Fork / Delete ─────────────────────────────────────────
+
+    def test_list_sessions_empty(self) -> None:
+        """list_sessions retorna [] quando não há sessões."""
+        # Limpa diretório temporário (apenas arquivos .json de teste)
+        for f in SESSIONS_DIR.iterdir():
+            if f.suffix == ".json":
+                f.unlink()
+        result = list_sessions()
+        assert result == []
+
+    def test_list_sessions_with_data(self) -> None:
+        """list_sessions retorna resumo de sessões criadas."""
+        # Cria 2 sessões
+        g1 = _make_test_game()
+        save_game(g1)
+        g2 = _make_test_game()
+        g2.scene.location = "Floresta Negra"
+        save_game(g2)
+
+        result = list_sessions()
+        # Pelo menos 2 sessões
+        assert len(result) >= 2
+        ids = {r["session_id"] for r in result}
+        assert g1.session_id in ids
+        assert g2.session_id in ids
+        # Verifica campos do resumo
+        for r in result:
+            assert "session_id" in r
+            assert "characters" in r
+            assert "turn_count" in r
+            assert "created_at" in r
+
+    def test_fork_session(self) -> None:
+        """fork_session copia sessão com novo ID."""
+        original = _make_test_game(self.sid)
+        history_item = TurnRecord(
+            turn_number=1, speaker="Narrator", content="Teste",
+            content_type="narration", scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+        )
+        original.history.append(history_item)
+        save_game(original)
+
+        new_id = fork_session(self.sid)
+        assert new_id is not None
+        assert new_id != self.sid
+
+        loaded = load_game(new_id)
+        assert loaded is not None
+        assert loaded.session_id == new_id
+        assert len(loaded.history) == 1
+        assert loaded.history[0].content == "Teste"
+        # Limpa
+        delete_session(new_id)
+
+    def test_fork_nonexistent(self) -> None:
+        """fork_session em sessão inexistente retorna None."""
+        assert fork_session("ffffffff") is None
+
+    def test_fork_idempotent(self) -> None:
+        """fork_session pode ser chamada 2x — cria 2 cópias distintas."""
+        original = _make_test_game(self.sid)
+        save_game(original)
+        n1 = fork_session(self.sid)
+        n2 = fork_session(self.sid)
+        assert n1 is not None
+        assert n2 is not None
+        assert n1 != n2
+        delete_session(n1)
+        delete_session(n2)
+
+    def test_delete_session(self) -> None:
+        """delete_session remove o arquivo."""
+        g = _make_test_game(self.sid)
+        save_game(g)
+        path = SESSIONS_DIR / f"{self.sid}.json"
+        assert path.exists()
+        delete_session(self.sid)
+        assert not path.exists()
+
+    def test_delete_nonexistent(self) -> None:
+        """delete_session em ID inexistente não levanta erro."""
+        delete_session("ffffffff")  # não deve levantar
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes — Runner (sem LLM real, testa lógica pura)
@@ -343,6 +429,160 @@ class TestRunnerLogic:
         assert "C2" in DEFAULT_SCENE.present_characters
         assert "Player" in DEFAULT_SCENE.present_characters
         assert len(DEFAULT_SCENE.physical_facts) >= 3
+
+    # ── Undo ────────────────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_undo_pending_options(self) -> None:
+        """Undo em sessão pausada em options limpa pending_options."""
+        sid = self.runner.start_session()
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            game.pending_options = [{"index": 0, "label": "Abrir porta", "description": "..."}]
+            save_game(game)
+        result = await self.runner.undo_turn(sid)
+        assert result["undone"] is True
+        # pending_options foi limpo
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert game.pending_options is None
+
+    @pytest.mark.asyncio
+    async def test_undo_simple_turn(self) -> None:
+        """Undo de um turno com narrador apenas — history fica vazio, cena restaurada."""
+        sid = self.runner.start_session()
+        # Simula um turno: add narração ao histórico e atualiza cena
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            original_door = game.scene.physical_facts["door"]
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Narrator", "Você entra na taverna.", "narration")
+            # Modifica cena após o turno
+            game.scene.physical_facts["door"] = "aberta"
+            save_game(game)
+
+        result = await self.runner.undo_turn(sid)
+        assert result["undone"] is True
+
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert len(game.history) == 0
+            assert game.scene.physical_facts["door"] == original_door
+
+    @pytest.mark.asyncio
+    async def test_undo_with_character(self) -> None:
+        """Undo de turno com narrador + personagem remove ambos."""
+        sid = self.runner.start_session()
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            original_door = game.scene.physical_facts["door"]
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Narrator", "O vento uiva.", "narration")
+            runner._append_history(game, "C1", "Não gosto disso.", "speech")
+            game.scene.physical_facts["door"] = "aberta"
+            save_game(game)
+
+        result = await self.runner.undo_turn(sid)
+        assert result["undone"] is True
+
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert len(game.history) == 0
+            assert game.scene.physical_facts["door"] == original_door
+
+    @pytest.mark.asyncio
+    async def test_undo_nothing(self) -> None:
+        """Undo em sessão sem histórico retorna undone=False."""
+        sid = self.runner.start_session()
+        result = await self.runner.undo_turn(sid)
+        assert result["undone"] is False
+
+    @pytest.mark.asyncio
+    async def test_undo_nonexistent_session(self) -> None:
+        """Undo em sessão inexistente retorna error."""
+        result = await self.runner.undo_turn("ffffffff")
+        assert result["undone"] is False
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_undo_idempotent(self) -> None:
+        """Undo duas vezes — segunda retorna undone=False."""
+        sid = self.runner.start_session()
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Narrator", "Teste.", "narration")
+            save_game(game)
+
+        r1 = await self.runner.undo_turn(sid)
+        assert r1["undone"] is True
+        r2 = await self.runner.undo_turn(sid)
+        assert r2["undone"] is False
+
+    @pytest.mark.asyncio
+    async def test_undo_multiple_turns(self) -> None:
+        """Três turnos, desfaz um por um — cada undo remove um turno."""
+        sid = self.runner.start_session()
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Narrator", "Turno 1.", "narration")
+            game.scene.physical_facts["door"] = "entreaberta"
+            save_game(game)
+
+        # Turno 2
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Narrator", "Turno 2.", "narration")
+            runner._append_history(game, "C1", "Resposta 2.", "speech")
+            game.scene.physical_facts["door"] = "aberta"
+            save_game(game)
+
+        # Turno 3
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Narrator", "Turno 3.", "narration")
+            game.scene.physical_facts["door"] = "escancarada"
+            save_game(game)
+
+        # Undo turno 3
+        r = await self.runner.undo_turn(sid)
+        assert r["undone"] is True
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert len(game.history) == 3  # Narrador 1 + Narrador 2 + C1
+            assert game.scene.physical_facts["door"] == "aberta"
+
+        # Undo turno 2
+        r = await self.runner.undo_turn(sid)
+        assert r["undone"] is True
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert len(game.history) == 1  # Narrador 1
+            assert game.scene.physical_facts["door"] == "entreaberta"
+
+        # Undo turno 1
+        r = await self.runner.undo_turn(sid)
+        assert r["undone"] is True
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert len(game.history) == 0
+            assert game.scene.physical_facts["door"] == "fechada"  # original
 
 
 # ═══════════════════════════════════════════════════════════════════════════

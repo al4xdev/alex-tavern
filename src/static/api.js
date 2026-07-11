@@ -33,12 +33,14 @@ const api = {
         });
     },
 
-    turn(sessionId, payload) {
-        return apiFetch(`/session/${sessionId}/turn`, {
+    turn(sessionId, payload, signal = null) {
+        const opts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
-        });
+        };
+        if (signal) opts.signal = signal;
+        return apiFetch(`/session/${sessionId}/turn`, opts);
     },
 
     getState(sessionId) {
@@ -51,5 +53,21 @@ const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         });
+    },
+
+    undo(sessionId) {
+        return apiFetch(`/session/${sessionId}/undo`, { method: 'POST' });
+    },
+
+    listSessions() {
+        return apiFetch('/sessions');
+    },
+
+    forkSession(sessionId) {
+        return apiFetch(`/session/${sessionId}/fork`, { method: 'POST' });
+    },
+
+    deleteSession(sessionId) {
+        return apiFetch(`/session/${sessionId}`, { method: 'DELETE' });
     },
 };

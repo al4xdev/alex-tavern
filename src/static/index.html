@@ -111,6 +111,30 @@
         </div>
     </div>
 
+    <!-- ══════════════════ Sessions overlay ══════════════════ -->
+    <div class="overlay" id="sessions-overlay">
+        <div class="modal" id="sessions-modal" role="dialog" aria-modal="true" aria-labelledby="sessions-title">
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <span class="modal-glyph">📋</span>
+                    <div>
+                        <h2 id="sessions-title">Sessões</h2>
+                        <p class="modal-sub">Selecione, fork ou apague suas aventuras</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="sessions-close-btn" title="Fechar" aria-label="Fechar sessões">✕</button>
+            </div>
+            <div class="modal-body" id="sessions-body">
+                <div class="session-list" id="session-list">
+                    <p class="session-empty">Nenhuma sessão ainda.</p>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-primary btn-lg" id="sessions-new-btn" type="button">➕ Nova sessão</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Character card template -->
     <template id="char-card-template">
         <div class="char-card">
@@ -163,7 +187,7 @@
                     <span class="toggle-label">Debug</span>
                 </label>
                 <button class="icon-btn" id="settings-btn" title="Configurar" aria-label="Configurar">⚙️</button>
-                <button class="btn" id="new-session-btn" type="button">Nova sessão</button>
+                <button class="icon-btn" id="sessions-btn" title="Sessões" aria-label="Gerenciar sessões">📋</button>
             </div>
         </header>
 
@@ -197,10 +221,13 @@
         </div>
 
         <div class="spinner" id="spinner">
-            <div class="spinner-dot"></div>
-            <div class="spinner-dot"></div>
-            <div class="spinner-dot"></div>
-            <span>Processando...</span>
+            <div class="spinner-dots">
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+            </div>
+            <span class="spinner-label">Processando...</span>
+            <button class="stop-btn" id="stop-btn" type="button" title="Parar" aria-label="Parar processamento">⏹</button>
         </div>
 
         <div class="options-panel" id="options-panel"></div>
@@ -213,7 +240,13 @@
             <div class="input-row">
                 <input type="text" class="input-field" id="input-action"
                     placeholder="🎬 Ação..." disabled>
-                <button class="send-btn" id="send-btn" disabled>Enviar</button>
+                <div class="send-actions">
+                    <div class="action-popup" id="action-popup">
+                        <button class="icon-btn action-btn" id="action-undo-btn" title="Desfazer turno" aria-label="Desfazer último turno">↩</button>
+                        <button class="icon-btn action-btn" id="action-retry-btn" title="Tentar de novo" aria-label="Reenviar turno">↻</button>
+                    </div>
+                    <button class="send-btn" id="send-btn" disabled>Enviar</button>
+                </div>
             </div>
         </div>
     </div>
