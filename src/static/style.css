@@ -855,6 +855,17 @@ select.text-input { cursor: pointer; }
     pointer-events: auto;
     transform: translateY(0);
 }
+/* Ponte invisível que cobre o gap de 8px entre o botão e o popup, para o
+   :hover não se perder ao mover o mouse até o popup (senão ele some antes
+   de dar pra clicar). É filha de .send-actions, então mantém o hover ativo. */
+.action-popup::before {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 10px;
+}
 .action-btn {
     width: 34px;
     height: 34px;
