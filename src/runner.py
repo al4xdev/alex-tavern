@@ -67,6 +67,7 @@ class Runner:
         else:
             from src.models import dict_to_character
             from src.store.presets import list_defaults, load_preset
+
             defaults = list_defaults()
             if not defaults:
                 raise ValueError(
@@ -76,23 +77,23 @@ class Runner:
             preset_data = load_preset(defaults[0])
             if not preset_data or "characters" not in preset_data:
                 raise ValueError(
-                    "A sessão precisa de ao menos um personagem, "
-                    "e o preset padrão está corrompido."
+                    "A sessão precisa de ao menos um personagem, e o preset padrão está corrompido."
                 )
             characters = {
-                cid: dict_to_character(cdata)
-                for cid, cdata in preset_data["characters"].items()
+                cid: dict_to_character(cdata) for cid, cdata in preset_data["characters"].items()
             }
 
         if "scene" in cfg:
             scene = cfg["scene"]
         else:
             from src.store.presets import list_defaults, load_preset
+
             defaults = list_defaults()
             if defaults:
                 preset_data = load_preset(defaults[0])
                 if preset_data and "scene" in preset_data:
                     from src.models import Scene
+
                     sdata = preset_data["scene"]
                     scene = Scene(
                         location=sdata["location"],

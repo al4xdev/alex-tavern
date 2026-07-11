@@ -171,6 +171,7 @@ async def chat_completion(
     )
 
     import copy
+
     messages = [copy.deepcopy(m) for m in messages]
     system_msg = None
     for msg in messages:
@@ -205,13 +206,27 @@ async def chat_completion(
         content = cast(str, r.json()["choices"][0]["message"]["content"])
     except Exception as e:
         _log_llm_call(
-            session_id, turn_number, agent, model, messages, max_tokens, response_format,
-            None, str(e),
+            session_id,
+            turn_number,
+            agent,
+            model,
+            messages,
+            max_tokens,
+            response_format,
+            None,
+            str(e),
         )
         raise
     _log_llm_call(
-        session_id, turn_number, agent, model, messages, max_tokens, response_format,
-        content, None,
+        session_id,
+        turn_number,
+        agent,
+        model,
+        messages,
+        max_tokens,
+        response_format,
+        content,
+        None,
     )
     return content
 
@@ -290,6 +305,5 @@ async def chat_completion_json(
             continue
 
     raise ValueError(
-        f"Falha ao obter JSON válido após {retries + 1} tentativas. "
-        f"Último erro: {last_error}"
+        f"Falha ao obter JSON válido após {retries + 1} tentativas. Último erro: {last_error}"
     )

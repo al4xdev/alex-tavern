@@ -56,16 +56,14 @@ async def check_health(client: httpx.AsyncClient) -> bool:
 
 # ── Teste 1: JSON mode (response_format) ─────────────────────────────────────
 
+
 async def test_json_mode_simple(client: httpx.AsyncClient) -> None:
     payload = {
         "messages": [
             {"role": "system", "content": "Return ONLY valid JSON, no markdown."},
             {
                 "role": "user",
-                "content": (
-                    'Describe a dark forest. '
-                    'Return: {"narration":"...","mood":"..."}'
-                ),
+                "content": ('Describe a dark forest. Return: {"narration":"...","mood":"..."}'),
             },
         ],
         "response_format": {"type": "json_object"},
@@ -73,9 +71,7 @@ async def test_json_mode_simple(client: httpx.AsyncClient) -> None:
         "temperature": 0,
     }
     try:
-        r = await client.post(
-            "/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0)
-        )
+        r = await client.post("/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0))
         content = r.json()["choices"][0]["message"]["content"]
         parsed = json.loads(content)
         missing = [k for k in ["narration", "mood"] if k not in parsed]
@@ -83,7 +79,8 @@ async def test_json_mode_simple(client: httpx.AsyncClient) -> None:
             log("json_simple", False, f"Missing keys: {missing}")
         else:
             log(
-                "json_simple", True,
+                "json_simple",
+                True,
                 f"narration={parsed['narration'][:60]}... mood={parsed['mood']}",
             )
     except (json.JSONDecodeError, KeyError) as e:
@@ -97,27 +94,31 @@ async def test_json_mode_complex(client: httpx.AsyncClient) -> None:
                 "role": "system",
                 "content": "You are a narrator. Return ONLY valid JSON, no markdown.",
             },
-            {"role": "user", "content": (
-                "Scene: tavern. C1 (warrior), C2 (mage). "
-                "Player (controlling C1) said: 'I order a drink.' Action: sits at bar.\n"
-                "Return JSON with keys: narration, next_speaker (C1/C2/Player/Narrator), "
-                "context_for_character, scene_update (object), "
-                "player_options (null or array of {index, label, description})"
-            )},
+            {
+                "role": "user",
+                "content": (
+                    "Scene: tavern. C1 (warrior), C2 (mage). "
+                    "Player (controlling C1) said: 'I order a drink.' Action: sits at bar.\n"
+                    "Return JSON with keys: narration, next_speaker (C1/C2/Player/Narrator), "
+                    "context_for_character, scene_update (object), "
+                    "player_options (null or array of {index, label, description})"
+                ),
+            },
         ],
         "response_format": {"type": "json_object"},
         "max_tokens": 400,
         "temperature": 0,
     }
     try:
-        r = await client.post(
-            "/v1/chat/completions", json=payload, timeout=httpx.Timeout(60.0)
-        )
+        r = await client.post("/v1/chat/completions", json=payload, timeout=httpx.Timeout(60.0))
         content = r.json()["choices"][0]["message"]["content"]
         parsed = json.loads(content)
         required = [
-            "narration", "next_speaker", "context_for_character",
-            "scene_update", "player_options",
+            "narration",
+            "next_speaker",
+            "context_for_character",
+            "scene_update",
+            "player_options",
         ]
         missing = [k for k in required if k not in parsed]
         if missing:
@@ -126,9 +127,9 @@ async def test_json_mode_complex(client: httpx.AsyncClient) -> None:
             opts = parsed.get("player_options")
             opts_detail = f"{len(opts)} options" if isinstance(opts, list) else str(opts)
             log(
-                "json_complex", True,
-                f"All 5 keys. next_speaker={parsed['next_speaker']}, "
-                f"player_options={opts_detail}",
+                "json_complex",
+                True,
+                f"All 5 keys. next_speaker={parsed['next_speaker']}, player_options={opts_detail}",
             )
     except (json.JSONDecodeError, KeyError) as e:
         log("json_complex", False, str(e))
@@ -142,31 +143,29 @@ async def test_json_no_format(client: httpx.AsyncClient) -> None:
                 "role": "system",
                 "content": "You are a narrator. Return ONLY valid JSON. No markdown.",
             },
-            {"role": "user", "content": (
-                "Scene: tavern. C1 warrior, C2 mage. Player said Hello.\n"
-                "Return JSON with keys: narration, next_speaker, mood"
-            )},
+            {
+                "role": "user",
+                "content": (
+                    "Scene: tavern. C1 warrior, C2 mage. Player said Hello.\n"
+                    "Return JSON with keys: narration, next_speaker, mood"
+                ),
+            },
         ],
         "max_tokens": 200,
         "temperature": 0,
     }
     try:
-        r = await client.post(
-            "/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0)
-        )
+        r = await client.post("/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0))
         content = r.json()["choices"][0]["message"]["content"]
         clean = (
-            content.strip()
-            .removeprefix("```json")
-            .removeprefix("```")
-            .removesuffix("```")
-            .strip()
+            content.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         )
         parsed = json.loads(clean)
         speaker = parsed.get("next_speaker", "")
         strict = speaker in ("C1", "C2", "Player", "Narrator")
         log(
-            "json_no_format", True,
+            "json_no_format",
+            True,
             f"Parses OK. next_speaker='{speaker}' (strict={strict})",
         )
     except (json.JSONDecodeError, KeyError) as e:
@@ -175,38 +174,39 @@ async def test_json_no_format(client: httpx.AsyncClient) -> None:
 
 # ── Teste 2: Tool Calling ────────────────────────────────────────────────────
 
+
 async def test_tool_calling(client: httpx.AsyncClient) -> None:
     payload = {
         "messages": [
             {"role": "system", "content": "You are a narrator. Use the narrate tool."},
             {"role": "user", "content": "Describe a dark forest at midnight."},
         ],
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "narrate",
-                "description": "Narrate what happens in the scene",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "narration": {"type": "string"},
-                        "next_speaker": {
-                            "type": "string",
-                            "enum": ["C1", "C2", "Player", "Narrator"],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "narrate",
+                    "description": "Narrate what happens in the scene",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "narration": {"type": "string"},
+                            "next_speaker": {
+                                "type": "string",
+                                "enum": ["C1", "C2", "Player", "Narrator"],
+                            },
+                            "mood": {"type": "string"},
                         },
-                        "mood": {"type": "string"},
+                        "required": ["narration", "next_speaker", "mood"],
                     },
-                    "required": ["narration", "next_speaker", "mood"],
                 },
-            },
-        }],
+            }
+        ],
         "max_tokens": 300,
         "temperature": 0,
     }
     try:
-        r = await client.post(
-            "/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0)
-        )
+        r = await client.post("/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0))
         msg = r.json()["choices"][0]["message"]
         tool_calls = msg.get("tool_calls", [])
         if tool_calls:
@@ -214,12 +214,14 @@ async def test_tool_calling(client: httpx.AsyncClient) -> None:
             raw_args = fn["arguments"]
             args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
             log(
-                "tool_calling", True,
+                "tool_calling",
+                True,
                 f"Tool={fn['name']}, args keys={list(args.keys())}",
             )
         else:
             log(
-                "tool_calling", False,
+                "tool_calling",
+                False,
                 f"No tool_calls. Content: {msg.get('content', '')[:100]}",
             )
     except Exception as e:
@@ -227,6 +229,7 @@ async def test_tool_calling(client: httpx.AsyncClient) -> None:
 
 
 # ── Teste 3: System Prompt (personagem) ──────────────────────────────────────
+
 
 async def test_character_personality(client: httpx.AsyncClient) -> None:
     payload = {
@@ -252,9 +255,7 @@ async def test_character_personality(client: httpx.AsyncClient) -> None:
         "temperature": 0.8,
     }
     try:
-        r = await client.post(
-            "/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0)
-        )
+        r = await client.post("/v1/chat/completions", json=payload, timeout=httpx.Timeout(30.0))
         content = r.json()["choices"][0]["message"]["content"]
         has_thought = "**" in content
         log("character_personality", has_thought, content[:200])
@@ -263,6 +264,7 @@ async def test_character_personality(client: httpx.AsyncClient) -> None:
 
 
 # ── Teste 4: Latência ────────────────────────────────────────────────────────
+
 
 async def test_latency(client: httpx.AsyncClient) -> None:
     base = {
@@ -285,12 +287,14 @@ async def test_latency(client: httpx.AsyncClient) -> None:
     t_json = (datetime.now() - t0).total_seconds()
 
     log(
-        "latency", True,
+        "latency",
+        True,
         f"Plain={t_plain:.2f}s | JSON={t_json:.2f}s | delta={t_json - t_plain:+.2f}s",
     )
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
+
 
 async def main(skip_chat: bool = False) -> None:
     print(f"=== Testes llama.cpp API — {HOST} ===\n")
@@ -320,7 +324,7 @@ async def main(skip_chat: bool = False) -> None:
 
     passed = sum(1 for t in RESULTS["tests"] if t["ok"])
     total = len(RESULTS["tests"])
-    print(f"\n{'='*40}\n{passed}/{total} testes passaram")
+    print(f"\n{'=' * 40}\n{passed}/{total} testes passaram")
 
 
 def _parse_host() -> str:
