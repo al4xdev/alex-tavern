@@ -369,7 +369,59 @@ function renderScene(scene, changedKeys = []) {
 }
 
 /* ── Render message ───────────────────────────────────────────────────── */
-function addMessage(speaker, content, contentType) {
+/* ── Typewriter reveal (Narrator/Character messages only) ─────────────── */
+const TYPE_MS_PER_CHAR = 6;
+const TYPE_MIN_MS = 220;
+const TYPE_MAX_MS = 1400;
+
+function prefersReducedMotion() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/* Reveals `units` (an array of {node, text}, nodes already in the DOM but
+   empty) progressively over a duration proportional to the total text
+   length. Clicking `msg` while revealing skips straight to the full text. */
+function revealTypewriter(msg, units) {
+    const totalLen = units.reduce((sum, u) => sum + u.text.length, 0);
+    if (totalLen === 0) return;
+    const durationMs = Math.min(TYPE_MAX_MS, Math.max(TYPE_MIN_MS, totalLen * TYPE_MS_PER_CHAR));
+
+    let done = false;
+    const start = performance.now();
+
+    function showChars(count) {
+        let remaining = count;
+        for (const u of units) {
+            if (remaining <= 0) { u.node.textContent = ''; continue; }
+            u.node.textContent = u.text.slice(0, remaining);
+            remaining -= u.text.length;
+        }
+    }
+
+    function finish() {
+        if (done) return;
+        done = true;
+        showChars(totalLen);
+        msg.removeEventListener('click', onSkip);
+        scrollToBottom();
+    }
+
+    function onSkip() { finish(); }
+    msg.addEventListener('click', onSkip);
+
+    function tick(now) {
+        if (done) return;
+        const elapsed = now - start;
+        const shown = Math.floor((elapsed / durationMs) * totalLen);
+        if (shown >= totalLen) { finish(); return; }
+        showChars(shown);
+        scrollToBottom();
+        requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+}
+
+function addMessage(speaker, content, contentType, { animate = false } = {}) {
     const info = speakerInfo(speaker);
 
     const msg = document.createElement('div');
@@ -393,22 +445,32 @@ function addMessage(speaker, content, contentType) {
 
     const body = document.createElement('div');
     body.className = 'msg-content';
+    const shouldType = animate && !prefersReducedMotion();
+
     // Render **text** as italic thought
     const parts = content.split(/(\*\*[^*]+\*\*)/g);
+    const units = [];
     for (const part of parts) {
-        if (part.startsWith('**') && part.endsWith('**')) {
-            const span = document.createElement('span');
-            span.className = 'thought';
-            span.textContent = part.slice(2, -2);
-            body.appendChild(span);
+        if (!part) continue;
+        const isThought = part.startsWith('**') && part.endsWith('**');
+        const text = isThought ? part.slice(2, -2) : part;
+        let node;
+        if (isThought) {
+            node = document.createElement('span');
+            node.className = 'thought';
         } else {
-            body.appendChild(document.createTextNode(part));
+            node = document.createTextNode('');
         }
+        node.textContent = shouldType ? '' : text;
+        body.appendChild(node);
+        units.push({ node, text });
     }
     msg.appendChild(body);
     chatLog.appendChild(msg);
     emptyState.style.display = 'none';
     scrollToBottom();
+
+    if (shouldType) revealTypewriter(msg, units);
 }
 
 /* Combines the player's speech + action into the single echo bubble text
@@ -670,9 +732,9 @@ async function sendTurn(isRetry = false) {
 
         if (state.debug) refreshDebugLog();
 
-        if (data.narration) addMessage('Narrator', data.narration, 'narration');
+        if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
         if (data.character_response) {
-            addMessage(data.next_speaker || 'Narrator', data.character_response, 'speech');
+            addMessage(data.next_speaker || 'Narrator', data.character_response, 'speech', { animate: true });
         }
 
         if (data.scene_update) {
