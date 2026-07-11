@@ -90,10 +90,13 @@ def load_game(session_id: str) -> GameState | None:
 
 
 def delete_session(session_id: str) -> None:
-    """Remove o arquivo de sessão. Usado em testes."""
+    """Remove o arquivo de sessão e o log bruto de chamadas LLM. Usado em testes."""
     path = _session_path(session_id)
     if path.exists():
         path.unlink()
+    debug_path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    if debug_path.exists():
+        debug_path.unlink()
     _session_locks.pop(session_id, None)
 
 

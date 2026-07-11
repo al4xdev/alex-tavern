@@ -64,6 +64,10 @@ const api = {
         return apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' });
     },
 
+    getDebugLog(sessionId) {
+        return apiFetch(`/session/${sessionId}/debug_log`);
+    },
+
     listSessions() {
         return apiFetch('/sessions');
     },

@@ -60,8 +60,10 @@ async def act(
     characters: dict[str, Character],
     controlled_id: str,
     config: dict,
-) -> tuple[str, list[dict]]:
-    """Constrói prompt do Personagem, chama LLM, retorna fala/pensamento + messages.
+    session_id: str = "",
+    turn_number: int = 0,
+) -> str:
+    """Constrói prompt do Personagem, chama LLM, retorna fala/pensamento.
 
     Args:
         client: httpx.AsyncClient compartilhado.
@@ -75,10 +77,11 @@ async def act(
         controlled_id: ID do personagem controlado pelo humano — usado só para
                        traduzir o marcador interno "Player" no nome do personagem.
         config: Config do servidor (temperatura, max_tokens).
+        session_id: Repassado ao log bruto de chamadas LLM (ver ``src/llm/client.py``).
+        turn_number: Repassado ao log bruto.
 
     Returns:
-        Tupla ``(content, messages)``: a fala/pensamento (string pura, sem JSON)
-        e os messages enviados ao LLM (para o modo debug).
+        A fala/pensamento (string pura, sem JSON).
     """
     max_tokens_character = config.get("max_tokens_character", 1024)
     history_text = _format_history_for_character(
@@ -110,6 +113,9 @@ async def act(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens_character,
+        session_id=session_id,
+        turn_number=turn_number,
+        agent=f"character:{character.mind.name}",
     )
 
-    return content.strip(), messages
+    return content.strip()

@@ -114,7 +114,6 @@ class PlayerTurnRequest(BaseModel):
     speech: str = ""
     action: str = ""
     force_speaker: str | None = None
-    debug: bool = False
 
 
 class PlayerTurnResponse(BaseModel):
@@ -124,7 +123,6 @@ class PlayerTurnResponse(BaseModel):
     scene_update: dict | None = None
     turn_number: int | None = None
     error: str | None = None
-    debug: dict | None = None
 
 
 class PreviewPromptRequest(BaseModel):
@@ -135,7 +133,6 @@ class PreviewPromptRequest(BaseModel):
 class SuggestResponse(BaseModel):
     suggestions: list[dict] | None = None
     error: str | None = None
-    debug: dict | None = None
 
 
 # ── Rotas ─────────────────────────────────────────────────────────────────
@@ -289,19 +286,37 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         speech=body.speech,
         action=body.action,
         force_speaker=body.force_speaker,
-        debug=body.debug,
     )
     return result
 
 
 @app.post("/session/{session_id}/suggest", response_model=SuggestResponse)
-async def suggest_actions(session_id: str, debug: bool = False) -> dict:
+async def suggest_actions(session_id: str) -> dict:
     """Sugestões de jogada do Narrador para o personagem controlado (gatilho manual)."""
     assert runner is not None, "Runner não inicializado"
-    result = await runner.suggest_actions(session_id, debug=debug)
+    result = await runner.suggest_actions(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
+
+
+@app.get("/session/{session_id}/debug_log")
+def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
+    """Log bruto e sequencial de TODAS as chamadas LLM da sessão (request/response reais).
+
+    Uma entrada por chamada real (inclui retries), na ordem em que aconteceram —
+    cada uma com ``session_id``, ``turn_number`` e ``agent`` (quem disparou).
+    Substitui o antigo debug embutido na resposta do turno.
+    """
+    path = Path(f".data/sessions/{session_id}.debug.jsonl")
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    entries: list[dict] = []
+    for line in lines[-limit:]:
+        with suppress(json.JSONDecodeError):
+            entries.append(json.loads(line))
+    return entries
 
 
 @app.post("/session/{session_id}/undo")

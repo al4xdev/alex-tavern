@@ -893,7 +893,7 @@ class TestCustomSessionAndDebug:
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
         chars = {"C3": _custom_char("Caius")}
-        result, messages = await narrator_mod.narrate(
+        result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(location="x", time_of_day="y", present_characters=[],
                         physical_facts={}),
@@ -903,7 +903,6 @@ class TestCustomSessionAndDebug:
             config={},
         )
         assert result["next_speaker"] == "C3"
-        assert len(messages) == 2
 
     @pytest.mark.asyncio
     async def test_valid_speakers_fallback_invalid(self, monkeypatch) -> None:  # noqa: ANN001
@@ -918,7 +917,7 @@ class TestCustomSessionAndDebug:
             }
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
-        result, _ = await narrator_mod.narrate(
+        result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(location="x", time_of_day="y", present_characters=[],
                         physical_facts={}),
@@ -930,23 +929,33 @@ class TestCustomSessionAndDebug:
         assert result["next_speaker"] == "Narrator"
 
     @pytest.mark.asyncio
-    async def test_player_turn_debug_returns_messages(self, monkeypatch) -> None:  # noqa: ANN001
-        """player_turn(debug=True) retorna debug.narrator.messages não vazio."""
-        from src.agents import character as character_mod
-        from src.agents import narrator as narrator_mod
+    async def test_debug_log_records_llm_calls(self, monkeypatch) -> None:  # noqa: ANN001
+        """Cada chamada REAL ao LLM grava uma linha no log bruto .debug.jsonl da sessão.
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "narration": "A cripta range.",
-                "next_speaker": "C1",
-                "context_for_character": "Você ouve um rangido.",
-            }
+        Mocka no nível de ``client.post`` (não em chat_completion_json/chat_completion)
+        pra exercitar de verdade a interceptação em src/llm/client.py.
+        """
+        import json as json_module
 
-        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return "Estou pronto."
+        from src.store.sessions import SESSIONS_DIR
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
-        monkeypatch.setattr(character_mod, "chat_completion", fake_chat)
+        async def mock_post(url, json, **kwargs):  # noqa: ANN001, A002, ARG001
+            if json.get("response_format", {}).get("type") == "json_schema":
+                content = json_module.dumps({
+                    "narration": "A cripta range.",
+                    "next_speaker": "C1",
+                    "context_for_character": "Você ouve um rangido.",
+                    "scene_update": None,
+                    "mood_updates": None,
+                })
+            else:
+                content = "Estou pronto."
+            req = httpx.Request("POST", url)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": content}}]}, request=req
+            )
+
+        monkeypatch.setattr(self.client, "post", mock_post)
 
         # next_speaker="C1" precisa ser diferente do controlado, senão o
         # runner pausa (agência do jogador) em vez de chamar o Personagem.
@@ -955,13 +964,22 @@ class TestCustomSessionAndDebug:
             "controlled_character_id": "C2",
         })
         self.created.append(sid)
-        result = await self.runner.player_turn(sid, speech="oi", debug=True)
-        assert "debug" in result
-        assert result["debug"]["narrator"]["messages"]
-        assert result["debug"]["narrator"]["raw"]
-        assert result["debug"]["character"] is not None
-        assert result["debug"]["character"]["messages"]
-        assert result["debug"]["character"]["raw"] == "Estou pronto."
+        result = await self.runner.player_turn(sid, speech="oi")
+        assert result["character_response"] == "Estou pronto."
+
+        debug_path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+        assert debug_path.exists()
+        entries = [
+            json_module.loads(line)
+            for line in debug_path.read_text(encoding="utf-8").splitlines()
+        ]
+        assert len(entries) == 2  # uma chamada ao Narrador, uma ao Personagem
+        assert entries[0]["session_id"] == sid
+        assert entries[0]["turn_number"] == 1
+        assert entries[0]["agent"] == "narrator"
+        assert entries[0]["response"] is not None
+        assert entries[1]["agent"] == "character:Solo"
+        assert entries[1]["response"] == "Estou pronto."
 
     def test_preview_narrator_prompt(self) -> None:
         """preview_narrator_prompt monta messages corretos sem tocar no LLM."""

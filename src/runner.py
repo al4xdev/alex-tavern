@@ -8,7 +8,6 @@ entre sessões concorrentes.
 from __future__ import annotations
 
 import copy
-import json
 from datetime import UTC, datetime
 
 import httpx
@@ -127,7 +126,6 @@ class Runner:
         speech: str = "",
         action: str = "",
         force_speaker: str | None = None,
-        debug: bool = False,
     ) -> dict:
         """Processa um turno do Player.
 
@@ -173,7 +171,7 @@ class Runner:
                 self._append_history(game, "Player", action, "action", step)
 
             # Chama Narrador
-            narrator_raw, narrator_messages = await self._call_narrator(game)
+            narrator_raw = await self._call_narrator(game, step)
 
             # Avança o turno
             narration = narrator_raw["narration"]
@@ -183,16 +181,13 @@ class Runner:
             speaker = force_speaker if valid_force else narrator_raw["next_speaker"]
             controlled = game.player.controlled_character_id
             character_response: str | None = None
-            character_messages: list[dict] | None = None
 
             # O Narrador é cego e pode rotear para o personagem controlado —
             # nesse caso o runner NÃO gera a fala dele; pausa e devolve o
             # controle ao humano (a UI decide o que fazer com next_speaker).
             if speaker in game.characters and speaker != controlled:
                 ctx = narrator_raw.get("context_for_character", "")
-                character_response, character_messages = await self._call_character(
-                    game, speaker, ctx
-                )
+                character_response = await self._call_character(game, speaker, ctx, step)
                 self._append_history(game, speaker, character_response, "speech", step)
 
             # Atualiza cena
@@ -207,28 +202,13 @@ class Runner:
 
             save_game(game)
 
-            result = {
+            return {
                 "narration": narration,
                 "character_response": character_response,
                 "next_speaker": speaker,
                 "scene_update": scene_up,
                 "turn_number": step,
             }
-            if debug:
-                char_debug: dict | None = None
-                if character_messages is not None:
-                    char_debug = {
-                        "messages": character_messages,
-                        "raw": character_response,
-                    }
-                result["debug"] = {
-                    "narrator": {
-                        "messages": narrator_messages,
-                        "raw": json.dumps(narrator_raw, ensure_ascii=False, indent=2),
-                    },
-                    "character": char_debug,
-                }
-            return result
 
     def get_state(self, session_id: str) -> GameState | None:
         """Carrega GameState do JSON (sem lock — seguro por atomic write)."""
@@ -282,7 +262,7 @@ class Runner:
             save_game(game)
             return {"undone": True, "state": game_state_to_dict(game)}
 
-    async def suggest_actions(self, session_id: str, debug: bool = False) -> dict:
+    async def suggest_actions(self, session_id: str) -> dict:
         """Pede ao Narrador (cego) sugestões de jogada para o personagem controlado.
 
         Gatilho manual "sugira pra mim" (Task 6): não persiste nada — só devolve
@@ -297,7 +277,8 @@ class Runner:
             return {"error": f"Sessão {session_id} não encontrada"}
 
         target_id = game.player.controlled_character_id
-        suggestions, messages = await narrator_suggest(
+        turn_number = game.history[-1].turn_number if game.history else 0
+        suggestions = await narrator_suggest(
             client=self.client,
             scene=game.scene,
             characters=game.characters,
@@ -305,16 +286,15 @@ class Runner:
             history=game.history,
             config=self.config,
             narrator_directives=game.narrator_directives,
+            session_id=game.session_id,
+            turn_number=turn_number,
         )
-        result: dict = {"suggestions": suggestions}
-        if debug:
-            result["debug"] = {"messages": messages}
-        return result
+        return {"suggestions": suggestions}
 
     # ── Privados ──────────────────────────────────────────────────────────
 
-    async def _call_narrator(self, game: GameState) -> tuple[dict, list[dict]]:
-        """Chama agente Narrador (cego) com contexto completo. Devolve (result, messages)."""
+    async def _call_narrator(self, game: GameState, turn_number: int) -> dict:
+        """Chama agente Narrador (cego) com contexto completo. Devolve result."""
         return await narrate(
             client=self.client,
             scene=game.scene,
@@ -323,12 +303,14 @@ class Runner:
             history=game.history,
             config=self.config,
             narrator_directives=game.narrator_directives,
+            session_id=game.session_id,
+            turn_number=turn_number,
         )
 
     async def _call_character(
-        self, game: GameState, character_id: str, context: str
-    ) -> tuple[str, list[dict]]:
-        """Chama agente Personagem com contexto filtrado. Devolve (content, messages)."""
+        self, game: GameState, character_id: str, context: str, turn_number: int
+    ) -> str:
+        """Chama agente Personagem com contexto filtrado. Devolve o content."""
         return await character_act(
             client=self.client,
             character=game.characters[character_id],
@@ -337,6 +319,8 @@ class Runner:
             characters=game.characters,
             controlled_id=game.player.controlled_character_id,
             config=self.config,
+            session_id=game.session_id,
+            turn_number=turn_number,
         )
 
     def preview_narrator_prompt(

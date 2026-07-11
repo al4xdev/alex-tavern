@@ -170,19 +170,22 @@ async def narrate(
     history: list[TurnRecord],
     config: dict,
     narrator_directives: str = "",
-) -> tuple[dict, list[dict]]:
-    """Constrói prompt do Narrador, chama LLM, devolve dict validado + messages.
+    session_id: str = "",
+    turn_number: int = 0,
+) -> dict:
+    """Constrói prompt do Narrador, chama LLM, devolve dict validado.
 
     O Narrador é cego: não sabe que existe um humano. Ele reage à última
     entrada do HISTORY, seja de quem for. ``player_controlled_id`` só é usado
     para traduzir o marcador interno ``"Player"`` no nome do personagem ao
     montar o histórico — nunca aparece como texto no prompt.
 
+    ``session_id``/``turn_number`` só existem para o log bruto de chamadas LLM
+    (ver ``src/llm/client.py``) — não afetam o prompt.
+
     Returns:
-        Tupla ``(result, messages)``:
-        - ``result``: dict com chaves narration, next_speaker,
-          context_for_character, scene_update, mood_updates.
-        - ``messages``: os messages enviados ao LLM (para o modo debug).
+        Dict com chaves narration, next_speaker, context_for_character,
+        scene_update, mood_updates.
 
     Raises:
         ValueError: Se o JSON retornado não tiver os campos obrigatórios.
@@ -205,6 +208,9 @@ async def narrate(
         language=config.get("language", ""),
         max_tokens=max_tokens_narrator,
         json_schema=build_narrator_json_schema(list(characters)),
+        session_id=session_id,
+        turn_number=turn_number,
+        agent="narrator",
     )
 
     # Valida campos obrigatórios
@@ -226,7 +232,7 @@ async def narrate(
     result.setdefault("scene_update", None)
     result.setdefault("mood_updates", None)
 
-    return result, messages
+    return result
 
 
 def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") -> str:
@@ -285,7 +291,9 @@ async def suggest(
     history: list[TurnRecord],
     config: dict,
     narrator_directives: str = "",
-) -> tuple[list[dict], list[dict]]:
+    session_id: str = "",
+    turn_number: int = 0,
+) -> list[dict]:
     """Pede ao Narrador (cego) uma lista de jogadas possíveis para ``target_id``.
 
     Usado pelo gatilho "sugira pra mim": o Narrador não sabe que ``target_id``
@@ -294,8 +302,7 @@ async def suggest(
     persiste nada; quem chama decide o que fazer com as sugestões.
 
     Returns:
-        Tupla ``(suggestions, messages)``: lista de ``{"speech", "action"}``
-        e os messages enviados ao LLM (para o modo debug).
+        Lista de ``{"speech", "action"}``.
     """
     max_tokens_narrator = config.get("max_tokens_narrator", 2048)
     messages = [
@@ -323,7 +330,10 @@ async def suggest(
         language=config.get("language", ""),
         max_tokens=max_tokens_narrator,
         json_schema=build_suggest_json_schema(),
+        session_id=session_id,
+        turn_number=turn_number,
+        agent="narrator_suggest",
     )
 
-    suggestions = result.get("suggestions", [])
-    return suggestions, messages
+    suggestions: list[dict] = result.get("suggestions", [])
+    return suggestions

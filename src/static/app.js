@@ -37,6 +37,7 @@ const previewBtn    = document.getElementById('preview-prompt-btn');
 const toastWrap     = document.getElementById('toast-wrap');
 const installBtn    = document.getElementById('install-btn');
 const debugCloseBtn = document.getElementById('debug-close-btn');
+const debugRefreshBtn = document.getElementById('debug-refresh-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
@@ -227,7 +228,7 @@ async function loadSession(sessionId) {
         chatLog.appendChild(emptyState);
         emptyState.style.display = 'none';
         clearSuggestions();
-        debugContent.innerHTML = '<p class="debug-placeholder">Envie um turno ou use "Preview do prompt".</p>';
+        debugContent.innerHTML = '<p class="debug-placeholder">Clique em "🔄 Log" ou "Preview do prompt".</p>';
 
         state.sessionId = sessionId;
         state.lastInputs = null;
@@ -501,20 +502,31 @@ function renderDebugBlock(title, messages, raw) {
     return block;
 }
 
-function renderDebug(debug) {
+/* Log bruto e sequencial de TODAS as chamadas LLM da sessão (GET /debug_log) —
+   substitui o antigo debug embutido na resposta do turno. Uma entrada por
+   chamada real (inclui retries), na ordem em que aconteceram. */
+function renderRawLog(entries) {
     debugContent.innerHTML = '';
-    if (!debug) {
+    if (!entries || entries.length === 0) {
         debugContent.innerHTML =
-            '<p class="debug-placeholder">Sem dados de debug neste turno.</p>';
+            '<p class="debug-placeholder">Nenhuma chamada LLM registrada ainda nesta sessão.</p>';
         return;
     }
-    if (debug.narrator) {
-        debugContent.appendChild(
-            renderDebugBlock('Narrador', debug.narrator.messages, debug.narrator.raw));
-    }
-    if (debug.character) {
-        debugContent.appendChild(
-            renderDebugBlock('Personagem', debug.character.messages, debug.character.raw));
+    entries.forEach((e) => {
+        const title = `Turno ${e.turn_number} · ${e.agent}${e.error ? ' · ERRO' : ''}`;
+        const messages = (e.request && e.request.messages) || [];
+        const raw = e.error ? `[ERROR] ${e.error}` : e.response;
+        debugContent.appendChild(renderDebugBlock(title, messages, raw));
+    });
+}
+
+async function refreshDebugLog() {
+    if (!state.sessionId) return;
+    try {
+        const entries = await api.getDebugLog(state.sessionId);
+        renderRawLog(entries);
+    } catch (err) {
+        toast(`Erro ao carregar log: ${err.message}`, 'error');
     }
 }
 
@@ -573,7 +585,7 @@ async function startSession(cfg) {
     sceneTags.innerHTML = '';
     sceneLocation.textContent = '';
     debugContent.innerHTML =
-        '<p class="debug-placeholder">Envie um turno ou use "Preview do prompt".</p>';
+        '<p class="debug-placeholder">Clique em "🔄 Log" ou "Preview do prompt".</p>';
 
     setLoading(true);
     try {
@@ -628,10 +640,9 @@ async function sendTurn(isRetry = false) {
             speech: speech || '',
             action: action || '',
             force_speaker: forceSpeaker || undefined,
-            debug: state.debug,
         }, ac.signal);
 
-        if (state.debug && data.debug) renderDebug(data.debug);
+        if (state.debug) refreshDebugLog();
 
         if (data.narration) addMessage('Narrator', data.narration, 'narration');
         if (data.character_response) {
@@ -744,9 +755,11 @@ function setDebug(on) {
     state.debug = on;
     debugToggle.checked = on;
     debugDrawer.classList.toggle('active', on);
+    if (on) refreshDebugLog();
 }
 debugToggle.addEventListener('change', () => setDebug(debugToggle.checked));
 if (debugCloseBtn) debugCloseBtn.addEventListener('click', () => setDebug(false));
+if (debugRefreshBtn) debugRefreshBtn.addEventListener('click', refreshDebugLog);
 
 previewBtn.addEventListener('click', previewPrompt);
 
