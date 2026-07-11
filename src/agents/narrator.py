@@ -20,7 +20,12 @@ def _build_system_prompt(
         "\n"
         "FIELDS:\n"
         '- "narration": describe what happens in the scene based on the last event in\n'
-        "  HISTORY and the current state. Be vivid but concise (2-4 sentences).\n"
+        "  HISTORY and the current state. Ground it in the senses: when a character\n"
+        "  touches, looks, or moves, name the concrete physical detail they perceive\n"
+        "  (the grain of the wood, the cold of steel, the weight of a door swinging) —\n"
+        "  write it as if the reader is inhabiting that character's body. Favor vivid,\n"
+        "  immersive prose over a quick summary; take as many sentences as the moment\n"
+        "  deserves, don't rush the scene.\n"
         f'- "next_speaker": who should speak/act next. One of: {speakers}.\n'
         "  - Use a character id when that character should react.\n"
         '  - Use "Narrator" when you need to describe something before anyone speaks\n'
