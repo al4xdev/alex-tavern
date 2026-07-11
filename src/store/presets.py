@@ -1,4 +1,4 @@
-"""Persistência de presets de usuário em JSON com lock por nome e escrita atômica."""
+"""User preset persistence in JSON with per-name lock and atomic write."""
 
 from __future__ import annotations
 
@@ -14,14 +14,14 @@ _preset_locks: dict[str, asyncio.Lock] = {}
 
 
 def _get_lock(name: str) -> asyncio.Lock:
-    """Retorna (ou cria) o lock para este preset."""
+    """Returns (or creates) the lock for this preset."""
     if name not in _preset_locks:
         _preset_locks[name] = asyncio.Lock()
     return _preset_locks[name]
 
 
 def _ensure_dirs() -> None:
-    """Garante que os diretórios de presets e defaults existem."""
+    """Ensures the presets and defaults directories exist."""
     PRESETS_DIR.mkdir(parents=True, exist_ok=True)
     DEFAULTS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -31,7 +31,7 @@ def _preset_path(name: str) -> Path:
 
 
 def save_preset(name: str, config: dict) -> None:
-    """Salva preset em JSON com escrita atômica."""
+    """Saves preset in JSON with atomic write."""
     _ensure_dirs()
     path = _preset_path(name)
 
@@ -54,7 +54,7 @@ def save_preset(name: str, config: dict) -> None:
 
 
 def load_preset(name: str) -> dict | None:
-    """Carrega preset de usuário ou do diretório de defaults como fallback."""
+    """Loads user preset, falling back to the defaults directory."""
     path = _preset_path(name)
     if not path.exists():
         path = DEFAULTS_DIR / f"{name}.json"
@@ -67,7 +67,7 @@ def load_preset(name: str) -> dict | None:
 
 
 def delete_preset(name: str) -> bool:
-    """Remove o preset de usuário do filesystem."""
+    """Removes the user preset from the filesystem."""
     path = _preset_path(name)
     if path.exists():
         path.unlink()
@@ -77,7 +77,7 @@ def delete_preset(name: str) -> bool:
 
 
 def list_presets() -> list[str]:
-    """Lista todos os nomes de presets de usuário salvos."""
+    """Lists all saved user preset names."""
     _ensure_dirs()
     names: list[str] = []
     for f in PRESETS_DIR.iterdir():
@@ -87,7 +87,7 @@ def list_presets() -> list[str]:
 
 
 def list_defaults() -> list[str]:
-    """Lista todos os nomes de presets padrões/embutidos."""
+    """Lists all default/builtin preset names."""
     _ensure_dirs()
     names: list[str] = []
     for f in DEFAULTS_DIR.iterdir():

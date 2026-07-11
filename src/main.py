@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS — permitir tudo no MVP (frontend local)
+# CORS — allow all in MVP (local frontend)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -152,13 +152,13 @@ class RestoreCompactionResponse(BaseModel):
     error: str | None = None
 
 
-# ── Rotas ─────────────────────────────────────────────────────────────────
+# ── Routes ────────────────────────────────────────────────────────────────
 
 
 @app.post("/session/start", response_model=StartSessionResponse)
 def start_session(req: StartSessionRequest) -> dict:
-    """Cria uma nova sessão de roleplay."""
-    assert runner is not None, "Runner não inicializado"
+    """Creates a new roleplay session."""
+    assert runner is not None, "Runner not initialized"
     from src.models import (
         Character,
         Scene,
@@ -172,7 +172,7 @@ def start_session(req: StartSessionRequest) -> dict:
         preset_val = load_preset(req.preset_name)
         if preset_val is None:
             raise HTTPException(
-                status_code=404, detail=f"Preset '{req.preset_name}' não encontrado."
+                status_code=404, detail=f"Preset '{req.preset_name}' not found."
             )
         preset_data = preset_val
 
@@ -244,7 +244,7 @@ def start_session(req: StartSessionRequest) -> dict:
         scene = Scene(
             location=req.scene.location,
             time_of_day=req.scene.time_of_day,
-            present_characters=[],  # recomputado pelo runner
+            present_characters=[],  # recomputed by the runner
             physical_facts=dict(req.scene.physical_facts),
         )
     elif "scene" in preset_data:
@@ -283,14 +283,14 @@ def start_session(req: StartSessionRequest) -> dict:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     game = runner.get_state(session_id)
-    assert game is not None, "Sessão recém-criada deveria existir"
+    assert game is not None, "Newly-created session should exist"
     return {"session_id": session_id, "state": game_state_to_dict(game)}
 
 
 @app.post("/session/{session_id}/turn", response_model=PlayerTurnResponse)
 async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
-    """Processa um turno do Player."""
-    assert runner is not None, "Runner não inicializado"
+    """Processes a Player's turn."""
+    assert runner is not None, "Runner not initialized"
     result = await runner.player_turn(
         session_id=session_id,
         speech=body.speech,
@@ -302,8 +302,8 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
 
 @app.post("/session/{session_id}/suggest", response_model=SuggestResponse)
 async def suggest_actions(session_id: str) -> dict:
-    """Sugestões de jogada do Narrador para o personagem controlado (gatilho manual)."""
-    assert runner is not None, "Runner não inicializado"
+    """Possible move suggestions from the Narrator for the controlled character (manual trigger)."""
+    assert runner is not None, "Runner not initialized"
     result = await runner.suggest_actions(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -312,13 +312,13 @@ async def suggest_actions(session_id: str) -> dict:
 
 @app.post("/session/{session_id}/compact", response_model=CompactResponse)
 async def compact_session(session_id: str) -> dict:
-    """Compacta a sessão: resume turnos antigos, mantém só os mais recentes.
+    """Compacts the session: summarizes old turns, keeps only the most recent ones.
 
-    Gatilho manual (sem trigger automático nesta versão) — reescreve de
-    verdade o histórico ativo. Ver ``Runner.compact_session`` para o
-    comportamento completo (backup, janela, undo pós-compactação).
+    Manual trigger (no automatic trigger in this version) — overwrites the
+    active history. See ``Runner.compact_session`` for full
+    behavior (backup, window, post-compaction undo).
     """
-    assert runner is not None, "Runner não inicializado"
+    assert runner is not None, "Runner not initialized"
     result = await runner.compact_session(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -327,13 +327,13 @@ async def compact_session(session_id: str) -> dict:
 
 @app.post("/session/{session_id}/restore_compaction", response_model=RestoreCompactionResponse)
 async def restore_compaction(session_id: str) -> dict:
-    """Desfaz a última compactação, restaurando o backup mais recente.
+    """Undoes the last compaction, restoring the most recent backup.
 
-    ⚠️ Só restaura se nenhum turno novo foi jogado desde aquela compactação —
-    caso contrário se recusa (ver ``Runner.restore_last_compaction``), pra
-    nunca descartar jogadas de verdade.
+    ⚠️ Only restores if no new turns have been played since that compaction —
+    otherwise it refuses (see ``Runner.restore_last_compaction``), to
+    never discard actual turns.
     """
-    assert runner is not None, "Runner não inicializado"
+    assert runner is not None, "Runner not initialized"
     result = await runner.restore_last_compaction(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -342,11 +342,11 @@ async def restore_compaction(session_id: str) -> dict:
 
 @app.get("/session/{session_id}/debug_log")
 def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
-    """Log bruto e sequencial de TODAS as chamadas LLM da sessão (request/response reais).
+    """Raw sequential log of ALL LLM calls for the session (actual requests/responses).
 
-    Uma entrada por chamada real (inclui retries), na ordem em que aconteceram —
-    cada uma com ``session_id``, ``turn_number`` e ``agent`` (quem disparou).
-    Substitui o antigo debug embutido na resposta do turno.
+    One entry per actual call (includes retries), in the order they occurred —
+    each with ``session_id``, ``turn_number`` and ``agent`` (who triggered it).
+    Replaces the old debug logging embedded in the turn response.
     """
     path = Path(f".data/sessions/{session_id}.debug.jsonl")
     if not path.exists():
@@ -361,8 +361,8 @@ def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
 
 @app.post("/session/{session_id}/undo")
 async def undo_turn(session_id: str) -> dict:
-    """Desfaz o último turno da sessão."""
-    assert runner is not None, "Runner não inicializado"
+    """Undoes the last turn of the session."""
+    assert runner is not None, "Runner not initialized"
     result = await runner.undo_turn(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
@@ -371,11 +371,11 @@ async def undo_turn(session_id: str) -> dict:
 
 @app.get("/session/{session_id}/state")
 def get_state(session_id: str) -> dict:
-    """Retorna o estado completo da sessão."""
-    assert runner is not None, "Runner não inicializado"
+    """Returns the complete session state."""
+    assert runner is not None, "Runner not initialized"
     game = runner.get_state(session_id)
     if game is None:
-        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+        raise HTTPException(status_code=404, detail="Session not found")
     from src.models import game_state_to_dict
 
     return game_state_to_dict(game)
@@ -383,8 +383,8 @@ def get_state(session_id: str) -> dict:
 
 @app.get("/session/{session_id}/history")
 def get_history(session_id: str, limit: int = 50) -> list[dict]:
-    """Retorna o histórico de turnos da sessão."""
-    assert runner is not None, "Runner não inicializado"
+    """Returns the turn history of the session."""
+    assert runner is not None, "Runner not initialized"
     records = runner.get_history(session_id, limit=limit)
     return [
         {
@@ -399,7 +399,7 @@ def get_history(session_id: str, limit: int = 50) -> list[dict]:
 
 @app.get("/defaults")
 def get_defaults(name: str | None = None) -> dict:
-    """Retorna o preset padrão para a UI pré-preencher."""
+    """Returns the default preset for the UI to pre-fill."""
     from src.store.presets import list_defaults, load_preset
 
     defaults = list_defaults()
@@ -408,12 +408,12 @@ def get_defaults(name: str | None = None) -> dict:
         target_name = defaults[0] if defaults else ""
 
     if not target_name:
-        raise HTTPException(status_code=404, detail="Nenhum preset padrão disponível.")
+        raise HTTPException(status_code=404, detail="No default preset available.")
 
     preset_val = load_preset(target_name)
     if not preset_val:
         raise HTTPException(
-            status_code=404, detail=f"Preset padrão '{target_name}' não encontrado."
+            status_code=404, detail=f"Default preset '{target_name}' not found."
         )
 
     return {
@@ -428,7 +428,7 @@ def get_defaults(name: str | None = None) -> dict:
 
 @app.get("/presets")
 def get_presets() -> list[str]:
-    """Lista os nomes de todos os presets de usuário."""
+    """Lists the names of all user presets."""
     from src.store.presets import list_presets
 
     return list_presets()
@@ -436,77 +436,77 @@ def get_presets() -> list[str]:
 
 @app.get("/presets/{name}")
 def get_preset(name: str) -> dict:
-    """Retorna a configuração completa de um preset."""
+    """Returns the complete preset configuration."""
     from src.store.presets import load_preset
 
     preset_val = load_preset(name)
     if preset_val is None:
-        raise HTTPException(status_code=404, detail=f"Preset '{name}' não encontrado.")
+        raise HTTPException(status_code=404, detail=f"Preset '{name}' not found.")
     return preset_val
 
 
 @app.put("/presets/{name}")
 def put_preset(name: str, body: StartSessionRequest) -> dict:
-    """Salva ou atualiza um preset de usuário."""
+    """Saves or updates a user preset."""
     from src.store.presets import save_preset
 
-    # Salva no mesmo formato que o request (que é compatível com o frontend)
+    # Saves in the same format as the request (which is frontend-compatible)
     save_preset(name, body.dict(exclude_none=True))
     return {"saved": True}
 
 
 @app.delete("/presets/{name}")
 def delete_preset_endpoint(name: str) -> dict:
-    """Remove um preset de usuário."""
+    """Removes a user preset."""
     from src.store.presets import delete_preset
 
     success = delete_preset(name)
     if not success:
-        raise HTTPException(status_code=404, detail=f"Preset '{name}' não encontrado.")
+        raise HTTPException(status_code=404, detail=f"Preset '{name}' not found.")
     return {"deleted": True}
 
 
 @app.post("/session/{session_id}/preview_prompt")
 def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
-    """Retorna os messages do Narrador para o estado atual — sem chamar o LLM."""
-    assert runner is not None, "Runner não inicializado"
+    """Returns the Narrator messages for the current state — without calling the LLM."""
+    assert runner is not None, "Runner not initialized"
     messages = runner.preview_narrator_prompt(session_id, speech=body.speech, action=body.action)
     if not messages:
-        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"narrator_messages": messages}
 
 
 @app.get("/sessions")
 def get_sessions() -> list[dict]:
-    """Lista todas as sessões com resumo."""
+    """Lists all sessions with a summary."""
     return list_sessions()
 
 
 @app.post("/session/{session_id}/fork")
 def fork_session_endpoint(session_id: str) -> dict:
-    """Cria cópia da sessão com novo ID."""
+    """Creates a copy of the session with a new ID."""
     new_id = fork_session(session_id)
     if new_id is None:
-        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+        raise HTTPException(status_code=404, detail="Session not found")
     return {"session_id": new_id}
 
 
 @app.delete("/session/{session_id}")
 def delete_session_endpoint(session_id: str) -> dict:
-    """Remove uma sessão."""
+    """Removes a session."""
     path = Path(f".data/sessions/{session_id}.json")
     if not path.exists():
-        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+        raise HTTPException(status_code=404, detail="Session not found")
     delete_session(session_id)
     return {"deleted": True}
 
 
 @app.get("/health")
 def health() -> dict:
-    """Health check simples."""
+    """Simple health check."""
     return {"status": "ok"}
 
 
 # ── Static Files (frontend) ──────────────────────────────────────────────
-# Montado depois das rotas da API para não conflitar
+# Mounted after API routes to avoid conflicts
 app.mount("/", StaticFiles(directory="src/static", html=True), name="static")

@@ -541,7 +541,7 @@ function renderSuggestions(suggestions) {
             desc.textContent = `🎬 ${s.action}`;
             btn.appendChild(desc);
         }
-        // Preenche as duas caixas — não envia sozinho, o jogador confirma no Enviar.
+        // Fills both boxes — does not send on its own, the player confirms on Send.
         btn.addEventListener('click', () => {
             inputSpeech.value = s.speech || '';
             inputAction.value = s.action || '';
@@ -623,16 +623,16 @@ async function compactSession() {
     }
 }
 
-/* ── Desfazer última compactação ──────────────────────────────────────── */
-// Operação de risco: só desfaz de verdade se NENHUM turno novo foi jogado
-// desde a última compactação (o backend recusa e explica por quê, sem
-// alterar nada, se não for seguro) — ver Runner.restore_last_compaction.
+/* ── Undo last compaction ─────────────────────────────────────────────────── */
+// Risky operation: only undoes if NO new turns have been played
+// since the last compaction (the backend refuses and explains why, without
+// changing anything, if it is not safe) — see Runner.restore_last_compaction.
 async function restoreCompaction() {
     if (!state.sessionId) return;
     hideActionPopup();
     const confirmed = confirm(
-        'Desfazer a última compactação? Só funciona se nada foi jogado desde ela — ' +
-        'caso contrário a operação é recusada e nada muda.'
+        'Undo the last compaction? This only works if no new turns have been played since — ' +
+        'otherwise the operation will be refused and nothing changes.'
     );
     if (!confirmed) return;
 

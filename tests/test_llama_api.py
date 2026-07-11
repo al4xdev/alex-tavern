@@ -1,17 +1,17 @@
-"""Testes da API llama.cpp (OpenAI-compatible) com Gemma 4.
+"""Tests of the llama.cpp API (OpenAI-compatible) with Gemma 4.
 
-Uso:
+Usage:
     uv run python tests/test_llama_api.py
     uv run python tests/test_llama_api.py --skip-chat
 
-Resultados salvos em /tmp/llama_test_results.json.
+Results saved in /tmp/llama_test_results.json.
 
-Resultados obtidos em 2026-07-10:
-    - JSON mode (response_format: json_object): FUNCIONA, JSON sempre válido
-    - JSON sem response_format: FUNCIONA, mas valores de enum menos estritos
-    - Tool calling: FUNCIONA, OpenAI-compatible
-    - System prompt: FUNCIONA, boa aderência a personalidade
-    - Latência: ~0.8s plain, ~1.9s JSON mode
+Results obtained on 2026-07-10:
+    - JSON mode (response_format: json_object): WORKS, JSON always valid
+    - JSON without response_format: WORKS, but enum values less strict
+    - Tool calling: WORKS, OpenAI-compatible
+    - System prompt: WORKS, good personality adherence
+    - Latency: ~0.8s plain, ~1.9s JSON mode
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ async def check_health(client: httpx.AsyncClient) -> bool:
         return False
 
 
-# ── Teste 1: JSON mode (response_format) ─────────────────────────────────────
+# ── Test 1: JSON mode (response_format) ──────────────────────────────────────
 
 
 async def test_json_mode_simple(client: httpx.AsyncClient) -> None:
@@ -136,7 +136,7 @@ async def test_json_mode_complex(client: httpx.AsyncClient) -> None:
 
 
 async def test_json_no_format(client: httpx.AsyncClient) -> None:
-    """JSON via prompt engineering apenas, sem response_format."""
+    """JSON via prompt engineering only, without response_format."""
     payload = {
         "messages": [
             {
@@ -172,7 +172,7 @@ async def test_json_no_format(client: httpx.AsyncClient) -> None:
         log("json_no_format", False, str(e))
 
 
-# ── Teste 2: Tool Calling ────────────────────────────────────────────────────
+# ── Test 2: Tool Calling ─────────────────────────────────────────────────────
 
 
 async def test_tool_calling(client: httpx.AsyncClient) -> None:
@@ -228,7 +228,7 @@ async def test_tool_calling(client: httpx.AsyncClient) -> None:
         log("tool_calling", False, str(e))
 
 
-# ── Teste 3: System Prompt (personagem) ──────────────────────────────────────
+# ── Test 3: System Prompt (character) ────────────────────────────────────────
 
 
 async def test_character_personality(client: httpx.AsyncClient) -> None:
@@ -263,7 +263,7 @@ async def test_character_personality(client: httpx.AsyncClient) -> None:
         log("character_personality", False, str(e))
 
 
-# ── Teste 4: Latência ────────────────────────────────────────────────────────
+# ── Test 4: Latency ──────────────────────────────────────────────────────────
 
 
 async def test_latency(client: httpx.AsyncClient) -> None:
@@ -300,7 +300,7 @@ async def main(skip_chat: bool = False) -> None:
     print(f"=== Testes llama.cpp API — {HOST} ===\n")
     async with httpx.AsyncClient(base_url=HOST) as client:
         if not await check_health(client):
-            print("\n❌ Servidor não acessível.")
+            print("\n❌ Server not accessible.")
             return
 
         print("\n── 1. JSON Mode ──")
@@ -312,19 +312,19 @@ async def main(skip_chat: bool = False) -> None:
             print("\n── 2. Tool Calling ──")
             await test_tool_calling(client)
 
-        print("\n── 3. System Prompt (Personagem) ──")
+        print("\n── 3. System Prompt (Character) ──")
         await test_character_personality(client)
 
-        print("\n── 4. Latência ──")
+        print("\n── 4. Latency ──")
         await test_latency(client)
 
     out = Path("/tmp/llama_test_results.json")
     out.write_text(json.dumps(RESULTS, indent=2, ensure_ascii=False))
-    print(f"\n📄 Resultados: {out}")
+    print(f"\n📄 Results: {out}")
 
     passed = sum(1 for t in RESULTS["tests"] if t["ok"])
     total = len(RESULTS["tests"])
-    print(f"\n{'=' * 40}\n{passed}/{total} testes passaram")
+    print(f"\n{'=' * 40}\n{passed}/{total} tests passed")
 
 
 def _parse_host() -> str:

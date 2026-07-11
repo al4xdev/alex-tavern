@@ -1,6 +1,6 @@
-"""Wrapper async para llama.cpp (OpenAI-compatible) via httpx.
+"""Async wrapper for llama.cpp (OpenAI-compatible) via httpx.
 
-Endpoint: /v1/chat/completions em localhost:8888
+Endpoint: /v1/chat/completions on localhost:8888
 """
 
 from __future__ import annotations
@@ -27,12 +27,12 @@ def _log_llm_call(
     response: str | None,
     error: str | None,
 ) -> None:
-    """Acrescenta um registro bruto e sequencial da chamada real ao LLM.
+    """Appends a raw sequential record of the actual LLM call.
 
-    Um arquivo por sessão (``.data/sessions/{session_id}.debug.jsonl``), uma
-    linha JSON por chamada — pensado pra debug de baixo nível (o que foi
-    REALMENTE enviado/recebido, incluindo retries), não pra UI estruturada.
-    Sem ``session_id`` (ex.: chamadas fora de uma sessão), não grava nada.
+    One file per session (``.data/sessions/{session_id}.debug.jsonl``), one
+    JSON line per call — intended for low-level debugging (what was
+    REALLY sent/received, including retries), not for structured UI.
+    Without ``session_id`` (e.g. calls outside a session), nothing is recorded.
     """
     if not session_id:
         return
@@ -57,11 +57,11 @@ def _log_llm_call(
 
 
 def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
-    """Acrescenta ao mesmo log bruto um marcador de que um undo aconteceu.
+    """Appends a marker to the raw log indicating that an undo occurred.
 
-    Não afeta nem reverte o log — é só um evento sequencial, para quem lê o
-    ``.debug.jsonl`` depois saber, no meio das chamadas reais ao LLM, em que
-    ponto um passo foi desfeito e quantos registros do histórico saíram.
+    Does not affect or revert the log — it is just a sequential event so anyone
+    reading the ``.debug.jsonl`` afterwards knows, amidst the actual LLM calls,
+    at what point a step was undone and how many history records were removed.
     """
     if not session_id:
         return
@@ -81,11 +81,11 @@ def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
 def log_compact(
     session_id: str, cutoff_turn_number: int, evicted_records: int, kept_records: int
 ) -> None:
-    """Acrescenta ao mesmo log bruto um marcador de que uma compactação aconteceu.
+    """Appends a marker to the raw log indicating that compaction occurred.
 
-    Mesma ideia do ``log_undo``: não reescreve nem afeta o log, só marca a
-    sequência real de eventos — pra quem lê o ``.debug.jsonl`` depois entender
-    por que o histórico ficou menor num certo ponto.
+    Same idea as ``log_undo``: does not rewrite or affect the log, only marks the
+    actual sequence of events — so anyone reading the ``.debug.jsonl`` afterwards
+    understands why the history got smaller at a certain point.
     """
     if not session_id:
         return
@@ -104,11 +104,11 @@ def log_compact(
 
 
 def log_restore_compaction(session_id: str, restored: bool, reason: str) -> None:
-    """Acrescenta ao mesmo log bruto um marcador de tentativa de desfazer compactação.
+    """Appends a marker of a compaction restore attempt to the raw log.
 
-    Loga tanto sucesso quanto recusa (a recusa é o caminho seguro — ver
-    ``store.sessions.restore_last_backup``) — útil pra saber, ao debugar, se
-    e por que uma restauração foi bloqueada.
+    Logs both success and refusal (refusal is the safe path — see
+    ``store.sessions.restore_last_backup``) — useful to know when debugging
+    if and why a restore was blocked.
     """
     if not session_id:
         return
@@ -138,29 +138,29 @@ async def chat_completion(
     turn_number: int = 0,
     agent: str = "",
 ) -> str:
-    """Chama /v1/chat/completions e retorna ``content`` como string.
+    """Calls /v1/chat/completions and returns ``content`` as string.
 
     Args:
-        client: httpx.AsyncClient compartilhado.
-        messages: Lista de mensagens no formato OpenAI.
-        model: O nome do modelo.
-        language: Idioma de resposta a ser injetado (opcional). Independente disso,
-            toda chamada recebe a instrução de evitar travessão/en dash.
-        response_format: ``{"type": "json_object"}`` ou ``None``.
-        max_tokens: Máximo de tokens na resposta.
-        timeout: Timeout em segundos.
-        session_id: Se informado, grava esta chamada no log bruto da sessão
+        client: Shared httpx.AsyncClient.
+        messages: List of messages in OpenAI format.
+        model: Model name.
+        language: Response language to inject (optional). Regardless,
+            every call receives the instruction to avoid em/en dashes.
+        response_format: ``{"type": "json_object"}`` or ``None``.
+        max_tokens: Maximum tokens in the response.
+        timeout: Timeout in seconds.
+        session_id: If provided, records this call in the raw session log
             (``.data/sessions/{session_id}.debug.jsonl``).
-        turn_number: Número do turno/passo que disparou a chamada (log).
-        agent: Quem disparou a chamada — "narrator", "narrator_suggest" ou
-            "character:<nome>" (log).
+        turn_number: Number of the turn/step that triggered the call (log).
+        agent: Who triggered the call — "narrator", "narrator_suggest" or
+            "character:<name>" (log).
 
     Returns:
-        Conteúdo da mensagem de resposta (string).
+        Content of the response message (string).
 
     Raises:
-        httpx.HTTPError: Se a chamada HTTP falhar.
-        KeyError: Se a resposta não tiver o formato esperado.
+        httpx.HTTPError: If the HTTP call fails.
+        KeyError: If the response is not in the expected format.
     """
     extra_instructions: list[str] = []
     if language:
@@ -245,35 +245,35 @@ async def chat_completion_json(
     turn_number: int = 0,
     agent: str = "",
 ) -> dict:
-    """Wrapper que força saída JSON e faz ``json.loads()``.
+    """Wrapper that forces JSON output and performs ``json.loads()``.
 
-    Se ``json_schema`` for informado (``{"name": ..., "schema": {...}}``), usa
-    ``response_format: {"type": "json_schema", "json_schema": ...}`` — a saída
-    é restrita por gramática no servidor. Sem schema, cai para
+    If ``json_schema`` is provided (``{"name": ..., "schema": {...}}``), it uses
+    ``response_format: {"type": "json_schema", "json_schema": ...}`` — the output
+    is grammar-constrained on the server. Without schema, it falls back to
     ``{"type": "json_object"}``.
 
-    Faz retries com backoff exponencial se o JSON retornado for malformado,
-    se o conteúdo for vazio, ou se o servidor retornar erro HTTP (5xx).
+    Performs retries with exponential backoff if the returned JSON is malformed,
+    if the content is empty, or if the server returns an HTTP error (5xx).
 
     Args:
-        client: httpx.AsyncClient compartilhado.
-        messages: Lista de mensagens no formato OpenAI.
-        model: O nome do modelo.
-        language: Idioma de resposta a ser injetado (opcional). Independente disso,
-            toda chamada recebe a instrução de evitar travessão/en dash.
-        max_tokens: Máximo de tokens na resposta.
-        json_schema: Schema opcional para saída estruturada via grammar.
-        retries: Número de retries se resposta inválida (backoff: 0.5s, 1s, ...).
-        timeout: Timeout em segundos.
-        session_id: Repassado ao log bruto (ver ``chat_completion``).
-        turn_number: Repassado ao log bruto.
-        agent: Repassado ao log bruto.
+        client: Shared httpx.AsyncClient.
+        messages: List of messages in OpenAI format.
+        model: Model name.
+        language: Response language to inject (optional). Regardless,
+            every call receives the instruction to avoid em/en dashes.
+        max_tokens: Maximum tokens in the response.
+        json_schema: Optional schema for structured output via grammar.
+        retries: Number of retries if invalid response (backoff: 0.5s, 1s, ...).
+        timeout: Timeout in seconds.
+        session_id: Passed to the raw log (see ``chat_completion``).
+        turn_number: Passed to the raw log.
+        agent: Passed to the raw log.
 
     Returns:
-        JSON parseado como dict.
+        Parsed JSON as a dict.
 
     Raises:
-        ValueError: Se não conseguir obter JSON válido depois de N+1 tentativas.
+        ValueError: If a valid JSON cannot be obtained after N+1 attempts.
     """
     response_format: dict[str, Any] = (
         {"type": "json_schema", "json_schema": json_schema}

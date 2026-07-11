@@ -1,4 +1,4 @@
-"""Agente Personagem — age in-character, responde com fala ou pensamento."""
+"""Character Agent — acts in-character, replies with speech or thought."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _build_system_prompt(character: Character, notes: str = "") -> str:
         "  the environment or anyone's body/actions as flat, objective fact. You\n"
         "  may react to what you perceive in others, but only as your own\n"
         "  subjective read — what it seems like to you, not what is happening\n"
-        '  ("ele parece tenso", never "ele aperta o punho da espada").\n'
+        '  ("he seems tense", never "he grips the hilt of his sword").\n'
         "- Speak in first person, as dialogue.\n"
         "- Use **text** for internal thoughts — always wrap them, no exceptions.\n"
         "  A thought is your own reaction, opinion, or feeling — about yourself\n"
@@ -40,12 +40,12 @@ def _format_history_for_character(
     context_max: int | None = None,
     max_tokens_character: int = 1024,
 ) -> str:
-    """Formata o histórico como texto linear para o personagem.
+    """Formats the history as linear text for the character.
 
-    O personagem só vê falas anteriores — nunca narrações nem ações (isso
-    quebraria o modelo de papéis: só o Narrador narra/descreve/age). Ele reage
-    à mensagem atual do Narrador (``context_for_character``), trimado por
-    orçamento de tokens se ``context_max`` informado.
+    The character only sees previous dialogue — never narration nor actions (that
+    would break the role model: only the Narrator narrates/describes/acts). They react
+    to the current Narrator message (``context_for_character``), trimmed by
+    token budget if ``context_max`` is provided.
     """
     hist = [rec for rec in history if rec.content_type == "speech"]
     if context_max is not None:
@@ -71,27 +71,26 @@ async def act(
     turn_number: int = 0,
     notes: str = "",
 ) -> str:
-    """Constrói prompt do Personagem, chama LLM, retorna fala/pensamento.
+    """Builds the Character prompt, calls the LLM, and returns speech/thought.
 
     Args:
-        client: httpx.AsyncClient compartilhado.
-        character: O personagem (só Mind é usada no prompt).
-        context: ``context_for_character`` vindo do Narrador.
-        history: Histórico completo da sessão (usado para construir parte
-                 do contexto de eventos recentes).
-        characters: Todos os personagens da sessão — só usado para traduzir
-                    ``speaker_label`` no histórico (nunca vaza `body`/personalidade
-                    de outros para o prompt).
-        controlled_id: ID do personagem controlado pelo humano — usado só para
-                       traduzir o marcador interno "Player" no nome do personagem.
-        config: Config do servidor (temperatura, max_tokens).
-        session_id: Repassado ao log bruto de chamadas LLM (ver ``src/llm/client.py``).
-        turn_number: Repassado ao log bruto.
-        notes: A nota deste personagem (``game.character_notes[character_id]``,
-               ver ``runner.compact_session``) — nunca a de outro personagem.
+        client: Shared httpx.AsyncClient.
+        character: The character (only Mind is used in the prompt).
+        context: ``context_for_character`` from the Narrator.
+        history: Full session history (used to build the recent events context).
+        characters: All characters in the session — only used to translate
+                    ``speaker_label`` in the history (never leaks other characters'
+                    `body`/personality to the prompt).
+        controlled_id: ID of the human-controlled character — only used to
+                       translate the internal "Player" marker to the character's name.
+        config: Server config (max_tokens).
+        session_id: Passed to the raw LLM call log (see ``src/llm/client.py``).
+        turn_number: Passed to the raw call log.
+        notes: This character's note (``game.character_notes[character_id]``,
+               see ``runner.compact_session``) — never another character's.
 
     Returns:
-        A fala/pensamento (string pura, sem JSON).
+        The speech/thought (raw string, without JSON).
     """
     max_tokens_character = config.get("max_tokens_character", 1024)
     history_text = _format_history_for_character(
