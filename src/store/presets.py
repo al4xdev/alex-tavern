@@ -93,4 +93,8 @@ def list_defaults() -> list[str]:
     for f in DEFAULTS_DIR.iterdir():
         if f.suffix == ".json":
             names.append(f.stem)
-    return sorted(names)
+    names = sorted(names)
+    if "thorn-lyra" in names:
+        names.remove("thorn-lyra")
+        names.insert(0, "thorn-lyra")
+    return names
