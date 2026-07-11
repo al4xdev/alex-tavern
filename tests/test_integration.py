@@ -1140,9 +1140,10 @@ class TestLanguageConfiguration:
         async def mock_post(url, json, **kwargs):
             nonlocal captured_payload
             captured_payload = json
+            req = httpx.Request("POST", url)
             mock_res = httpx.Response(200, json={
                 "choices": [{"message": {"content": "Olá"}}]
-            })
+            }, request=req)
             return mock_res
 
         client = httpx.AsyncClient()
@@ -1176,9 +1177,10 @@ class TestLanguageConfiguration:
         async def mock_post(url, json, **kwargs):
             nonlocal captured_payload
             captured_payload = json
+            req = httpx.Request("POST", url)
             mock_res = httpx.Response(200, json={
                 "choices": [{"message": {"content": "Olá"}}]
-            })
+            }, request=req)
             return mock_res
 
         client = httpx.AsyncClient()
