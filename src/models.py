@@ -75,6 +75,9 @@ class GameState:
     history: list[TurnRecord] = field(default_factory=list)
     created_at: str = ""  # ISO timestamp
     narrator_directives: str = ""  # instruções de mundo/tom/regras extras p/ o Narrador
+    story_summary: str = ""  # resumo de mundo dos turnos compactados — só o Narrador vê
+    # {cid: nota} — cada personagem só recebe a própria nota, nunca a de outro
+    character_notes: dict[str, str] = field(default_factory=dict)
 
 
 def trim_history_by_tokens(
@@ -213,4 +216,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         history=history,
         created_at=data.get("created_at", ""),
         narrator_directives=data.get("narrator_directives", ""),
+        story_summary=data.get("story_summary", ""),
+        character_notes=dict(data.get("character_notes", {})),
     )
