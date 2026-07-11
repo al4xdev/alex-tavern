@@ -64,6 +64,10 @@ const api = {
         return apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' });
     },
 
+    compact(sessionId) {
+        return apiFetch(`/session/${sessionId}/compact`, { method: 'POST' });
+    },
+
     getDebugLog(sessionId) {
         return apiFetch(`/session/${sessionId}/debug_log`);
     },

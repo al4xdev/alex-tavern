@@ -41,6 +41,8 @@ const debugRefreshBtn = document.getElementById('debug-refresh-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
+const actionCompactBtn = document.getElementById('action-compact-btn');
+const compactProgress = document.getElementById('compact-progress');
 const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const actionPopup   = document.getElementById('action-popup');
 const stopBtn       = document.getElementById('stop-btn');
@@ -82,6 +84,7 @@ function updateActionPopup() {
     const hasSession = !!state.sessionId;
     if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
+    if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
     // Hide the popup entirely when there's nothing to show — prevents
     // an empty bordered box (tiny black dot) from appearing on hover/long-press.
     if (actionPopup) {
@@ -535,6 +538,62 @@ async function suggestForMe() {
     }
 }
 
+/* ── Compactar sessão ─────────────────────────────────────────────────── */
+// NOTE: the progress fill below is a MOCKED estimate, not real backend
+// progress — measuring actual LLM generation progress would require
+// streaming (SSE), which is more than this personal MVP needs right now.
+// We guess a duration from how much is on screen, animate up to ~90%
+// over that guess, and only jump to 100% once the real response lands.
+// Fine to swap for real progress later if that's ever worth doing.
+async function compactSession() {
+    if (!state.sessionId || !actionCompactBtn || !compactProgress) return;
+    hideActionPopup();
+
+    const msgCount = chatLog.querySelectorAll('.msg').length;
+    const estimatedMs = Math.min(3500, 400 + msgCount * 120);
+    actionCompactBtn.classList.add('busy');
+    compactProgress.style.width = '0%';
+    const start = performance.now();
+    let done = false;
+
+    function tick(now) {
+        if (done) return;
+        const elapsed = now - start;
+        const pct = Math.min(90, (elapsed / estimatedMs) * 90);
+        compactProgress.style.width = `${pct}%`;
+        requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    try {
+        const data = await api.compact(state.sessionId);
+        done = true;
+        compactProgress.style.width = '100%';
+        if (data.compacted) {
+            toast(
+                `Compactado: ${data.evicted_turns} registros resumidos, ${data.kept_turns} mantidos`,
+                'success',
+                3500
+            );
+            const gameState = await api.getState(state.sessionId);
+            ingestState(gameState);
+            renderHistory(gameState.history);
+            state.canUndo = !!(gameState.history && gameState.history.length > 0);
+            updateActionPopup();
+        } else {
+            toast(data.reason || 'Nada para compactar ainda', 'info', 2500);
+        }
+    } catch (err) {
+        done = true;
+        toast(`Erro ao compactar: ${err.message}`, 'error');
+    } finally {
+        setTimeout(() => {
+            actionCompactBtn.classList.remove('busy');
+            compactProgress.style.width = '0%';
+        }, 400);
+    }
+}
+
 /* ── Debug drawer ─────────────────────────────────────────────────────── */
 function messagesToText(messages) {
     return (messages || [])
@@ -813,6 +872,7 @@ document.addEventListener('click', (e) => {
 if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
 if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
+if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
 
 // Stop button — abort current turn
 if (stopBtn) stopBtn.addEventListener('click', () => {
