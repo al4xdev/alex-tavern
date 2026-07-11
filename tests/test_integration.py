@@ -43,60 +43,60 @@ DEFAULT_CHARACTERS: dict[str, Character] = {
         mind=CharacterMind(
             name="Thorn",
             personality=(
-                "Guerreiro estoico e leal. Fala pouco, age com decisão.\n\n"
-                "Thorn é um guerreiro veterano de 40 anos que serviu na Guarda de Ferro "
-                "por duas décadas. Estoico, leal até a morte, e desconfiado de magia. "
-                "Fala em frases curtas e diretas. Protege os mais fracos por instinto. "
-                "Carrega culpa por não ter salvo seu irmão mais novo numa emboscada anos atrás."
+                "Stoic and loyal veteran warrior. Speaks little, acts with resolve.\n\n"
+                "Thorn is a 40-year-old veteran warrior who served in the Iron Guard "
+                "for two decades. Stoic, loyal to a fault, and deeply suspicious of magic. "
+                "Speaks in short, direct sentences. Instinctively protects the weak. "
+                "Carries guilt for failing to save his younger brother in an ambush years ago."
             ),
             knowledge=[
-                "A Guarda de Ferro foi dissolvida há 3 anos",
-                "A taverna do Velho Mork é um ponto de encontro de mercenários",
-                "Lyra é uma maga que ele conheceu há 2 semanas",
+                "The Iron Guard was disbanded 3 years ago",
+                "Old Mork's tavern is a common meeting place for mercenaries",
+                "Lyra is a mage he met 2 weeks ago",
             ],
-            current_mood="cauteloso",
+            current_mood="cautious",
         ),
         body=CharacterBody(
             name="Thorn",
-            physical_description="Alto, musculoso, cicatriz no queixo, cabelo grisalho curto",
-            outfit="Armadura de couro reforçada, espada longa na cintura",
+            physical_description="Tall, muscular, scar on his chin, short grizzled hair",
+            outfit="Reinforced leather armor, longsword at his waist",
         ),
     ),
     "C2": Character(
         mind=CharacterMind(
             name="Lyra",
             personality=(
-                "Maga élfica curiosa e impulsiva. Fala demais quando nervosa.\n\n"
-                "Lyra é uma maga élfica de 120 anos (jovem pra um elfo). Curiosa ao ponto "
-                "de se meter em perigo. Impulsiva — age primeiro, pensa depois. Quando "
-                "nervosa, fala sem parar. Tem um senso de humor sarcástico. Trata magia "
-                "como ciência, não misticismo. Saiu da torre dos magos porque se entediou "
-                "com teoria."
+                "Curious and impulsive elf mage. Talks too much when nervous.\n\n"
+                "Lyra is a 120-year-old elf mage (very young for an elf). Curious to the point "
+                "of getting into trouble. Impulsive — acts first, thinks later. When "
+                "nervous, she talks endlessly. Has a sarcastic sense of humor. Treats magic "
+                "as science, not mysticism. Left the mages' tower because she grew bored "
+                "with theory."
             ),
             knowledge=[
-                "A floresta ao norte está corrompida por magia negra",
-                "O medalhão que encontraram emite uma aura arcana fraca",
-                "Thorn é um guerreiro que ela conheceu há 2 semanas",
+                "The forest to the north is corrupted by black magic",
+                "The medallion they found emits a weak arcane aura",
+                "Thorn is a warrior she met 2 weeks ago",
             ],
-            current_mood="curiosa",
+            current_mood="curious",
         ),
         body=CharacterBody(
             name="Lyra",
-            physical_description="Esguia, orelhas pontudas, olhos violeta, cabelo prateado longo",
-            outfit="Túnica azul escura com runas bordadas, cajado de carvalho",
+            physical_description="Slender, pointed ears, violet eyes, long silver hair",
+            outfit="Dark blue robe with embroidered runes, oak staff",
         ),
     ),
 }
 
 DEFAULT_SCENE = Scene(
-    location="Taverna do Velho Mork — salão principal, meia-luz",
-    time_of_day="noite",
+    location="Old Mork's Tavern — main hall, dim lighting",
+    time_of_day="night",
     present_characters=["C1", "C2", "Player"],
     physical_facts={
-        "lighting": "velas fracas",
-        "crowd": "meia dúzia de bêbados",
-        "weather_outside": "chuva forte",
-        "door": "fechada",
+        "lighting": "dim candles",
+        "crowd": "half a dozen drunk patrons",
+        "weather_outside": "heavy rain",
+        "door": "closed",
     },
 )
 
@@ -210,7 +210,7 @@ class TestModels:
         assert len(restored.history) == 1
         assert restored.history[0].content == "A taverna está silenciosa."
         snap = restored.history[0].scene_snapshot
-        expected = "Taverna do Velho Mork — salão principal, meia-luz"
+        expected = "Old Mork's Tavern — main hall, dim lighting"
         assert snap.location == expected
 
     def test_game_state_round_trip_empty_history(self) -> None:
@@ -523,8 +523,8 @@ class TestRunnerLogic:
             runner._append_history(game, "Narrator", "Algo acontece.", "narration", 1)
             runner._append_history(game, "C2", "Resposta.", "speech", 1)
             # Só DEPOIS dos appends o Narrador aplicaria mood_updates/scene_update.
-            game.characters["C1"].mind.current_mood = "furioso"
-            game.scene.physical_facts["door"] = "aberta"
+            game.characters["C1"].mind.current_mood = "furious"
+            game.scene.physical_facts["door"] = "open"
             save_game(game)
 
         result = await self.runner.undo_turn(sid)
@@ -535,7 +535,7 @@ class TestRunnerLogic:
             assert game is not None
             assert len(game.history) == 0, "todos os 4 registros do passo devem sumir"
             assert game.characters["C1"].mind.current_mood == original_mood_c1
-            assert game.scene.physical_facts["door"] == "fechada"
+            assert game.scene.physical_facts["door"] == "closed"
 
     @pytest.mark.asyncio
     async def test_undo_simple_turn(self) -> None:
@@ -623,7 +623,7 @@ class TestRunnerLogic:
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
             runner._append_history(game, "Narrator", "Turno 1.", "narration", 1)
-            game.scene.physical_facts["door"] = "entreaberta"
+            game.scene.physical_facts["door"] = "ajar"
             save_game(game)
 
         # Turno 2
@@ -633,7 +633,7 @@ class TestRunnerLogic:
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
             runner._append_history(game, "Narrator", "Turno 2.", "narration", 2)
             runner._append_history(game, "C1", "Resposta 2.", "speech", 2)
-            game.scene.physical_facts["door"] = "aberta"
+            game.scene.physical_facts["door"] = "open"
             save_game(game)
 
         # Turno 3
@@ -642,7 +642,7 @@ class TestRunnerLogic:
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
             runner._append_history(game, "Narrator", "Turno 3.", "narration", 3)
-            game.scene.physical_facts["door"] = "escancarada"
+            game.scene.physical_facts["door"] = "wide open"
             save_game(game)
 
         # Undo turno 3
@@ -652,7 +652,7 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 3  # Narrador 1 + Narrador 2 + C1
-            assert game.scene.physical_facts["door"] == "aberta"
+            assert game.scene.physical_facts["door"] == "open"
 
         # Undo turno 2
         r = await self.runner.undo_turn(sid)
@@ -661,7 +661,7 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 1  # Narrador 1
-            assert game.scene.physical_facts["door"] == "entreaberta"
+            assert game.scene.physical_facts["door"] == "ajar"
 
         # Undo turno 1
         r = await self.runner.undo_turn(sid)
@@ -670,7 +670,7 @@ class TestRunnerLogic:
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 0
-            assert game.scene.physical_facts["door"] == "fechada"  # original
+            assert game.scene.physical_facts["door"] == "closed"  # original
 
     @pytest.mark.asyncio
     async def test_call_narrator_passes_story_summary(self, monkeypatch) -> None:  # noqa: ANN001
@@ -1456,18 +1456,18 @@ class TestEdgeCases:
         """_update_scene atualiza physical_facts."""
         game = _make_test_game()
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-        runner._update_scene(game, {"door": "aberta", "lighting": "apagada"})
-        assert game.scene.physical_facts["door"] == "aberta"
-        assert game.scene.physical_facts["lighting"] == "apagada"
+        runner._update_scene(game, {"door": "open", "lighting": "off"})
+        assert game.scene.physical_facts["door"] == "open"
+        assert game.scene.physical_facts["lighting"] == "off"
         # Campo não afetado permanece
-        assert game.scene.physical_facts["weather_outside"] == "chuva forte"
+        assert game.scene.physical_facts["weather_outside"] == "heavy rain"
 
     def test_update_scene_none(self) -> None:
         """_update_scene com None não altera nada."""
         game = _make_test_game()
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         runner._update_scene(game, None)
-        assert game.scene.physical_facts["door"] == "fechada"
+        assert game.scene.physical_facts["door"] == "closed"
 
     def test_format_history_for_character_only_speech(self) -> None:
         """O Personagem só vê falas — narração e ação são filtradas do histórico."""
@@ -1575,11 +1575,11 @@ class TestEdgeCases:
         runner._append_history(game, "Narrator", "Teste", "narration", 1)
         assert len(game.history) == 1
         snapshot_door = game.history[0].scene_snapshot.physical_facts["door"]
-        assert snapshot_door == "fechada"
+        assert snapshot_door == "closed"
         # Modifica cena atual
-        game.scene.physical_facts["door"] = "aberta"
+        game.scene.physical_facts["door"] = "open"
         # Snapshot não foi afetado
-        assert game.history[0].scene_snapshot.physical_facts["door"] == "fechada"
+        assert game.history[0].scene_snapshot.physical_facts["door"] == "closed"
 
 
 class TestDynamicConfigAndPresets:
