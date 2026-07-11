@@ -1015,6 +1015,107 @@ class TestCustomSessionAndDebug:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Testes — Agente Resumidor (summarizer.py)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestSummarizerAgent:
+    """Testes do agente Resumidor — foco em imersão (nunca vazar 'Player')."""
+
+    def test_build_summarizer_messages_never_leaks_player(self) -> None:
+        """A jogada do humano (speaker='Player') aparece traduzida com o nome
+        do personagem controlado — a string 'Player' nunca aparece no prompt."""
+        from src.agents.summarizer import build_summarizer_messages
+
+        evicted = [
+            TurnRecord(
+                turn_number=1,
+                speaker="Player",
+                content="Encaro Lyra e pergunto sobre o forasteiro.",
+                content_type="speech",
+                scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+            ),
+            TurnRecord(
+                turn_number=1,
+                speaker="Narrator",
+                content="Thorn se inclina, a luz das velas tremendo na sua cicatriz.",
+                content_type="narration",
+                scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+            ),
+            TurnRecord(
+                turn_number=1,
+                speaker="C2",
+                content="Lyra sorri, curiosa.",
+                content_type="speech",
+                scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+            ),
+        ]
+
+        messages = build_summarizer_messages(
+            characters=DEFAULT_CHARACTERS,
+            controlled_id="C1",
+            story_summary="",
+            character_notes={},
+            evicted_turns=evicted,
+            narrator_directives="Fantasia sombria.",
+        )
+
+        assert messages[0]["role"] == "system"
+        assert "player" not in messages[0]["content"].lower()
+        assert "user" not in messages[0]["content"].lower()
+        assert "Fantasia sombria." in messages[0]["content"]
+
+        assert "Thorn" in messages[1]["content"]
+        assert "Encaro Lyra" in messages[1]["content"]
+        assert "Player" not in messages[1]["content"]
+
+    def test_build_summarizer_messages_shows_current_summary_and_notes(self) -> None:
+        """Resumo e notas atuais entram no prompt, pra o Resumidor atualizar."""
+        from src.agents.summarizer import build_summarizer_messages
+
+        messages = build_summarizer_messages(
+            characters=DEFAULT_CHARACTERS,
+            controlled_id="C1",
+            story_summary="Thorn e Lyra se conheceram na taverna.",
+            character_notes={"C1": "Desconfia de magia."},
+            evicted_turns=[],
+        )
+        user_content = messages[1]["content"]
+        assert "Thorn e Lyra se conheceram na taverna." in user_content
+        assert "Desconfia de magia." in user_content
+        assert "(none yet)" in user_content  # C2 ainda sem nota
+
+    @pytest.mark.asyncio
+    async def test_summarize_returns_only_changed_notes(self, monkeypatch) -> None:  # noqa: ANN001
+        """summarize() devolve o resumo + só as notas que o LLM decidiu mudar
+        (merge com as notas antigas é responsabilidade de quem chama)."""
+        from src.agents import summarizer as summarizer_mod
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return {
+                "story_summary": "Resumo atualizado.",
+                "character_notes": {"C1": "Ficou tenso ao ouvir sobre a Guarda de Ferro."},
+            }
+
+        monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+
+        client = httpx.AsyncClient(base_url="http://localhost:8888")
+        summary, changed_notes = await summarizer_mod.summarize(
+            client=client,
+            characters=DEFAULT_CHARACTERS,
+            controlled_id="C1",
+            story_summary="Resumo antigo.",
+            character_notes={"C1": "nota antiga", "C2": "nota antiga da Lyra"},
+            evicted_turns=[],
+            config={},
+        )
+        assert summary == "Resumo atualizado."
+        assert changed_notes == {"C1": "Ficou tenso ao ouvir sobre a Guarda de Ferro."}
+        assert "C2" not in changed_notes  # não mencionada -> não retorna, runner mantém a antiga
+        await client.aclose()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Testes — Edge Cases
 # ═══════════════════════════════════════════════════════════════════════════
 
