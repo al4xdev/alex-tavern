@@ -20,6 +20,27 @@ is shaped).
 
 ---
 
+## ⚡ Quickstart
+
+To install and run the server locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/al4xdev/alex-tavern.git
+cd alex-tavern
+
+# Install dependencies (requires 'uv')
+./install.sh
+
+# Start the server (runs on port 8889)
+./start.sh
+```
+
+> [!WARNING]
+> **Docker Support**: A `Dockerfile` and GitHub Action workflow are available, but they have **not** been heavily tested yet. Use Docker at your own discretion.
+
+---
+
 ## 🗺️ How a Turn Flows
 
 ```mermaid
