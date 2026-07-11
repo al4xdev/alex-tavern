@@ -103,6 +103,28 @@ def log_compact(
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+def log_restore_compaction(session_id: str, restored: bool, reason: str) -> None:
+    """Acrescenta ao mesmo log bruto um marcador de tentativa de desfazer compactação.
+
+    Loga tanto sucesso quanto recusa (a recusa é o caminho seguro — ver
+    ``store.sessions.restore_last_backup``) — útil pra saber, ao debugar, se
+    e por que uma restauração foi bloqueada.
+    """
+    if not session_id:
+        return
+    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": datetime.now(UTC).isoformat(),
+        "session_id": session_id,
+        "agent": "restore_compaction",
+        "restored": restored,
+        "reason": reason,
+    }
+    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 async def chat_completion(
     client: httpx.AsyncClient,
     messages: list[dict],

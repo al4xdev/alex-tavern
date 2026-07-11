@@ -16,7 +16,7 @@ from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.summarizer import summarize
-from src.llm.client import log_compact, log_undo
+from src.llm.client import log_compact, log_restore_compaction, log_undo
 from src.models import (
     GameState,
     Player,
@@ -27,6 +27,7 @@ from src.store.sessions import (
     backup_session,
     generate_session_id,
     load_game,
+    restore_last_backup,
     save_game,
 )
 
@@ -364,6 +365,27 @@ class Runner:
                 "kept_turns": len(kept),
             }
 
+    async def restore_last_compaction(self, session_id: str) -> dict:
+        """Desfaz a última compactação, restaurando o backup mais recente — só se seguro.
+
+        ⚠️ Operação arriscada: só é permitida se NENHUM turno novo foi jogado
+        desde aquela compactação — senão restaurar apagaria essas jogadas de
+        verdade (elas não existem no backup). Ver a trava em
+        ``store.sessions.restore_last_backup``, que faz a checagem e se
+        recusa (sem alterar nada) em vez de tentar mesclar os dois
+        históricos. Loga a tentativa (sucesso ou recusa) no log bruto.
+
+        Returns:
+            ``{"restored": False, "reason": "..."}`` se recusado/sem backup.
+            ``{"restored": True, "history_length": N}`` se restaurou.
+        """
+        async with _get_lock(session_id):
+            result = restore_last_backup(session_id)
+            log_restore_compaction(
+                session_id, result.get("restored", False), result.get("reason", "")
+            )
+            return result
+
     # ── Privados ──────────────────────────────────────────────────────────
 
     async def _call_narrator(self, game: GameState, turn_number: int) -> dict:
@@ -378,6 +400,7 @@ class Runner:
             narrator_directives=game.narrator_directives,
             session_id=game.session_id,
             turn_number=turn_number,
+            story_summary=game.story_summary,
         )
 
     async def _call_character(
@@ -394,6 +417,7 @@ class Runner:
             config=self.config,
             session_id=game.session_id,
             turn_number=turn_number,
+            notes=game.character_notes.get(character_id, ""),
         )
 
     def preview_narrator_prompt(
@@ -445,6 +469,7 @@ class Runner:
             narrator_directives=game.narrator_directives,
             context_max=self.config.get("context_max"),
             max_tokens_narrator=self.config.get("max_tokens_narrator", 2048),
+            story_summary=game.story_summary,
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:

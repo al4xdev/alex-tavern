@@ -8,12 +8,14 @@ from src.llm.client import chat_completion
 from src.models import Character, TurnRecord, speaker_label, trim_history_by_tokens
 
 
-def _build_system_prompt(character: Character) -> str:
+def _build_system_prompt(character: Character, notes: str = "") -> str:
+    memory_line = f"What you remember: {notes.strip()}\n" if notes.strip() else ""
     return (
         f"You are {character.mind.name}. Stay in character at all times.\n"
         f"Personality: {character.mind.personality}\n"
         f"Knowledge: {', '.join(character.mind.knowledge)}\n"
         f"Current mood: {character.mind.current_mood}\n"
+        f"{memory_line}"
         "\n"
         "RULES:\n"
         "- You are a character in a roleplay scene, not the Narrator: never state\n"
@@ -67,6 +69,7 @@ async def act(
     config: dict,
     session_id: str = "",
     turn_number: int = 0,
+    notes: str = "",
 ) -> str:
     """Constrói prompt do Personagem, chama LLM, retorna fala/pensamento.
 
@@ -84,6 +87,8 @@ async def act(
         config: Config do servidor (temperatura, max_tokens).
         session_id: Repassado ao log bruto de chamadas LLM (ver ``src/llm/client.py``).
         turn_number: Repassado ao log bruto.
+        notes: A nota deste personagem (``game.character_notes[character_id]``,
+               ver ``runner.compact_session``) — nunca a de outro personagem.
 
     Returns:
         A fala/pensamento (string pura, sem JSON).
@@ -97,7 +102,7 @@ async def act(
         max_tokens_character=max_tokens_character,
     )
     messages = [
-        {"role": "system", "content": _build_system_prompt(character)},
+        {"role": "system", "content": _build_system_prompt(character, notes)},
         {
             "role": "user",
             "content": (

@@ -43,6 +43,7 @@ const actionRetryBtn = document.getElementById('action-retry-btn');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
 const actionCompactBtn = document.getElementById('action-compact-btn');
 const compactProgress = document.getElementById('compact-progress');
+const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
 const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const actionPopup   = document.getElementById('action-popup');
 const stopBtn       = document.getElementById('stop-btn');
@@ -85,6 +86,7 @@ function updateActionPopup() {
     if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
+    if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.style.display = hasSession ? '' : 'none';
     // Hide the popup entirely when there's nothing to show — prevents
     // an empty bordered box (tiny black dot) from appearing on hover/long-press.
     if (actionPopup) {
@@ -594,6 +596,43 @@ async function compactSession() {
     }
 }
 
+/* ── Desfazer última compactação ──────────────────────────────────────── */
+// Operação de risco: só desfaz de verdade se NENHUM turno novo foi jogado
+// desde a última compactação (o backend recusa e explica por quê, sem
+// alterar nada, se não for seguro) — ver Runner.restore_last_compaction.
+async function restoreCompaction() {
+    if (!state.sessionId) return;
+    hideActionPopup();
+    const confirmed = confirm(
+        'Desfazer a última compactação? Só funciona se nada foi jogado desde ela — ' +
+        'caso contrário a operação é recusada e nada muda.'
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    try {
+        const data = await api.restoreCompaction(state.sessionId);
+        if (data.restored) {
+            toast(
+                `Compactação desfeita — histórico restaurado (${data.history_length} registros)`,
+                'success',
+                3500
+            );
+            const gameState = await api.getState(state.sessionId);
+            ingestState(gameState);
+            renderHistory(gameState.history);
+            state.canUndo = !!(gameState.history && gameState.history.length > 0);
+            updateActionPopup();
+        } else {
+            toast(data.reason || 'Não foi possível desfazer a compactação', 'info', 3500);
+        }
+    } catch (err) {
+        toast(`Erro ao desfazer compactação: ${err.message}`, 'error');
+    } finally {
+        setLoading(false);
+    }
+}
+
 /* ── Debug drawer ─────────────────────────────────────────────────────── */
 function messagesToText(messages) {
     return (messages || [])
@@ -873,6 +912,7 @@ if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
 if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
 if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
+if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.addEventListener('click', restoreCompaction);
 
 // Stop button — abort current turn
 if (stopBtn) stopBtn.addEventListener('click', () => {
