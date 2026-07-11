@@ -188,13 +188,3 @@ async def narrate(
     result.setdefault("player_options", None)
 
     return result, messages
-
-
-def format_history_for_prompt(history: list[TurnRecord], limit: int = 5) -> str:
-    """Formata histórico como texto linear (opção A do plano)."""
-    if not history:
-        return "(none)"
-    lines: list[str] = []
-    for rec in history[-limit:]:
-        lines.append(f"Turn {rec.turn_number} — {rec.speaker}: {rec.content[:200]}")
-    return "\n".join(lines)

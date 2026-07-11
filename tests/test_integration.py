@@ -206,10 +206,9 @@ class TestModels:
     def test_turn_state_defaults(self) -> None:
         """TurnState com valores default."""
         t = TurnState(turn_number=1, player_speech="", player_action="")
-        assert t.narrator_raw is None
-        assert t.character_response is None
-        assert t.next_speaker is None
-        assert t.player_options is None
+        assert t.turn_number == 1
+        assert t.player_speech == ""
+        assert t.player_action == ""
 
 
 # ═══════════════════════════════════════════════════════════════════════════

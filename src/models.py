@@ -71,10 +71,6 @@ class TurnState:
     turn_number: int
     player_speech: str
     player_action: str
-    narrator_raw: dict | None = None
-    character_response: str | None = None
-    next_speaker: str | None = None
-    player_options: list[dict] | None = None  # [{"index":0, "label":"...", "description":"..."}]
 
 
 @dataclass
