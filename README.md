@@ -513,3 +513,49 @@ handoff. A few recurring situations shaped some of the working conventions above
   explicitly multiple times across both sessions: open the actual persisted session JSON, read
   the actual assembled prompt, and where possible run a real turn against the real local model,
   not only a mocked one — specifically because agentic LLM workflows fail silently.
+
+---
+
+## 🔮 Future Work
+
+**RAG, delivered as a slash-command tool rather than a pipeline change.** RAG itself (see
+[Mapping to Anthropic Agent Literature](#-mapping-to-anthropic-agent-literature--harness-techniques))
+is still deferred, but the plan for landing it settled on not touching the existing turn
+pipeline at all, and on **vector embeddings over a lexical keyword search** — the data volume
+per session is small enough that embedding it is cheap, and a vector store buys actual semantic
+retrieval instead of exact string matches. An optional (opt-in) vectorization agent runs in the
+background while the human is simply reading or playing, not blocking a turn: it watches for
+older or already-compacted JSON it hasn't embedded yet and incrementally adds it to that
+session's own vector store, so the index stays warm without a dedicated indexing step.
+
+Retrieval itself is deliberately **not "pure RAG"** — raw chunks are never dumped straight into a
+prompt. Two separate LLM layers sit between the vector search and the live conversation:
+
+1. **Curation.** An LLM distills whatever the vector search actually returns into clean,
+   relevant information, discarding near-duplicate or irrelevant hits.
+2. **Message generation.** A second pass turns that curated result into the actual invisible
+   context message — matching the same pattern the Narrator already uses for
+   `context_for_character` — that exists purely to feed the Character and Narrator prompts. It
+   is never shown to the human and never enters the visible chat, only the session's underlying
+   JSON/log, alongside everything else in the
+   [call log](#-observability-the-raw-sequential-llm-call-log).
+
+Triggered on demand via `/rag <keyword>`, this costs roughly a minute end to end, a fine
+tradeoff against keeping everything permanently loaded in the live prompt.
+
+**A general slash-command tool system, not a one-off for RAG.** `/rag` is meant to be the first
+instance of a small plugin mechanism, not a special case: a slash-command layer that lets new
+tools be registered and invoked on demand, instead of being hardcoded into the turn-assembly
+pipeline one `if` at a time. This keeps the core Narrator/Character loop untouched while still
+allowing ad hoc capabilities — RAG today, more later — to be bolted on cleanly.
+
+**An MCP server, scoped to debugging, not to the roleplay pipeline itself.** MCP doesn't have an
+honest use case *inside* the turn loop — the Narrator and Character agents already talk directly
+to the local model over a plain HTTP client, and there's no other MCP-aware client in that path
+to make a protocol worth the overhead. The place it's actually worth building is meta: a
+debug-only MCP server that lets an external coding agent (Claude Code, in practice) introspect
+the running backend directly — enumerate the API's routes, inspect a live session's state, and
+even drive the frontend itself (submit a turn, force a speaker, trigger a compaction) — through
+MCP tool calls instead of manually curling endpoints or clicking through the UI. This is the one
+place in the project where MCP's actual value proposition holds: a separate client, genuinely
+external to the app, operating it as a tool.
