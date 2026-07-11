@@ -29,12 +29,19 @@ To install and run the server locally:
 git clone https://github.com/al4xdev/alex-tavern.git
 cd alex-tavern
 
-# Install dependencies (requires 'uv')
+# Install dependencies and generate default config (requires 'uv')
 ./install.sh
+
+# Open and adjust the configuration to point to your local LLM server
+# (e.g., set your LLM host, model name, and response language)
+nano .data/config.json
 
 # Start the server (runs on port 8889)
 ./start.sh
 ```
+
+> [!NOTE]
+> The `./install.sh` script automatically creates a default `.data/config.json`. Make sure to configure the `llm_host` (like `http://localhost:8888` for llama.cpp) and the `language` parameter (default is `Portuguese`) before running.
 
 > [!WARNING]
 > **Docker Support**: A `Dockerfile` and GitHub Action workflow are available, but they have **not** been heavily tested yet. Use Docker at your own discretion.
