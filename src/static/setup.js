@@ -17,7 +17,6 @@ const Setup = (() => {
     const presetDelBtn = document.getElementById('preset-delete-btn');
     const presetNameEl = document.getElementById('preset-name');
     const presetSaveBtn= document.getElementById('preset-save-btn');
-    const playerNameEl = document.getElementById('setup-player-name');
     const directivesEl = document.getElementById('setup-directives');
     const sceneLocEl   = document.getElementById('setup-scene-location');
     const sceneTimeEl  = document.getElementById('setup-scene-time');
@@ -152,7 +151,6 @@ const Setup = (() => {
         });
 
         return {
-            player_name: playerNameEl.value.trim() || 'Jogador',
             controlled_character_id: controlledEl.value,
             narrator_directives: directivesEl.value.trim(),
             characters,
@@ -165,7 +163,6 @@ const Setup = (() => {
     }
 
     function populate(cfg) {
-        playerNameEl.value = cfg.player_name || '';
         directivesEl.value = cfg.narrator_directives || '';
         sceneLocEl.value   = (cfg.scene && cfg.scene.location) || '';
         sceneTimeEl.value  = (cfg.scene && cfg.scene.time_of_day) || '';
@@ -209,7 +206,6 @@ const Setup = (() => {
         try {
             const data = await api.getDefaults(name);
             populate({
-                player_name: playerNameEl.value.trim(),
                 narrator_directives: directivesEl.value.trim(),
                 controlled_character_id: 'C1',
                 characters: flattenPresetCharacters(data.characters),

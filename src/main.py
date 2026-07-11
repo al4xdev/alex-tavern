@@ -97,7 +97,6 @@ class SceneInput(BaseModel):
 
 
 class StartSessionRequest(BaseModel):
-    player_name: str | None = None
     controlled_character_id: str | None = None
     characters: dict[str, CharacterInput] | None = None
     scene: SceneInput | None = None
@@ -251,14 +250,7 @@ def start_session(req: StartSessionRequest) -> dict:
     elif "controlled_character_id" in preset_data:
         controlled_id = preset_data["controlled_character_id"]
 
-    player_name = "Jogador"
-    if req.player_name:
-        player_name = req.player_name
-    elif "player_name" in preset_data:
-        player_name = preset_data["player_name"]
-
     cfg: dict[str, Any] = {
-        "player_name": player_name,
         "controlled_character_id": controlled_id,
         "narrator_directives": directives,
     }

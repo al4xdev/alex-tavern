@@ -40,8 +40,8 @@ class Runner:
 
         Args:
             session_config: Opcional. Pode conter chaves 'characters', 'scene',
-                            'player_name', 'controlled_character_id',
-                            'narrator_directives' para customizar.
+                            'controlled_character_id', 'narrator_directives'
+                            para customizar.
 
         Returns:
             session_id (string de 8 caracteres).
@@ -105,10 +105,7 @@ class Runner:
         if controlled_id not in characters:
             controlled_id = next(iter(characters))
 
-        player = Player(
-            name=cfg.get("player_name") or "Jogador",
-            controlled_character_id=controlled_id,
-        )
+        player = Player(controlled_character_id=controlled_id)
 
         game = GameState(
             session_id=session_id,
