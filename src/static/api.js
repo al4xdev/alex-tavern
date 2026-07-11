@@ -21,8 +21,9 @@ async function apiFetch(url, options = {}) {
 }
 
 const api = {
-    getDefaults() {
-        return apiFetch('/defaults');
+    getDefaults(name = '') {
+        const url = name ? `/defaults?name=${encodeURIComponent(name)}` : '/defaults';
+        return apiFetch(url);
     },
 
     startSession(config) {
@@ -69,5 +70,25 @@ const api = {
 
     deleteSession(sessionId) {
         return apiFetch(`/session/${sessionId}`, { method: 'DELETE' });
+    },
+
+    listPresets() {
+        return apiFetch('/presets');
+    },
+
+    getPreset(name) {
+        return apiFetch(`/presets/${name}`);
+    },
+
+    savePreset(name, cfg) {
+        return apiFetch(`/presets/${name}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg),
+        });
+    },
+
+    deletePreset(name) {
+        return apiFetch(`/presets/${name}`, { method: 'DELETE' });
     },
 };

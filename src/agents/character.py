@@ -80,8 +80,9 @@ async def act(
     content = await chat_completion(
         client,
         messages,
-        max_tokens=config.get("max_tokens_character", 256),
-        temperature=config.get("temperature_character", 0.8),
+        model=config.get("model", ""),
+        language=config.get("language", ""),
+        max_tokens=config.get("max_tokens_character", 1024),
     )
 
     return content.strip(), messages

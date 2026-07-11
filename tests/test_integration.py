@@ -15,6 +15,8 @@ import pytest
 
 from src.models import (
     Character,
+    CharacterBody,
+    CharacterMind,
     GameState,
     Player,
     Scene,
@@ -24,7 +26,7 @@ from src.models import (
     dict_to_game_state,
     game_state_to_dict,
 )
-from src.runner import DEFAULT_CHARACTERS, DEFAULT_SCENE, Runner
+from src.runner import Runner
 from src.store.sessions import (
     SESSIONS_DIR,
     _get_lock,
@@ -34,6 +36,68 @@ from src.store.sessions import (
     list_sessions,
     load_game,
     save_game,
+)
+
+DEFAULT_CHARACTERS: dict[str, Character] = {
+    "C1": Character(
+        mind=CharacterMind(
+            name="Thorn",
+            personality_summary="Guerreiro estoico e leal. Fala pouco, age com decisão.",
+            personality_full=(
+                "Thorn é um guerreiro veterano de 40 anos que serviu na Guarda de Ferro "
+                "por duas décadas. Estoico, leal até a morte, e desconfiado de magia. "
+                "Fala em frases curtas e diretas. Protege os mais fracos por instinto. "
+                "Carrega culpa por não ter salvo seu irmão mais novo numa emboscada anos atrás."
+            ),
+            knowledge=[
+                "A Guarda de Ferro foi dissolvida há 3 anos",
+                "A taverna do Velho Mork é um ponto de encontro de mercenários",
+                "Lyra é uma maga que ele conheceu há 2 semanas",
+            ],
+            current_mood="cauteloso",
+        ),
+        body=CharacterBody(
+            name="Thorn",
+            physical_description="Alto, musculoso, cicatriz no queixo, cabelo grisalho curto",
+            outfit="Armadura de couro reforçada, espada longa na cintura",
+        ),
+    ),
+    "C2": Character(
+        mind=CharacterMind(
+            name="Lyra",
+            personality_summary="Maga élfica curiosa e impulsiva. Fala demais quando nervosa.",
+            personality_full=(
+                "Lyra é uma maga élfica de 120 anos (jovem pra um elfo). Curiosa ao ponto "
+                "de se meter em perigo. Impulsiva — age primeiro, pensa depois. Quando "
+                "nervosa, fala sem parar. Tem um senso de humor sarcástico. Trata magia "
+                "como ciência, não misticismo. Saiu da torre dos magos porque se entediou "
+                "com teoria."
+            ),
+            knowledge=[
+                "A floresta ao norte está corrompida por magia negra",
+                "O medalhão que encontraram emite uma aura arcana fraca",
+                "Thorn é um guerreiro que ela conheceu há 2 semanas",
+            ],
+            current_mood="curiosa",
+        ),
+        body=CharacterBody(
+            name="Lyra",
+            physical_description="Esguia, orelhas pontudas, olhos violeta, cabelo prateado longo",
+            outfit="Túnica azul escura com runas bordadas, cajado de carvalho",
+        ),
+    ),
+}
+
+DEFAULT_SCENE = Scene(
+    location="Taverna do Velho Mork — salão principal, meia-luz",
+    time_of_day="noite",
+    present_characters=["C1", "C2", "Player"],
+    physical_facts={
+        "lighting": "velas fracas",
+        "crowd": "meia dúzia de bêbados",
+        "weather_outside": "chuva forte",
+        "door": "fechada",
+    },
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -642,9 +706,15 @@ class TestRunnerWithLLM:
                     speech="",
                     action="Thorn se levanta e caminha até a porta, espiando pela fresta.",
                 )
+                if result.get("type") == "options":
+                    assert "options" in result
+                    opt = result["options"][0]
+                    result = await runner.player_turn(
+                        session_id=sid,
+                        chosen_option=opt["index"],
+                    )
                 assert "narration" in result
                 assert result["narration"] is not None
-                # Não deve forçar erro — pode retornar qualquer next_speaker válido
                 assert result["next_speaker"] in ("C1", "C2", "Player", "Narrator")
             finally:
                 delete_session(sid)
@@ -985,3 +1055,146 @@ class TestEdgeCases:
         game.scene.physical_facts["door"] = "aberta"
         # Snapshot não foi afetado
         assert game.history[0].scene_snapshot.physical_facts["door"] == "fechada"
+
+
+class TestDynamicConfigAndPresets:
+    """Testes para o novo sistema de configuração dinâmica e presets no servidor."""
+
+    def setup_method(self) -> None:
+        from src.store.presets import DEFAULTS_DIR, PRESETS_DIR
+        PRESETS_DIR.mkdir(parents=True, exist_ok=True)
+        DEFAULTS_DIR.mkdir(parents=True, exist_ok=True)
+        self.temp_preset_name = "temp_test_preset"
+        self.temp_default_name = "temp_default_preset"
+
+    def teardown_method(self) -> None:
+        from src.store.presets import DEFAULTS_DIR, delete_preset
+        delete_preset(self.temp_preset_name)
+        # Limpa defaults temporários
+        default_file = DEFAULTS_DIR / f"{self.temp_default_name}.json"
+        if default_file.exists():
+            default_file.unlink()
+
+    def test_config_load_and_fallback(self) -> None:
+        """Verifica se load_config carrega defaults e cria arquivo se inexistente."""
+        from src.main import CONFIG_PATH, load_config
+
+        existing_config = None
+        if CONFIG_PATH.exists():
+            existing_config = CONFIG_PATH.read_text(encoding="utf-8")
+            CONFIG_PATH.unlink()
+
+        try:
+            cfg = load_config()
+            assert cfg["llm_host"] == "http://localhost:8888"
+            assert cfg["model"] == ""
+            assert CONFIG_PATH.exists()
+        finally:
+            if existing_config is not None:
+                CONFIG_PATH.write_text(existing_config, encoding="utf-8")
+
+    def test_presets_store_crud(self) -> None:
+        """Verifica as operações de CRUD diretamente no presets store."""
+        from src.store.presets import delete_preset, list_presets, load_preset, save_preset
+
+        preset_data = {"test_key": "test_value"}
+        save_preset(self.temp_preset_name, preset_data)
+
+        presets = list_presets()
+        assert self.temp_preset_name in presets
+
+        loaded = load_preset(self.temp_preset_name)
+        assert loaded == preset_data
+
+        success = delete_preset(self.temp_preset_name)
+        assert success is True
+        assert self.temp_preset_name not in list_presets()
+
+    def test_presets_defaults_fallback(self) -> None:
+        """Verifica fallback para diretório de defaults no load_preset."""
+        import json
+
+        from src.store.presets import DEFAULTS_DIR, load_preset
+
+        preset_data = {"characters": {}, "scene": {"location": "Lugar Padrão"}}
+        default_file = DEFAULTS_DIR / f"{self.temp_default_name}.json"
+        default_file.write_text(json.dumps(preset_data), encoding="utf-8")
+
+        loaded = load_preset(self.temp_default_name)
+        assert loaded == preset_data
+
+
+class TestLanguageConfiguration:
+    """Testes para validação da injeção dinâmica de idioma no system prompt."""
+
+    @pytest.mark.asyncio
+    async def test_language_injection_with_existing_system_prompt(self, monkeypatch) -> None:
+        """Verifica se a instrução de idioma é anexada ao system prompt existente."""
+        import httpx
+
+        from src.llm.client import chat_completion
+
+        captured_payload = None
+
+        async def mock_post(url, json, **kwargs):
+            nonlocal captured_payload
+            captured_payload = json
+            mock_res = httpx.Response(200, json={
+                "choices": [{"message": {"content": "Olá"}}]
+            })
+            return mock_res
+
+        client = httpx.AsyncClient()
+        monkeypatch.setattr(client, "post", mock_post)
+
+        messages = [
+            {"role": "system", "content": "Você é o narrador."},
+            {"role": "user", "content": "Olá"},
+        ]
+
+        await chat_completion(
+            client=client,
+            messages=messages,
+            language="French",
+        )
+
+        assert captured_payload is not None
+        msgs = captured_payload["messages"]
+        assert msgs[0]["role"] == "system"
+        assert "Você é o narrador.\n- Always respond and write in French." in msgs[0]["content"]
+
+    @pytest.mark.asyncio
+    async def test_language_injection_without_system_prompt(self, monkeypatch) -> None:
+        """Verifica se a instrução de idioma cria um novo system prompt se ausente."""
+        import httpx
+
+        from src.llm.client import chat_completion
+
+        captured_payload = None
+
+        async def mock_post(url, json, **kwargs):
+            nonlocal captured_payload
+            captured_payload = json
+            mock_res = httpx.Response(200, json={
+                "choices": [{"message": {"content": "Olá"}}]
+            })
+            return mock_res
+
+        client = httpx.AsyncClient()
+        monkeypatch.setattr(client, "post", mock_post)
+
+        messages = [
+            {"role": "user", "content": "Olá"},
+        ]
+
+        await chat_completion(
+            client=client,
+            messages=messages,
+            language="French",
+        )
+
+        assert captured_payload is not None
+        msgs = captured_payload["messages"]
+        assert msgs[0]["role"] == "system"
+        assert msgs[0]["content"] == "- Always respond and write in French."
+        assert msgs[1]["role"] == "user"

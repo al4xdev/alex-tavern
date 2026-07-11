@@ -208,9 +208,9 @@ const Setup = (() => {
         return out;
     }
 
-    async function loadBuiltinPreset() {
+    async function loadBuiltinPreset(name = '') {
         try {
-            const data = await api.getDefaults();
+            const data = await api.getDefaults(name);
             populate({
                 player_name: playerNameEl.value.trim(),
                 narrator_directives: directivesEl.value.trim(),
@@ -223,7 +223,7 @@ const Setup = (() => {
                 },
             });
         } catch (err) {
-            showError(`Não foi possível carregar o preset: ${err.message}`);
+            showError(`Não foi possível carregar o preset padrão: ${err.message}`);
         }
     }
 
@@ -266,27 +266,28 @@ const Setup = (() => {
         if (typeof toast === 'function') toast(msg, type, 2500);
     }
 
-    function readPresets() {
+    async function refreshPresetSelect(selected) {
+        let defaultPresets = [];
+        let userPresets = [];
         try {
-            const raw = localStorage.getItem(PRESETS_KEY);
-            return raw ? JSON.parse(raw) : {};
-        } catch { return {}; }
-    }
-    function writePresets(map) {
-        try { localStorage.setItem(PRESETS_KEY, JSON.stringify(map)); } catch { /* ignore */ }
-    }
+            const defData = await api.getDefaults();
+            defaultPresets = defData.presets || ['thorn-lyra'];
+            userPresets = await api.listPresets();
+        } catch (err) {
+            showError(`Erro ao atualizar presets: ${err.message}`);
+            defaultPresets = ['thorn-lyra'];
+        }
 
-    function refreshPresetSelect(selected) {
-        const presets = readPresets();
-        const names = Object.keys(presets).sort((a, b) => a.localeCompare(b));
         presetSelect.innerHTML = '';
 
-        const builtin = document.createElement('option');
-        builtin.value = BUILTIN;
-        builtin.textContent = 'Thorn & Lyra (padrão)';
-        presetSelect.appendChild(builtin);
+        defaultPresets.forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = `builtin:${name}`;
+            opt.textContent = `${name} (padrão)`;
+            presetSelect.appendChild(opt);
+        });
 
-        names.forEach((name) => {
+        userPresets.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = `user:${name}`;
             opt.textContent = name;
@@ -295,50 +296,59 @@ const Setup = (() => {
 
         if (selected && [...presetSelect.options].some((o) => o.value === selected)) {
             presetSelect.value = selected;
+        } else if (defaultPresets.length > 0) {
+            presetSelect.value = `builtin:${defaultPresets[0]}`;
         }
-        // Delete only makes sense for user presets.
         presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
     }
 
     async function loadSelectedPreset() {
         const val = presetSelect.value;
-        if (val === BUILTIN) {
-            await loadBuiltinPreset();
-            notify('Preset Thorn & Lyra carregado');
+        if (val.startsWith('builtin:')) {
+            const name = val.replace(/^builtin:/, '');
+            await loadBuiltinPreset(name);
+            notify(`Preset padrão "${name}" carregado`);
             return;
         }
         const name = val.replace(/^user:/, '');
-        const cfg = readPresets()[name];
-        if (!cfg) { showError('Preset não encontrado.'); return; }
-        populate(cfg);
-        clearError();
-        notify(`Preset "${name}" carregado`);
+        try {
+            const cfg = await api.getPreset(name);
+            populate(cfg);
+            clearError();
+            notify(`Preset "${name}" carregado`);
+        } catch (err) {
+            showError(`Erro ao carregar preset do servidor: ${err.message}`);
+        }
     }
 
-    function saveCurrentPreset() {
+    async function saveCurrentPreset() {
         const name = presetNameEl.value.trim();
         if (!name) { showError('Dê um nome ao preset antes de salvar.'); return; }
         const cfg = collect();
         const problem = validate(cfg);
         if (problem) { showError(problem); return; }
-        const map = readPresets();
-        map[name] = cfg;
-        writePresets(map);
-        presetNameEl.value = '';
-        refreshPresetSelect(`user:${name}`);
-        clearError();
-        notify(`Preset "${name}" salvo`);
+        try {
+            await api.savePreset(name, cfg);
+            presetNameEl.value = '';
+            await refreshPresetSelect(`user:${name}`);
+            clearError();
+            notify(`Preset "${name}" salvo`);
+        } catch (err) {
+            showError(`Erro ao salvar preset: ${err.message}`);
+        }
     }
 
-    function deleteSelectedPreset() {
+    async function deleteSelectedPreset() {
         const val = presetSelect.value;
         if (!val.startsWith('user:')) return;
         const name = val.replace(/^user:/, '');
-        const map = readPresets();
-        delete map[name];
-        writePresets(map);
-        refreshPresetSelect(BUILTIN);
-        notify(`Preset "${name}" apagado`);
+        try {
+            await api.deletePreset(name);
+            await refreshPresetSelect();
+            notify(`Preset "${name}" apagado`);
+        } catch (err) {
+            showError(`Erro ao apagar preset: ${err.message}`);
+        }
     }
 
     /* ── Open / close ─────────────────────────────────────────────────── */
@@ -381,7 +391,7 @@ const Setup = (() => {
         presetSelect.addEventListener('change', () => {
             presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
         });
-        refreshPresetSelect(BUILTIN);
+        refreshPresetSelect();
 
         // Pre-fill from last saved setup, else empty scaffolding
         const saved = loadSaved();

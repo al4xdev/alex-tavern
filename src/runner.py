@@ -16,80 +16,12 @@ import httpx
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     GameState,
     Player,
-    Scene,
     TurnRecord,
     TurnState,
 )
 from src.store.sessions import _get_lock, generate_session_id, load_game, save_game
-
-# ── Personagens padrão (MVP) ──────────────────────────────────────────────
-
-DEFAULT_CHARACTERS: dict[str, Character] = {
-    "C1": Character(
-        mind=CharacterMind(
-            name="Thorn",
-            personality_summary="Guerreiro estoico e leal. Fala pouco, age com decisão.",
-            personality_full=(
-                "Thorn é um guerreiro veterano de 40 anos que serviu na Guarda de Ferro "
-                "por duas décadas. Estoico, leal até a morte, e desconfiado de magia. "
-                "Fala em frases curtas e diretas. Protege os mais fracos por instinto. "
-                "Carrega culpa por não ter salvo seu irmão mais novo numa emboscada anos atrás."
-            ),
-            knowledge=[
-                "A Guarda de Ferro foi dissolvida há 3 anos",
-                "A taverna do Velho Mork é um ponto de encontro de mercenários",
-                "Lyra é uma maga que ele conheceu há 2 semanas",
-            ],
-            current_mood="cauteloso",
-        ),
-        body=CharacterBody(
-            name="Thorn",
-            physical_description="Alto, musculoso, cicatriz no queixo, cabelo grisalho curto",
-            outfit="Armadura de couro reforçada, espada longa na cintura",
-        ),
-    ),
-    "C2": Character(
-        mind=CharacterMind(
-            name="Lyra",
-            personality_summary="Maga élfica curiosa e impulsiva. Fala demais quando nervosa.",
-            personality_full=(
-                "Lyra é uma maga élfica de 120 anos (jovem pra um elfo). Curiosa ao ponto "
-                "de se meter em perigo. Impulsiva — age primeiro, pensa depois. Quando "
-                "nervosa, fala sem parar. Tem um senso de humor sarcástico. Trata magia "
-                "como ciência, não misticismo. Saiu da torre dos magos porque se entediou "
-                "com teoria."
-            ),
-            knowledge=[
-                "A floresta ao norte está corrompida por magia negra",
-                "O medalhão que encontraram emite uma aura arcana fraca",
-                "Thorn é um guerreiro que ela conheceu há 2 semanas",
-            ],
-            current_mood="curiosa",
-        ),
-        body=CharacterBody(
-            name="Lyra",
-            physical_description="Esguia, orelhas pontudas, olhos violeta, cabelo prateado longo",
-            outfit="Túnica azul escura com runas bordadas, cajado de carvalho",
-        ),
-    ),
-}
-
-DEFAULT_SCENE = Scene(
-    location="Taverna do Velho Mork — salão principal, meia-luz",
-    time_of_day="noite",
-    present_characters=["C1", "C2", "Player"],
-    physical_facts={
-        "lighting": "velas fracas",
-        "crowd": "meia dúzia de bêbados",
-        "weather_outside": "chuva forte",
-        "door": "fechada",
-    },
-)
 
 
 class Runner:
@@ -125,9 +57,46 @@ class Runner:
             if not characters:
                 raise ValueError("A sessão precisa de ao menos um personagem.")
         else:
-            characters = copy.deepcopy(DEFAULT_CHARACTERS)
+            from src.models import dict_to_character
+            from src.store.presets import list_defaults, load_preset
+            defaults = list_defaults()
+            if not defaults:
+                raise ValueError(
+                    "A sessão precisa de ao menos um personagem, "
+                    "e nenhum preset padrão foi encontrado."
+                )
+            preset_data = load_preset(defaults[0])
+            if not preset_data or "characters" not in preset_data:
+                raise ValueError(
+                    "A sessão precisa de ao menos um personagem, "
+                    "e o preset padrão está corrompido."
+                )
+            characters = {
+                cid: dict_to_character(cdata)
+                for cid, cdata in preset_data["characters"].items()
+            }
 
-        scene = cfg.get("scene") or copy.deepcopy(DEFAULT_SCENE)
+        if "scene" in cfg:
+            scene = cfg["scene"]
+        else:
+            from src.store.presets import list_defaults, load_preset
+            defaults = list_defaults()
+            if defaults:
+                preset_data = load_preset(defaults[0])
+                if preset_data and "scene" in preset_data:
+                    from src.models import Scene
+                    sdata = preset_data["scene"]
+                    scene = Scene(
+                        location=sdata["location"],
+                        time_of_day=sdata["time_of_day"],
+                        present_characters=list(sdata.get("present_characters", [])),
+                        physical_facts=dict(sdata.get("physical_facts", {})),
+                    )
+                else:
+                    raise ValueError("Nenhuma cena padrão disponível.")
+            else:
+                raise ValueError("Nenhuma cena padrão disponível.")
+
         # Não confiar no cliente: present_characters é derivado dos personagens.
         scene.present_characters = [*characters, "Player"]
 

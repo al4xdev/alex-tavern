@@ -6,3 +6,6 @@ __pycache__/
 *.egg-info/
 dist/
 .data/
+unsloth_compiled_cache/
+src/static/app.js2
+

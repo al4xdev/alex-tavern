@@ -77,6 +77,11 @@ function scrollToBottom() {
 function updateActionPopup() {
     if (actionUndoBtn) actionUndoBtn.style.display = state.canUndo ? '' : 'none';
     if (actionRetryBtn) actionRetryBtn.style.display = state.lastTurnFailed ? '' : 'none';
+    // Hide the popup entirely when there's nothing to show — prevents
+    // an empty bordered box (tiny black dot) from appearing on hover/long-press.
+    if (actionPopup) {
+        actionPopup.style.display = (state.canUndo || state.lastTurnFailed) ? '' : 'none';
+    }
 }
 
 function hideActionPopup() {
@@ -649,6 +654,7 @@ let longPressTimer = null;
 const LONG_PRESS_MS = 600;
 
 function showActionPopup() {
+    if (!state.canUndo && !state.lastTurnFailed) return;
     if (actionPopup) actionPopup.classList.add('visible');
 }
 function cancelLongPress() {

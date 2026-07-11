@@ -882,7 +882,8 @@ select.text-input { cursor: pointer; }
 /* Toast */
 .toast-wrap {
     position: fixed;
-    bottom: 20px;
+    top: 20px;
+    top: max(20px, env(safe-area-inset-top));
     left: 50%;
     transform: translateX(-50%);
     z-index: 200;
@@ -919,8 +920,8 @@ select.text-input { cursor: pointer; }
 @keyframes pulse { from { opacity: 0.3; transform: scale(0.8); } to { opacity: 1; transform: scale(1.25); } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
-@keyframes toastIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes toastOut { to { opacity: 0; transform: translateY(16px); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-16px); } }
 
 /* ══════════════════ Responsive / mobile ══════════════════ */
 @media (max-width: 760px) {

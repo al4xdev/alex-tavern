@@ -163,8 +163,9 @@ async def narrate(
     result = await chat_completion_json(
         client,
         messages,
-        max_tokens=config.get("max_tokens_narrator", 1024),
-        temperature=config.get("temperature_narrator", 0.0),
+        model=config.get("model", ""),
+        language=config.get("language", ""),
+        max_tokens=config.get("max_tokens_narrator", 2048),
     )
 
     # Valida campos obrigatórios

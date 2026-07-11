@@ -11,28 +11,26 @@ from typing import Any, cast
 
 import httpx
 
-LLAMA_HOST = "http://localhost:8888"
-CHAT_ENDPOINT = "/v1/chat/completions"
-DEFAULT_TIMEOUT = 60.0
-
 
 async def chat_completion(
     client: httpx.AsyncClient,
     messages: list[dict],
     *,
+    model: str = "",
+    language: str = "",
     response_format: dict | None = None,
     max_tokens: int = 1024,
-    temperature: float = 0.7,
-    timeout: float = DEFAULT_TIMEOUT,
+    timeout: float = 60.0,
 ) -> str:
     """Chama /v1/chat/completions e retorna ``content`` como string.
 
     Args:
-        client: httpx.AsyncClient compartilhado (base_url aponta para LLAMA_HOST).
+        client: httpx.AsyncClient compartilhado.
         messages: Lista de mensagens no formato OpenAI.
+        model: O nome do modelo.
+        language: Idioma de resposta a ser injetado.
         response_format: ``{"type": "json_object"}`` ou ``None``.
         max_tokens: Máximo de tokens na resposta.
-        temperature: Temperatura do modelo.
         timeout: Timeout em segundos.
 
     Returns:
@@ -42,18 +40,34 @@ async def chat_completion(
         httpx.HTTPError: Se a chamada HTTP falhar.
         KeyError: Se a resposta não tiver o formato esperado.
     """
+    if language:
+        import copy
+        messages = [copy.deepcopy(m) for m in messages]
+        system_msg = None
+        for msg in messages:
+            if msg.get("role") == "system":
+                system_msg = msg
+                break
+
+        instruction = f"\n- Always respond and write in {language}."
+        if system_msg:
+            content = system_msg.get("content", "")
+            if instruction not in content:
+                system_msg["content"] = content.rstrip() + instruction
+        else:
+            messages.insert(0, {"role": "system", "content": instruction.strip()})
+
     payload: dict[str, Any] = {
-        "model": "",
+        "model": model,
         "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": temperature,
         "stream": False,
     }
     if response_format is not None:
         payload["response_format"] = response_format
 
     r = await client.post(
-        CHAT_ENDPOINT,
+        "/v1/chat/completions",
         json=payload,
         timeout=httpx.Timeout(timeout),
     )
@@ -65,10 +79,11 @@ async def chat_completion_json(
     client: httpx.AsyncClient,
     messages: list[dict],
     *,
+    model: str = "",
+    language: str = "",
     max_tokens: int = 1024,
-    temperature: float = 0.0,
     retries: int = 2,
-    timeout: float = DEFAULT_TIMEOUT,
+    timeout: float = 60.0,
 ) -> dict:
     """Wrapper que força ``response_format`` json_object e faz ``json.loads()``.
 
@@ -78,8 +93,9 @@ async def chat_completion_json(
     Args:
         client: httpx.AsyncClient compartilhado.
         messages: Lista de mensagens no formato OpenAI.
+        model: O nome do modelo.
+        language: Idioma de resposta a ser injetado.
         max_tokens: Máximo de tokens na resposta.
-        temperature: Temperatura (default 0 para JSON determinístico).
         retries: Número de retries se resposta inválida (backoff: 0.5s, 1s, ...).
         timeout: Timeout em segundos.
 
@@ -95,9 +111,10 @@ async def chat_completion_json(
             content = await chat_completion(
                 client,
                 messages,
+                model=model,
+                language=language,
                 response_format={"type": "json_object"},
                 max_tokens=max_tokens,
-                temperature=temperature,
                 timeout=timeout,
             )
             if not content or not content.strip():
