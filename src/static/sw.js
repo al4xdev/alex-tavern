@@ -1,9 +1,11 @@
 /* ══════════════════════════════════════════════════════════════════════
-   sw.js — service worker: precache the app shell, cache-first for static
-   assets, network-only for the API. Gives installability + offline shell.
+   sw.js — service worker: precache the app shell, network-first (falling
+   back to cache) for static assets, network-only for the API. Gives
+   installability + offline shell without ever serving a stale bundle
+   while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v1';
+const CACHE = 'rpt-shell-v2';
 const SHELL = [
     '/',
     '/index.html',
@@ -58,17 +60,19 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Static assets: cache-first, then network (and populate cache).
+    // Static assets: network-first (always fresh while the server is up),
+    // falling back to the cached copy only when the network fails — so
+    // editing a file always takes effect on the next load, cache is purely
+    // an offline fallback, not a source of stale bundles.
     event.respondWith(
-        caches.match(request).then((cached) => {
-            if (cached) return cached;
-            return fetch(request).then((res) => {
+        fetch(request)
+            .then((res) => {
                 if (res && res.ok) {
                     const clone = res.clone();
                     caches.open(CACHE).then((c) => c.put(request, clone));
                 }
                 return res;
-            });
-        })
+            })
+            .catch(() => caches.match(request))
     );
 });
