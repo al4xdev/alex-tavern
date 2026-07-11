@@ -136,6 +136,15 @@ class SuggestResponse(BaseModel):
     error: str | None = None
 
 
+class CompactResponse(BaseModel):
+    compacted: bool
+    reason: str | None = None
+    backup_path: str | None = None
+    evicted_turns: int | None = None
+    kept_turns: int | None = None
+    error: str | None = None
+
+
 # ── Rotas ─────────────────────────────────────────────────────────────────
 
 
@@ -289,6 +298,21 @@ async def suggest_actions(session_id: str) -> dict:
     """Sugestões de jogada do Narrador para o personagem controlado (gatilho manual)."""
     assert runner is not None, "Runner não inicializado"
     result = await runner.suggest_actions(session_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@app.post("/session/{session_id}/compact", response_model=CompactResponse)
+async def compact_session(session_id: str) -> dict:
+    """Compacta a sessão: resume turnos antigos, mantém só os mais recentes.
+
+    Gatilho manual (sem trigger automático nesta versão) — reescreve de
+    verdade o histórico ativo. Ver ``Runner.compact_session`` para o
+    comportamento completo (backup, janela, undo pós-compactação).
+    """
+    assert runner is not None, "Runner não inicializado"
+    result = await runner.compact_session(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result

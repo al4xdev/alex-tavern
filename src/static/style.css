@@ -876,6 +876,21 @@ select.text-input { cursor: pointer; }
 }
 .action-btn:hover { background: var(--accent-grad); color: #fff; }
 
+/* Compact button — progress is a mocked width-fill, not real backend
+   progress (see suggestForMe-adjacent compactSession() in app.js). */
+.action-compact-btn { position: relative; overflow: hidden; }
+.action-compact-btn.busy { pointer-events: none; }
+.compact-progress {
+    position: absolute;
+    inset: 0;
+    width: 0%;
+    background: var(--accent-grad);
+    opacity: 0.55;
+    transition: width 0.1s linear;
+    z-index: 0;
+}
+.compact-icon { position: relative; z-index: 1; }
+
 .force-speaker-select {
     height: 34px;
     background: var(--surface-solid);
