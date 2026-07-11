@@ -87,6 +87,32 @@ class GameState:
     narrator_directives: str = ""  # instruções de mundo/tom/regras extras p/ o Narrador
 
 
+def trim_history_by_tokens(
+    history: list[TurnRecord], context_max: int, reserved_tokens: int
+) -> list[TurnRecord]:
+    """Seleciona, do mais recente ao mais antigo, os turnos que cabem no orçamento.
+
+    Orçamento = ~70% de ``context_max`` menos ``reserved_tokens`` (espaço
+    reservado para a resposta do LLM). Estimativa de tokens é ``len(texto) // 4``.
+    Nunca corta pelo número de turnos — só pela proximidade do limite de tokens.
+    Sempre inclui ao menos o turno mais recente, mesmo que ele sozinho já
+    ultrapasse o orçamento.
+    """
+    budget = int(context_max * 0.7) - reserved_tokens
+    if budget <= 0 or not history:
+        return []
+    selected: list[TurnRecord] = []
+    used = 0
+    for rec in reversed(history):
+        cost = len(rec.content) // 4
+        if selected and used + cost > budget:
+            break
+        selected.append(rec)
+        used += cost
+    selected.reverse()
+    return selected
+
+
 def deepcopy_scene(scene: Scene) -> Scene:
     """Retorna uma cópia profunda da Scene (obrigatório para snapshots)."""
     return copy.deepcopy(scene)

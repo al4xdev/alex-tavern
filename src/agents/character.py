@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from src.llm.client import chat_completion
-from src.models import Character, TurnRecord
+from src.models import Character, TurnRecord, trim_history_by_tokens
 
 
 def _build_system_prompt(character: Character) -> str:
@@ -26,17 +26,26 @@ def _build_system_prompt(character: Character) -> str:
     )
 
 
-def _format_history_for_character(history: list[TurnRecord], char_name: str) -> str:
+def _format_history_for_character(
+    history: list[TurnRecord],
+    char_name: str,
+    context_max: int | None = None,
+    max_tokens_character: int = 1024,
+) -> str:
     """Formata o histórico como texto linear para o personagem.
 
     O personagem vê todas as falas/narrações do histórico (o Narrador já
-    filtrou o que é relevante via context_for_character).
+    filtrou o que é relevante via context_for_character), trimado por
+    orçamento de tokens se ``context_max`` informado.
     """
-    if not history:
+    hist = history
+    if context_max is not None:
+        hist = trim_history_by_tokens(history, context_max, max_tokens_character)
+    if not hist:
         return "(none)"
     lines: list[str] = []
-    for rec in history[-5:]:
-        lines.append(f"Turn {rec.turn_number} — {rec.speaker}: {rec.content[:300]}")
+    for rec in hist:
+        lines.append(f"Turn {rec.turn_number} — {rec.speaker}: {rec.content}")
     return "\n".join(lines)
 
 
@@ -61,6 +70,13 @@ async def act(
         Tupla ``(content, messages)``: a fala/pensamento (string pura, sem JSON)
         e os messages enviados ao LLM (para o modo debug).
     """
+    max_tokens_character = config.get("max_tokens_character", 1024)
+    history_text = _format_history_for_character(
+        history,
+        character.mind.name,
+        context_max=config.get("context_max"),
+        max_tokens_character=max_tokens_character,
+    )
     messages = [
         {"role": "system", "content": _build_system_prompt(character)},
         {
@@ -70,7 +86,7 @@ async def act(
                 f"{context}\n"
                 "\n"
                 "RECENT EVENTS:\n"
-                f"{_format_history_for_character(history, character.mind.name)}\n"
+                f"{history_text}\n"
                 "\n"
                 "What do you say or think?"
             ),
@@ -82,7 +98,7 @@ async def act(
         messages,
         model=config.get("model", ""),
         language=config.get("language", ""),
-        max_tokens=config.get("max_tokens_character", 1024),
+        max_tokens=max_tokens_character,
     )
 
     return content.strip(), messages

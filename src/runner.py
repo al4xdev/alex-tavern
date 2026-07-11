@@ -343,6 +343,8 @@ class Runner:
             player_controlled_id=game.player.controlled_character_id,
             history=game.history,
             narrator_directives=game.narrator_directives,
+            context_max=self.config.get("context_max"),
+            max_tokens_narrator=self.config.get("max_tokens_narrator", 2048),
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:

@@ -7,7 +7,7 @@ import json
 import httpx
 
 from src.llm.client import chat_completion_json
-from src.models import Character, Scene, TurnRecord
+from src.models import Character, Scene, TurnRecord, trim_history_by_tokens
 
 
 def _build_system_prompt(
@@ -52,6 +52,8 @@ def _build_user_prompt(
     player_action: str,
     player_controlled_id: str,
     history: list[TurnRecord],
+    context_max: int | None = None,
+    max_tokens_narrator: int = 2048,
 ) -> str:
     """Constrói o user prompt com cena, personagens, input do Player e histórico."""
     lines: list[str] = []
@@ -81,14 +83,14 @@ def _build_user_prompt(
     lines.append(f"  Action: {player_action or '(no action)'}")
     lines.append("")
 
-    # Histórico recente (últimos 5 turnos)
-    lines.append("RECENT HISTORY (last 5 turns):")
-    if history:
-        recent = history[-5:]
-        for rec in recent:
-            lines.append(
-                f"  Turn {rec.turn_number} — {rec.speaker}: {rec.content[:200]}"
-            )
+    # Histórico — janela completa, ou trimada por orçamento de tokens se context_max informado
+    lines.append("HISTORY:")
+    hist = history
+    if context_max is not None:
+        hist = trim_history_by_tokens(history, context_max, max_tokens_narrator)
+    if hist:
+        for rec in hist:
+            lines.append(f"  Turn {rec.turn_number} — {rec.speaker}: {rec.content}")
     else:
         lines.append("  (none — first turn)")
     lines.append("")
@@ -104,6 +106,8 @@ def build_narrator_messages(
     player_controlled_id: str,
     history: list[TurnRecord],
     narrator_directives: str = "",
+    context_max: int | None = None,
+    max_tokens_narrator: int = 2048,
 ) -> list[dict]:
     """Monta os messages (system + user) do Narrador — puro, sem chamar o LLM.
 
@@ -123,6 +127,8 @@ def build_narrator_messages(
                 player_action=player_action,
                 player_controlled_id=player_controlled_id,
                 history=history,
+                context_max=context_max,
+                max_tokens_narrator=max_tokens_narrator,
             ),
         },
     ]
@@ -150,6 +156,7 @@ async def narrate(
     Raises:
         ValueError: Se o JSON retornado não tiver os campos obrigatórios.
     """
+    max_tokens_narrator = config.get("max_tokens_narrator", 2048)
     messages = build_narrator_messages(
         scene=scene,
         characters=characters,
@@ -158,6 +165,8 @@ async def narrate(
         player_controlled_id=player_controlled_id,
         history=history,
         narrator_directives=narrator_directives,
+        context_max=config.get("context_max"),
+        max_tokens_narrator=max_tokens_narrator,
     )
 
     result = await chat_completion_json(
@@ -165,7 +174,7 @@ async def narrate(
         messages,
         model=config.get("model", ""),
         language=config.get("language", ""),
-        max_tokens=config.get("max_tokens_narrator", 2048),
+        max_tokens=max_tokens_narrator,
     )
 
     # Valida campos obrigatórios
