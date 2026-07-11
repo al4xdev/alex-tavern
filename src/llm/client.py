@@ -75,7 +75,8 @@ async def chat_completion(
         client: httpx.AsyncClient compartilhado.
         messages: Lista de mensagens no formato OpenAI.
         model: O nome do modelo.
-        language: Idioma de resposta a ser injetado.
+        language: Idioma de resposta a ser injetado (opcional). Independente disso,
+            toda chamada recebe a instrução de evitar travessão/en dash.
         response_format: ``{"type": "json_object"}`` ou ``None``.
         max_tokens: Máximo de tokens na resposta.
         timeout: Timeout em segundos.
@@ -92,22 +93,29 @@ async def chat_completion(
         httpx.HTTPError: Se a chamada HTTP falhar.
         KeyError: Se a resposta não tiver o formato esperado.
     """
+    extra_instructions: list[str] = []
     if language:
-        import copy
-        messages = [copy.deepcopy(m) for m in messages]
-        system_msg = None
-        for msg in messages:
-            if msg.get("role") == "system":
-                system_msg = msg
-                break
+        extra_instructions.append(f"Always respond and write in {language}.")
+    extra_instructions.append(
+        "Do not use em dashes or en dashes (— –) anywhere in your writing; "
+        "use commas, periods, or parentheses instead."
+    )
 
-        instruction = f"\n- Always respond and write in {language}."
-        if system_msg:
-            content = system_msg.get("content", "")
-            if instruction not in content:
-                system_msg["content"] = content.rstrip() + instruction
-        else:
-            messages.insert(0, {"role": "system", "content": instruction.strip()})
+    import copy
+    messages = [copy.deepcopy(m) for m in messages]
+    system_msg = None
+    for msg in messages:
+        if msg.get("role") == "system":
+            system_msg = msg
+            break
+
+    instruction = "".join(f"\n- {line}" for line in extra_instructions)
+    if system_msg:
+        content = system_msg.get("content", "")
+        if instruction not in content:
+            system_msg["content"] = content.rstrip() + instruction
+    else:
+        messages.insert(0, {"role": "system", "content": instruction.strip()})
 
     payload: dict[str, Any] = {
         "model": model,
@@ -167,7 +175,8 @@ async def chat_completion_json(
         client: httpx.AsyncClient compartilhado.
         messages: Lista de mensagens no formato OpenAI.
         model: O nome do modelo.
-        language: Idioma de resposta a ser injetado.
+        language: Idioma de resposta a ser injetado (opcional). Independente disso,
+            toda chamada recebe a instrução de evitar travessão/en dash.
         max_tokens: Máximo de tokens na resposta.
         json_schema: Schema opcional para saída estruturada via grammar.
         retries: Número de retries se resposta inválida (backoff: 0.5s, 1s, ...).

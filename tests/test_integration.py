@@ -1205,5 +1205,36 @@ class TestLanguageConfiguration:
         assert captured_payload is not None
         msgs = captured_payload["messages"]
         assert msgs[0]["role"] == "system"
-        assert msgs[0]["content"] == "- Always respond and write in French."
+        assert "- Always respond and write in French." in msgs[0]["content"]
+        assert "em dashes" in msgs[0]["content"]
         assert msgs[1]["role"] == "user"
+
+    @pytest.mark.asyncio
+    async def test_dash_avoidance_injected_without_language(self, monkeypatch) -> None:
+        """A instrução de evitar travessão/en dash é injetada mesmo sem `language`."""
+        import httpx
+
+        from src.llm.client import chat_completion
+
+        captured_payload = None
+
+        async def mock_post(url, json, **kwargs):
+            nonlocal captured_payload
+            captured_payload = json
+            req = httpx.Request("POST", url)
+            return httpx.Response(200, json={
+                "choices": [{"message": {"content": "Olá"}}]
+            }, request=req)
+
+        client = httpx.AsyncClient()
+        monkeypatch.setattr(client, "post", mock_post)
+
+        await chat_completion(
+            client=client,
+            messages=[{"role": "system", "content": "Você é o narrador."}],
+        )
+
+        assert captured_payload is not None
+        content = captured_payload["messages"][0]["content"]
+        assert "em dashes" in content
+        assert "Always respond and write in" not in content
