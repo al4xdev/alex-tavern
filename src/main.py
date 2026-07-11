@@ -145,6 +145,13 @@ class CompactResponse(BaseModel):
     error: str | None = None
 
 
+class RestoreCompactionResponse(BaseModel):
+    restored: bool
+    reason: str | None = None
+    history_length: int | None = None
+    error: str | None = None
+
+
 # ── Rotas ─────────────────────────────────────────────────────────────────
 
 
@@ -313,6 +320,21 @@ async def compact_session(session_id: str) -> dict:
     """
     assert runner is not None, "Runner não inicializado"
     result = await runner.compact_session(session_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@app.post("/session/{session_id}/restore_compaction", response_model=RestoreCompactionResponse)
+async def restore_compaction(session_id: str) -> dict:
+    """Desfaz a última compactação, restaurando o backup mais recente.
+
+    ⚠️ Só restaura se nenhum turno novo foi jogado desde aquela compactação —
+    caso contrário se recusa (ver ``Runner.restore_last_compaction``), pra
+    nunca descartar jogadas de verdade.
+    """
+    assert runner is not None, "Runner não inicializado"
+    result = await runner.restore_last_compaction(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result

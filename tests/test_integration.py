@@ -665,6 +665,44 @@ class TestRunnerLogic:
             assert len(game.history) == 0
             assert game.scene.physical_facts["door"] == "fechada"  # original
 
+    @pytest.mark.asyncio
+    async def test_call_narrator_passes_story_summary(self, monkeypatch) -> None:  # noqa: ANN001
+        """_call_narrator repassa game.story_summary pro Narrador."""
+        from src import runner as runner_mod
+
+        captured: dict = {}
+
+        async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
+            captured.update(kwargs)
+            return {"narration": "ok", "next_speaker": "Narrator", "context_for_character": ""}
+
+        monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
+
+        game = _make_test_game()
+        game.story_summary = "Resumo de teste."
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+        await runner._call_narrator(game, 1)
+        assert captured["story_summary"] == "Resumo de teste."
+
+    @pytest.mark.asyncio
+    async def test_call_character_passes_own_notes_only(self, monkeypatch) -> None:  # noqa: ANN001
+        """_call_character repassa só a nota do PRÓPRIO personagem, nunca a de outro."""
+        from src import runner as runner_mod
+
+        captured: dict = {}
+
+        async def fake_act(**kwargs):  # noqa: ANN003, ANN202
+            captured.update(kwargs)
+            return "fala"
+
+        monkeypatch.setattr(runner_mod, "character_act", fake_act)
+
+        game = _make_test_game()
+        game.character_notes = {"C1": "nota do Thorn", "C2": "nota da Lyra"}
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+        await runner._call_character(game, "C1", "ctx", 1)
+        assert captured["notes"] == "nota do Thorn"
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes — compact_session (compactação de sessão)
@@ -783,6 +821,159 @@ class TestCompactSession:
         """Compactar sessão inexistente devolve erro, sem levantar exceção."""
         result = await self.runner.compact_session("naoexiste")
         assert "error" in result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Testes — restore_last_compaction (desfazer compactação, com trava de segurança)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestRestoreCompaction:
+    """A trava de segurança é o que importa aqui: nunca perder jogadas novas."""
+
+    def setup_method(self) -> None:
+        self.sid = generate_session_id()
+        self.client = httpx.AsyncClient(base_url="http://localhost:8888")
+        self.runner = Runner(self.client, {"compaction_keep_recent_turns": 8})
+
+    def teardown_method(self) -> None:
+        delete_session(self.sid)
+        for f in SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"):
+            f.unlink()
+
+    def _seed_history(self, num_turns: int) -> None:
+        game = _make_test_game(self.sid)
+        save_game(game)
+        self._append_turns(num_turns)
+
+    def _append_turns(self, count: int) -> None:
+        """Acrescenta mais `count` passos (1 registro cada) à sessão já salva."""
+        game = load_game(self.sid)
+        assert game is not None
+        start = (game.history[-1].turn_number + 1) if game.history else 1
+        for i in range(start, start + count):
+            game.history.append(
+                TurnRecord(
+                    turn_number=i,
+                    speaker="Player",
+                    content=f"Ação do turno {i}.",
+                    content_type="action",
+                    scene_snapshot=copy.deepcopy(game.scene),
+                    mood_snapshot={"C1": "cauteloso", "C2": "curiosa"},
+                )
+            )
+        save_game(game)
+
+    def _mock_summarize(self, monkeypatch) -> None:  # noqa: ANN001
+        from src import runner as runner_mod
+
+        async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
+            return "Resumo.", {}
+
+        monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
+
+    @pytest.mark.asyncio
+    async def test_restore_after_compaction_with_no_new_turns(self, monkeypatch) -> None:  # noqa: ANN001
+        """Nada mudou desde a compactação -> restaura, backup some, histórico volta."""
+        self._mock_summarize(monkeypatch)
+        self._seed_history(12)
+        pre_compaction_bytes = (SESSIONS_DIR / f"{self.sid}.json").read_bytes()
+
+        compact_result = await self.runner.compact_session(self.sid)
+        assert compact_result["compacted"] is True
+
+        result = await self.runner.restore_last_compaction(self.sid)
+        assert result["restored"] is True
+        assert result["history_length"] == 12
+
+        assert (SESSIONS_DIR / f"{self.sid}.json").read_bytes() == pre_compaction_bytes
+        assert list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json")) == []  # backup consumido
+
+    @pytest.mark.asyncio
+    async def test_restore_refuses_when_new_turns_played_after_compaction(
+        self, monkeypatch  # noqa: ANN001
+    ) -> None:
+        """Jogou mais depois de compactar -> restaurar é recusado, nada muda."""
+        self._mock_summarize(monkeypatch)
+        self._seed_history(12)
+        await self.runner.compact_session(self.sid)
+
+        # Joga mais um passo em cima da sessão já compactada
+        game = load_game(self.sid)
+        assert game is not None
+        game.history.append(
+            TurnRecord(
+                turn_number=game.history[-1].turn_number + 1,
+                speaker="Player",
+                content="Ação nova pós-compactação.",
+                content_type="action",
+                scene_snapshot=copy.deepcopy(game.scene),
+                mood_snapshot={"C1": "cauteloso", "C2": "curiosa"},
+            )
+        )
+        save_game(game)
+        pre_restore_bytes = (SESSIONS_DIR / f"{self.sid}.json").read_bytes()
+
+        result = await self.runner.restore_last_compaction(self.sid)
+        assert result["restored"] is False
+        assert "mais recentes" in result["reason"]
+
+        # Nada foi alterado: sessão idêntica, backup continua existindo
+        assert (SESSIONS_DIR / f"{self.sid}.json").read_bytes() == pre_restore_bytes
+        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1
+
+    @pytest.mark.asyncio
+    async def test_restore_no_backup_available(self) -> None:
+        """Sem nenhuma compactação feita -> recusa por falta de backup."""
+        self._seed_history(3)
+        result = await self.runner.restore_last_compaction(self.sid)
+        assert result["restored"] is False
+        assert "Nenhum backup" in result["reason"]
+
+    @pytest.mark.asyncio
+    async def test_restore_missing_session(self) -> None:
+        """Sessão inexistente devolve erro, no mesmo formato de compact/undo."""
+        result = await self.runner.restore_last_compaction("naoexiste")
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_restore_only_undoes_the_most_recent_compaction(
+        self, monkeypatch  # noqa: ANN001
+    ) -> None:
+        """Restaurar é um "ctrl-Z" de uma camada só — não empilha através de
+        múltiplas compactações.
+
+        Depois de restaurar a 2ª compactação (kb_1), os turnos que ela trazia
+        de volta (21-32) voltam a existir ao vivo. Tentar restaurar a 1ª
+        compactação (kb_0, que só conhece até o turno 20) nesse momento
+        apagaria esses turnos — a trava de segurança RECUSA corretamente,
+        em vez de permitir. kb_0 continua intacto, disponível pra restaurar
+        manualmente depois, se o dono aceitar perder 21-32 de propósito.
+        """
+        self._mock_summarize(monkeypatch)
+        self._seed_history(20)
+
+        first_compact = await self.runner.compact_session(self.sid)
+        assert first_compact["compacted"] is True  # evicta 1-12, mantém 13-20 (8 turnos)
+
+        # Sem mais turnos, 8 <= janela(8) -> uma segunda compactação não faria
+        # nada. Joga mais 12 pra passar da janela de novo antes de compactar.
+        self._append_turns(12)
+        second_compact = await self.runner.compact_session(self.sid)
+        assert second_compact["compacted"] is True  # evicta 13-24, mantém 25-32
+        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 2
+
+        # Restaura a compactação mais recente (kb_1) -> turnos 13-32 voltam
+        r1 = await self.runner.restore_last_compaction(self.sid)
+        assert r1["restored"] is True
+        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1
+
+        # Tentar ir além (kb_0, só conhece até o turno 20) é recusado: isso
+        # apagaria os turnos 21-32 que r1 acabou de trazer de volta.
+        r2 = await self.runner.restore_last_compaction(self.sid)
+        assert r2["restored"] is False
+        assert "mais recentes" in r2["reason"]
+        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1  # kb_0 intacto
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1281,6 +1472,63 @@ class TestEdgeCases:
         assert "Thorn: oi" in text  # "Player" traduzido pro nome do controlado
         assert "Player" not in text
         assert "Oi Thorn." in text
+
+    def test_narrator_prompt_includes_story_summary(self) -> None:
+        """story_summary não vazio vira uma seção STORY SO FAR no prompt do Narrador."""
+        from src.agents.narrator import _build_user_prompt
+
+        prompt = _build_user_prompt(
+            scene=DEFAULT_SCENE,
+            characters=DEFAULT_CHARACTERS,
+            player_controlled_id="C1",
+            history=[],
+            story_summary="Thorn e Lyra se conheceram numa taverna sombria.",
+        )
+        assert "STORY SO FAR:" in prompt
+        assert "Thorn e Lyra se conheceram numa taverna sombria." in prompt
+
+    def test_narrator_prompt_omits_story_summary_when_empty(self) -> None:
+        """Sem story_summary, a seção STORY SO FAR nem aparece."""
+        from src.agents.narrator import _build_user_prompt
+
+        prompt = _build_user_prompt(
+            scene=DEFAULT_SCENE,
+            characters=DEFAULT_CHARACTERS,
+            player_controlled_id="C1",
+            history=[],
+        )
+        assert "STORY SO FAR" not in prompt
+
+    def test_character_prompt_includes_own_notes(self) -> None:
+        """A nota do próprio personagem vira uma linha 'What you remember' no prompt."""
+        from src.agents.character import _build_system_prompt
+
+        thorn = DEFAULT_CHARACTERS["C1"]
+        prompt = _build_system_prompt(thorn, notes="Ficou tenso ao ouvir sobre a Guarda de Ferro.")
+        assert "What you remember: Ficou tenso ao ouvir sobre a Guarda de Ferro." in prompt
+
+    def test_character_prompt_never_leaks_another_characters_notes(self) -> None:
+        """act() só recebe a nota do PRÓPRIO personagem — nunca a de outro.
+
+        A assinatura de `act`/`_build_system_prompt` só aceita uma string
+        (a nota de um personagem só), então não há como o runner passar o
+        dict inteiro por engano — mas o teste documenta a garantia: a nota
+        de C2 nunca aparece no prompt de C1 quando só a nota de C1 é passada.
+        """
+        from src.agents.character import _build_system_prompt
+
+        thorn = DEFAULT_CHARACTERS["C1"]
+        prompt = _build_system_prompt(thorn, notes="Nota exclusiva do Thorn.")
+        assert "Nota exclusiva do Thorn." in prompt
+        assert "nota da Lyra" not in prompt  # nunca foi passada, nem podia vazar
+
+    def test_character_prompt_omits_notes_line_when_empty(self) -> None:
+        """Sem nota, a linha 'What you remember' nem aparece."""
+        from src.agents.character import _build_system_prompt
+
+        thorn = DEFAULT_CHARACTERS["C1"]
+        prompt = _build_system_prompt(thorn)
+        assert "What you remember" not in prompt
 
     def test_append_history_deepcopy(self) -> None:
         """_append_history usa deepcopy — modificar cena posterior não afeta snapshot."""

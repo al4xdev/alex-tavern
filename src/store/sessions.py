@@ -120,6 +120,83 @@ def backup_session(session_id: str) -> str:
     return str(backup_path)
 
 
+def find_latest_backup(session_id: str) -> Path | None:
+    """Acha o backup de compactação mais recente ({session_id}.kb_N.json de maior N).
+
+    Returns:
+        Path do backup, ou None se não houver nenhum.
+    """
+    _ensure_sessions_dir()
+    pattern = re.compile(rf"^{re.escape(session_id)}\.kb_(\d+)\.json$")
+    candidates = [
+        (int(m.group(1)), f)
+        for f in SESSIONS_DIR.iterdir()
+        if (m := pattern.match(f.name))
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=lambda t: t[0])
+    return candidates[-1][1]
+
+
+def restore_last_backup(session_id: str) -> dict:
+    """Desfaz a última compactação, restaurando o backup mais recente — SE seguro.
+
+    ⚠️ Operação arriscada por natureza: só restaura se NENHUM turno novo foi
+    jogado desde aquela compactação (o maior ``turn_number`` da sessão ativa
+    não pode ser maior que o maior ``turn_number`` do próprio backup) — senão,
+    restaurar descartaria essas jogadas novas de verdade (elas não existem no
+    backup, que é anterior a elas). Nesse caso a operação se RECUSA, sem tocar
+    em nada — nunca tenta "mesclar" os dois históricos.
+
+    DEVE ser chamado dentro de um ``async with _get_lock(session_id)``.
+    Trabalha em cima dos dicts JSON crus (sem round-trip por dataclass), pra
+    minimizar a chance de um bug de (de)serialização mascarar a checagem.
+
+    Returns:
+        ``{"error": "..."}`` se a sessão não existe (mesmo formato de
+        ``undo_turn``/``compact_session``, pro endpoint devolver 404).
+        ``{"restored": False, "reason": "..."}`` se não há backup, ou não é
+        seguro restaurar (nada é alterado nesse caso).
+        ``{"restored": True, "history_length": N}`` se restaurou — o backup
+        consumido é apagado; uma nova chamada, se houver outro backup mais
+        antigo, restaura esse (mesmo espírito do undo: uma chamada por vez).
+    """
+    path = _session_path(session_id)
+    if not path.exists():
+        return {"error": f"Sessão {session_id} não encontrada."}
+
+    backup_path = find_latest_backup(session_id)
+    if backup_path is None:
+        return {"restored": False, "reason": "Nenhum backup de compactação encontrado."}
+
+    try:
+        backup_data: dict[str, Any] = json.loads(backup_path.read_text(encoding="utf-8"))
+        live_data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return {"restored": False, "reason": f"Backup ou sessão corrompidos: {e}"}
+
+    backup_max_turn = max(
+        (h["turn_number"] for h in backup_data.get("history", [])), default=0
+    )
+    live_max_turn = max(
+        (h["turn_number"] for h in live_data.get("history", [])), default=0
+    )
+    if live_max_turn > backup_max_turn:
+        return {
+            "restored": False,
+            "reason": (
+                f"Há turnos mais recentes (até {live_max_turn}) do que o backup "
+                f"(até {backup_max_turn}) — restaurar perderia essas jogadas. "
+                "Nada foi alterado."
+            ),
+        }
+
+    path.write_bytes(backup_path.read_bytes())
+    backup_path.unlink()
+    return {"restored": True, "history_length": len(backup_data.get("history", []))}
+
+
 def delete_session(session_id: str) -> None:
     """Remove o arquivo de sessão e o log bruto de chamadas LLM. Usado em testes."""
     path = _session_path(session_id)

@@ -68,6 +68,10 @@ const api = {
         return apiFetch(`/session/${sessionId}/compact`, { method: 'POST' });
     },
 
+    restoreCompaction(sessionId) {
+        return apiFetch(`/session/${sessionId}/restore_compaction`, { method: 'POST' });
+    },
+
     getDebugLog(sessionId) {
         return apiFetch(`/session/${sessionId}/debug_log`);
     },

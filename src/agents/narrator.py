@@ -93,6 +93,7 @@ def _build_user_prompt(
     history: list[TurnRecord],
     context_max: int | None = None,
     max_tokens_narrator: int = 2048,
+    story_summary: str = "",
 ) -> str:
     """Constrói o user prompt com cena, personagens e histórico.
 
@@ -100,6 +101,13 @@ def _build_user_prompt(
     incluindo o personagem controlado) já está no fim do HISTORY.
     """
     lines: list[str] = []
+
+    # Resumo dos turnos já compactados (ver runner.compact_session) — contexto
+    # de mundo, só o Narrador vê isso.
+    if story_summary.strip():
+        lines.append("STORY SO FAR:")
+        lines.append(f"  {story_summary.strip()}")
+        lines.append("")
 
     # Cena atual
     lines.append("CURRENT SCENE:")
@@ -143,6 +151,7 @@ def build_narrator_messages(
     narrator_directives: str = "",
     context_max: int | None = None,
     max_tokens_narrator: int = 2048,
+    story_summary: str = "",
 ) -> list[dict]:
     """Monta os messages (system + user) do Narrador — puro, sem chamar o LLM.
 
@@ -162,6 +171,7 @@ def build_narrator_messages(
                 history=history,
                 context_max=context_max,
                 max_tokens_narrator=max_tokens_narrator,
+                story_summary=story_summary,
             ),
         },
     ]
@@ -177,6 +187,7 @@ async def narrate(
     narrator_directives: str = "",
     session_id: str = "",
     turn_number: int = 0,
+    story_summary: str = "",
 ) -> dict:
     """Constrói prompt do Narrador, chama LLM, devolve dict validado.
 
@@ -184,6 +195,9 @@ async def narrate(
     entrada do HISTORY, seja de quem for. ``player_controlled_id`` só é usado
     para traduzir o marcador interno ``"Player"`` no nome do personagem ao
     montar o histórico — nunca aparece como texto no prompt.
+
+    ``story_summary`` é o resumo de turnos já compactados (ver
+    ``runner.compact_session``) — contexto de mundo, só o Narrador recebe.
 
     ``session_id``/``turn_number`` só existem para o log bruto de chamadas LLM
     (ver ``src/llm/client.py``) — não afetam o prompt.
@@ -204,6 +218,7 @@ async def narrate(
         narrator_directives=narrator_directives,
         context_max=config.get("context_max"),
         max_tokens_narrator=max_tokens_narrator,
+        story_summary=story_summary,
     )
 
     result = await chat_completion_json(
