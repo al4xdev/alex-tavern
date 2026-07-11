@@ -124,7 +124,7 @@ def _build_user_prompt(
     for cid in characters:
         ch = characters[cid]
         lines.append(f"  {cid} — {ch.mind.name}")
-        lines.append(f"    Personality: {ch.mind.personality_summary}")
+        lines.append(f"    Personality: {ch.mind.personality}")
         lines.append(f"    Appearance: {ch.body.physical_description}")
         lines.append(f"    Outfit: {ch.body.outfit}")
         lines.append(f"    Mood: {ch.mind.current_mood}")

@@ -42,8 +42,8 @@ DEFAULT_CHARACTERS: dict[str, Character] = {
     "C1": Character(
         mind=CharacterMind(
             name="Thorn",
-            personality_summary="Guerreiro estoico e leal. Fala pouco, age com decisão.",
-            personality_full=(
+            personality=(
+                "Guerreiro estoico e leal. Fala pouco, age com decisão.\n\n"
                 "Thorn é um guerreiro veterano de 40 anos que serviu na Guarda de Ferro "
                 "por duas décadas. Estoico, leal até a morte, e desconfiado de magia. "
                 "Fala em frases curtas e diretas. Protege os mais fracos por instinto. "
@@ -65,8 +65,8 @@ DEFAULT_CHARACTERS: dict[str, Character] = {
     "C2": Character(
         mind=CharacterMind(
             name="Lyra",
-            personality_summary="Maga élfica curiosa e impulsiva. Fala demais quando nervosa.",
-            personality_full=(
+            personality=(
+                "Maga élfica curiosa e impulsiva. Fala demais quando nervosa.\n\n"
                 "Lyra é uma maga élfica de 120 anos (jovem pra um elfo). Curiosa ao ponto "
                 "de se meter em perigo. Impulsiva — age primeiro, pensa depois. Quando "
                 "nervosa, fala sem parar. Tem um senso de humor sarcástico. Trata magia "
@@ -477,8 +477,7 @@ class TestRunnerLogic:
         """Personagens padrão têm todos os campos preenchidos."""
         for cid, ch in DEFAULT_CHARACTERS.items():
             assert ch.mind.name, f"{cid} sem nome"
-            assert ch.mind.personality_summary, f"{cid} sem summary"
-            assert ch.mind.personality_full, f"{cid} sem full personality"
+            assert ch.mind.personality, f"{cid} sem personality"
             assert ch.mind.knowledge, f"{cid} sem knowledge"
             assert ch.mind.current_mood, f"{cid} sem mood"
             assert ch.body.physical_description, f"{cid} sem descrição física"
@@ -783,8 +782,7 @@ def _custom_char(name: str, mood: str = "neutro") -> Character:
     return Character(
         mind=CharacterMind(
             name=name,
-            personality_summary=f"{name} resumo",
-            personality_full=f"{name} personalidade completa",
+            personality=f"{name} personalidade completa",
             knowledge=[f"{name} sabe de algo"],
             current_mood=mood,
         ),

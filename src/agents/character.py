@@ -11,7 +11,7 @@ from src.models import Character, TurnRecord, trim_history_by_tokens
 def _build_system_prompt(character: Character) -> str:
     return (
         f"You are {character.mind.name}. Stay in character at all times.\n"
-        f"Personality: {character.mind.personality_full}\n"
+        f"Personality: {character.mind.personality}\n"
         f"Knowledge: {', '.join(character.mind.knowledge)}\n"
         f"Current mood: {character.mind.current_mood}\n"
         "\n"

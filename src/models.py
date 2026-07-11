@@ -12,8 +12,7 @@ class CharacterMind:
     """Visível ao próprio personagem e ao Narrador."""
 
     name: str
-    personality_summary: str  # ~2 frases, vai pro user prompt
-    personality_full: str  # descrição longa, vai pro system prompt
+    personality: str  # descrição da personalidade, vai pro prompt do Narrador e do personagem
     knowledge: list[str]  # fatos que o personagem conhece
     current_mood: str  # atualizado pelo Narrador via mood_updates a cada turno
 
@@ -123,6 +122,17 @@ def game_state_to_dict(game: GameState) -> dict[str, Any]:
     return asdict(game)
 
 
+def resolve_personality(data: dict[str, Any]) -> str:
+    """Lê ``personality`` ou migra do formato legado (``personality_summary`` +
+    ``personality_full``), para não quebrar dados salvos antes da unificação.
+    """
+    personality = data.get("personality")
+    if personality is not None:
+        return str(personality)
+    legacy = [data.get("personality_summary"), data.get("personality_full")]
+    return "\n\n".join(p for p in legacy if p)
+
+
 def dict_to_character(data: dict[str, Any]) -> Character:
     """Constrói um Character a partir de um dict com chaves ``mind`` e ``body``.
 
@@ -133,8 +143,7 @@ def dict_to_character(data: dict[str, Any]) -> Character:
     return Character(
         mind=CharacterMind(
             name=mind_data["name"],
-            personality_summary=mind_data["personality_summary"],
-            personality_full=mind_data["personality_full"],
+            personality=resolve_personality(mind_data),
             knowledge=list(mind_data["knowledge"]),
             current_mood=mind_data["current_mood"],
         ),

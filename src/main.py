@@ -83,8 +83,7 @@ app.add_middleware(
 
 class CharacterInput(BaseModel):
     name: str
-    personality_summary: str = ""
-    personality_full: str = ""
+    personality: str = ""
     knowledge: list[str] = Field(default_factory=list)
     current_mood: str = ""
     physical_description: str = ""
@@ -169,15 +168,14 @@ def start_session(req: StartSessionRequest) -> dict:
                 preset_data = first_def
 
     def parse_character_data(cdata: dict[str, Any]) -> Character:
-        from src.models import CharacterBody, CharacterMind
+        from src.models import CharacterBody, CharacterMind, resolve_personality
         if "mind" in cdata and "body" in cdata:
             mind_data = cdata["mind"]
             body_data = cdata["body"]
             return Character(
                 mind=CharacterMind(
                     name=mind_data["name"],
-                    personality_summary=mind_data["personality_summary"],
-                    personality_full=mind_data["personality_full"],
+                    personality=resolve_personality(mind_data),
                     knowledge=list(mind_data.get("knowledge", [])),
                     current_mood=mind_data.get("current_mood", ""),
                 ),
@@ -191,8 +189,7 @@ def start_session(req: StartSessionRequest) -> dict:
             return Character(
                 mind=CharacterMind(
                     name=cdata["name"],
-                    personality_summary=cdata.get("personality_summary", ""),
-                    personality_full=cdata.get("personality_full", ""),
+                    personality=resolve_personality(cdata),
                     knowledge=list(cdata.get("knowledge", [])),
                     current_mood=cdata.get("current_mood", ""),
                 ),
@@ -210,8 +207,7 @@ def start_session(req: StartSessionRequest) -> dict:
                 {
                     "mind": {
                         "name": ci.name,
-                        "personality_summary": ci.personality_summary,
-                        "personality_full": ci.personality_full,
+                        "personality": ci.personality,
                         "knowledge": ci.knowledge,
                         "current_mood": ci.current_mood,
                     },

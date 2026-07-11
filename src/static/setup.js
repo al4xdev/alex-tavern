@@ -76,8 +76,7 @@ const Setup = (() => {
         const frag = cardTpl.content.cloneNode(true);
         const card = frag.querySelector('.char-card');
         card.querySelector('.char-name').value     = data.name || '';
-        card.querySelector('.char-summary').value   = data.personality_summary || '';
-        card.querySelector('.char-full').value      = data.personality_full || '';
+        card.querySelector('.char-personality').value = data.personality || '';
         card.querySelector('.char-mood').value      = data.current_mood || '';
         card.querySelector('.char-outfit').value    = data.outfit || '';
         card.querySelector('.char-physical').value  = data.physical_description || '';
@@ -137,8 +136,7 @@ const Setup = (() => {
                 .filter(Boolean);
             characters[cid] = {
                 name: card.querySelector('.char-name').value.trim(),
-                personality_summary: card.querySelector('.char-summary').value.trim(),
-                personality_full: card.querySelector('.char-full').value.trim(),
+                personality: card.querySelector('.char-personality').value.trim(),
                 knowledge,
                 current_mood: card.querySelector('.char-mood').value.trim(),
                 physical_description: card.querySelector('.char-physical').value.trim(),
@@ -197,8 +195,7 @@ const Setup = (() => {
         Object.entries(raw || {}).forEach(([cid, ch]) => {
             out[cid] = {
                 name: ch.mind.name,
-                personality_summary: ch.mind.personality_summary,
-                personality_full: ch.mind.personality_full,
+                personality: ch.mind.personality,
                 knowledge: ch.mind.knowledge || [],
                 current_mood: ch.mind.current_mood,
                 physical_description: ch.body.physical_description,
@@ -242,7 +239,7 @@ const Setup = (() => {
         for (const cid of ids) {
             const c = cfg.characters[cid];
             if (!c.name) return `Personagem ${cid} precisa de um nome.`;
-            if (!c.personality_full && !c.personality_summary)
+            if (!c.personality)
                 return `Personagem ${c.name || cid} precisa de uma personalidade.`;
         }
         if (!cfg.scene.location) return 'A cena precisa de um local.';
