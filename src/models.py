@@ -54,13 +54,14 @@ class Scene:
 
 @dataclass
 class TurnRecord:
-    """Uma entrada no histórico — contém cópia da cena naquele momento."""
+    """Uma entrada no histórico — contém cópia da cena/humor naquele momento."""
 
     turn_number: int
     speaker: str  # "Player", "C1", "C2", "Narrator"
     content: str
     content_type: str  # "speech", "thought", "narration", "action"
     scene_snapshot: Scene  # deepcopy da cena naquele turno
+    mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
 
 
 @dataclass
@@ -202,6 +203,7 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
                 content=h["content"],
                 content_type=h["content_type"],
                 scene_snapshot=scene_snap,
+                mood_snapshot=dict(h.get("mood_snapshot", {})),
             )
         )
 

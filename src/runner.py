@@ -260,10 +260,14 @@ class Runner:
         return game.history[-limit:]
 
     async def undo_turn(self, session_id: str) -> dict:
-        """Desfaz o último turno (ou limpa pending_options se a sessão pausou).
+        """Desfaz o último passo-de-jogador inteiro (ou limpa pending_options se pausou).
 
-        Desfaz um turno por chamada — chamadas repetidas desfazem múltiplos níveis.
-        Restaura a Scene a partir do scene_snapshot do TurnRecord do Narrador.
+        Desfaz um passo por chamada — chamadas repetidas desfazem múltiplos níveis. Um
+        "passo" é todo registro que compartilha o maior ``turn_number`` (jogada do
+        humano + narração + fala do Personagem, ver ``_append_history``). Todos eles
+        carregam o mesmo ``scene_snapshot``/``mood_snapshot`` (nada muda a cena/humor
+        entre os appends de um mesmo passo — só depois, via ``scene_update``/
+        ``mood_updates``), então qualquer um serve pra restaurar o estado anterior.
 
         Returns:
             Dict com ``state`` (GameState serializado) e ``undone`` (bool).
@@ -286,22 +290,19 @@ class Runner:
             if not game.history:
                 return {"undone": False}
 
-            # Caso 3: desfaz um turno completo
-            # Pop último registro (character speech, se houver)
-            last = game.history[-1]
-            if last.speaker != "Narrator":
-                game.history.pop()
+            # Caso 3: desfaz o passo inteiro — remove todos os registros do
+            # maior turn_number e restaura cena + humor a partir do snapshot.
+            last_turn_number = game.history[-1].turn_number
+            restore: TurnRecord | None = None
+            while game.history and game.history[-1].turn_number == last_turn_number:
+                restore = game.history.pop()
 
-            # Pop o registro do Narrador → extrai scene_snapshot
-            if not game.history or game.history[-1].speaker != "Narrator":
-                # Estado inesperado — restaura o que der
-                if game.history:
-                    game.scene = copy.deepcopy(game.history[-1].scene_snapshot)
-                save_game(game)
-                return {"undone": True, "state": game_state_to_dict(game)}
+            assert restore is not None, "loop acima roda ao menos uma vez"
+            game.scene = copy.deepcopy(restore.scene_snapshot)
+            for cid, mood in restore.mood_snapshot.items():
+                if cid in game.characters:
+                    game.characters[cid].mind.current_mood = mood
 
-            narrator_record = game.history.pop()
-            game.scene = copy.deepcopy(narrator_record.scene_snapshot)
             game.pending_options = None
             save_game(game)
             return {"undone": True, "state": game_state_to_dict(game)}
@@ -408,11 +409,12 @@ class Runner:
         content_type: str,
         turn_number: int,
     ) -> None:
-        """Cria TurnRecord com deepcopy da Scene e adiciona ao histórico.
+        """Cria TurnRecord com deepcopy da Scene/humores e adiciona ao histórico.
 
         ``turn_number`` é explícito — todos os registros de uma mesma jogada
         (fala/ação do humano, narração, fala do Personagem) compartilham o
-        mesmo número, pré-requisito para o undo desfazer o passo inteiro.
+        mesmo número e o mesmo snapshot, pré-requisito para o undo desfazer
+        o passo inteiro (cena e humor).
         """
         record = TurnRecord(
             turn_number=turn_number,
@@ -420,6 +422,7 @@ class Runner:
             content=content,
             content_type=content_type,
             scene_snapshot=copy.deepcopy(game.scene),
+            mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
         )
         game.history.append(record)
 

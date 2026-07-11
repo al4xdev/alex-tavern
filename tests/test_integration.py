@@ -487,6 +487,36 @@ class TestRunnerLogic:
     # ── Undo ────────────────────────────────────────────────────────────
 
     @pytest.mark.asyncio
+    async def test_undo_restores_mood_and_full_step(self) -> None:
+        """Undo restaura o humor E remove todos os registros do passo (mesmo turn_number)."""
+        sid = self.runner.start_session()
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            original_mood_c1 = game.characters["C1"].mind.current_mood
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            # Simula um passo completo: jogada do humano + narração + fala do
+            # personagem, todos com o mesmo turn_number (ver _append_history).
+            runner._append_history(game, "Player", "oi", "speech", 1)
+            runner._append_history(game, "Player", "acena", "action", 1)
+            runner._append_history(game, "Narrator", "Algo acontece.", "narration", 1)
+            runner._append_history(game, "C2", "Resposta.", "speech", 1)
+            # Só DEPOIS dos appends o Narrador aplicaria mood_updates/scene_update.
+            game.characters["C1"].mind.current_mood = "furioso"
+            game.scene.physical_facts["door"] = "aberta"
+            save_game(game)
+
+        result = await self.runner.undo_turn(sid)
+        assert result["undone"] is True
+
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            assert len(game.history) == 0, "todos os 4 registros do passo devem sumir"
+            assert game.characters["C1"].mind.current_mood == original_mood_c1
+            assert game.scene.physical_facts["door"] == "fechada"
+
+    @pytest.mark.asyncio
     async def test_undo_pending_options(self) -> None:
         """Undo em sessão pausada em options limpa pending_options."""
         sid = self.runner.start_session()
