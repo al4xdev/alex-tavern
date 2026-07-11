@@ -56,6 +56,28 @@ def _log_llm_call(
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
+    """Acrescenta ao mesmo log bruto um marcador de que um undo aconteceu.
+
+    Não afeta nem reverte o log — é só um evento sequencial, para quem lê o
+    ``.debug.jsonl`` depois saber, no meio das chamadas reais ao LLM, em que
+    ponto um passo foi desfeito e quantos registros do histórico saíram.
+    """
+    if not session_id:
+        return
+    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": datetime.now(UTC).isoformat(),
+        "session_id": session_id,
+        "turn_number": turn_number,
+        "agent": "undo",
+        "removed_records": removed_records,
+    }
+    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 async def chat_completion(
     client: httpx.AsyncClient,
     messages: list[dict],

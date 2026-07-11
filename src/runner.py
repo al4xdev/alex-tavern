@@ -15,6 +15,7 @@ import httpx
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.agents.narrator import suggest as narrator_suggest
+from src.llm.client import log_undo
 from src.models import (
     GameState,
     Player,
@@ -250,8 +251,10 @@ class Runner:
             # humor a partir do snapshot.
             last_turn_number = game.history[-1].turn_number
             restore: TurnRecord | None = None
+            removed = 0
             while game.history and game.history[-1].turn_number == last_turn_number:
                 restore = game.history.pop()
+                removed += 1
 
             assert restore is not None, "loop acima roda ao menos uma vez"
             game.scene = copy.deepcopy(restore.scene_snapshot)
@@ -260,6 +263,7 @@ class Runner:
                     game.characters[cid].mind.current_mood = mood
 
             save_game(game)
+            log_undo(session_id, last_turn_number, removed)
             return {"undone": True, "state": game_state_to_dict(game)}
 
     async def suggest_actions(self, session_id: str) -> dict:
