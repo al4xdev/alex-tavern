@@ -1,0 +1,55 @@
+/* ══════════════════════════════════════════════════════════════════════
+   api.js — thin fetch wrappers around the backend.
+   Every wrapper throws on non-2xx so callers can show a friendly toast.
+   ══════════════════════════════════════════════════════════════════════ */
+
+async function apiFetch(url, options = {}) {
+    const res = await fetch(url, options);
+    let data = null;
+    try {
+        data = await res.json();
+    } catch {
+        data = null;
+    }
+    if (!res.ok) {
+        const detail = (data && (data.detail || data.error)) || `HTTP ${res.status}`;
+        const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+        err.status = res.status;
+        throw err;
+    }
+    return data;
+}
+
+const api = {
+    getDefaults() {
+        return apiFetch('/defaults');
+    },
+
+    startSession(config) {
+        return apiFetch('/session/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+    },
+
+    turn(sessionId, payload) {
+        return apiFetch(`/session/${sessionId}/turn`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    },
+
+    getState(sessionId) {
+        return apiFetch(`/session/${sessionId}/state`);
+    },
+
+    previewPrompt(sessionId, payload) {
+        return apiFetch(`/session/${sessionId}/preview_prompt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    },
+};

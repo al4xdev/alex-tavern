@@ -14,6 +14,7 @@ import httpx
 import pytest
 
 from src.models import (
+    Character,
     GameState,
     Player,
     Scene,
@@ -459,6 +460,214 @@ class TestRunnerWithLLM:
                 assert len(state.history) > 0
             finally:
                 delete_session(sid)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Testes — Config customizada + Debug (LLM mockado)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _custom_char(name: str, mood: str = "neutro") -> Character:
+    from src.models import CharacterBody, CharacterMind
+
+    return Character(
+        mind=CharacterMind(
+            name=name,
+            personality_summary=f"{name} resumo",
+            personality_full=f"{name} personalidade completa",
+            knowledge=[f"{name} sabe de algo"],
+            current_mood=mood,
+        ),
+        body=CharacterBody(
+            name=name,
+            physical_description=f"{name} aparência",
+            outfit=f"{name} roupa",
+        ),
+    )
+
+
+class TestCustomSessionAndDebug:
+    """start_session custom, prompts dinâmicos, debug e preview (sem LLM real)."""
+
+    def setup_method(self) -> None:
+        self.client = httpx.AsyncClient(base_url="http://localhost:8888")
+        self.runner = Runner(self.client, {})
+        self.created: list[str] = []
+
+    def teardown_method(self) -> None:
+        for sid in self.created:
+            delete_session(sid)
+
+    def _start_custom(self) -> str:
+        chars = {
+            "C1": _custom_char("Aria"),
+            "C2": _custom_char("Bron"),
+            "C3": _custom_char("Caius"),
+        }
+        scene = Scene(
+            location="Cripta antiga",
+            time_of_day="madrugada",
+            present_characters=[],  # deve ser recomputado
+            physical_facts={"ar": "úmido"},
+        )
+        sid = self.runner.start_session({
+            "characters": chars,
+            "scene": scene,
+            "player_name": "Alex",
+            "controlled_character_id": "C2",
+            "narrator_directives": "Mundo de horror gótico. Tom sombrio.",
+        })
+        self.created.append(sid)
+        return sid
+
+    def test_start_session_custom_round_trip(self) -> None:
+        """Personagens custom + narrator_directives fazem round-trip via load_game."""
+        sid = self._start_custom()
+        game = load_game(sid)
+        assert game is not None
+        assert set(game.characters) == {"C1", "C2", "C3"}
+        assert game.characters["C1"].mind.name == "Aria"
+        assert game.player.name == "Alex"
+        assert game.player.controlled_character_id == "C2"
+        assert game.narrator_directives == "Mundo de horror gótico. Tom sombrio."
+
+    def test_start_session_recomputes_present_characters(self) -> None:
+        """present_characters é recomputado no servidor, ignorando o cliente."""
+        sid = self._start_custom()
+        game = load_game(sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "C3", "Player"]
+
+    def test_start_session_no_characters_raises(self) -> None:
+        """start_session sem personagens levanta ValueError."""
+        with pytest.raises(ValueError, match="ao menos um personagem"):
+            self.runner.start_session({"characters": {}})
+
+    def test_start_session_invalid_controlled_fallback(self) -> None:
+        """controlled_character_id inexistente cai no primeiro personagem."""
+        sid = self.runner.start_session({
+            "characters": {"C1": _custom_char("Solo")},
+            "controlled_character_id": "C9",
+        })
+        self.created.append(sid)
+        game = load_game(sid)
+        assert game is not None
+        assert game.player.controlled_character_id == "C1"
+
+    def test_build_system_prompt_dynamic_ids_and_directives(self) -> None:
+        """_build_system_prompt enumera IDs dinâmicos e anexa diretivas."""
+        from src.agents.narrator import _build_system_prompt
+
+        prompt = _build_system_prompt(["C1", "C2", "C3"], "Regras do mundo aqui.")
+        assert "C1, C2, C3, Player, Narrator" in prompt
+        assert "Regras do mundo aqui." in prompt
+
+    def test_build_system_prompt_no_directives(self) -> None:
+        """Sem diretivas, não anexa o bloco de WORLD DIRECTIVES."""
+        from src.agents.narrator import _build_system_prompt
+
+        prompt = _build_system_prompt(["C1"], "")
+        assert "WORLD DIRECTIVES" not in prompt
+
+    @pytest.mark.asyncio
+    async def test_valid_speakers_accepts_custom_id(self, monkeypatch) -> None:  # noqa: ANN001
+        """valid_speakers aceita IDs custom (C3) e não faz fallback."""
+        from src.agents import narrator as narrator_mod
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return {
+                "narration": "Algo acontece.",
+                "next_speaker": "C3",
+                "context_for_character": "ctx",
+            }
+
+        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        chars = {"C3": _custom_char("Caius")}
+        result, messages = await narrator_mod.narrate(
+            client=self.client,
+            scene=Scene(location="x", time_of_day="y", present_characters=[],
+                        physical_facts={}),
+            characters=chars,
+            player_speech="oi",
+            player_action="",
+            player_controlled_id="C3",
+            history=[],
+            config={},
+        )
+        assert result["next_speaker"] == "C3"
+        assert len(messages) == 2
+
+    @pytest.mark.asyncio
+    async def test_valid_speakers_fallback_invalid(self, monkeypatch) -> None:  # noqa: ANN001
+        """next_speaker inválido cai para Player."""
+        from src.agents import narrator as narrator_mod
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return {
+                "narration": "Algo acontece.",
+                "next_speaker": "Fantasma",
+                "context_for_character": "",
+            }
+
+        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        result, _ = await narrator_mod.narrate(
+            client=self.client,
+            scene=Scene(location="x", time_of_day="y", present_characters=[],
+                        physical_facts={}),
+            characters={"C1": _custom_char("Solo")},
+            player_speech="oi",
+            player_action="",
+            player_controlled_id="C1",
+            history=[],
+            config={},
+        )
+        assert result["next_speaker"] == "Player"
+
+    @pytest.mark.asyncio
+    async def test_player_turn_debug_returns_messages(self, monkeypatch) -> None:  # noqa: ANN001
+        """player_turn(debug=True) retorna debug.narrator.messages não vazio."""
+        from src.agents import character as character_mod
+        from src.agents import narrator as narrator_mod
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return {
+                "narration": "A cripta range.",
+                "next_speaker": "C1",
+                "context_for_character": "Você ouve um rangido.",
+            }
+
+        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return "Estou pronto."
+
+        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(character_mod, "chat_completion", fake_chat)
+
+        sid = self.runner.start_session({"characters": {"C1": _custom_char("Solo")}})
+        self.created.append(sid)
+        result = await self.runner.player_turn(sid, speech="oi", debug=True)
+        assert "debug" in result
+        assert result["debug"]["narrator"]["messages"]
+        assert result["debug"]["narrator"]["raw"]
+        assert result["debug"]["character"] is not None
+        assert result["debug"]["character"]["messages"]
+        assert result["debug"]["character"]["raw"] == "Estou pronto."
+
+    def test_preview_narrator_prompt(self) -> None:
+        """preview_narrator_prompt monta messages corretos sem tocar no LLM."""
+        sid = self._start_custom()
+        messages = self.runner.preview_narrator_prompt(sid, speech="olá", action="acena")
+        assert len(messages) == 2
+        assert messages[0]["role"] == "system"
+        # IDs dinâmicos + diretivas no system prompt
+        assert "C1, C2, C3, Player, Narrator" in messages[0]["content"]
+        assert "horror gótico" in messages[0]["content"]
+        # input do player no user prompt
+        assert "olá" in messages[1]["content"]
+        assert "acena" in messages[1]["content"]
+
+    def test_preview_narrator_prompt_missing_session(self) -> None:
+        """preview de sessão inexistente retorna lista vazia."""
+        assert self.runner.preview_narrator_prompt("naoexiste") == []
 
 
 # ═══════════════════════════════════════════════════════════════════════════

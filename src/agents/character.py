@@ -46,8 +46,8 @@ async def act(
     context: str,
     history: list[TurnRecord],
     config: dict,
-) -> str:
-    """Constrói prompt do Personagem, chama LLM, retorna fala ou pensamento.
+) -> tuple[str, list[dict]]:
+    """Constrói prompt do Personagem, chama LLM, retorna fala/pensamento + messages.
 
     Args:
         client: httpx.AsyncClient compartilhado.
@@ -58,7 +58,8 @@ async def act(
         config: Config do servidor (temperatura, max_tokens).
 
     Returns:
-        Fala ou pensamento do personagem (string pura, sem JSON).
+        Tupla ``(content, messages)``: a fala/pensamento (string pura, sem JSON)
+        e os messages enviados ao LLM (para o modo debug).
     """
     messages = [
         {"role": "system", "content": _build_system_prompt(character)},
@@ -83,4 +84,4 @@ async def act(
         temperature=config.get("temperature_character", 0.8),
     )
 
-    return content.strip()
+    return content.strip(), messages

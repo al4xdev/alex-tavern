@@ -10,8 +10,11 @@ from src.llm.client import chat_completion_json
 from src.models import Character, Scene, TurnRecord
 
 
-def _build_system_prompt() -> str:
-    return (
+def _build_system_prompt(
+    character_ids: list[str], narrator_directives: str = ""
+) -> str:
+    speakers = ", ".join([*character_ids, "Player", "Narrator"])
+    prompt = (
         "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
         "You describe scenes, process player actions, and decide who speaks next.\n"
         "\n"
@@ -19,7 +22,7 @@ def _build_system_prompt() -> str:
         "- Return ONLY valid JSON, no markdown, no code fences.\n"
         '- "narration": describe what happens in the scene based on the player\'s action\n'
         "  and the current state. Be vivid but concise (2-4 sentences).\n"
-        '- "next_speaker": who should speak/act next. One of: C1, C2, Player, Narrator.\n'
+        f'- "next_speaker": who should speak/act next. One of: {speakers}.\n'
         '  - Use "Player" when the player needs to make a choice or respond.\n'
         '  - Use "Narrator" when you need to describe something before anyone speaks\n'
         "    (e.g., an environmental event).\n"
@@ -34,6 +37,12 @@ def _build_system_prompt() -> str:
         '- "player_options": null OR an array of {index, label, description} when\n'
         "  the player needs to choose an action. Index starts at 0. Max 5 options.\n"
     )
+    if narrator_directives.strip():
+        prompt += (
+            "\nWORLD DIRECTIVES (tone, rules, setting — always respect these):\n"
+            f"{narrator_directives.strip()}\n"
+        )
+    return prompt
 
 
 def _build_user_prompt(
@@ -87,27 +96,24 @@ def _build_user_prompt(
     return "\n".join(lines)
 
 
-async def narrate(
-    client: httpx.AsyncClient,
+def build_narrator_messages(
     scene: Scene,
     characters: dict[str, Character],
     player_speech: str,
     player_action: str,
     player_controlled_id: str,
     history: list[TurnRecord],
-    config: dict,
-) -> dict:
-    """Constrói prompt do Narrador, chama LLM, devolve dict validado.
+    narrator_directives: str = "",
+) -> list[dict]:
+    """Monta os messages (system + user) do Narrador — puro, sem chamar o LLM.
 
-    Returns:
-        Dict com chaves: narration, next_speaker, context_for_character,
-        scene_update, player_options (opcional).
-
-    Raises:
-        ValueError: Se o JSON retornado não tiver os campos obrigatórios.
+    Reusado tanto por ``narrate`` quanto pelo preview de prompt offline.
     """
-    messages = [
-        {"role": "system", "content": _build_system_prompt()},
+    return [
+        {
+            "role": "system",
+            "content": _build_system_prompt(list(characters), narrator_directives),
+        },
         {
             "role": "user",
             "content": _build_user_prompt(
@@ -120,6 +126,39 @@ async def narrate(
             ),
         },
     ]
+
+
+async def narrate(
+    client: httpx.AsyncClient,
+    scene: Scene,
+    characters: dict[str, Character],
+    player_speech: str,
+    player_action: str,
+    player_controlled_id: str,
+    history: list[TurnRecord],
+    config: dict,
+    narrator_directives: str = "",
+) -> tuple[dict, list[dict]]:
+    """Constrói prompt do Narrador, chama LLM, devolve dict validado + messages.
+
+    Returns:
+        Tupla ``(result, messages)``:
+        - ``result``: dict com chaves narration, next_speaker,
+          context_for_character, scene_update, player_options (opcional).
+        - ``messages``: os messages enviados ao LLM (para o modo debug).
+
+    Raises:
+        ValueError: Se o JSON retornado não tiver os campos obrigatórios.
+    """
+    messages = build_narrator_messages(
+        scene=scene,
+        characters=characters,
+        player_speech=player_speech,
+        player_action=player_action,
+        player_controlled_id=player_controlled_id,
+        history=history,
+        narrator_directives=narrator_directives,
+    )
 
     result = await chat_completion_json(
         client,
@@ -137,8 +176,8 @@ async def narrate(
             f"Recebido: {json.dumps(result, ensure_ascii=False)[:300]}"
         )
 
-    # Valida next_speaker
-    valid_speakers = {"C1", "C2", "Player", "Narrator"}
+    # Valida next_speaker — speakers válidos derivados dinamicamente dos IDs
+    valid_speakers = set(characters) | {"Player", "Narrator"}
     if result["next_speaker"] not in valid_speakers:
         # Fallback: normaliza para Player
         result["next_speaker"] = "Player"
@@ -147,7 +186,7 @@ async def narrate(
     result.setdefault("scene_update", None)
     result.setdefault("player_options", None)
 
-    return result
+    return result, messages
 
 
 def format_history_for_prompt(history: list[TurnRecord], limit: int = 5) -> str:

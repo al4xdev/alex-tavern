@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c6cff"/>
+      <stop offset="1" stop-color="#b06cff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#glow)"/>
+  <!-- theatre mask face -->
+  <ellipse cx="256" cy="252" rx="150" ry="176" fill="#ffffff"/>
+  <!-- eyes -->
+  <ellipse cx="205" cy="226" rx="25" ry="33" fill="#6a4bff"/>
+  <ellipse cx="307" cy="226" rx="25" ry="33" fill="#6a4bff"/>
+  <!-- smile -->
+  <path d="M188 318 Q256 372 324 318" fill="none" stroke="#6a4bff" stroke-width="20" stroke-linecap="round"/>
+</svg>

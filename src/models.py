@@ -88,6 +88,7 @@ class GameState:
     history: list[TurnRecord] = field(default_factory=list)
     pending_options: list[dict] | None = None  # options do turno anterior não consumidas
     created_at: str = ""  # ISO timestamp
+    narrator_directives: str = ""  # instruções de mundo/tom/regras extras p/ o Narrador
 
 
 def deepcopy_scene(scene: Scene) -> Scene:
@@ -100,30 +101,38 @@ def game_state_to_dict(game: GameState) -> dict[str, Any]:
     return asdict(game)
 
 
+def dict_to_character(data: dict[str, Any]) -> Character:
+    """Constrói um Character a partir de um dict com chaves ``mind`` e ``body``.
+
+    Reusável tanto no round-trip de persistência quanto na API de criação.
+    """
+    mind_data = data["mind"]
+    body_data = data["body"]
+    return Character(
+        mind=CharacterMind(
+            name=mind_data["name"],
+            personality_summary=mind_data["personality_summary"],
+            personality_full=mind_data["personality_full"],
+            knowledge=list(mind_data["knowledge"]),
+            current_mood=mind_data["current_mood"],
+        ),
+        body=CharacterBody(
+            name=body_data["name"],
+            physical_description=body_data["physical_description"],
+            outfit=body_data["outfit"],
+        ),
+    )
+
+
 def dict_to_game_state(data: dict[str, Any]) -> GameState:
     """Reconstrói GameState de um dict (carregado do JSON).
 
     Construção manual explícita — sem dependências de serialização mágica.
     """
     chars_raw: dict[str, Any] = data["characters"]
-    characters: dict[str, Character] = {}
-    for cid, cdata in chars_raw.items():
-        mind_data = cdata["mind"]
-        body_data = cdata["body"]
-        characters[cid] = Character(
-            mind=CharacterMind(
-                name=mind_data["name"],
-                personality_summary=mind_data["personality_summary"],
-                personality_full=mind_data["personality_full"],
-                knowledge=list(mind_data["knowledge"]),
-                current_mood=mind_data["current_mood"],
-            ),
-            body=CharacterBody(
-                name=body_data["name"],
-                physical_description=body_data["physical_description"],
-                outfit=body_data["outfit"],
-            ),
-        )
+    characters: dict[str, Character] = {
+        cid: dict_to_character(cdata) for cid, cdata in chars_raw.items()
+    }
 
     player_data = data["player"]
     player = Player(
@@ -167,4 +176,5 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         history=history,
         pending_options=data.get("pending_options"),
         created_at=data.get("created_at", ""),
+        narrator_directives=data.get("narrator_directives", ""),
     )

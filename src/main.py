@@ -58,9 +58,28 @@ app.add_middleware(
 # ── Pydantic models ───────────────────────────────────────────────────────
 
 
+class CharacterInput(BaseModel):
+    name: str
+    personality_summary: str = ""
+    personality_full: str = ""
+    knowledge: list[str] = Field(default_factory=list)
+    current_mood: str = ""
+    physical_description: str = ""
+    outfit: str = ""
+
+
+class SceneInput(BaseModel):
+    location: str = ""
+    time_of_day: str = ""
+    physical_facts: dict[str, str] = Field(default_factory=dict)
+
+
 class StartSessionRequest(BaseModel):
     player_name: str | None = None
     controlled_character_id: str | None = None
+    characters: dict[str, CharacterInput] | None = None
+    scene: SceneInput | None = None
+    narrator_directives: str | None = None
 
 
 class StartSessionResponse(BaseModel):
@@ -72,6 +91,7 @@ class PlayerTurnRequest(BaseModel):
     speech: str = ""
     action: str = ""
     chosen_option: int | None = Field(default=None, ge=0)
+    debug: bool = False
 
 
 class PlayerTurnResponse(BaseModel):
@@ -84,6 +104,12 @@ class PlayerTurnResponse(BaseModel):
     type: str | None = None
     options: list[dict] | None = None
     error: str | None = None
+    debug: dict | None = None
+
+
+class PreviewPromptRequest(BaseModel):
+    speech: str = ""
+    action: str = ""
 
 
 # ── Rotas ─────────────────────────────────────────────────────────────────
@@ -93,16 +119,53 @@ class PlayerTurnResponse(BaseModel):
 def start_session(req: StartSessionRequest) -> dict:
     """Cria uma nova sessão de roleplay."""
     assert runner is not None, "Runner não inicializado"
+    from src.models import Scene, dict_to_character, game_state_to_dict
+
     cfg: dict[str, Any] = {}
     if req.player_name:
         cfg["player_name"] = req.player_name
     if req.controlled_character_id:
         cfg["controlled_character_id"] = req.controlled_character_id
-    session_id = runner.start_session(cfg)
+    if req.narrator_directives is not None:
+        cfg["narrator_directives"] = req.narrator_directives
+
+    if req.characters:
+        characters = {}
+        for cid, ci in req.characters.items():
+            characters[cid] = dict_to_character(
+                {
+                    "mind": {
+                        "name": ci.name,
+                        "personality_summary": ci.personality_summary,
+                        "personality_full": ci.personality_full,
+                        "knowledge": ci.knowledge,
+                        "current_mood": ci.current_mood,
+                    },
+                    "body": {
+                        "name": ci.name,
+                        "physical_description": ci.physical_description,
+                        "outfit": ci.outfit,
+                    },
+                }
+            )
+        cfg["characters"] = characters
+
+    if req.scene is not None:
+        cfg["scene"] = Scene(
+            location=req.scene.location,
+            time_of_day=req.scene.time_of_day,
+            present_characters=[],  # recomputado pelo runner
+            physical_facts=dict(req.scene.physical_facts),
+        )
+
+    try:
+        session_id = runner.start_session(cfg)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
     # Carrega o estado completo para retornar junto (evita GET /state extra)
     game = runner.get_state(session_id)
     assert game is not None, "Sessão recém-criada deveria existir"
-    from src.models import game_state_to_dict
     return {"session_id": session_id, "state": game_state_to_dict(game)}
 
 
@@ -115,6 +178,7 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         speech=body.speech,
         action=body.action,
         chosen_option=body.chosen_option,
+        debug=body.debug,
     )
     return result
 
@@ -144,6 +208,30 @@ def get_history(session_id: str, limit: int = 50) -> list[dict]:
         }
         for r in records
     ]
+
+
+@app.get("/defaults")
+def get_defaults() -> dict:
+    """Retorna o preset Thorn & Lyra (personagens + cena) para a UI pré-preencher."""
+    from dataclasses import asdict
+
+    from src.runner import DEFAULT_CHARACTERS, DEFAULT_SCENE
+    return {
+        "characters": {cid: asdict(ch) for cid, ch in DEFAULT_CHARACTERS.items()},
+        "scene": asdict(DEFAULT_SCENE),
+    }
+
+
+@app.post("/session/{session_id}/preview_prompt")
+def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
+    """Retorna os messages do Narrador para o estado atual — sem chamar o LLM."""
+    assert runner is not None, "Runner não inicializado"
+    messages = runner.preview_narrator_prompt(
+        session_id, speech=body.speech, action=body.action
+    )
+    if not messages:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    return {"narrator_messages": messages}
 
 
 @app.get("/health")

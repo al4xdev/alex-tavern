@@ -2,33 +2,200 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roleplay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Roleplay Tavern</title>
+    <meta name="description" content="Roleplay multi-agente: Narrador + personagens, configurável pela UI.">
+    <meta name="theme-color" content="#0f0f16">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Roleplay">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <div class="app">
-        <!-- Header -->
+    <!-- ══════════════════ Setup / Lobby overlay ══════════════════ -->
+    <div class="overlay" id="setup-overlay">
+        <div class="modal" id="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title">
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <span class="modal-glyph">🎭</span>
+                    <div>
+                        <h2 id="setup-title">Configurar aventura</h2>
+                        <p class="modal-sub">Monte a cena, os personagens e o tom do mundo</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="setup-close-btn" title="Fechar" aria-label="Fechar">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Presets -->
+                <div class="section" id="presets-section">
+                    <h3 class="section-title">💾 Presets</h3>
+                    <div class="preset-row">
+                        <select class="text-input" id="preset-select" aria-label="Preset salvo"></select>
+                        <button class="btn btn-mini" id="preset-load-btn" type="button">Carregar</button>
+                        <button class="icon-btn" id="preset-delete-btn" type="button"
+                            title="Apagar preset" aria-label="Apagar preset">🗑️</button>
+                    </div>
+                    <div class="preset-row">
+                        <input type="text" class="text-input" id="preset-name"
+                            placeholder="Nome do novo preset (ex: Campanha pirata)">
+                        <button class="btn btn-mini" id="preset-save-btn" type="button">Salvar atual</button>
+                    </div>
+                </div>
+
+                <!-- Player -->
+                <div class="field-group">
+                    <label class="field-label" for="setup-player-name">Seu nome</label>
+                    <input type="text" class="text-input" id="setup-player-name" placeholder="Jogador">
+                </div>
+
+                <!-- Narrator directives -->
+                <div class="field-group">
+                    <label class="field-label" for="setup-directives">Diretrizes do Narrador</label>
+                    <p class="field-hint">Mundo, tom, regras extras que o Narrador sempre respeita.</p>
+                    <textarea class="text-area" id="setup-directives" rows="3"
+                        placeholder="Ex: Fantasia sombria. Magia é rara e temida. Mantenha o tom tenso."></textarea>
+                </div>
+
+                <!-- Scene -->
+                <div class="section">
+                    <h3 class="section-title">🗺️ Cena</h3>
+                    <div class="grid-2">
+                        <div class="field-group">
+                            <label class="field-label" for="setup-scene-location">Local</label>
+                            <input type="text" class="text-input" id="setup-scene-location"
+                                placeholder="Taverna do Velho Mork">
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="setup-scene-time">Momento do dia</label>
+                            <input type="text" class="text-input" id="setup-scene-time"
+                                placeholder="noite">
+                        </div>
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Fatos físicos</label>
+                        <p class="field-hint">Detalhes do ambiente (chave / valor).</p>
+                        <div id="scene-facts-list" class="kv-list"></div>
+                        <button class="btn btn-mini" id="add-fact-btn" type="button">+ Fato</button>
+                    </div>
+                </div>
+
+                <!-- Characters -->
+                <div class="section">
+                    <div class="section-head">
+                        <h3 class="section-title">👥 Personagens</h3>
+                        <button class="btn btn-mini" id="add-char-btn" type="button">+ Personagem</button>
+                    </div>
+                    <div id="chars-list" class="chars-list"></div>
+                </div>
+
+                <!-- Controlled -->
+                <div class="field-group">
+                    <label class="field-label" for="setup-controlled">Quem você controla?</label>
+                    <select class="text-input" id="setup-controlled"></select>
+                </div>
+
+                <div class="setup-error" id="setup-error"></div>
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn btn-primary btn-lg" id="start-btn" type="button">
+                    Começar aventura →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Character card template -->
+    <template id="char-card-template">
+        <div class="char-card">
+            <div class="char-card-head">
+                <span class="char-id-badge"></span>
+                <input type="text" class="text-input char-name" placeholder="Nome do personagem">
+                <button class="icon-btn char-remove" title="Remover" aria-label="Remover personagem">🗑️</button>
+            </div>
+            <div class="char-card-body">
+                <div class="field-group">
+                    <label class="field-label">Resumo da personalidade</label>
+                    <input type="text" class="text-input char-summary" placeholder="~2 frases curtas">
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Personalidade completa</label>
+                    <textarea class="text-area char-full" rows="2" placeholder="Descrição longa (system prompt)"></textarea>
+                </div>
+                <div class="grid-2">
+                    <div class="field-group">
+                        <label class="field-label">Humor atual</label>
+                        <input type="text" class="text-input char-mood" placeholder="cauteloso">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label">Roupa</label>
+                        <input type="text" class="text-input char-outfit" placeholder="Armadura de couro">
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Aparência física</label>
+                    <input type="text" class="text-input char-physical" placeholder="Alto, cicatriz no queixo">
+                </div>
+                <div class="field-group">
+                    <label class="field-label">Conhecimento</label>
+                    <div class="knowledge-list"></div>
+                    <button class="btn btn-mini char-add-knowledge" type="button">+ Fato conhecido</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ══════════════════ Game view ══════════════════ -->
+    <div class="app" id="app">
         <header class="header">
-            <h1>🎭 Roleplay</h1>
-            <button id="new-session-btn" class="btn">Nova Sessão</button>
+            <h1 class="brand"><span class="brand-glyph">🎭</span> Roleplay Tavern</h1>
+            <div class="header-actions">
+                <button class="btn btn-primary" id="install-btn" type="button" hidden>⬇ Instalar</button>
+                <label class="toggle" title="Modo debug">
+                    <input type="checkbox" id="debug-toggle">
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    <span class="toggle-label">Debug</span>
+                </label>
+                <button class="icon-btn" id="settings-btn" title="Configurar" aria-label="Configurar">⚙️</button>
+                <button class="btn" id="new-session-btn" type="button">Nova sessão</button>
+            </div>
         </header>
 
-        <!-- Scene Panel -->
         <div class="scene-panel" id="scene-panel">
             <span class="scene-location" id="scene-location"></span>
             <div class="scene-tags" id="scene-tags"></div>
         </div>
 
-        <!-- Chat Log -->
-        <div class="chat-log" id="chat-log">
-            <div class="empty-state" id="empty-state">
-                <div class="icon">🎭</div>
-                <p>Iniciando sessão...</p>
+        <div class="stage">
+            <div class="chat-log" id="chat-log">
+                <div class="empty-state" id="empty-state">
+                    <div class="icon">🎭</div>
+                    <p>Configure sua aventura para começar</p>
+                    <button class="btn btn-primary" id="empty-config-btn" type="button">Abrir configuração</button>
+                </div>
             </div>
+
+            <!-- Debug drawer -->
+            <aside class="debug-drawer" id="debug-drawer">
+                <div class="debug-head">
+                    <h3>🔍 Debug</h3>
+                    <div class="debug-head-actions">
+                        <button class="btn btn-mini" id="preview-prompt-btn" type="button">Preview do prompt</button>
+                        <button class="icon-btn debug-close-btn" id="debug-close-btn" type="button" title="Fechar" aria-label="Fechar debug">✕</button>
+                    </div>
+                </div>
+                <div class="debug-content" id="debug-content">
+                    <p class="debug-placeholder">Envie um turno ou use "Preview do prompt" para inspecionar o que vai ao LLM.</p>
+                </div>
+            </aside>
         </div>
 
-        <!-- Spinner -->
         <div class="spinner" id="spinner">
             <div class="spinner-dot"></div>
             <div class="spinner-dot"></div>
@@ -36,33 +203,26 @@
             <span>Processando...</span>
         </div>
 
-        <!-- Player Options -->
         <div class="options-panel" id="options-panel"></div>
 
-        <!-- Input Area -->
-        <div class="input-area">
+        <div class="input-area" id="input-area">
             <div class="input-row">
-                <input
-                    type="text"
-                    class="input-field"
-                    id="input-speech"
-                    placeholder="💬 Fala / pensamento..."
-                    disabled
-                >
+                <input type="text" class="input-field" id="input-speech"
+                    placeholder="💬 Fala / pensamento..." disabled>
             </div>
             <div class="input-row">
-                <input
-                    type="text"
-                    class="input-field"
-                    id="input-action"
-                    placeholder="🎬 Ação (ex: Thorn se levanta e vai até a porta)"
-                    disabled
-                >
+                <input type="text" class="input-field" id="input-action"
+                    placeholder="🎬 Ação..." disabled>
                 <button class="send-btn" id="send-btn" disabled>Enviar</button>
             </div>
         </div>
     </div>
 
+    <!-- Toast container -->
+    <div class="toast-wrap" id="toast-wrap"></div>
+
+    <script src="/api.js"></script>
+    <script src="/setup.js"></script>
     <script src="/app.js"></script>
 </body>
 </html>

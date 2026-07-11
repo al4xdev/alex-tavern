@@ -1,0 +1,17 @@
+{
+  "name": "Roleplay Tavern",
+  "short_name": "Roleplay",
+  "description": "Roleplay multi-agente: Narrador + personagens, configurável pela UI.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#08080c",
+  "theme_color": "#0f0f16",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
