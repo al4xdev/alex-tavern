@@ -206,6 +206,11 @@ class Runner:
             if scene_up:
                 self._update_scene(game, scene_up)
 
+            # Atualiza humor dos personagens
+            mood_updates = narrator_raw.get("mood_updates")
+            if mood_updates:
+                self._update_moods(game, mood_updates)
+
             game.pending_options = None
             save_game(game)
 
@@ -351,6 +356,12 @@ class Runner:
         """Aplica mudanças físicas à Scene."""
         if scene_update:
             game.scene.physical_facts.update(scene_update)
+
+    def _update_moods(self, game: GameState, mood_updates: dict[str, str]) -> None:
+        """Aplica o novo humor decidido pelo Narrador a cada personagem afetado."""
+        for character_id, mood in mood_updates.items():
+            if character_id in game.characters:
+                game.characters[character_id].mind.current_mood = mood
 
     def _append_history(
         self,

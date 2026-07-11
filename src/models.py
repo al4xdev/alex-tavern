@@ -15,7 +15,7 @@ class CharacterMind:
     personality_summary: str  # ~2 frases, vai pro user prompt
     personality_full: str  # descrição longa, vai pro system prompt
     knowledge: list[str]  # fatos que o personagem conhece
-    current_mood: str  # mutável a cada turno
+    current_mood: str  # atualizado pelo Narrador via mood_updates a cada turno
 
 
 @dataclass
