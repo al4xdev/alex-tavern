@@ -116,6 +116,7 @@ def _llm_available() -> bool:
     """Verifica se o servidor llama.cpp está acessível (timeout curto)."""
     try:
         import urllib.request as ur
+
         req = ur.Request("http://localhost:8888/health", method="GET")
         ur.urlopen(req, timeout=2)
         return True
@@ -139,6 +140,7 @@ class TestModels:
         from src.models import (  # noqa: F811
             Character,
         )
+
         assert Character is not None
 
     def test_deepcopy_scene_independence(self) -> None:
@@ -351,8 +353,11 @@ class TestSessions:
         """fork_session copia sessão com novo ID."""
         original = _make_test_game(self.sid)
         history_item = TurnRecord(
-            turn_number=1, speaker="Narrator", content="Teste",
-            content_type="narration", scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+            turn_number=1,
+            speaker="Narrator",
+            content="Teste",
+            content_type="narration",
+            scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
         )
         original.history.append(history_item)
         save_game(original)
@@ -432,9 +437,11 @@ class TestRunnerLogic:
 
     def test_start_session_custom_player(self) -> None:
         """start_session com personagem controlado customizado."""
-        sid = self.runner.start_session({
-            "controlled_character_id": "C2",
-        })
+        sid = self.runner.start_session(
+            {
+                "controlled_character_id": "C2",
+            }
+        )
         game = load_game(sid)
         assert game is not None
         assert game.player.controlled_character_id == "C2"
@@ -773,7 +780,8 @@ class TestCompactSession:
 
     @pytest.mark.asyncio
     async def test_compact_above_window_rewrites_session_with_backup(
-        self, monkeypatch  # noqa: ANN001
+        self,
+        monkeypatch,  # noqa: ANN001
     ) -> None:
         """Histórico maior que a janela → compacta, faz backup idêntico ao pré-estado."""
         self._mock_summarize(monkeypatch)
@@ -891,7 +899,8 @@ class TestRestoreCompaction:
 
     @pytest.mark.asyncio
     async def test_restore_refuses_when_new_turns_played_after_compaction(
-        self, monkeypatch  # noqa: ANN001
+        self,
+        monkeypatch,  # noqa: ANN001
     ) -> None:
         """Jogou mais depois de compactar -> restaurar é recusado, nada muda."""
         self._mock_summarize(monkeypatch)
@@ -938,7 +947,8 @@ class TestRestoreCompaction:
 
     @pytest.mark.asyncio
     async def test_restore_only_undoes_the_most_recent_compaction(
-        self, monkeypatch  # noqa: ANN001
+        self,
+        monkeypatch,  # noqa: ANN001
     ) -> None:
         """Restaurar é um "ctrl-Z" de uma camada só — não empilha através de
         múltiplas compactações.
@@ -992,12 +1002,15 @@ class TestRunnerWithLLM:
             base_url="http://localhost:8888",
             timeout=httpx.Timeout(60.0),
         )
-        runner = Runner(client, {
-            "temperature_narrator": 0.0,
-            "temperature_character": 0.8,
-            "max_tokens_narrator": 1024,
-            "max_tokens_character": 256,
-        })
+        runner = Runner(
+            client,
+            {
+                "temperature_narrator": 0.0,
+                "temperature_character": 0.8,
+                "max_tokens_narrator": 1024,
+                "max_tokens_character": 256,
+            },
+        )
         return client, runner
 
     async def test_player_turn_basic(self) -> None:
@@ -1143,12 +1156,14 @@ class TestCustomSessionAndDebug:
             present_characters=[],  # deve ser recomputado
             physical_facts={"ar": "úmido"},
         )
-        sid = self.runner.start_session({
-            "characters": chars,
-            "scene": scene,
-            "controlled_character_id": "C2",
-            "narrator_directives": "Mundo de horror gótico. Tom sombrio.",
-        })
+        sid = self.runner.start_session(
+            {
+                "characters": chars,
+                "scene": scene,
+                "controlled_character_id": "C2",
+                "narrator_directives": "Mundo de horror gótico. Tom sombrio.",
+            }
+        )
         self.created.append(sid)
         return sid
 
@@ -1176,10 +1191,12 @@ class TestCustomSessionAndDebug:
 
     def test_start_session_invalid_controlled_fallback(self) -> None:
         """controlled_character_id inexistente cai no primeiro personagem."""
-        sid = self.runner.start_session({
-            "characters": {"C1": _custom_char("Solo")},
-            "controlled_character_id": "C9",
-        })
+        sid = self.runner.start_session(
+            {
+                "characters": {"C1": _custom_char("Solo")},
+                "controlled_character_id": "C9",
+            }
+        )
         self.created.append(sid)
         game = load_game(sid)
         assert game is not None
@@ -1217,8 +1234,7 @@ class TestCustomSessionAndDebug:
         chars = {"C3": _custom_char("Caius")}
         result = await narrator_mod.narrate(
             client=self.client,
-            scene=Scene(location="x", time_of_day="y", present_characters=[],
-                        physical_facts={}),
+            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
             characters=chars,
             player_controlled_id="C3",
             history=[],
@@ -1241,8 +1257,7 @@ class TestCustomSessionAndDebug:
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
-            scene=Scene(location="x", time_of_day="y", present_characters=[],
-                        physical_facts={}),
+            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
             characters={"C1": _custom_char("Solo")},
             player_controlled_id="C1",
             history=[],
@@ -1263,13 +1278,15 @@ class TestCustomSessionAndDebug:
 
         async def mock_post(url, json, **kwargs):  # noqa: ANN001, A002, ARG001
             if json.get("response_format", {}).get("type") == "json_schema":
-                content = json_module.dumps({
-                    "narration": "A cripta range.",
-                    "next_speaker": "C1",
-                    "context_for_character": "Você ouve um rangido.",
-                    "scene_update": None,
-                    "mood_updates": None,
-                })
+                content = json_module.dumps(
+                    {
+                        "narration": "A cripta range.",
+                        "next_speaker": "C1",
+                        "context_for_character": "Você ouve um rangido.",
+                        "scene_update": None,
+                        "mood_updates": None,
+                    }
+                )
             else:
                 content = "Estou pronto."
             req = httpx.Request("POST", url)
@@ -1281,10 +1298,12 @@ class TestCustomSessionAndDebug:
 
         # next_speaker="C1" precisa ser diferente do controlado, senão o
         # runner pausa (agência do jogador) em vez de chamar o Personagem.
-        sid = self.runner.start_session({
-            "characters": {"C1": _custom_char("Solo"), "C2": _custom_char("Outro")},
-            "controlled_character_id": "C2",
-        })
+        sid = self.runner.start_session(
+            {
+                "characters": {"C1": _custom_char("Solo"), "C2": _custom_char("Outro")},
+                "controlled_character_id": "C2",
+            }
+        )
         self.created.append(sid)
         result = await self.runner.player_turn(sid, speech="oi")
         assert result["character_response"] == "Estou pronto."
@@ -1292,8 +1311,7 @@ class TestCustomSessionAndDebug:
         debug_path = SESSIONS_DIR / f"{sid}.debug.jsonl"
         assert debug_path.exists()
         entries = [
-            json_module.loads(line)
-            for line in debug_path.read_text(encoding="utf-8").splitlines()
+            json_module.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines()
         ]
         assert len(entries) == 2  # uma chamada ao Narrador, uma ao Personagem
         assert entries[0]["session_id"] == sid
@@ -1457,14 +1475,34 @@ class TestEdgeCases:
 
         scene = deepcopy_scene(DEFAULT_SCENE)
         history = [
-            TurnRecord(turn_number=1, speaker="Player", content="oi",
-                       content_type="speech", scene_snapshot=scene),
-            TurnRecord(turn_number=1, speaker="Player", content="Thorn acena",
-                       content_type="action", scene_snapshot=scene),
-            TurnRecord(turn_number=1, speaker="Narrator", content="A porta range.",
-                       content_type="narration", scene_snapshot=scene),
-            TurnRecord(turn_number=1, speaker="C2", content="Oi Thorn.",
-                       content_type="speech", scene_snapshot=scene),
+            TurnRecord(
+                turn_number=1,
+                speaker="Player",
+                content="oi",
+                content_type="speech",
+                scene_snapshot=scene,
+            ),
+            TurnRecord(
+                turn_number=1,
+                speaker="Player",
+                content="Thorn acena",
+                content_type="action",
+                scene_snapshot=scene,
+            ),
+            TurnRecord(
+                turn_number=1,
+                speaker="Narrator",
+                content="A porta range.",
+                content_type="narration",
+                scene_snapshot=scene,
+            ),
+            TurnRecord(
+                turn_number=1,
+                speaker="C2",
+                content="Oi Thorn.",
+                content_type="speech",
+                scene_snapshot=scene,
+            ),
         ]
         text = _format_history_for_character(history, DEFAULT_CHARACTERS, "C1")
         assert "Thorn acena" not in text
@@ -1549,6 +1587,7 @@ class TestDynamicConfigAndPresets:
 
     def setup_method(self) -> None:
         from src.store.presets import DEFAULTS_DIR, PRESETS_DIR
+
         PRESETS_DIR.mkdir(parents=True, exist_ok=True)
         DEFAULTS_DIR.mkdir(parents=True, exist_ok=True)
         self.temp_preset_name = "temp_test_preset"
@@ -1556,6 +1595,7 @@ class TestDynamicConfigAndPresets:
 
     def teardown_method(self) -> None:
         from src.store.presets import DEFAULTS_DIR, delete_preset
+
         delete_preset(self.temp_preset_name)
         # Limpa defaults temporários
         default_file = DEFAULTS_DIR / f"{self.temp_default_name}.json"
@@ -1627,9 +1667,9 @@ class TestLanguageConfiguration:
             nonlocal captured_payload
             captured_payload = json
             req = httpx.Request("POST", url)
-            mock_res = httpx.Response(200, json={
-                "choices": [{"message": {"content": "Olá"}}]
-            }, request=req)
+            mock_res = httpx.Response(
+                200, json={"choices": [{"message": {"content": "Olá"}}]}, request=req
+            )
             return mock_res
 
         client = httpx.AsyncClient()
@@ -1664,9 +1704,9 @@ class TestLanguageConfiguration:
             nonlocal captured_payload
             captured_payload = json
             req = httpx.Request("POST", url)
-            mock_res = httpx.Response(200, json={
-                "choices": [{"message": {"content": "Olá"}}]
-            }, request=req)
+            mock_res = httpx.Response(
+                200, json={"choices": [{"message": {"content": "Olá"}}]}, request=req
+            )
             return mock_res
 
         client = httpx.AsyncClient()
@@ -1702,9 +1742,9 @@ class TestLanguageConfiguration:
             nonlocal captured_payload
             captured_payload = json
             req = httpx.Request("POST", url)
-            return httpx.Response(200, json={
-                "choices": [{"message": {"content": "Olá"}}]
-            }, request=req)
+            return httpx.Response(
+                200, json={"choices": [{"message": {"content": "Olá"}}]}, request=req
+            )
 
         client = httpx.AsyncClient()
         monkeypatch.setattr(client, "post", mock_post)

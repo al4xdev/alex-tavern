@@ -28,14 +28,14 @@ DEFAULT_CONFIG = {
     "summarizer_max_tokens": 1024,
 }
 
+
 def load_config() -> dict[str, Any]:
     """Carrega a configuração a partir de .data/config.json com fallback."""
     if not CONFIG_PATH.exists():
         CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with suppress(OSError):
             CONFIG_PATH.write_text(
-                json.dumps(DEFAULT_CONFIG, indent=2, ensure_ascii=False),
-                encoding="utf-8"
+                json.dumps(DEFAULT_CONFIG, indent=2, ensure_ascii=False), encoding="utf-8"
             )
         return DEFAULT_CONFIG.copy()
     try:
@@ -172,8 +172,7 @@ def start_session(req: StartSessionRequest) -> dict:
         preset_val = load_preset(req.preset_name)
         if preset_val is None:
             raise HTTPException(
-                status_code=404,
-                detail=f"Preset '{req.preset_name}' não encontrado."
+                status_code=404, detail=f"Preset '{req.preset_name}' não encontrado."
             )
         preset_data = preset_val
 
@@ -186,6 +185,7 @@ def start_session(req: StartSessionRequest) -> dict:
 
     def parse_character_data(cdata: dict[str, Any]) -> Character:
         from src.models import CharacterBody, CharacterMind, resolve_personality
+
         if "mind" in cdata and "body" in cdata:
             mind_data = cdata["mind"]
             body_data = cdata["body"]
@@ -377,6 +377,7 @@ def get_state(session_id: str) -> dict:
     if game is None:
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
     from src.models import game_state_to_dict
+
     return game_state_to_dict(game)
 
 
@@ -412,8 +413,7 @@ def get_defaults(name: str | None = None) -> dict:
     preset_val = load_preset(target_name)
     if not preset_val:
         raise HTTPException(
-            status_code=404,
-            detail=f"Preset padrão '{target_name}' não encontrado."
+            status_code=404, detail=f"Preset padrão '{target_name}' não encontrado."
         )
 
     return {
@@ -430,6 +430,7 @@ def get_defaults(name: str | None = None) -> dict:
 def get_presets() -> list[str]:
     """Lista os nomes de todos os presets de usuário."""
     from src.store.presets import list_presets
+
     return list_presets()
 
 
@@ -437,6 +438,7 @@ def get_presets() -> list[str]:
 def get_preset(name: str) -> dict:
     """Retorna a configuração completa de um preset."""
     from src.store.presets import load_preset
+
     preset_val = load_preset(name)
     if preset_val is None:
         raise HTTPException(status_code=404, detail=f"Preset '{name}' não encontrado.")
@@ -447,6 +449,7 @@ def get_preset(name: str) -> dict:
 def put_preset(name: str, body: StartSessionRequest) -> dict:
     """Salva ou atualiza um preset de usuário."""
     from src.store.presets import save_preset
+
     # Salva no mesmo formato que o request (que é compatível com o frontend)
     save_preset(name, body.dict(exclude_none=True))
     return {"saved": True}
@@ -456,6 +459,7 @@ def put_preset(name: str, body: StartSessionRequest) -> dict:
 def delete_preset_endpoint(name: str) -> dict:
     """Remove um preset de usuário."""
     from src.store.presets import delete_preset
+
     success = delete_preset(name)
     if not success:
         raise HTTPException(status_code=404, detail=f"Preset '{name}' não encontrado.")
@@ -466,9 +470,7 @@ def delete_preset_endpoint(name: str) -> dict:
 def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
     """Retorna os messages do Narrador para o estado atual — sem chamar o LLM."""
     assert runner is not None, "Runner não inicializado"
-    messages = runner.preview_narrator_prompt(
-        session_id, speech=body.speech, action=body.action
-    )
+    messages = runner.preview_narrator_prompt(session_id, speech=body.speech, action=body.action)
     if not messages:
         raise HTTPException(status_code=404, detail="Sessão não encontrada")
     return {"narrator_messages": messages}

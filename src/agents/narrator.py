@@ -10,9 +10,7 @@ from src.llm.client import chat_completion_json
 from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
 
 
-def _build_system_prompt(
-    character_ids: list[str], narrator_directives: str = ""
-) -> str:
+def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
     speakers = ", ".join([*character_ids, "Narrator"])
     prompt = (
         "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
@@ -264,7 +262,7 @@ def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") 
         "\n"
         'Return an object with a "suggestions" array of exactly 3 items, each with\n'
         '"speech" (what they say, or empty string) and "action" (what they physically\n'
-        'do, or empty string).\n'
+        "do, or empty string).\n"
     )
     if narrator_directives.strip():
         prompt += (

@@ -22,7 +22,7 @@ def _build_system_prompt(character: Character, notes: str = "") -> str:
         "  the environment or anyone's body/actions as flat, objective fact. You\n"
         "  may react to what you perceive in others, but only as your own\n"
         "  subjective read — what it seems like to you, not what is happening\n"
-        "  (\"ele parece tenso\", never \"ele aperta o punho da espada\").\n"
+        '  ("ele parece tenso", never "ele aperta o punho da espada").\n'
         "- Speak in first person, as dialogue.\n"
         "- Use **text** for internal thoughts — always wrap them, no exceptions.\n"
         "  A thought is your own reaction, opinion, or feeling — about yourself\n"
