@@ -5,12 +5,11 @@
 /* ── State ────────────────────────────────────────────────────────────── */
 const state = {
     sessionId: null,
-    pendingOptions: null,
     characters: {},     // cid -> {mind, body} (from GET state)
     controlledId: null,
     order: [],          // stable ordering of cids for color assignment
     debug: false,
-    lastInputs: null,       // { speech, action, chosenOption } for retry
+    lastInputs: null,       // { speech, action, forceSpeaker } for retry
     lastTurnFailed: false,  // true when last sendTurn errored
     canUndo: false,         // true when there's a turn to undo
     abortController: null,  // AbortController for current turn
@@ -40,6 +39,8 @@ const installBtn    = document.getElementById('install-btn');
 const debugCloseBtn = document.getElementById('debug-close-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
+const actionSuggestBtn = document.getElementById('action-suggest-btn');
+const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const actionPopup   = document.getElementById('action-popup');
 const stopBtn       = document.getElementById('stop-btn');
 const sessionsOverlay = document.getElementById('sessions-overlay');
@@ -73,14 +74,17 @@ function scrollToBottom() {
     chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-/* ── Action popup (undo / retry) ──────────────────────────────────────── */
+/* ── Action popup (undo / retry / force-speaker / suggest) ────────────── */
 function updateActionPopup() {
     if (actionUndoBtn) actionUndoBtn.style.display = state.canUndo ? '' : 'none';
     if (actionRetryBtn) actionRetryBtn.style.display = state.lastTurnFailed ? '' : 'none';
+    const hasSession = !!state.sessionId;
+    if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
+    if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     // Hide the popup entirely when there's nothing to show — prevents
     // an empty bordered box (tiny black dot) from appearing on hover/long-press.
     if (actionPopup) {
-        actionPopup.style.display = (state.canUndo || state.lastTurnFailed) ? '' : 'none';
+        actionPopup.style.display = (state.canUndo || state.lastTurnFailed || hasSession) ? '' : 'none';
     }
 }
 
@@ -197,7 +201,7 @@ function renderSessionList(sessions) {
                     chatLog.innerHTML = '';
                     chatLog.appendChild(emptyState);
                     emptyState.style.display = 'flex';
-                    renderOptions(null);
+                    clearSuggestions();
                     renderScene({});
                 }
             } catch (err) {
@@ -222,7 +226,7 @@ async function loadSession(sessionId) {
         chatLog.innerHTML = '';
         chatLog.appendChild(emptyState);
         emptyState.style.display = 'none';
-        renderOptions(null);
+        clearSuggestions();
         debugContent.innerHTML = '<p class="debug-placeholder">Envie um turno ou use "Preview do prompt".</p>';
 
         state.sessionId = sessionId;
@@ -269,8 +273,7 @@ async function undoLastTurn() {
 
         if (data.state) ingestState(data.state);
         state.lastTurnFailed = false;
-        state.canUndo = (data.state && data.state.history && data.state.history.length > 0)
-            || (data.state && data.state.pending_options != null);
+        state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
         updateActionPopup();
         toast('Turno desfeito', 'success', 2000);
     } catch (err) {
@@ -286,7 +289,8 @@ function retryTurn() {
     // Restore inputs (they may have been cleared on error)
     inputSpeech.value = state.lastInputs.speech || '';
     inputAction.value = state.lastInputs.action || '';
-    sendTurn(state.lastInputs.chosenOption, true);
+    if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
+    sendTurn(true);
 }
 
 function controlledName() {
@@ -385,39 +389,60 @@ function addMessage(speaker, content, contentType) {
     scrollToBottom();
 }
 
-/* ── Player options ───────────────────────────────────────────────────── */
-function renderOptions(options) {
+/* ── Sugestão de jogada ("sugira pra mim") ─────────────────────────────── */
+function clearSuggestions() {
     optionsPanel.innerHTML = '';
-    if (!options || options.length === 0) {
+    optionsPanel.classList.remove('active');
+}
+
+function renderSuggestions(suggestions) {
+    optionsPanel.innerHTML = '';
+    if (!suggestions || suggestions.length === 0) {
         optionsPanel.classList.remove('active');
-        state.pendingOptions = null;
         return;
     }
     optionsPanel.classList.add('active');
-    state.pendingOptions = options;
 
-    options.forEach((opt, i) => {
+    suggestions.forEach((s, i) => {
         const btn = document.createElement('button');
         btn.className = 'option-btn';
         btn.style.animationDelay = `${i * 0.06}s`;
 
         const label = document.createElement('span');
         label.className = 'opt-label';
-        label.textContent = `${opt.index + 1}. ${opt.label}`;
+        label.textContent = s.speech || '(sem fala)';
         btn.appendChild(label);
 
-        if (opt.description) {
+        if (s.action) {
             const desc = document.createElement('span');
             desc.className = 'opt-desc';
-            desc.textContent = opt.description;
+            desc.textContent = `🎬 ${s.action}`;
             btn.appendChild(desc);
         }
+        // Preenche as duas caixas — não envia sozinho, o jogador confirma no Enviar.
         btn.addEventListener('click', () => {
-            inputAction.value = opt.label;
-            sendTurn(opt.index);
+            inputSpeech.value = s.speech || '';
+            inputAction.value = s.action || '';
+            clearSuggestions();
+            inputSpeech.focus();
         });
         optionsPanel.appendChild(btn);
     });
+}
+
+async function suggestForMe() {
+    if (!state.sessionId) return;
+    hideActionPopup();
+    setLoading(true);
+    try {
+        const data = await api.suggest(state.sessionId);
+        renderSuggestions(data.suggestions);
+        toast('Sugestões prontas — escolha uma', 'success', 2500);
+    } catch (err) {
+        toast(`Erro ao sugerir: ${err.message}`, 'error');
+    } finally {
+        setLoading(false);
+    }
 }
 
 /* ── Debug drawer ─────────────────────────────────────────────────────── */
@@ -508,6 +533,27 @@ async function previewPrompt() {
     }
 }
 
+function populateForceSpeakerOptions() {
+    if (!forceSpeakerSelect) return;
+    const current = forceSpeakerSelect.value;
+    forceSpeakerSelect.innerHTML = '<option value="">🎲 Automático</option>';
+    for (const cid of state.order) {
+        const ch = state.characters[cid];
+        if (!ch) continue;
+        const opt = document.createElement('option');
+        opt.value = cid;
+        opt.textContent = ch.mind.name;
+        forceSpeakerSelect.appendChild(opt);
+    }
+    const narratorOpt = document.createElement('option');
+    narratorOpt.value = 'Narrator';
+    narratorOpt.textContent = '🎭 Narrador';
+    forceSpeakerSelect.appendChild(narratorOpt);
+    if ([...forceSpeakerSelect.options].some((o) => o.value === current)) {
+        forceSpeakerSelect.value = current;
+    }
+}
+
 /* ── Session lifecycle ────────────────────────────────────────────────── */
 function ingestState(gameState) {
     if (!gameState) return;
@@ -515,6 +561,7 @@ function ingestState(gameState) {
     state.order = Object.keys(state.characters);
     state.controlledId = gameState.player && gameState.player.controlled_character_id;
     if (gameState.scene) renderScene(gameState.scene);
+    populateForceSpeakerOptions();
 }
 
 async function startSession(cfg) {
@@ -522,7 +569,7 @@ async function startSession(cfg) {
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
     emptyState.style.display = 'flex';
-    renderOptions(null);
+    clearSuggestions();
     sceneTags.innerHTML = '';
     sceneLocation.textContent = '';
     debugContent.innerHTML =
@@ -552,23 +599,23 @@ async function startSession(cfg) {
     }
 }
 
-async function sendTurn(chosenOption = null, isRetry = false) {
+async function sendTurn(isRetry = false) {
     if (!state.sessionId) return;
     const speech = inputSpeech.value.trim();
     const action = inputAction.value.trim();
-    const chosenOptionVal = chosenOption !== null ? chosenOption : undefined;
+    const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
 
     // Save inputs for potential retry
-    state.lastInputs = { speech, action, chosenOption: chosenOptionVal };
+    state.lastInputs = { speech, action, forceSpeaker };
 
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
-    if (!isRetry && chosenOption === null && (speech || action)) {
+    if (!isRetry && (speech || action)) {
         const echo = [speech, action ? `🎬 ${action}` : ''].filter(Boolean).join('\n');
         addMessage('Player', echo, 'speech');
     }
 
     setLoading(true);
-    renderOptions(null);
+    clearSuggestions();
     state.lastTurnFailed = false;
     updateActionPopup();
 
@@ -580,23 +627,11 @@ async function sendTurn(chosenOption = null, isRetry = false) {
         const data = await api.turn(state.sessionId, {
             speech: speech || '',
             action: action || '',
-            chosen_option: chosenOptionVal,
+            force_speaker: forceSpeaker || undefined,
             debug: state.debug,
         }, ac.signal);
 
         if (state.debug && data.debug) renderDebug(data.debug);
-
-        // Narrator asked for a choice — pause, show options
-        if (data.type === 'options') {
-            renderOptions(data.options);
-            inputSpeech.value = '';
-            inputAction.value = '';
-            inputSpeech.focus();
-            state.canUndo = true;
-            updateActionPopup();
-            setLoading(false);
-            return;
-        }
 
         if (data.narration) addMessage('Narrator', data.narration, 'narration');
         if (data.character_response) {
@@ -610,14 +645,9 @@ async function sendTurn(chosenOption = null, isRetry = false) {
             } catch { /* scene refresh is non-critical */ }
         }
 
-        if (data.player_options && data.player_options.length > 0) {
-            renderOptions(data.player_options);
-        } else {
-            renderOptions(null);
-        }
-
         inputSpeech.value = '';
         inputAction.value = '';
+        if (forceSpeakerSelect) forceSpeakerSelect.value = '';
         inputSpeech.focus();
         state.lastTurnFailed = false;
         state.canUndo = true;
@@ -654,7 +684,7 @@ let longPressTimer = null;
 const LONG_PRESS_MS = 600;
 
 function showActionPopup() {
-    if (!state.canUndo && !state.lastTurnFailed) return;
+    if (!state.canUndo && !state.lastTurnFailed && !state.sessionId) return;
     if (actionPopup) actionPopup.classList.add('visible');
 }
 function cancelLongPress() {
@@ -683,6 +713,7 @@ document.addEventListener('click', (e) => {
 // Undo / retry button clicks
 if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
+if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
 
 // Stop button — abort current turn
 if (stopBtn) stopBtn.addEventListener('click', () => {

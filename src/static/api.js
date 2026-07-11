@@ -60,6 +60,10 @@ const api = {
         return apiFetch(`/session/${sessionId}/undo`, { method: 'POST' });
     },
 
+    suggest(sessionId) {
+        return apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' });
+    },
+
     listSessions() {
         return apiFetch('/sessions');
     },

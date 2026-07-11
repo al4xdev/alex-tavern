@@ -865,6 +865,21 @@ select.text-input { cursor: pointer; }
 }
 .action-btn:hover { background: var(--accent-grad); color: #fff; }
 
+.force-speaker-select {
+    height: 34px;
+    background: var(--surface-solid);
+    border: 1px solid var(--glass-border);
+    color: var(--text-1);
+    border-radius: 7px;
+    font-size: 0.72rem;
+    padding: 0 6px;
+    max-width: 110px;
+    cursor: pointer;
+    font-family: var(--font);
+}
+.force-speaker-select:hover,
+.force-speaker-select:focus { border-color: var(--accent); outline: none; }
+
 /* Empty state */
 .empty-state {
     flex: 1;
