@@ -100,8 +100,8 @@ isto.
 | Papel | Pode | NÃO pode | O que recebe no prompt |
 |---|---|---|---|
 | **Usuário** (jogador) | **falar, pensar E agir** — por isso a UI tem 2 caixas (fala/pensamento + ação) | — | monta a cena no setup; não tem `name` próprio (ver Imersão) — só é identificado pelo `controlled_character_id` |
-| **Narrador** | **tudo que é físico**: ação, descrição, consequência, transição de cena, e **decidir quem fala** | saber qual personagem é o humano | **TUDO sobre o mundo**: personalidade completa de todos, `body` (aparência/roupa), `scene`, histórico completo. É o cérebro do jogo — mas trata **todos os personagens igual** (não sabe que existe um jogador). |
-| **Personagem** | **só falar e pensar**, sempre em primeira pessoa | narrar, descrever ambiente, executar/descrever ação física (nem a sua, nem a de outro personagem — **nem dentro de um pensamento marcado**) | **O MÍNIMO**: a sua *própria* `mind` (personalidade, conhecimento, humor) + a mensagem do Narrador (`context_for_character`) + **no máximo as falas anteriores** (nunca narração/ação) |
+| **Narrador** | **tudo que é físico**: ação, descrição, consequência, transição de cena, e **decidir quem fala** | saber qual personagem é o humano | **TUDO sobre o mundo**: personalidade completa de todos, `body` (aparência/roupa), `scene`, `story_summary` (quando existe) + janela ativa do histórico. É o cérebro do jogo — mas trata **todos os personagens igual** (não sabe que existe um jogador). |
+| **Personagem** | **só falar e pensar**, sempre em primeira pessoa | narrar, descrever ambiente, executar/descrever ação física (nem a sua, nem a de outro personagem — **nem dentro de um pensamento marcado**) | **O MÍNIMO**: a sua *própria* `mind` (personalidade, conhecimento, humor) + somente a sua própria `character_notes` + a mensagem do Narrador (`context_for_character`) + **no máximo as falas da janela ativa** (nunca narração/ação) |
 
 ### Personagem: pensamento é reação subjetiva, nunca narração objetiva
 
@@ -218,11 +218,10 @@ graph TD
     opções (ver §4).
 - **Personagens (Mind/Body)**: `mind` (personalidade, conhecimento, humor) e `body`
   (aparência, roupa) são isolados. Só o Narrador vê `body`.
-- **`GameState`** (`src/models.py`) também carrega, desde a compactação (§7, **em
-  andamento**): `story_summary: str` e `character_notes: dict[str, str]`. Existem no
-  modelo e são preenchidos pelo `compact_session`, mas **ainda não são lidos** por
-  `narrator.py`/`character.py` — checar o `plan.md` ativo pra saber se essa parte já
-  foi feita antes de assumir que o resumo está influenciando o prompt.
+- **`GameState`** (`src/models.py`) carrega os campos persistidos da compactação (§7):
+  `story_summary: str` e `character_notes: dict[str, str]`. `runner._call_narrator`
+  passa `game.story_summary` ao Narrador; `runner._call_character` passa somente
+  `game.character_notes[character_id]` ao Personagem que está sendo chamado.
 
 ---
 
@@ -240,11 +239,11 @@ Uma jogada do humano dispara **até duas chamadas LLM sequenciais**, mais uma op
    - `system` (`_build_system_prompt`): papel + seção `FIELDS:` descrevendo cada campo do
      JSON de saída. **Não** implora "return only JSON" — a gramática (`json_schema`)
      garante o formato.
-   - `user` (`_build_user_prompt`): `CURRENT SCENE` + `CHARACTERS PRESENT` (personalidade
-     completa + aparência + roupa + humor) + `HISTORY` (janela completa, trimada por
-     tokens via `trim_history_by_tokens`, nunca por contagem de turnos). **Sem** bloco de
-     input separado e **sem** "Player controls": tudo já está no `HISTORY`, renderizado
-     com `speaker_label()`.
+   - `user` (`_build_user_prompt`): `STORY SO FAR` opcional (se já houve compactação) +
+     `CURRENT SCENE` + `CHARACTERS PRESENT` (personalidade completa + aparência + roupa +
+     humor) + `HISTORY` (janela ativa, ainda trimada por tokens via
+     `trim_history_by_tokens` se necessário). **Sem** bloco de input separado e **sem**
+     "Player controls": tudo já está no `HISTORY`, renderizado com `speaker_label()`.
    - Saída: JSON validado. `next_speaker` inválido cai em fallback pra `"Narrator"` (não
      mais para `"Player"` — o Narrador não conhece esse conceito).
 3. **Decide quem age a seguir**: `force_speaker` (se o gatilho manual foi usado, ver §4)
@@ -254,9 +253,10 @@ Uma jogada do humano dispara **até duas chamadas LLM sequenciais**, mais uma op
 4. **Chamada 2 — Personagem** (`src/agents/character.py` → `chat_completion`, texto
    puro), só se o falante decidido for um personagem presente **e não-controlado**.
    - `system`: "You are {name}…" + a `mind` *dele* (personality, knowledge, current_mood)
-     + regras (1ª pessoa, `**pensamento**` obrigatório e sempre marcado, pensamento é
-     leitura subjetiva nunca narração objetiva, 1–3 frases, nunca narrar/descrever
-     ambiente ou ação física).
+     + `What you remember` opcional com **somente a nota desse personagem** + regras
+     (1ª pessoa, `**pensamento**` obrigatório e sempre marcado, pensamento é leitura
+     subjetiva nunca narração objetiva, 1–3 frases, nunca narrar/descrever ambiente ou
+     ação física).
    - `user`: `SCENE CONTEXT` (= o `context_for_character` do Narrador) + `RECENT EVENTS`
      (histórico filtrado só por `content_type == "speech"`, renderizado com
      `speaker_label()`) + `"What do you say or think?"`.
@@ -358,7 +358,7 @@ linha JSON em `.data/sessions/{session_id}.debug.jsonl`:
 
 ---
 
-## 7. Compactação de contexto (EM ANDAMENTO — confira o `plan.md` ativo)
+## 7. Compactação de contexto (IMPLEMENTADA — MVP manual)
 
 Objetivo: quando a conversa ficar grande, resumir os turnos antigos numa "história até
 agora" (`story_summary`) e notas por personagem (`character_notes`), pra caber num
@@ -368,29 +368,39 @@ no histórico de conversa deste projeto).
 
 **Decisão de design importante**: isto **não** é memória recomputada a cada prompt (sem
 "camadas" recalculadas por chamada). É um **evento discreto e manual**:
-1. Faz backup do `{session_id}.json` atual como `{session_id}.kb_N.json` (N incremental,
-   `backup_session` em `src/store/sessions.py` — cópia de bytes crus, não reserializa).
-2. Um sub-agente **Historiador** (`src/agents/summarizer.py`) resume os turnos que vão
-   sair, cego igual o Narrador (nunca menciona "Player" — traduz via `speaker_label`),
-   saída via `json_schema`.
-3. `runner.compact_session` **substitui de verdade** `game.history` pela janela recente
-   + grava `story_summary`/`character_notes` atualizados, salva por cima da sessão
-   original.
 
-**Consequência aceita conscientemente**: depois de compactar, o **undo não alcança mais**
-os turnos resumidos. Recuperação só restaurando manualmente um `kb_N.json`. Aceitável
-pra um MVP pessoal — não construa esteira de recuperação automática sem pedido explícito.
+1. `compact_session` lê `compaction_keep_recent_turns` (padrão: 8) e conta
+   `turn_number` distintos, não registros individuais. Com até esse número de turnos,
+   devolve `compacted=False` sem backup nem chamada LLM.
+2. Acima da janela, faz backup do `{session_id}.json` atual como
+   `{session_id}.kb_N.json` (N incremental, cópia dos bytes crus).
+3. Um sub-agente **Historiador** (`src/agents/summarizer.py`) recebe somente os turnos
+   anteriores à janela, mais o resumo e as notas atuais. Ele é cego igual ao Narrador:
+   `speaker_label` traduz `"Player"` para o nome do personagem controlado. A saída usa
+   `json_schema` e contém o resumo completo reescrito + somente as notas alteradas.
+4. O runner substitui `game.story_summary`, mescla as notas retornadas em
+   `game.character_notes`, substitui `game.history` pelos turnos mantidos e salva.
+5. Nas chamadas seguintes, o Narrador recebe `STORY SO FAR` + janela ativa; cada
+   Personagem recebe somente seu `What you remember` + falas da janela ativa.
+
+**Undo comum depois de compactar:** só alcança turnos da janela ativa. Os turnos antigos
+não estão mais em `game.history`, portanto não participam de `undo_turn`.
+
+**Desfazer a compactação:** o botão dedicado chama `restore_last_compaction`, que pega o
+backup de maior N. Antes de sobrescrever a sessão, compara o maior `turn_number` do estado
+ativo com o do backup. Se o ativo tiver turno mais novo, recusa sem mudar nada, pois a
+restauração apagaria jogo novo. Se for seguro, restaura os bytes do backup e apaga esse
+backup consumido. Não há merge de históricos. Backups mais antigos podem continuar no
+disco, mas a mesma trava pode impedir restaurá-los se o histórico ativo já for mais novo.
 
 **Sem gatilho automático por token nesta versão** — só um botão manual do lado do undo,
 com barra de progresso **simulada** (não é progresso real medido; tem comentário em
 inglês no código avisando isso).
 
-**Status real (confira antes de mexer):** ao editar este arquivo, os campos
-`story_summary`/`character_notes` já existem no `GameState`, o Resumidor existe, e
-`compact_session` existe no runner. Falta (verifique o `plan.md`/`.plan/plan.md` ativo
-pra confirmar o que já foi feito): o endpoint + botão de UI, e o mais importante,
-**plugar `story_summary` no prompt do Narrador e `character_notes` no prompt do
-Personagem** — sem isso, compactar só reescreve o disco e não muda nada do que o LLM vê.
+**Superfície implementada:** `POST /session/{id}/compact`, botão de compactação com
+progresso simulado, `POST /session/{id}/restore_compaction`, botão de restauração com
+confirmação, marcadores `compact`/`restore_compaction` no log e testes de integração do
+fluxo completo.
 
 ---
 

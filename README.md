@@ -11,10 +11,10 @@ a SillyTavern or character.ai clone (more on that below, it matters a lot for ho
 is shaped).
 
 > [!NOTE]
-> **Context Compaction — in progress.** Long sessions currently keep their entire history live
-> forever. A discrete, manual compaction feature (backup → summarize → trim) is being built out
-> right now so sessions can run indefinitely on a small local model without losing long-term
-> coherence. See [Context compaction](#-context-compaction-in-progress) below.
+> **Context Compaction is implemented.** A manual action backs up the session, folds older
+> turns into a running story summary and per-character notes, and keeps a recent verbatim
+> window active. See [Context compaction](#-context-compaction) for the exact behavior and
+> restore safeguards.
 
 <place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
@@ -67,7 +67,7 @@ uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
 ```mermaid
 graph TD
     A[Human submits speech + action] --> B{Runner}
-    B --> C[Narrator: reads scene, all character sheets, full history]
+    B --> C[Narrator: reads scene, all character sheets, story summary + active history]
     C -->|"schema-constrained JSON"| D{next_speaker?}
     D -->|Human-controlled character| E[Runner pauses — no LLM call. Turn back to human.]
     D -->|NPC or Narrator| F[Character agent: only its own mind + filtered context]
@@ -80,13 +80,15 @@ graph TD
 A single human action can trigger up to two sequential LLM calls:
 
 1. **Narrator call** — reads the current scene, the full personality and appearance of every
-   present character, and the complete history (trimmed by an estimated token budget, never by
-   a fixed turn count or by character clipping). There's no separate "player input" block; the
-   human's last action is just the most recent history entry, rendered under their controlled
-   character's name like anyone else's. It answers with grammar-constrained JSON: the narration
-   text, who acts next, a context message filtered specifically for that next speaker, any
-   physical changes to the scene, and any mood updates (a missing key means unchanged, `null`
-   means the fact is removed from the scene entirely).
+   present character, the running `story_summary` when one exists, and the active history
+   (trimmed by an estimated token budget, never by a fixed turn count or by character clipping).
+   Before the first manual compaction, that active history is the entire stored history; after
+   compaction, it is the retained verbatim window. There's no separate "player input" block;
+   the human's last action is just the most recent history entry, rendered under their
+   controlled character's name like anyone else's. It answers with grammar-constrained JSON:
+   the narration text, who acts next, a context message filtered specifically for that next
+   speaker, any physical changes to the scene, and any mood updates (a missing key means
+   unchanged, `null` means the fact is removed from the scene entirely).
 2. **Character call**, only if the routed speaker is a present, non-human-controlled character.
    Receives its own personality, knowledge, and current mood, the Narrator's filtered context
    message, and prior speech lines only — narration and physical action entries are excluded
@@ -182,8 +184,8 @@ inside the fiction. Deliberately left unimplemented until it's actually needed.
 | Role | Can | Cannot | Receives in its prompt |
 |---|---|---|---|
 | **Human player** | Speak, think, and act (two input boxes: speech/thought, and physical action) | — the human designs the scene at setup time | — |
-| **Narrator** | Everything physical: action, description, consequence, scene transitions, and deciding who speaks next | Cannot know which character is human-controlled | Everything about the world: full personality and appearance (the `body`) of every character, the scene, and the complete history. Treats every character identically |
-| **Character** | Only speak or think, strictly first person | Cannot narrate, cannot describe environment, cannot perform or describe physical action — not even its own, not even inside a marked thought | Only its own mind (personality, knowledge, mood), the Narrator's `context_for_character` message, and prior speech lines (never narration, never actions) |
+| **Narrator** | Everything physical: action, description, consequence, scene transitions, and deciding who speaks next | Cannot know which character is human-controlled | Everything about the world: full personality and appearance (the `body`) of every character, the scene, the running story summary, and the active history window. Treats every character identically |
+| **Character** | Only speak or think, strictly first person | Cannot narrate, cannot describe environment, cannot perform or describe physical action — not even its own, not even inside a marked thought | Only its own mind (personality, knowledge, mood), its own accumulated character note, the Narrator's `context_for_character` message, and prior speech lines from the active history (never narration, never actions) |
 
 Two real bugs surfaced through live playtesting rather than being designed in from the start:
 
@@ -325,12 +327,11 @@ model, not from theory:
 
 ---
 
-## 🧠 Context Compaction (in progress)
+## 🧠 Context Compaction
 
 > [!IMPORTANT]
-> This section documents an in-flight feature, following a written plan rather than free
-> improvisation — specifically so a smaller local model can eventually take over without losing
-> long-term coherence.
+> Compaction is a completed manual MVP. It is not triggered automatically by context usage, and
+> its progress bar is a UI estimate rather than measured generation progress.
 
 The starting question was how Anthropic's own tooling actually handles a growing conversation.
 Context is treated as a finite resource even with large windows, because attention degrades as
@@ -351,21 +352,30 @@ not the already-durable structured state.
 The first draft proposed two live layers recomputed on every prompt: a durable layer (scene,
 moods, rolling summary) always present, plus a verbatim recent window, with the full history
 always kept intact underneath for undo. That was deliberately simplified: **no layer is
-recomputed per call.** Compaction is instead a discrete, manual, one-time event:
+recomputed per call.** Compaction is instead a discrete, manual event:
 
-1. Back up the current session file under an incrementing name before touching anything.
-2. Summarize whatever is about to be evicted.
-3. Rewrite the live session's history to keep only a recent window.
-4. Store the generated summary and any per-character notes on the persisted game state going
-   forward.
+1. Read `compaction_keep_recent_turns` (8 by default) and count distinct `turn_number` values,
+   not individual history records. If the session has at most that many turns, return without
+   creating a backup or calling the model.
+2. Copy the current session bytes to the next `{session_id}.kb_N.json` before changing the live
+   state.
+3. Send only the turns older than the retained window to the blind Historian. It receives the
+   existing running summary and character notes, sees the human-controlled character by its
+   character name rather than `"Player"`, and returns schema-constrained JSON.
+4. Replace `story_summary` with the Historian's full rewritten summary, merge only the character
+   notes it returned, and replace the live history with the retained verbatim window.
+5. Save the compacted state and append a `compact` marker to the session's debug log.
 
-A consequence accepted explicitly: undo can no longer reach past whatever was compacted away,
-since those turns are gone from the active history — recovery only happens by manually
-restoring one of the numbered backup files. Chosen on purpose, in favor of a much simpler
-implementation, for what is explicitly a personal MVP, not production infrastructure with an
-automatic recovery story.
+Afterward, the Narrator receives `story_summary` as an optional `STORY SO FAR` section followed
+by the active history. A Character receives only its own note as an optional `What you remember`
+line, plus speech records from the active history; it never receives another character's note or
+the world-level summary.
 
-Two decisions were left to the project owner rather than assumed:
+A consequence accepted explicitly: ordinary turn undo cannot reach past whatever was compacted
+away, since those turns are gone from the active history. It continues to work normally for
+turns inside the retained window.
+
+Two deliberate constraints remain:
 
 - **No automatic token-threshold trigger** in this first version — only a manual button next to
   the existing undo control, with a deliberately simulated (not measured) progress indicator,
@@ -377,29 +387,20 @@ Two decisions were left to the project owner rather than assumed:
 
 <place_6:screenshot of the compact-session button with its progress bar mid-animation>
 
-Once summary and notes were wired into the actual prompts: the Narrator's user prompt gained an
+Summary and notes are wired into the actual prompts: the Narrator's user prompt has an
 optional "story so far" section, placed before the current scene, populated only once a
 `story_summary` exists. The Character's system prompt gained an optional "what you remember"
 line, populated only from that character's own notes — matching the same per-role scoping used
 everywhere else in this project.
 
-**Undoing a compaction itself.** Since backups are kept additively (nothing deleted, only
-appended), a natural follow-up question: can a compaction be undone, stepping back to the state
-right before it happened? The raw backup data genuinely is preserved — `backup_session` copies
-the entire session file byte-for-byte before any destructive change, and nothing ever deletes
-that copy — but the *ordinary* undo button doesn't know that backup exists; it only operates on
-the live history array, and once a compaction has run, that array no longer contains the evicted
-turns. So undo keeps working correctly within whatever window is currently active, but doesn't
-reach back across a compaction boundary on its own.
-
-That gap was an accepted tradeoff in the original plan, but once it came up it was worth closing
-properly: a dedicated **"undo the last compaction"** mechanism, essentially the exact inverse of
-`compact_session`, restoring the most recent numbered backup back over the live session file.
-This is a genuinely risky thing to build — it means writing code that intentionally overwrites a
-live session file from a backup — and it deserves careful risk review precisely because of that,
-but if it works reliably it becomes a solid safety net rather than a one-way door. **Still being
-implemented at the time of writing**, in parallel, task by task, one commit per task, the same
-discipline used for every prior phase of this project.
+**Undoing a compaction itself.** A separate action restores the highest-numbered backup, but only
+when the live session has no turn newer than that backup. The backend compares their maximum
+`turn_number` values and refuses without changing either file if restoration would discard newer
+play. On success it copies the backup over the live session and deletes that consumed backup.
+The UI asks for confirmation, reloads the restored state, and reports refusals without changing
+the visible history. This is deliberately not a merge operation and not an unrestricted undo
+stack: older backups can remain after restoring the newest one, but the same safety check may
+make them impossible to restore through the UI if the live history is already newer.
 
 ---
 
