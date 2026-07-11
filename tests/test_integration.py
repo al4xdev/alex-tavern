@@ -167,6 +167,8 @@ class TestModels:
     def test_game_state_round_trip(self) -> None:
         """game_state_to_dict + dict_to_game_state deve ser idempotente."""
         original = _make_test_game()
+        original.story_summary = "Thorn e Lyra se conheceram na taverna."
+        original.character_notes = {"C1": "Desconfia de magia.", "C2": "Curiosa demais."}
         data = game_state_to_dict(original)
         restored = dict_to_game_state(data)
         assert restored.session_id == original.session_id
@@ -174,6 +176,19 @@ class TestModels:
         assert restored.player.controlled_character_id == original.player.controlled_character_id
         assert restored.scene.location == original.scene.location
         assert restored.scene.physical_facts == original.scene.physical_facts
+        assert restored.story_summary == original.story_summary
+        assert restored.character_notes == original.character_notes
+
+    def test_game_state_load_legacy_without_compaction_fields(self) -> None:
+        """Sessão salva antes desta task (sem story_summary/character_notes) carrega
+        com os defaults vazios, sem KeyError."""
+        original = _make_test_game()
+        data = game_state_to_dict(original)
+        del data["story_summary"]
+        del data["character_notes"]
+        restored = dict_to_game_state(data)
+        assert restored.story_summary == ""
+        assert restored.character_notes == {}
 
     def test_game_state_round_trip_with_history(self) -> None:
         """Round-trip preserva histórico e snapshots."""
