@@ -78,6 +78,31 @@ def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
+def log_compact(
+    session_id: str, cutoff_turn_number: int, evicted_records: int, kept_records: int
+) -> None:
+    """Acrescenta ao mesmo log bruto um marcador de que uma compactação aconteceu.
+
+    Mesma ideia do ``log_undo``: não reescreve nem afeta o log, só marca a
+    sequência real de eventos — pra quem lê o ``.debug.jsonl`` depois entender
+    por que o histórico ficou menor num certo ponto.
+    """
+    if not session_id:
+        return
+    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "ts": datetime.now(UTC).isoformat(),
+        "session_id": session_id,
+        "agent": "compact",
+        "cutoff_turn_number": cutoff_turn_number,
+        "evicted_records": evicted_records,
+        "kept_records": kept_records,
+    }
+    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 async def chat_completion(
     client: httpx.AsyncClient,
     messages: list[dict],

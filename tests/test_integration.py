@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -663,6 +664,125 @@ class TestRunnerLogic:
             assert game is not None
             assert len(game.history) == 0
             assert game.scene.physical_facts["door"] == "fechada"  # original
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Testes — compact_session (compactação de sessão)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestCompactSession:
+    """Testes de compact_session — Resumidor mockado, sem LLM real."""
+
+    def setup_method(self) -> None:
+        self.sid = generate_session_id()
+        self.client = httpx.AsyncClient(base_url="http://localhost:8888")
+        self.runner = Runner(self.client, {"compaction_keep_recent_turns": 8})
+
+    def teardown_method(self) -> None:
+        delete_session(self.sid)
+        # Limpa eventuais backups kb_N.json criados pelo teste
+        for f in SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"):
+            f.unlink()
+
+    def _seed_history(self, num_turns: int) -> None:
+        """Monta uma sessão com `num_turns` passos (Narrator + Player), salva no disco."""
+        game = _make_test_game(self.sid)
+        for i in range(1, num_turns + 1):
+            game.history.append(
+                TurnRecord(
+                    turn_number=i,
+                    speaker="Player",
+                    content=f"Ação do turno {i}.",
+                    content_type="action",
+                    scene_snapshot=copy.deepcopy(game.scene),
+                    mood_snapshot={"C1": "cauteloso", "C2": "curiosa"},
+                )
+            )
+            game.history.append(
+                TurnRecord(
+                    turn_number=i,
+                    speaker="Narrator",
+                    content=f"Narração do turno {i}.",
+                    content_type="narration",
+                    scene_snapshot=copy.deepcopy(game.scene),
+                    mood_snapshot={"C1": "cauteloso", "C2": "curiosa"},
+                )
+            )
+        save_game(game)
+
+    def _mock_summarize(self, monkeypatch) -> None:  # noqa: ANN001
+        from src import runner as runner_mod
+
+        async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
+            return "Resumo dos turnos antigos.", {"C1": "Nota atualizada sobre Thorn."}
+
+        monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
+
+    @pytest.mark.asyncio
+    async def test_compact_below_window_does_nothing(self, monkeypatch) -> None:  # noqa: ANN001
+        """Histórico menor ou igual à janela → compacted=False, nada muda no disco."""
+        self._mock_summarize(monkeypatch)
+        self._seed_history(5)  # 5 <= compaction_keep_recent_turns (8)
+
+        result = await self.runner.compact_session(self.sid)
+        assert result["compacted"] is False
+
+        assert list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json")) == []
+        game = load_game(self.sid)
+        assert game is not None
+        assert len(game.history) == 10  # 5 passos * 2 registros, intocado
+
+    @pytest.mark.asyncio
+    async def test_compact_above_window_rewrites_session_with_backup(
+        self, monkeypatch  # noqa: ANN001
+    ) -> None:
+        """Histórico maior que a janela → compacta, faz backup idêntico ao pré-estado."""
+        self._mock_summarize(monkeypatch)
+        self._seed_history(12)  # 12 passos, janela = 8 -> compacta os 4 mais antigos
+
+        pre_compaction_bytes = (SESSIONS_DIR / f"{self.sid}.json").read_bytes()
+
+        result = await self.runner.compact_session(self.sid)
+        assert result["compacted"] is True
+        assert result["evicted_turns"] == 8  # 4 passos evictados * 2 registros
+        assert result["kept_turns"] == 16  # 8 passos mantidos * 2 registros
+
+        # Backup kb_0 existe e é byte-a-byte igual ao estado pré-compactação
+        backup_path = Path(result["backup_path"])
+        assert backup_path.exists()
+        assert backup_path.read_bytes() == pre_compaction_bytes
+
+        # Sessão real foi reescrita: histórico menor, resumo/notas preenchidos
+        game = load_game(self.sid)
+        assert game is not None
+        assert len(game.history) == 16
+        assert game.history[0].turn_number == 5  # os 4 primeiros passos saíram
+        assert game.story_summary == "Resumo dos turnos antigos."
+        assert game.character_notes["C1"] == "Nota atualizada sobre Thorn."
+
+    @pytest.mark.asyncio
+    async def test_undo_still_works_after_compaction(self, monkeypatch) -> None:  # noqa: ANN001
+        """undo_turn continua funcionando dentro da janela que sobrou pós-compactação."""
+        self._mock_summarize(monkeypatch)
+        self._seed_history(10)
+
+        await self.runner.compact_session(self.sid)
+        game = load_game(self.sid)
+        assert game is not None
+        turns_after_compaction = len(game.history)
+
+        r = await self.runner.undo_turn(self.sid)
+        assert r["undone"] is True
+        game = load_game(self.sid)
+        assert game is not None
+        assert len(game.history) == turns_after_compaction - 2  # um passo (2 registros) a menos
+
+    @pytest.mark.asyncio
+    async def test_compact_missing_session(self) -> None:
+        """Compactar sessão inexistente devolve erro, sem levantar exceção."""
+        result = await self.runner.compact_session("naoexiste")
+        assert "error" in result
 
 
 # ═══════════════════════════════════════════════════════════════════════════
