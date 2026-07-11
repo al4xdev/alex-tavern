@@ -1,4 +1,4 @@
-"""Agente Narrador — orquestra cena, processa ações, decide quem fala."""
+"""Narrator Agent — orchestrates scenes, processes actions, decides who speaks."""
 
 from __future__ import annotations
 
@@ -48,10 +48,10 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
 
 
 def build_narrator_json_schema(character_ids: list[str]) -> dict:
-    """Monta o JSON schema estrutural da resposta do Narrador.
+    """Builds the structural JSON schema for the Narrator's response.
 
-    Usado com ``response_format: {"type": "json_schema", ...}`` — a saída do
-    LLM é restrita por gramática, não depende de instrução textual tipo
+    Used with ``response_format: {"type": "json_schema", ...}`` — LLM output
+    is grammar-constrained and does not rely on textual prompts like
     "no markdown, no code fences".
     """
     speakers = [*character_ids, "Narrator"]
@@ -93,28 +93,28 @@ def _build_user_prompt(
     max_tokens_narrator: int = 2048,
     story_summary: str = "",
 ) -> str:
-    """Constrói o user prompt com cena, personagens e histórico.
+    """Builds the user prompt with scene, characters, and history.
 
-    Sem bloco de input separado: a última jogada (de quem quer que seja,
-    incluindo o personagem controlado) já está no fim do HISTORY.
+    No separate input block: the last action/speech (from anyone,
+    including the controlled character) is already at the end of HISTORY.
     """
     lines: list[str] = []
 
-    # Resumo dos turnos já compactados (ver runner.compact_session) — contexto
-    # de mundo, só o Narrador vê isso.
+    # Summary of already compacted turns (see runner.compact_session) — world
+    # context, only the Narrator sees this.
     if story_summary.strip():
         lines.append("STORY SO FAR:")
         lines.append(f"  {story_summary.strip()}")
         lines.append("")
 
-    # Cena atual
+    # Current scene
     lines.append("CURRENT SCENE:")
     lines.append(f"  Location: {scene.location}")
     lines.append(f"  Time: {scene.time_of_day}")
     lines.append(f"  Physical facts: {json.dumps(scene.physical_facts, ensure_ascii=False)}")
     lines.append("")
 
-    # Personagens presentes
+    # Present characters
     lines.append("CHARACTERS PRESENT:")
     for cid in characters:
         ch = characters[cid]
@@ -125,7 +125,7 @@ def _build_user_prompt(
         lines.append(f"    Mood: {ch.mind.current_mood}")
     lines.append("")
 
-    # Histórico — janela completa, ou trimada por orçamento de tokens se context_max informado
+    # History — complete window, or trimmed by token budget if context_max is provided
     lines.append("HISTORY:")
     hist = history
     if context_max is not None:
@@ -151,9 +151,9 @@ def build_narrator_messages(
     max_tokens_narrator: int = 2048,
     story_summary: str = "",
 ) -> list[dict]:
-    """Monta os messages (system + user) do Narrador — puro, sem chamar o LLM.
+    """Assembles the Narrator messages (system + user) — pure, without calling the LLM.
 
-    Reusado tanto por ``narrate`` quanto pelo preview de prompt offline.
+    Reused by both ``narrate`` and the offline prompt preview.
     """
     return [
         {
@@ -187,25 +187,25 @@ async def narrate(
     turn_number: int = 0,
     story_summary: str = "",
 ) -> dict:
-    """Constrói prompt do Narrador, chama LLM, devolve dict validado.
+    """Builds the Narrator prompt, calls the LLM, and returns a validated dict.
 
-    O Narrador é cego: não sabe que existe um humano. Ele reage à última
-    entrada do HISTORY, seja de quem for. ``player_controlled_id`` só é usado
-    para traduzir o marcador interno ``"Player"`` no nome do personagem ao
-    montar o histórico — nunca aparece como texto no prompt.
+    The Narrator is blind: they do not know a human exists. They react to the last
+    entry of HISTORY, whoever it belongs to. ``player_controlled_id`` is only used
+    to translate the internal ``"Player"`` marker to the character's name when
+    assembling the history — it never appears as text in the prompt.
 
-    ``story_summary`` é o resumo de turnos já compactados (ver
-    ``runner.compact_session``) — contexto de mundo, só o Narrador recebe.
+    ``story_summary`` is the summary of already compacted turns (see
+    ``runner.compact_session``) — world context, only the Narrator receives it.
 
-    ``session_id``/``turn_number`` só existem para o log bruto de chamadas LLM
-    (ver ``src/llm/client.py``) — não afetam o prompt.
+    ``session_id``/``turn_number`` only exist for the raw LLM call log
+    (see ``src/llm/client.py``) — they do not affect the prompt.
 
     Returns:
-        Dict com chaves narration, next_speaker, context_for_character,
+        Dict with keys: narration, next_speaker, context_for_character,
         scene_update, mood_updates.
 
     Raises:
-        ValueError: Se o JSON retornado não tiver os campos obrigatórios.
+        ValueError: If the returned JSON is missing required fields.
     """
     max_tokens_narrator = config.get("max_tokens_narrator", 2048)
     messages = build_narrator_messages(
@@ -231,7 +231,7 @@ async def narrate(
         agent="narrator",
     )
 
-    # Valida campos obrigatórios
+    # Validate required fields
     required = ["narration", "next_speaker", "context_for_character"]
     missing = [k for k in required if k not in result]
     if missing:
@@ -240,13 +240,13 @@ async def narrate(
             f"Recebido: {json.dumps(result, ensure_ascii=False)[:300]}"
         )
 
-    # Valida next_speaker — speakers válidos derivados dinamicamente dos IDs
+    # Validate next_speaker — valid speakers derived dynamically from IDs
     valid_speakers = set(characters) | {"Narrator"}
     if result["next_speaker"] not in valid_speakers:
-        # Fallback: normaliza para Narrator (o Narrador não conhece "Player")
+        # Fallback: normalize to Narrator (the Narrator does not know "Player")
         result["next_speaker"] = "Narrator"
 
-    # scene_update e mood_updates podem ser None
+    # scene_update and mood_updates can be None
     result.setdefault("scene_update", None)
     result.setdefault("mood_updates", None)
 
@@ -273,7 +273,7 @@ def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") 
 
 
 def build_suggest_json_schema() -> dict:
-    """JSON schema da resposta de sugestão de jogadas (gatilho manual, Task 6)."""
+    """JSON schema of the suggestion response (manual trigger, Task 6)."""
     suggestion_schema = {
         "type": "object",
         "properties": {
@@ -312,15 +312,15 @@ async def suggest(
     session_id: str = "",
     turn_number: int = 0,
 ) -> list[dict]:
-    """Pede ao Narrador (cego) uma lista de jogadas possíveis para ``target_id``.
+    """Asks the (blind) Narrator for a list of possible moves for ``target_id``.
 
-    Usado pelo gatilho "sugira pra mim": o Narrador não sabe que ``target_id``
-    é o personagem controlado pelo humano — a pergunta é genérica ("sugira
-    jogadas para este personagem"), igual seria para qualquer outro. Não
-    persiste nada; quem chama decide o que fazer com as sugestões.
+    Used by the "suggest to me" trigger: the Narrator does not know ``target_id``
+    is the human-controlled character — the question is generic ("suggest
+    moves for this character"), exactly as it would be for any other character. It
+    does not persist anything; the caller decides what to do with the suggestions.
 
     Returns:
-        Lista de ``{"speech", "action"}``.
+        List of ``{"speech", "action"}``.
     """
     max_tokens_narrator = config.get("max_tokens_narrator", 2048)
     messages = [

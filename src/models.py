@@ -1,4 +1,4 @@
-"""Dataclasses do sistema de roleplay multi-agente."""
+"""Dataclasses for the multi-agent roleplay system."""
 
 from __future__ import annotations
 
@@ -9,26 +9,26 @@ from typing import Any
 
 @dataclass
 class CharacterMind:
-    """Visível ao próprio personagem e ao Narrador."""
+    """Visible to the character itself and the Narrator."""
 
     name: str
-    personality: str  # descrição da personalidade, vai pro prompt do Narrador e do personagem
-    knowledge: list[str]  # fatos que o personagem conhece
-    current_mood: str  # atualizado pelo Narrador via mood_updates a cada turno
+    personality: str  # personality description, goes to the Narrator's and character's prompts
+    knowledge: list[str]  # facts that the character knows
+    current_mood: str  # updated by the Narrator via mood_updates each turn
 
 
 @dataclass
 class CharacterBody:
-    """Só o Narrador vê — aparência física."""
+    """Only the Narrator sees — physical appearance."""
 
     name: str
-    physical_description: str  # aparência, corpo
-    outfit: str  # roupa atual (mutável)
+    physical_description: str  # physical appearance, body
+    outfit: str  # current outfit (mutable)
 
 
 @dataclass
 class Character:
-    """Agrega Mind + Body. Sem referência ao LLM client."""
+    """Aggregates Mind + Body. No reference to the LLM client."""
 
     mind: CharacterMind
     body: CharacterBody
@@ -36,15 +36,14 @@ class Character:
 
 @dataclass
 class Player:
-    """O humano que joga. Sem `name` — nenhum agente sabe que existe um humano
-    (ver regra de imersão no agent.md); o jogador é só o `controlled_character_id`."""
+    """The human playing. No name — no agent knows a human exists (see immersion rule in agent.md); the player is just the controlled_character_id."""
 
-    controlled_character_id: str  # qual personagem o jogador controla, fixo na sessão
+    controlled_character_id: str  # which character the player controls, fixed in the session
 
 
 @dataclass
 class Scene:
-    """Estado da cena atual."""
+    """State of the current scene."""
 
     location: str
     time_of_day: str
@@ -54,19 +53,19 @@ class Scene:
 
 @dataclass
 class TurnRecord:
-    """Uma entrada no histórico — contém cópia da cena/humor naquele momento."""
+    """An entry in the history — contains a copy of the scene/mood at that moment."""
 
     turn_number: int
     speaker: str  # "Player", "C1", "C2", "Narrator"
     content: str
     content_type: str  # "speech", "thought", "narration", "action"
-    scene_snapshot: Scene  # deepcopy da cena naquele turno
+    scene_snapshot: Scene  # deepcopy of the scene in that turn
     mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
 
 
 @dataclass
 class GameState:
-    """Persiste entre turnos no JSON da sessão."""
+    """Persists between turns in the session JSON."""
 
     session_id: str
     characters: dict[str, Character]  # {"C1": Character, "C2": Character}
@@ -74,22 +73,21 @@ class GameState:
     scene: Scene
     history: list[TurnRecord] = field(default_factory=list)
     created_at: str = ""  # ISO timestamp
-    narrator_directives: str = ""  # instruções de mundo/tom/regras extras p/ o Narrador
-    story_summary: str = ""  # resumo de mundo dos turnos compactados — só o Narrador vê
-    # {cid: nota} — cada personagem só recebe a própria nota, nunca a de outro
+    narrator_directives: str = ""  # world/tone/extra rule instructions for the Narrator
+    story_summary: str = ""  # world summary of compacted turns — only the Narrator sees
+    # {cid: note} — each character only receives their own note, never another's
     character_notes: dict[str, str] = field(default_factory=dict)
 
 
 def trim_history_by_tokens(
     history: list[TurnRecord], context_max: int, reserved_tokens: int
 ) -> list[TurnRecord]:
-    """Seleciona, do mais recente ao mais antigo, os turnos que cabem no orçamento.
+    """Selects, from most recent to oldest, the turns that fit in the budget.
 
-    Orçamento = ~70% de ``context_max`` menos ``reserved_tokens`` (espaço
-    reservado para a resposta do LLM). Estimativa de tokens é ``len(texto) // 4``.
-    Nunca corta pelo número de turnos — só pela proximidade do limite de tokens.
-    Sempre inclui ao menos o turno mais recente, mesmo que ele sozinho já
-    ultrapasse o orçamento.
+    Budget = ~70% of ``context_max`` minus ``reserved_tokens`` (reserved space
+    for the LLM response). Token estimation is ``len(text) // 4``.
+    Never cuts by number of turns — only by proximity to the token limit.
+    Always includes at least the most recent turn, even if it alone exceeds the budget.
     """
     budget = int(context_max * 0.7) - reserved_tokens
     if budget <= 0 or not history:
@@ -107,17 +105,16 @@ def trim_history_by_tokens(
 
 
 def deepcopy_scene(scene: Scene) -> Scene:
-    """Retorna uma cópia profunda da Scene (obrigatório para snapshots)."""
+    """Returns a deep copy of the Scene (required for snapshots)."""
     return copy.deepcopy(scene)
 
 
 def speaker_label(speaker: str, characters: dict[str, Character], controlled_id: str) -> str:
-    """Traduz o ``speaker`` armazenado no rótulo a exibir em qualquer prompt de LLM.
+    """Translates the stored ``speaker`` to the label to display in any LLM prompt.
 
-    ``"Player"`` é o marcador interno da jogada do humano — nunca deve chegar a
-    uma LLM (Narrador ou Personagem). É sempre traduzido para o nome do
-    personagem controlado. Os demais speakers (IDs de personagem, "Narrator")
-    voltam como estão.
+    ```"Player"`` is the internal marker for the human's turn — it should never reach
+    an LLM (Narrator or Character). It is always translated to the controlled
+    character's name. Other speakers (character IDs, "Narrator") are returned as is.
     """
     if speaker == "Player":
         controlled = characters.get(controlled_id)
@@ -127,13 +124,13 @@ def speaker_label(speaker: str, characters: dict[str, Character], controlled_id:
 
 
 def game_state_to_dict(game: GameState) -> dict[str, Any]:
-    """Converte GameState para dict serializável em JSON."""
+    """Converts GameState to a JSON-serializable dict."""
     return asdict(game)
 
 
 def resolve_personality(data: dict[str, Any]) -> str:
-    """Lê ``personality`` ou migra do formato legado (``personality_summary`` +
-    ``personality_full``), para não quebrar dados salvos antes da unificação.
+    """Reads ``personality`` or migrates from the legacy format (``personality_summary`` +
+    ``personality_full``), to avoid breaking data saved before the unification.
     """
     personality = data.get("personality")
     if personality is not None:
@@ -143,9 +140,9 @@ def resolve_personality(data: dict[str, Any]) -> str:
 
 
 def dict_to_character(data: dict[str, Any]) -> Character:
-    """Constrói um Character a partir de um dict com chaves ``mind`` e ``body``.
+    """Builds a Character from a dict with ``mind`` and ``body`` keys.
 
-    Reusável tanto no round-trip de persistência quanto na API de criação.
+    Reusable in both persistence round-trip and creation API.
     """
     mind_data = data["mind"]
     body_data = data["body"]
@@ -165,9 +162,9 @@ def dict_to_character(data: dict[str, Any]) -> Character:
 
 
 def dict_to_game_state(data: dict[str, Any]) -> GameState:
-    """Reconstrói GameState de um dict (carregado do JSON).
+    """Reconstructs GameState from a dict (loaded from JSON).
 
-    Construção manual explícita — sem dependências de serialização mágica.
+    Explicit manual construction — no magic serialization dependencies.
     """
     chars_raw: dict[str, Any] = data["characters"]
     characters: dict[str, Character] = {

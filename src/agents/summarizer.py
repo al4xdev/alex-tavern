@@ -1,8 +1,8 @@
-"""Agente Resumidor — condensa turnos antigos em story_summary/character_notes.
+"""Summarizer Agent — condenses old turns into story_summary/character_notes.
 
-Roda "de fora" do fluxo de turno normal, disparado manualmente pela
-compactação (ver ``runner.compact_session``). É cego igual o Narrador: nunca
-sabe que existe um humano, só vê nomes de personagem (via ``speaker_label``).
+Runs "outside" the normal turn flow, triggered manually by
+compaction (see ``runner.compact_session``). It is blind like the Narrator: it never
+knows a human exists, only sees character names (via ``speaker_label``).
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def _build_system_prompt(narrator_directives: str = "") -> str:
 
 
 def build_summarizer_json_schema() -> dict:
-    """Monta o JSON schema estrutural da resposta do Resumidor."""
+    """Builds the structural JSON schema for the Summarizer's response."""
     return {
         "name": "summarizer_output",
         "schema": {
@@ -98,7 +98,7 @@ def build_summarizer_messages(
     evicted_turns: list[TurnRecord],
     narrator_directives: str = "",
 ) -> list[dict]:
-    """Monta os messages (system + user) do Resumidor — puro, sem chamar o LLM."""
+    """Assembles the Summarizer messages (system + user) — pure, without calling the LLM."""
     return [
         {"role": "system", "content": _build_system_prompt(narrator_directives)},
         {
@@ -126,15 +126,15 @@ async def summarize(
     session_id: str = "",
     turn_number: int = 0,
 ) -> tuple[str, dict[str, str]]:
-    """Chama o Resumidor, devolve o resumo atualizado e as notas que mudaram.
+    """Calls the Summarizer, returns the updated summary and the notes that changed.
 
-    ``character_notes`` retornado contém SÓ as entradas que o LLM decidiu
-    atualizar (personagens não mencionados nos eventos evictados são omitidos
-    de propósito) — quem chama (``runner.compact_session``) faz o merge com
-    o ``character_notes`` existente no ``GameState``.
+    ``character_notes`` returned contains ONLY the entries the LLM decided
+    to update (characters not mentioned in the evicted events are omitted
+    purposely) — the caller (``runner.compact_session``) merges this with
+    the existing ``character_notes`` in ``GameState``.
 
     Returns:
-        Tupla ``(story_summary, changed_character_notes)``.
+        Tuple of ``(story_summary, changed_character_notes)``.
     """
     max_tokens = config.get("summarizer_max_tokens", 1024)
     messages = build_summarizer_messages(

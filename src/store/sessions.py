@@ -1,4 +1,4 @@
-"""Persistência de GameState em JSON com lock por sessão e escrita atômica."""
+"""GameState persistence in JSON with session lock and atomic write."""
 
 from __future__ import annotations
 
@@ -16,23 +16,23 @@ from src.models import GameState, dict_to_game_state, game_state_to_dict
 SESSIONS_DIR = Path(".data/sessions")
 _session_locks: dict[str, asyncio.Lock] = {}
 
-# Tech debt: _session_locks cresce indefinidamente (aceitável no MVP)
+# Tech debt: _session_locks grows indefinitely (acceptable for MVP)
 
 
 def _get_lock(session_id: str) -> asyncio.Lock:
-    """Retorna (ou cria) o lock para esta sessão."""
+    """Returns (or creates) the lock for this session."""
     if session_id not in _session_locks:
         _session_locks[session_id] = asyncio.Lock()
     return _session_locks[session_id]
 
 
 def generate_session_id() -> str:
-    """UUID4 curto (8 primeiros caracteres hex)."""
+    """Short UUID4 (first 8 hex characters)."""
     return uuid.uuid4().hex[:8]
 
 
 def _ensure_sessions_dir() -> None:
-    """Garante que o diretório de sessões existe."""
+    """Ensures the sessions directory exists."""
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -41,18 +41,18 @@ def _session_path(session_id: str) -> Path:
 
 
 def save_game(game: GameState) -> None:
-    """Salva GameState em JSON com escrita atômica (temp + fsync + rename).
+    """Saves GameState in JSON with atomic write (temp + fsync + rename).
 
-    DEVE ser chamado dentro de um ``async with _get_lock(session_id)``.
+    MUST be called within an ``async with _get_lock(session_id)``.
 
     Args:
-        game: GameState a ser salvo.
+        game: GameState to be saved.
     """
     _ensure_sessions_dir()
     data: dict[str, Any] = game_state_to_dict(game)
     path = _session_path(game.session_id)
 
-    # Write-to-temp-then-rename atômico
+    # Atomic write-to-temp-then-rename
     fd, tmp_name = tempfile.mkstemp(
         dir=str(SESSIONS_DIR),
         prefix=f"{game.session_id}_",
@@ -66,22 +66,22 @@ def save_game(game: GameState) -> None:
             os.fsync(fd)
         tmp_path.replace(path)
     except BaseException:
-        # Limpa o temp se algo falhar
+        # Clean up temp if something fails
         if tmp_path.exists():
             tmp_path.unlink()
         raise
 
 
 def load_game(session_id: str) -> GameState | None:
-    """Carrega GameState do JSON da sessão.
+    """Loads GameState from the session JSON.
 
-    DEVE ser chamado dentro de um ``async with _get_lock(session_id)``.
+    MUST be called within an ``async with _get_lock(session_id)``.
 
     Args:
-        session_id: ID da sessão.
+        session_id: Session ID.
 
     Returns:
-        GameState ou None se o arquivo não existir.
+        GameState or None if the file does not exist.
     """
     path = _session_path(session_id)
     if not path.exists():
@@ -92,21 +92,21 @@ def load_game(session_id: str) -> GameState | None:
 
 
 def backup_session(session_id: str) -> str:
-    """Copia o {session_id}.json atual para {session_id}.kb_N.json (N incremental).
+    """Copies the current {session_id}.json to {session_id}.kb_N.json (incremental N).
 
-    Feito ANTES de qualquer edição destrutiva (ex.: compactação) para permitir
-    recuperação manual. Cópia de bytes crus, sem reserializar — o backup é
-    bit-a-bit idêntico ao arquivo original no momento da chamada.
+    Done BEFORE any destructive edits (e.g. compaction) to allow manual recovery.
+    Raw byte copy, no re-serialization — the backup is bit-for-bit identical to the
+    original file at the time of the call.
 
     Returns:
-        Path (string) do arquivo de backup criado.
+        Path (string) of the created backup file.
 
     Raises:
-        FileNotFoundError: se a sessão não existir.
+        FileNotFoundError: if the session does not exist.
     """
     path = _session_path(session_id)
     if not path.exists():
-        raise FileNotFoundError(f"Sessão {session_id} não encontrada para backup.")
+        raise FileNotFoundError(f"Session {session_id} not found for backup.")
 
     _ensure_sessions_dir()
     pattern = re.compile(rf"^{re.escape(session_id)}\.kb_(\d+)\.json$")
@@ -118,10 +118,10 @@ def backup_session(session_id: str) -> str:
 
 
 def find_latest_backup(session_id: str) -> Path | None:
-    """Acha o backup de compactação mais recente ({session_id}.kb_N.json de maior N).
+    """Finds the most recent compaction backup (highest N in {session_id}.kb_N.json).
 
     Returns:
-        Path do backup, ou None se não houver nenhum.
+        Path of the backup, or None if none exists.
     """
     _ensure_sessions_dir()
     pattern = re.compile(rf"^{re.escape(session_id)}\.kb_(\d+)\.json$")
@@ -135,41 +135,41 @@ def find_latest_backup(session_id: str) -> Path | None:
 
 
 def restore_last_backup(session_id: str) -> dict:
-    """Desfaz a última compactação, restaurando o backup mais recente — SE seguro.
+    """Undoes the last compaction, restoring the most recent backup — IF safe.
 
-    ⚠️ Operação arriscada por natureza: só restaura se NENHUM turno novo foi
-    jogado desde aquela compactação (o maior ``turn_number`` da sessão ativa
-    não pode ser maior que o maior ``turn_number`` do próprio backup) — senão,
-    restaurar descartaria essas jogadas novas de verdade (elas não existem no
-    backup, que é anterior a elas). Nesse caso a operação se RECUSA, sem tocar
-    em nada — nunca tenta "mesclar" os dois históricos.
+    ⚠️ Risky operation: only restores if NO new turns have been played
+    since that compaction (the highest ``turn_number`` of the active session
+    cannot be greater than the highest ``turn_number`` of the backup itself) — otherwise,
+    restoring would permanently discard those new turns (they do not exist in the
+    backup, which is prior to them). In that case, the operation REFUSES, changing
+    nothing — it never tries to "merge" the two histories.
 
-    DEVE ser chamado dentro de um ``async with _get_lock(session_id)``.
-    Trabalha em cima dos dicts JSON crus (sem round-trip por dataclass), pra
-    minimizar a chance de um bug de (de)serialização mascarar a checagem.
+    MUST be called within an ``async with _get_lock(session_id)``.
+    Operates on raw JSON dicts (without round-trip through dataclass) to
+    minimize the chance of a (de)serialization bug masking the check.
 
     Returns:
-        ``{"error": "..."}`` se a sessão não existe (mesmo formato de
-        ``undo_turn``/``compact_session``, pro endpoint devolver 404).
-        ``{"restored": False, "reason": "..."}`` se não há backup, ou não é
-        seguro restaurar (nada é alterado nesse caso).
-        ``{"restored": True, "history_length": N}`` se restaurou — o backup
-        consumido é apagado; uma nova chamada, se houver outro backup mais
-        antigo, restaura esse (mesmo espírito do undo: uma chamada por vez).
+        ``{"error": "..."}`` if the session does not exist (same format as
+        ``undo_turn``/``compact_session``, for the endpoint to return 404).
+        ``{"restored": False, "reason": "..."}`` if there is no backup, or it is not
+        safe to restore (nothing is modified in this case).
+        ``{"restored": True, "history_length": N}`` if restored — the consumed backup
+        is deleted; a new call, if there is another older backup, restores that one
+        (same spirit as undo: one call at a time).
     """
     path = _session_path(session_id)
     if not path.exists():
-        return {"error": f"Sessão {session_id} não encontrada."}
+        return {"error": f"Session {session_id} not found."}
 
     backup_path = find_latest_backup(session_id)
     if backup_path is None:
-        return {"restored": False, "reason": "Nenhum backup de compactação encontrado."}
+        return {"restored": False, "reason": "No compaction backup found."}
 
     try:
         backup_data: dict[str, Any] = json.loads(backup_path.read_text(encoding="utf-8"))
         live_data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
-        return {"restored": False, "reason": f"Backup ou sessão corrompidos: {e}"}
+        return {"restored": False, "reason": f"Backup or session corrupted: {e}"}
 
     backup_max_turn = max((h["turn_number"] for h in backup_data.get("history", [])), default=0)
     live_max_turn = max((h["turn_number"] for h in live_data.get("history", [])), default=0)
@@ -177,9 +177,9 @@ def restore_last_backup(session_id: str) -> dict:
         return {
             "restored": False,
             "reason": (
-                f"Há turnos mais recentes (até {live_max_turn}) do que o backup "
-                f"(até {backup_max_turn}) — restaurar perderia essas jogadas. "
-                "Nada foi alterado."
+                f"There are more recent turns (up to {live_max_turn}) than the backup "
+                f"(up to {backup_max_turn}) — restoring would lose those turns. "
+                "Nothing was changed."
             ),
         }
 
@@ -189,7 +189,7 @@ def restore_last_backup(session_id: str) -> dict:
 
 
 def delete_session(session_id: str) -> None:
-    """Remove o arquivo de sessão e o log bruto de chamadas LLM. Usado em testes."""
+    """Removes the session file and the raw LLM call log. Used in tests."""
     path = _session_path(session_id)
     if path.exists():
         path.unlink()
@@ -200,11 +200,11 @@ def delete_session(session_id: str) -> None:
 
 
 def list_sessions() -> list[dict]:
-    """Lista todas as sessões com resumo (personagens, cena, turnos, data).
+    """Lists all sessions with a summary (characters, scene, turns, date).
 
     Returns:
-        Lista de dicts ordenada por ``created_at`` decrescente.
-        Cada dict: {session_id, characters: [{name}], scene_location,
+        List of dicts ordered by descending ``created_at``.
+        Each dict: {session_id, characters: [{name}], scene_location,
                     turn_count, created_at}
     """
     _ensure_sessions_dir()
@@ -215,7 +215,7 @@ def list_sessions() -> list[dict]:
         try:
             data: dict[str, Any] = json.loads(fpath.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            continue  # pula arquivos corrompidos
+            continue  # skip corrupted files
 
         chars = data.get("characters", {})
         char_names = [{"name": ch.get("mind", {}).get("name", "")} for ch in chars.values()]
@@ -231,19 +231,19 @@ def list_sessions() -> list[dict]:
                 "created_at": data.get("created_at", ""),
             }
         )
-    # Ordena por created_at decrescente (mais recentes primeiro)
+    # Sort by descending created_at (most recent first)
     summaries.sort(key=lambda s: s["created_at"], reverse=True)
     return summaries
 
 
 def fork_session(session_id: str) -> str | None:
-    """Cria uma cópia da sessão com novo ID.
+    """Creates a copy of the session with a new ID.
 
     Args:
-        session_id: ID da sessão original.
+        session_id: ID of the original session.
 
     Returns:
-        Novo session_id, ou None se a sessão original não existir.
+        New session_id, or None if the original session does not exist.
     """
     game = load_game(session_id)
     if game is None:

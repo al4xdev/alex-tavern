@@ -925,7 +925,7 @@ class TestRestoreCompaction:
 
         result = await self.runner.restore_last_compaction(self.sid)
         assert result["restored"] is False
-        assert "mais recentes" in result["reason"]
+        assert "more recent" in result["reason"]
 
         # Nada foi alterado: sessão idêntica, backup continua existindo
         assert (SESSIONS_DIR / f"{self.sid}.json").read_bytes() == pre_restore_bytes
@@ -937,7 +937,7 @@ class TestRestoreCompaction:
         self._seed_history(3)
         result = await self.runner.restore_last_compaction(self.sid)
         assert result["restored"] is False
-        assert "Nenhum backup" in result["reason"]
+        assert "No compaction backup" in result["reason"]
 
     @pytest.mark.asyncio
     async def test_restore_missing_session(self) -> None:
@@ -982,7 +982,7 @@ class TestRestoreCompaction:
         # apagaria os turnos 21-32 que r1 acabou de trazer de volta.
         r2 = await self.runner.restore_last_compaction(self.sid)
         assert r2["restored"] is False
-        assert "mais recentes" in r2["reason"]
+        assert "more recent" in r2["reason"]
         assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1  # kb_0 intacto
 
 
@@ -1186,7 +1186,7 @@ class TestCustomSessionAndDebug:
 
     def test_start_session_no_characters_raises(self) -> None:
         """start_session sem personagens levanta ValueError."""
-        with pytest.raises(ValueError, match="ao menos um personagem"):
+        with pytest.raises(ValueError, match="at least one character"):
             self.runner.start_session({"characters": {}})
 
     def test_start_session_invalid_controlled_fallback(self) -> None:
