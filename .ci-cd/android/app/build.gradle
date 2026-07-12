@@ -58,8 +58,8 @@ android {
     sourceSets {
         main {
             python {
-                // Aponta para a pasta temporária de build contendo o namespace 'src'
-                srcDirs = ["${project.buildDir}/pythonSrc"]
+                // Aponta para a pasta temporária de build contendo o namespace 'src' e os scripts locais
+                srcDirs = ["${project.buildDir}/pythonSrc", "src/main/python"]
             }
         }
     }
