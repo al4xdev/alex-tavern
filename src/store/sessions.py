@@ -214,7 +214,10 @@ def list_sessions() -> list[dict]:
             continue
         try:
             data: dict[str, Any] = json.loads(fpath.read_text(encoding="utf-8"))
-        except json.JSONDecodeError, OSError:
+        except (
+            json.JSONDecodeError,
+            OSError,
+        ):
             continue  # skip corrupted files
 
         chars = data.get("characters", {})

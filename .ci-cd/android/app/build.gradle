@@ -4,17 +4,29 @@ plugins {
     id 'com.chaquo.python'
 }
 
-// Tarefa para copiar as fontes do Python para o diretório de build mantendo o namespace 'src'
-tasks.register('copyPythonSources', Copy) {
-    from "../../../src"
-    into "${project.buildDir}/pythonSrc/src"
+def stagedPythonRoot = layout.buildDirectory.dir("pythonSrc")
+def stagedPythonPackage = stagedPythonRoot.map { it.dir("src") }
+
+// Mantém o código Python do APK isolado no diretório de build. Sync também
+// remove arquivos obsoletos que uma tarefa Copy deixaria de builds anteriores.
+tasks.register('copyPythonSources', Sync) {
+    from rootProject.file("../../src")
+    into stagedPythonPackage
 }
 
-// Faz com que as tarefas do Chaquopy dependam da cópia das fontes
+// Chaquopy pode empacotar um .py inválido e só revelar o erro no aparelho.
+// Compile todos os fontes preparados antes de permitir que o APK seja montado.
+tasks.register('validatePythonSources', Exec) {
+    dependsOn 'copyPythonSources'
+    commandLine 'python3', '-m', 'compileall', '-q', stagedPythonPackage.get().asFile
+}
+
+// Faz com que as tarefas do Chaquopy dependam da preparação e validação.
 project.afterEvaluate {
     tasks.configureEach { task ->
-        if (task.name != 'copyPythonSources' && (task.name.contains("Python") || task.name.contains("python"))) {
-            task.dependsOn 'copyPythonSources'
+        if (!(task.name in ['copyPythonSources', 'validatePythonSources']) &&
+                (task.name.contains("Python") || task.name.contains("python"))) {
+            task.dependsOn 'validatePythonSources'
         }
     }
 }
