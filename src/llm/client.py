@@ -125,6 +125,9 @@ async def chat_completion(
 
     started = time.perf_counter()
     content: str | None = None
+    usage: dict[str, Any] | None = None
+    cache_hit_tokens: int | None = None
+    cache_miss_tokens: int | None = None
     try:
         r = await client.post(
             request_url,
@@ -133,7 +136,11 @@ async def chat_completion(
             timeout=httpx.Timeout(timeout),
         )
         r.raise_for_status()
-        content = adapter.extract_content(r.json())
+        parsed_response = adapter.extract_response(r.json())
+        content = parsed_response.content
+        usage = parsed_response.usage
+        cache_hit_tokens = parsed_response.cache_hit_tokens
+        cache_miss_tokens = parsed_response.cache_miss_tokens
         if response_format is not None:
             if not content or not content.strip():
                 raise json.JSONDecodeError("Empty response from LLM", content or "", 0)
@@ -157,6 +164,9 @@ async def chat_completion(
             provider,
             api_base,
             thinking_enabled,
+            usage,
+            cache_hit_tokens,
+            cache_miss_tokens,
         )
         raise
     duration_ms = round((time.perf_counter() - started) * 1000, 3)
@@ -175,6 +185,9 @@ async def chat_completion(
         provider,
         api_base,
         thinking_enabled,
+        usage,
+        cache_hit_tokens,
+        cache_miss_tokens,
     )
     return content
 

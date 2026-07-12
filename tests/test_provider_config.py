@@ -149,8 +149,37 @@ def test_schema_validator_enforces_declared_string_and_numeric_constraints() -> 
 
 
 def test_response_envelope_extraction_belongs_to_each_adapter() -> None:
-    response = {"choices": [{"message": {"content": "ready"}}]}
-    assert get_provider_adapter("llama_cpp").extract_content(response) == "ready"
-    assert get_provider_adapter("deepseek").extract_content(response) == "ready"
+    deepseek_response = {
+        "choices": [{"message": {"content": "ready"}}],
+        "usage": {
+            "prompt_tokens": 13,
+            "prompt_cache_hit_tokens": 8,
+            "prompt_cache_miss_tokens": 5,
+        },
+    }
+    llama_response = {
+        "choices": [{"message": {"content": "ready"}}],
+        "usage": {
+            "prompt_tokens": 13,
+            "prompt_tokens_details": {"cached_tokens": 8},
+        },
+    }
+
+    deepseek = get_provider_adapter("deepseek").extract_response(deepseek_response)
+    llama = get_provider_adapter("llama_cpp").extract_response(llama_response)
+    assert deepseek.content == llama.content == "ready"
+    assert (deepseek.cache_hit_tokens, deepseek.cache_miss_tokens) == (8, 5)
+    assert (llama.cache_hit_tokens, llama.cache_miss_tokens) == (8, 5)
+    assert deepseek.usage == deepseek_response["usage"]
+    assert llama.usage == llama_response["usage"]
     with pytest.raises(ProviderResponseError, match="choices"):
-        get_provider_adapter("deepseek").extract_content({"output": "wrong envelope"})
+        get_provider_adapter("deepseek").extract_response({"output": "wrong envelope"})
+
+
+def test_llama_cache_control_is_adapter_specific() -> None:
+    messages = [{"role": "user", "content": "hello"}]
+    llama = get_provider_adapter("llama_cpp").prepare_request(messages, None, None, False)
+    deepseek = get_provider_adapter("deepseek").prepare_request(messages, None, None, False)
+
+    assert llama.extra_payload == {"cache_prompt": True}
+    assert "cache_prompt" not in deepseek.extra_payload

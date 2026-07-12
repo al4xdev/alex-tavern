@@ -119,33 +119,8 @@ def _build_user_prompt(
     """
     lines: list[str] = []
 
-    # Summary of already compacted turns (see runner.compact_session) — world
-    # context, only the Narrator sees this.
-    if story_summary.strip():
-        lines.append("STORY SO FAR:")
-        lines.append(f"  {story_summary.strip()}")
-        lines.append("")
-
-    # Current scene
-    lines.append("CURRENT SCENE:")
-    lines.append(f"  Location: {scene.location}")
-    lines.append(f"  Time: {scene.time_of_day}")
-    lines.append(f"  Physical facts: {json.dumps(scene.physical_facts, ensure_ascii=False)}")
-    lines.append("")
-
-    if forced_speaker is not None:
-        lines.append("ROUTING CONSTRAINT:")
-        lines.append(f"  next_speaker is fixed as {forced_speaker}.")
-        if forced_speaker == "Narrator":
-            lines.append("  context_for_character must be an empty string.")
-        else:
-            lines.append(
-                "  context_for_character must contain only what "
-                f"{forced_speaker} perceives right now."
-            )
-        lines.append("")
-
-    # Present characters
+    # Rarely changing character identity comes first so provider prefix caches can
+    # retain it even when the scene, mood, or routing changes.
     lines.append("CHARACTERS PRESENT:")
     for cid in characters:
         ch = characters[cid]
@@ -153,8 +128,14 @@ def _build_user_prompt(
         lines.append(f"    Personality: {ch.mind.personality}")
         lines.append(f"    Appearance: {ch.body.physical_description}")
         lines.append(f"    Outfit: {ch.body.outfit}")
-        lines.append(f"    Mood: {ch.mind.current_mood}")
     lines.append("")
+
+    # Summary of already compacted turns (see runner.compact_session) — world
+    # context, only the Narrator sees this.
+    if story_summary.strip():
+        lines.append("STORY SO FAR:")
+        lines.append(f"  {story_summary.strip()}")
+        lines.append("")
 
     # History — complete window, or trimmed by token budget if context_max is provided
     lines.append("HISTORY:")
@@ -172,6 +153,31 @@ def _build_user_prompt(
     else:
         lines.append("  (none, first turn)")
     lines.append("")
+
+    # Frequently changing state follows append-only history, preserving the longest
+    # useful prefix while keeping the current state closest to the generation point.
+    lines.append("CURRENT SCENE:")
+    lines.append(f"  Location: {scene.location}")
+    lines.append(f"  Time: {scene.time_of_day}")
+    lines.append(f"  Physical facts: {json.dumps(scene.physical_facts, ensure_ascii=False)}")
+    lines.append("")
+
+    lines.append("CURRENT MOODS:")
+    for cid, character in characters.items():
+        lines.append(f"  ID={cid} | Mood: {character.mind.current_mood}")
+    lines.append("")
+
+    if forced_speaker is not None:
+        lines.append("ROUTING CONSTRAINT:")
+        lines.append(f"  next_speaker is fixed as {forced_speaker}.")
+        if forced_speaker == "Narrator":
+            lines.append("  context_for_character must be an empty string.")
+        else:
+            lines.append(
+                "  context_for_character must contain only what "
+                f"{forced_speaker} perceives right now."
+            )
+        lines.append("")
 
     return "\n".join(lines)
 
