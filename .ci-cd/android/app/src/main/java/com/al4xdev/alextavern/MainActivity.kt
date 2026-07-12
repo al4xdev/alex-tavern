@@ -77,8 +77,6 @@ class MainActivity : AppCompatActivity() {
 
         // WebView nativa para exibir o PWA local
         webView = WebView(this)
-        setContentView(webView)
-
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
@@ -90,6 +88,27 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
         }
+
+        // Criar o container de layout e o botão de logs flutuante
+        val container = android.widget.FrameLayout(this)
+        container.addView(webView)
+
+        val logButton = android.widget.Button(this).apply {
+            text = "Ver Logs de Boot"
+            val params = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
+                setMargins(0, 0, 32, 100) // Margens para não sobrepor botões virtuais
+            }
+            layoutParams = params
+            setOnClickListener {
+                showLogsDialog()
+            }
+        }
+        container.addView(logButton)
+        setContentView(container)
 
         // Carrega o frontend local empacotado nos assets do APK
         logBootstrap("onCreate: Loading webview URL...")
@@ -135,6 +154,32 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             logBootstrap("copyAssetsFolder ERROR for '$assetDirPath': ${e.message}\n${e.stackTraceToString()}")
         }
+    }
+
+    private fun showLogsDialog() {
+        val logFile = File(filesDir, "bootstrap.log")
+        val logs = if (logFile.exists()) logFile.readText() else "Nenhum log de inicialização encontrado."
+        
+        val textView = android.widget.TextView(this).apply {
+            text = logs
+            setPadding(40, 40, 40, 40)
+            setTextIsSelectable(true)
+            movementMethod = android.text.method.ScrollingMovementMethod()
+            textSize = 12f
+        }
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Logs de Boot do App")
+            .setView(textView)
+            .setPositiveButton("Fechar", null)
+            .setNeutralButton("Limpar") { _, _ ->
+                try {
+                    logFile.writeText("")
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            .show()
     }
 
     override fun onBackPressed() {

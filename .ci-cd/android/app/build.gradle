@@ -38,6 +38,7 @@ android {
 
         python {
             version "3.11"
+            extractPackages "src"
             
             pip {
                 install "pydantic<2"
