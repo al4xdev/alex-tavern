@@ -211,9 +211,7 @@ async def replay_and_compare(
                 },
             )
 
-        before_compaction = await _request(
-            app_client, "GET", f"/session/{session_id}/state"
-        )
+        before_compaction = await _request(app_client, "GET", f"/session/{session_id}/state")
         if not isinstance(before_compaction, dict):
             raise ReplaySessionError("State endpoint did not return an object")
         before_difference = (
@@ -230,12 +228,8 @@ async def replay_and_compare(
             if has_summarizer_output
             else None
         )
-        after_compaction = await _request(
-            app_client, "GET", f"/session/{session_id}/state"
-        )
-        new_records = await _request(
-            app_client, "GET", f"/session/{session_id}/debug_log"
-        )
+        after_compaction = await _request(app_client, "GET", f"/session/{session_id}/state")
+        new_records = await _request(app_client, "GET", f"/session/{session_id}/debug_log")
         replay_status = await _request(replay_client, "GET", "/replay/status")
 
     if not isinstance(after_compaction, dict) or not isinstance(new_records, list):

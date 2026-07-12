@@ -57,9 +57,7 @@ def load_replay_entries(path: Path) -> list[ReplayEntry]:
                 f"Invalid JSON on line {line_number} of {path}: {exc.msg}"
             ) from exc
         if not isinstance(record, dict):
-            raise ReplayFixtureError(
-                f"Expected a JSON object on line {line_number} of {path}"
-            )
+            raise ReplayFixtureError(f"Expected a JSON object on line {line_number} of {path}")
 
         response = record.get("response")
         if record.get("error") is not None:

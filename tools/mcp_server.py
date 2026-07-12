@@ -220,14 +220,10 @@ class DebugApiClient:
         )
 
     async def replay_status(self) -> dict[str, Any]:
-        return cast(
-            dict[str, Any], await self._request("Replay", "GET", "/replay/status")
-        )
+        return cast(dict[str, Any], await self._request("Replay", "GET", "/replay/status"))
 
     async def reset_replay(self) -> dict[str, Any]:
-        return cast(
-            dict[str, Any], await self._request("Replay", "POST", "/replay/reset")
-        )
+        return cast(dict[str, Any], await self._request("Replay", "POST", "/replay/reset"))
 
     async def seek_replay(self, position: int) -> dict[str, Any]:
         if position < 0:
@@ -284,16 +280,12 @@ def create_mcp_server(
         return await debug_api.session_state(session_id)
 
     @server.tool(annotations=READ_ONLY)
-    async def inspect_session_history(
-        session_id: str, limit: int = 50
-    ) -> list[dict[str, Any]]:
+    async def inspect_session_history(session_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """Read recent history records from a Roleplay session."""
         return await debug_api.session_history(session_id, limit)
 
     @server.tool(annotations=READ_ONLY)
-    async def inspect_debug_log(
-        session_id: str, limit: int = 200
-    ) -> list[dict[str, Any]]:
+    async def inspect_debug_log(session_id: str, limit: int = 200) -> list[dict[str, Any]]:
         """Read raw LLM debug records, which may include private prompts and responses."""
         return await debug_api.debug_log(session_id, limit)
 

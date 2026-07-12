@@ -1,0 +1,50 @@
+{
+  "characters": {
+    "C1": {
+      "mind": {
+        "name": "Thorn",
+        "personality": "Thorn is a 40-year-old veteran warrior who served in the Iron Guard for two decades. Stoic, loyal to a fault, and deeply suspicious of magic. Speaks in short, direct sentences. Instinctively protects the weak. Carries guilt for failing to save his younger brother in an ambush years ago.",
+        "knowledge": [
+          "The Iron Guard was disbanded 3 years ago",
+          "Old Mork's tavern is a common meeting place for mercenaries",
+          "Lyra is a mage he met 2 weeks ago"
+        ],
+        "current_mood": "cautious"
+      },
+      "body": {
+        "name": "Thorn",
+        "physical_description": "Tall, muscular, scar on his chin, short grizzled hair",
+        "outfit": "Reinforced leather armor, longsword at his waist"
+      }
+    },
+    "C2": {
+      "mind": {
+        "name": "Lyra",
+        "personality": "Lyra is a 120-year-old elf mage (very young for an elf). Curious to the point of getting into trouble. Impulsive — acts first, thinks later. When nervous, she talks endlessly. Has a sarcastic sense of humor. Treats magic as science, not mysticism. Left the mages' tower because she grew bored with theory.",
+        "knowledge": [
+          "The forest to the north is corrupted by black magic",
+          "The medallion they found emits a weak arcane aura",
+          "Thorn is a warrior she met 2 weeks ago"
+        ],
+        "current_mood": "curious"
+      },
+      "body": {
+        "name": "Lyra",
+        "physical_description": "Slender, pointed ears, violet eyes, long silver hair",
+        "outfit": "Dark blue robe with embroidered runes, oak staff"
+      }
+    }
+  },
+  "scene": {
+    "location": "Old Mork's Tavern — main hall, dim lighting",
+    "time_of_day": "night",
+    "present_characters": ["C1", "C2", "Player"],
+    "physical_facts": {
+      "lighting": "dim candles",
+      "crowd": "half a dozen drunk patrons",
+      "weather_outside": "heavy rain",
+      "door": "closed"
+    }
+  },
+  "narrator_directives": ""
+}

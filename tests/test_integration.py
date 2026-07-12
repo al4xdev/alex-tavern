@@ -895,9 +895,7 @@ class TestCompactSession:
         assert len(game.history) == turns_after_compaction - 2  # um passo (2 registros) a menos
 
     @pytest.mark.asyncio
-    async def test_turn_after_compaction_uses_summary_and_character_note(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_turn_after_compaction_uses_summary_and_character_note(self, monkeypatch) -> None:  # noqa: ANN001
         from src import runner as runner_mod
 
         async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
@@ -1382,9 +1380,7 @@ class TestCustomSessionAndDebug:
         assert result["next_speaker"] == "Narrator"
 
     @pytest.mark.asyncio
-    async def test_forced_speaker_constrains_schema_and_context_target(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_forced_speaker_constrains_schema_and_context_target(self, monkeypatch) -> None:  # noqa: ANN001
         from src.agents import narrator as narrator_mod
 
         captured: dict[str, object] = {}
@@ -1420,9 +1416,7 @@ class TestCustomSessionAndDebug:
         assert result["next_speaker"] == "C2"
 
     @pytest.mark.asyncio
-    async def test_forced_narrator_always_clears_character_context(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_forced_narrator_always_clears_character_context(self, monkeypatch) -> None:  # noqa: ANN001
         from src.agents import narrator as narrator_mod
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
@@ -2057,11 +2051,7 @@ class TestLanguageConfiguration:
             request = httpx.Request("POST", url)
             return httpx.Response(
                 200,
-                json={
-                    "choices": [
-                        {"message": {"content": "Wait — listen between doors 1–3."}}
-                    ]
-                },
+                json={"choices": [{"message": {"content": "Wait — listen between doors 1–3."}}]},
                 request=request,
             )
 
@@ -2134,9 +2124,7 @@ class TestLLMObservability:
             delete_session(sid)
 
     @pytest.mark.asyncio
-    async def test_structured_retry_logs_http_json_and_success_attempts(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_structured_retry_logs_http_json_and_success_attempts(self, monkeypatch) -> None:  # noqa: ANN001
         from src.llm.client import chat_completion_json
 
         sid = generate_session_id()
