@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.llm.client import resolve_llm_timeout
 from src.paths import CONFIG_PATH, SESSIONS_DIR
 from src.runner import Runner
 from src.store.sessions import delete_session, fork_session, list_sessions
@@ -22,6 +23,7 @@ DEFAULT_CONFIG = {
     "context_max": 98304,
     "max_tokens_narrator": 2048,
     "max_tokens_character": 1024,
+    "llm_timeout_seconds": 60.0,
     "language": "Portuguese",
     "compaction_keep_recent_turns": 8,
     "summarizer_max_tokens": 1024,
@@ -60,7 +62,7 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
     SERVER_CONFIG = load_config()
     llm_client = httpx.AsyncClient(
         base_url=SERVER_CONFIG["llm_host"],
-        timeout=httpx.Timeout(60.0),
+        timeout=httpx.Timeout(resolve_llm_timeout(SERVER_CONFIG)),
     )
     runner = Runner(llm_client, SERVER_CONFIG)
     yield
@@ -341,10 +343,10 @@ async def restore_compaction(session_id: str) -> dict:
 
 @app.get("/session/{session_id}/debug_log")
 def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
-    """Raw sequential log of ALL LLM calls for the session (actual requests/responses).
+    """Raw sequential log of turn inputs, LLM calls, and state-operation markers.
 
-    One entry per actual call (includes retries), in the order they occurred —
-    each with ``session_id``, ``turn_number`` and ``agent`` (who triggered it).
+    Entries preserve their actual order. LLM calls include retries and structured
+    diagnostics; ``turn_input`` records the exact API payload before the first call.
     Replaces the old debug logging embedded in the turn response.
     """
     path = SESSIONS_DIR / f"{session_id}.debug.jsonl"

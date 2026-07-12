@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.0.2'
+
+      # Cria a pasta de assets e copia os arquivos do frontend estático
+      - name: Sync Static PWA Assets to Android Project
+        run: |
+          mkdir -p .ci-cd/android/app/src/main/assets
+          cp -r src/static/* .ci-cd/android/app/src/main/assets/
+
+      # COPIA DE CONFIGURAÇÃO DE DEBUG (IP DO LLM)
+      # TODO: REMOVE THIS FOR PRODUCTION - ONLY FOR DEBUG
+      # Copia a pasta de dados local contendo seu config.json configurado para o IP local do seu PC.
+      # Certifique-se de que a pasta existe no git ou remova temporariamente do .gitignore ao commitar para esta revisão.
+      - name: Copy Local .data for Debugging (LLM Host IP)
+        run: |
+          if [ -d ".data" ]; then
+            echo "Pasta .data encontrada! Copiando para os assets do APK..."
+            cp -r .data .ci-cd/android/app/src/main/assets/.data
+          else
+            echo "Pasta .data não encontrada. O app usará as configurações padrão."
+          fi
+
+      # Compila o APK usando o Gradle pré-instalado na máquina virtual do runner
+      - name: Build APK with Gradle
+        run: |
+          cd .ci-cd/android
+          gradle assembleDebug
+
+      # Disponibiliza o APK gerado na interface do GitHub Actions para download
+      - name: Upload Compiled APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk

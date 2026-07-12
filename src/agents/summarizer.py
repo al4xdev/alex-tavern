@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import httpx
 
-from src.llm.client import chat_completion_json
+from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
 from src.models import Character, TurnRecord, speaker_label
 
 
@@ -21,7 +21,7 @@ def _build_system_prompt(narrator_directives: str = "") -> str:
         "still matters into the running world summary and per-character notes.\n"
         "\n"
         "FIELDS:\n"
-        '- "story_summary": the FULL rewritten world summary — merge the current\n'
+        '- "story_summary": the FULL rewritten world summary; merge the current\n'
         "  summary with anything new from these events that matters going forward:\n"
         "  key facts, open promises or threats, relationships that changed, items\n"
         "  or people that appeared or disappeared. Prioritize not losing\n"
@@ -29,21 +29,25 @@ def _build_system_prompt(narrator_directives: str = "") -> str:
         '- "character_notes": an object mapping character id to an updated note,\n'
         "  ONLY for characters whose note actually needs to change because of\n"
         "  these events. Omit any character whose existing note is still accurate\n"
-        "  — do not repeat it.\n"
+        "  and do not repeat it.\n"
         "\n"
         "RULES:\n"
-        "- These events are being discarded after this — if something matters\n"
+        "- These events are being discarded after this. If something matters\n"
         "  later, it must survive into story_summary or a character note.\n"
+        "- TYPE=speech is an attributed claim, not automatically a canonical world fact.\n"
+        "- TYPE=action is an attempt until a later TYPE=narration confirms its outcome.\n"
+        "- Preserve uncertainty, unknown identities, unresolved threads, and attribution.\n"
+        "  Never turn an unsupported claim or inference into an unqualified fact.\n"
     )
     if narrator_directives.strip():
         prompt += (
-            "\nWORLD DIRECTIVES (tone, rules, setting — always respect these):\n"
+            "\nWORLD DIRECTIVES (tone, rules, setting; always respect these):\n"
             f"{narrator_directives.strip()}\n"
         )
     return prompt
 
 
-def build_summarizer_json_schema() -> dict:
+def build_summarizer_json_schema(character_ids: list[str]) -> dict:
     """Builds the structural JSON schema for the Summarizer's response."""
     return {
         "name": "summarizer_output",
@@ -53,7 +57,8 @@ def build_summarizer_json_schema() -> dict:
                 "story_summary": {"type": "string"},
                 "character_notes": {
                     "type": "object",
-                    "additionalProperties": {"type": "string"},
+                    "properties": {cid: {"type": "string"} for cid in character_ids},
+                    "additionalProperties": False,
                 },
             },
             "required": ["story_summary", "character_notes"],
@@ -78,16 +83,32 @@ def _build_user_prompt(
     lines.append("CURRENT CHARACTER NOTES:")
     for cid, ch in characters.items():
         note = character_notes.get(cid, "(none yet)")
-        lines.append(f"  {cid} — {ch.mind.name}: {note}")
+        lines.append(f"  ID={cid} | NAME={ch.mind.name} | NOTE={note}")
     lines.append("")
 
     lines.append("EVENTS TO SUMMARIZE (oldest to newest, being discarded after this):")
     for rec in evicted_turns:
         label = speaker_label(rec.speaker, characters, controlled_id)
-        lines.append(f"  Turn {rec.turn_number} — {label}: {rec.content}")
+        lines.append(
+            f"  Turn {rec.turn_number} | TYPE={rec.content_type} | "
+            f"SPEAKER={label}: {rec.content}"
+        )
     lines.append("")
 
     return "\n".join(lines)
+
+
+def _canonical_character_notes(
+    raw_notes: object, characters: dict[str, Character]
+) -> dict[str, str]:
+    """Keep only string notes keyed by canonical IDs from this session."""
+    if not isinstance(raw_notes, dict):
+        return {}
+    return {
+        character_id: note
+        for character_id, note in raw_notes.items()
+        if character_id in characters and isinstance(note, str)
+    }
 
 
 def build_summarizer_messages(
@@ -152,12 +173,18 @@ async def summarize(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens,
-        json_schema=build_summarizer_json_schema(),
+        timeout=resolve_llm_timeout(config),
+        json_schema=build_summarizer_json_schema(list(characters)),
         session_id=session_id,
         turn_number=turn_number,
         agent="summarizer",
     )
 
-    new_summary = str(result.get("story_summary", story_summary))
-    changed_notes = dict(result.get("character_notes") or {})
+    new_summary = normalize_generated_text(str(result.get("story_summary", story_summary)))
+    changed_notes = {
+        character_id: normalize_generated_text(note)
+        for character_id, note in _canonical_character_notes(
+            result.get("character_notes"), characters
+        ).items()
+    }
     return new_summary, changed_notes

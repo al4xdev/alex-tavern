@@ -6,7 +6,6 @@ import argparse
 import asyncio
 import copy
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -25,7 +24,7 @@ class RecordedTurn:
     turn_number: int
     speech: str
     action: str
-    force_speaker: str
+    force_speaker: str | None
 
 
 def load_json_object(path: Path) -> dict[str, Any]:
@@ -66,6 +65,8 @@ def successful_outputs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Select stable output fields while ignoring timestamps, requests, errors, and markers."""
     outputs: list[dict[str, Any]] = []
     for record in records:
+        if record.get("error") is not None:
+            continue
         response = record.get("response")
         if not isinstance(response, str):
             continue
@@ -79,161 +80,42 @@ def successful_outputs(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return outputs
 
 
-def build_recorded_turns(
-    source_state: dict[str, Any], records: list[dict[str, Any]]
+def build_recorded_turns_from_turn_inputs(
+    records: list[dict[str, Any]],
 ) -> list[RecordedTurn]:
-    """Recover exact player inputs and derive overrides that reproduce the LLM call sequence."""
-    characters = source_state.get("characters")
-    if not isinstance(characters, dict):
-        raise ReplaySessionError("Source state has no character map")
-    character_ids_by_name: dict[str, str] = {}
-    for character_id, character in characters.items():
-        if not isinstance(character_id, str) or not isinstance(character, dict):
-            continue
-        mind = character.get("mind")
-        name = mind.get("name") if isinstance(mind, dict) else None
-        if isinstance(name, str):
-            character_ids_by_name[name] = character_id
-
-    history = source_state.get("history")
-    if not isinstance(history, list):
-        raise ReplaySessionError("Source state has no history list")
-
-    player_by_turn: dict[int, dict[str, str]] = {}
-    for item in history:
-        if not isinstance(item, dict) or item.get("speaker") != "Player":
-            continue
-        turn_number = item.get("turn_number")
-        content_type = item.get("content_type")
-        content = item.get("content")
-        if (
-            isinstance(turn_number, int)
-            and content_type in {"speech", "action"}
-            and isinstance(content, str)
-        ):
-            player_by_turn.setdefault(turn_number, {})[content_type] = content
-
-    successful_by_turn: dict[int, list[str]] = {}
-    for output in successful_outputs(records):
-        turn_number = output.get("turn_number")
-        agent = output.get("agent")
-        if isinstance(turn_number, int) and isinstance(agent, str):
-            successful_by_turn.setdefault(turn_number, []).append(agent)
+    """Recover exact turns from required ``turn_input`` markers."""
+    markers = [record for record in records if record.get("agent") == "turn_input"]
+    if not markers:
+        raise ReplaySessionError("Debug log contains no turn_input markers")
 
     turns: list[RecordedTurn] = []
-    for turn_number in sorted(player_by_turn):
-        agents = successful_by_turn.get(turn_number, [])
-        if agents.count("narrator") != 1:
-            raise ReplaySessionError(
-                f"Turn {turn_number} needs exactly one successful narrator output, got {agents}"
-            )
-        character_agents = [agent for agent in agents if agent.startswith("character:")]
-        if len(character_agents) > 1:
-            raise ReplaySessionError(
-                f"Turn {turn_number} has more than one character output: {character_agents}"
-            )
-        if character_agents:
-            character_name = character_agents[0].removeprefix("character:")
-            force_speaker = character_ids_by_name.get(character_name, "")
-            if not force_speaker:
-                raise ReplaySessionError(
-                    f"Cannot map recorded character {character_name!r} to a character id"
-                )
-        else:
-            force_speaker = "Narrator"
-
-        player = player_by_turn[turn_number]
+    seen_turns: set[int] = set()
+    for marker in markers:
+        turn_number = marker.get("turn_number")
+        input_payload = marker.get("input")
+        if not isinstance(turn_number, int) or not isinstance(input_payload, dict):
+            raise ReplaySessionError("Malformed turn_input marker")
+        if turn_number in seen_turns:
+            raise ReplaySessionError(f"Duplicate turn_input marker for turn {turn_number}")
+        speech = input_payload.get("speech")
+        action = input_payload.get("action")
+        force_speaker = input_payload.get("force_speaker")
+        if (
+            not isinstance(speech, str)
+            or not isinstance(action, str)
+            or (force_speaker is not None and not isinstance(force_speaker, str))
+        ):
+            raise ReplaySessionError(f"Malformed input payload for turn {turn_number}")
         turns.append(
             RecordedTurn(
                 turn_number=turn_number,
-                speech=player.get("speech", ""),
-                action=player.get("action", ""),
+                speech=speech,
+                action=action,
                 force_speaker=force_speaker,
             )
         )
+        seen_turns.add(turn_number)
     return turns
-
-
-def build_recorded_turns_from_narrator_history(
-    records: list[dict[str, Any]],
-    *,
-    controlled_name: str,
-    character_ids_by_name: dict[str, str],
-) -> list[RecordedTurn]:
-    """Recover two-field player turns from the latest full Narrator HISTORY in a raw log."""
-    narrator_records = [
-        record
-        for record in records
-        if record.get("agent") == "narrator"
-        and isinstance(record.get("response"), str)
-        and isinstance(record.get("turn_number"), int)
-    ]
-    if not narrator_records:
-        raise ReplaySessionError("Debug log contains no successful Narrator request")
-    latest = max(narrator_records, key=lambda record: int(record["turn_number"]))
-    request = latest.get("request")
-    messages = request.get("messages") if isinstance(request, dict) else None
-    if not isinstance(messages, list):
-        raise ReplaySessionError("Latest Narrator record has no request messages")
-    user_content = next(
-        (
-            message.get("content")
-            for message in reversed(messages)
-            if isinstance(message, dict)
-            and message.get("role") == "user"
-            and isinstance(message.get("content"), str)
-        ),
-        None,
-    )
-    if not isinstance(user_content, str) or "HISTORY:\n" not in user_content:
-        raise ReplaySessionError("Latest Narrator request has no parseable HISTORY section")
-
-    history_text = user_content.split("HISTORY:\n", maxsplit=1)[1]
-    pattern = re.compile(r"^  Turn (\d+) — ([^:]+): (.*)$")
-    player_content: dict[int, list[str]] = {}
-    for line in history_text.splitlines():
-        match = pattern.match(line)
-        if match is None or match.group(2) != controlled_name:
-            continue
-        turn_number = int(match.group(1))
-        player_content.setdefault(turn_number, []).append(match.group(3))
-
-    if not player_content:
-        raise ReplaySessionError(
-            f"No history records found for controlled character {controlled_name!r}"
-        )
-    synthetic_history: list[dict[str, Any]] = []
-    for turn_number, contents in sorted(player_content.items()):
-        if len(contents) != 2:
-            raise ReplaySessionError(
-                f"Turn {turn_number} has {len(contents)} controlled-character records; "
-                "raw prompt recovery requires exactly speech plus action"
-            )
-        synthetic_history.extend(
-            [
-                {
-                    "turn_number": turn_number,
-                    "speaker": "Player",
-                    "content_type": "speech",
-                    "content": contents[0],
-                },
-                {
-                    "turn_number": turn_number,
-                    "speaker": "Player",
-                    "content_type": "action",
-                    "content": contents[1],
-                },
-            ]
-        )
-
-    characters = {
-        character_id: {"mind": {"name": character_name}}
-        for character_name, character_id in character_ids_by_name.items()
-    }
-    characters.setdefault("C1", {"mind": {"name": controlled_name}})
-    return build_recorded_turns(
-        {"characters": characters, "history": synthetic_history}, records
-    )
 
 
 def normalize_state(state: dict[str, Any]) -> dict[str, Any]:
@@ -393,40 +275,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--app-url", default="http://127.0.0.1:8889")
     parser.add_argument("--replay-url", default="http://127.0.0.1:8888")
     parser.add_argument("--preset", default="thorn-lyra")
-    parser.add_argument("--controlled-name", default="Thorn")
-    parser.add_argument(
-        "--character-map",
-        action="append",
-        default=["Lyra=C2"],
-        metavar="NAME=ID",
-        help="Map a recorded Character name to its preset id; may be repeated.",
-    )
     return parser.parse_args()
-
-
-def _parse_character_map(values: list[str]) -> dict[str, str]:
-    result: dict[str, str] = {}
-    for value in values:
-        name, separator, character_id = value.partition("=")
-        if not separator or not name or not character_id:
-            raise ReplaySessionError(f"Invalid character map {value!r}; expected NAME=ID")
-        result[name] = character_id
-    return result
 
 
 async def _async_main() -> int:
     args = _parse_args()
     source_records = load_debug_records(args.source_log)
     source_backup = load_json_object(args.source_backup) if args.source_backup else None
-    turns = (
-        build_recorded_turns(source_backup, source_records)
-        if source_backup is not None
-        else build_recorded_turns_from_narrator_history(
-            source_records,
-            controlled_name=args.controlled_name,
-            character_ids_by_name=_parse_character_map(args.character_map),
-        )
-    )
+    turns = build_recorded_turns_from_turn_inputs(source_records)
     result = await replay_and_compare(
         app_url=args.app_url,
         replay_url=args.replay_url,

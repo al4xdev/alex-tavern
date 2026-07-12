@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from src.llm.client import chat_completion
+from src.llm.client import chat_completion, normalize_generated_text, resolve_llm_timeout
 from src.models import Character, TurnRecord, speaker_label, trim_history_by_tokens
 
 
@@ -21,13 +21,17 @@ def _build_system_prompt(character: Character, notes: str = "") -> str:
         "- You are a character in a roleplay scene, not the Narrator: never state\n"
         "  the environment or anyone's body/actions as flat, objective fact. You\n"
         "  may react to what you perceive in others, but only as your own\n"
-        "  subjective read — what it seems like to you, not what is happening\n"
+        "  subjective read: what it seems like to you, not what is happening\n"
         '  ("he seems tense", never "he grips the hilt of his sword").\n'
         "- Speak in first person, as dialogue.\n"
-        "- Use **text** for internal thoughts — always wrap them, no exceptions.\n"
-        "  A thought is your own reaction, opinion, or feeling — about yourself\n"
-        "  or about someone else — filtered through your own perspective.\n"
-        "- Only use information from the provided context. Do not invent facts.\n"
+        "- Use **text** for internal thoughts; always wrap them, no exceptions.\n"
+        "  A thought is your own reaction, opinion, or feeling about yourself\n"
+        "  or someone else, filtered through your own perspective.\n"
+        "- Facts may come only from your Knowledge, What you remember, SCENE CONTEXT,\n"
+        "  or RECENT EVENTS. If a detail is absent, omit it or clearly express doubt;\n"
+        "  never invent a location, backstory, relationship, or prior event.\n"
+        "- Never repeat a complete sentence from RECENT EVENTS. Silently proofread\n"
+        "  grammar and remove accidental duplicated words before answering.\n"
         "- Keep responses to 1-3 sentences.\n"
         "- You may address other characters directly.\n"
     )
@@ -55,7 +59,7 @@ def _format_history_for_character(
     lines: list[str] = []
     for rec in hist:
         label = speaker_label(rec.speaker, characters, controlled_id)
-        lines.append(f"Turn {rec.turn_number} — {label}: {rec.content}")
+        lines.append(f"Turn {rec.turn_number} | SPEAKER={label}: {rec.content}")
     return "\n".join(lines)
 
 
@@ -122,9 +126,10 @@ async def act(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens_character,
+        timeout=resolve_llm_timeout(config),
         session_id=session_id,
         turn_number=turn_number,
         agent=f"character:{character.mind.name}",
     )
 
-    return content.strip()
+    return normalize_generated_text(content.strip())

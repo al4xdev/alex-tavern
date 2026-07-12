@@ -44,6 +44,15 @@ def test_load_replay_entries_filters_errors_and_markers(tmp_path: Path) -> None:
         [
             _record('{"narration":"one"}'),
             _record(None),
+            json.dumps(
+                {
+                    "turn_number": 1,
+                    "agent": "narrator",
+                    "request": {"response_format": {"type": "json_schema"}},
+                    "response": "invalid-json",
+                    "error": "JSONDecodeError",
+                }
+            ),
             json.dumps({"agent": "compact", "cutoff_turn_number": 2}),
             _record("Lyra speaks", agent="character:Lyra", response_format_type=None),
         ],
@@ -55,7 +64,7 @@ def test_load_replay_entries_filters_errors_and_markers(tmp_path: Path) -> None:
         '{"narration":"one"}',
         "Lyra speaks",
     ]
-    assert [entry.source_line for entry in entries] == [1, 4]
+    assert [entry.source_line for entry in entries] == [1, 5]
     assert entries[0].response_format_type == "json_schema"
     assert entries[1].response_format_type is None
 

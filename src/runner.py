@@ -16,7 +16,7 @@ from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.summarizer import summarize
-from src.llm.client import log_compact, log_restore_compaction, log_undo
+from src.llm.client import log_compact, log_restore_compaction, log_turn_input, log_undo
 from src.models import (
     GameState,
     Player,
@@ -171,6 +171,20 @@ class Runner:
             # (pre-requisite for undo to revert the entire step).
             step = (game.history[-1].turn_number + 1) if game.history else 1
 
+            effective_force_speaker = (
+                force_speaker
+                if force_speaker in game.characters or force_speaker == "Narrator"
+                else None
+            )
+            log_turn_input(
+                session_id,
+                step,
+                speech,
+                action,
+                force_speaker,
+                effective_force_speaker,
+            )
+
             # Persist the turn BEFORE calling the Narrator (blind).
             if speech:
                 self._append_history(game, "Player", speech, "speech", step)
@@ -178,14 +192,13 @@ class Runner:
                 self._append_history(game, "Player", action, "action", step)
 
             # Call Narrator
-            narrator_raw = await self._call_narrator(game, step)
+            narrator_raw = await self._call_narrator(game, step, effective_force_speaker)
 
             # Advance the turn
             narration = narrator_raw["narration"]
             self._append_history(game, "Narrator", narration, "narration", step)
 
-            valid_force = force_speaker in game.characters or force_speaker == "Narrator"
-            speaker = force_speaker if valid_force else narrator_raw["next_speaker"]
+            speaker = effective_force_speaker or narrator_raw["next_speaker"]
             controlled = game.player.controlled_character_id
             character_response: str | None = None
 
@@ -389,7 +402,9 @@ class Runner:
 
     # ── Private Methods ───────────────────────────────────────────────────
 
-    async def _call_narrator(self, game: GameState, turn_number: int) -> dict:
+    async def _call_narrator(
+        self, game: GameState, turn_number: int, forced_speaker: str | None = None
+    ) -> dict:
         """Calls Narrator agent (blind) with full context. Returns result."""
         return await narrate(
             client=self.client,
@@ -402,6 +417,7 @@ class Runner:
             session_id=game.session_id,
             turn_number=turn_number,
             story_summary=game.story_summary,
+            forced_speaker=forced_speaker,
         )
 
     async def _call_character(
@@ -474,13 +490,35 @@ class Runner:
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
-        """Applies physical changes to the Scene. A value of ``None`` removes the key."""
-        if scene_update:
-            for key, value in scene_update.items():
-                if value is None:
-                    game.scene.physical_facts.pop(key, None)
-                else:
-                    game.scene.physical_facts[key] = value
+        """Applies reserved Scene fields and physical-fact deltas.
+
+        ``location`` and ``time_of_day`` belong to ``Scene`` itself and must
+        never be persisted as physical facts. Moving to a different location
+        also discards facts from the previous scene before applying the new
+        delta. A ``None`` value removes a physical fact, but cannot erase a
+        required reserved field.
+        """
+        if not scene_update:
+            return
+
+        location = scene_update.get("location")
+        if isinstance(location, str) and location.strip():
+            normalized_location = location.strip()
+            if normalized_location != game.scene.location:
+                game.scene.location = normalized_location
+                game.scene.physical_facts.clear()
+
+        time_of_day = scene_update.get("time_of_day")
+        if isinstance(time_of_day, str) and time_of_day.strip():
+            game.scene.time_of_day = time_of_day.strip()
+
+        for key, value in scene_update.items():
+            if key in {"location", "time_of_day"}:
+                continue
+            if value is None:
+                game.scene.physical_facts.pop(key, None)
+            else:
+                game.scene.physical_facts[key] = value
 
     def _update_moods(self, game: GameState, mood_updates: dict[str, str]) -> None:
         """Applies the new mood decided by the Narrator to each affected character."""

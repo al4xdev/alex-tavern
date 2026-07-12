@@ -323,19 +323,22 @@ não-controlado a responder com as duas caixas vazias — confirmado que nenhum 
 
 ## 5. Observabilidade: log bruto sequencial (`.debug.jsonl`)
 
-Substituiu o debug embutido por turno na resposta da API. Interceptado no **ponto único
-já unificado** por onde toda chamada real ao LLM passa: `chat_completion` em
-`src/llm/client.py`. Cada chamada real (sucesso, erro, e cada retry) acrescenta uma
-linha JSON em `.data/sessions/{session_id}.debug.jsonl`:
+Substituiu o debug embutido por turno na resposta da API. Antes de cada turno, o Runner
+grava um marcador `turn_input` com `speech`, `action`, `force_speaker` solicitado e o
+override efetivo. Depois, cada chamada real ao LLM (sucesso, erro e retry) é interceptada
+em `chat_completion` e acrescenta outra linha em `.data/sessions/{session_id}.debug.jsonl`:
 
 ```json
-{"ts": "...", "session_id": "...", "turn_number": N, "agent": "narrator|narrator_suggest|character:<nome>|undo|summarizer", "model": "...", "request": {...}, "response": "...", "error": null}
+{"ts": "...", "session_id": "...", "turn_number": N, "agent": "narrator|narrator_suggest|character:<nome>|summarizer", "request": {...}, "response": "...", "error": null, "duration_ms": 123.4, "attempt_number": 1, "prompt_chars": 4567}
 ```
 
 - **Append-only de propósito.** Nunca reescreve/apaga linha. `undo_turn` acrescenta uma
   linha `{"agent": "undo", "removed_records": K}` só como marcador sequencial (não
   reverte nada no log) — sem isso, uma mudança de humor por undo pareceria uma decisão
   nova do Narrador quando alguém for debugar depois.
+- **Erros estruturados.** Além da mensagem compatível em `error`, o registro guarda
+  `error_type` e `error_repr`, portanto exceções como `ReadTimeout` nunca ficam vazias.
+- **Replay exato.** O driver exige `turn_input`; não infere inputs ou overrides pelo HISTORY.
 - **Endpoint**: `GET /session/{id}/debug_log` retorna as entradas parseadas. O front
   (`app.js`) busca isso sob demanda (botão "🔄 Log" no drawer de debug), não mais um
   campo por turno.

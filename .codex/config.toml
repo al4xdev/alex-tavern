@@ -1,0 +1,4 @@
+[mcp_servers.alex-tavern-debug]
+command = "uv"
+args = ["run", "python", "tools/mcp_server.py"]
+cwd = "/home/alex/git/my/roleplay"

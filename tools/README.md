@@ -43,13 +43,12 @@ uv run python tools/replay_session.py .data/sessions/<source-id>.debug.jsonl
 
 The driver:
 
-1. recovers exact player speech/action pairs from the latest complete Narrator HISTORY;
-2. derives forced-speaker choices from the recorded call sequence;
-3. resets the replay cursor;
-4. starts a fresh `thorn-lyra` session through the API;
-5. submits every recovered turn;
-6. triggers compaction when the source contains a summarizer output;
-7. compares successful `{turn_number, agent, response}` entries in exact order.
+1. reads exact speech, action, and force-speaker values from required `turn_input` markers;
+2. resets the replay cursor;
+3. starts a fresh `thorn-lyra` session through the API;
+4. submits every recorded turn;
+5. triggers compaction when the source contains a summarizer output;
+6. compares successful `{turn_number, agent, response}` entries in exact order.
 
 It prints the new session id and preserves the new `.json`, `.debug.jsonl`, and compaction backup
 under `.data/sessions/` for inspection.
@@ -63,8 +62,8 @@ uv run python tools/replay_session.py \
   --source-final .data/sessions/<source-id>.json
 ```
 
-Prompt-only input recovery requires each recorded turn to contain both one speech record and one
-action record. Use `--source-backup` for sessions with empty or single-field player turns.
+The driver intentionally requires the current `turn_input` format. It does not infer inputs or
+overrides from prompt text.
 
 ## 4. Connect the debug MCP server
 

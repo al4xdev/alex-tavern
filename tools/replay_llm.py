@@ -62,6 +62,8 @@ def load_replay_entries(path: Path) -> list[ReplayEntry]:
             )
 
         response = record.get("response")
+        if record.get("error") is not None:
+            continue
         if response is None:
             continue
         if not isinstance(response, str):
