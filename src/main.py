@@ -502,6 +502,18 @@ def delete_session_endpoint(session_id: str) -> dict:
 def health() -> dict:
     """Simple health check."""
     return {"status": "ok"}
+@app.get("/bootstrap_log")
+def get_bootstrap_log():
+    """Returns the Android bootstrap log for diagnostics."""
+    from fastapi.responses import HTMLResponse
+    from src.paths import DATA_DIR
+    log_path = DATA_DIR.parent / "bootstrap.log"
+    if log_path.exists():
+        content = log_path.read_text(encoding="utf-8")
+        html_content = f"<html><body><h3>Bootstrap Log</h3><pre>{content}</pre></body></html>"
+        return HTMLResponse(content=html_content, status_code=200)
+    return HTMLResponse(content="<html><body><h3>Log not found</h3></body></html>", status_code=404)
+
 
 
 # ── Static Files (frontend) ──────────────────────────────────────────────
