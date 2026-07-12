@@ -39,14 +39,11 @@ class MainActivity : AppCompatActivity() {
                 
                 // Define a variável de ambiente apontando para a pasta privada do Android
                 val os = py.getModule("os")
-                os.get("environ").put("ROLEPLAY_DATA_DIR", dataDir.absolutePath)
+                os.get("environ")?.put("ROLEPLAY_DATA_DIR", dataDir.absolutePath)
                 
-                // Executa o servidor FastAPI pelo Uvicorn usando py.exec
-                // Isso evita alterar qualquer arquivo original do backend
-                py.exec("""
-                    import uvicorn
-                    uvicorn.run("src.main:app", host="127.0.0.1", port=8889, log_level="info")
-                """.trimIndent())
+                // Executa o servidor FastAPI pelo Uvicorn usando o módulo auxiliar
+                val runner = py.getModule("android_runner")
+                runner.callAttr("start_server")
             } catch (e: Exception) {
                 e.printStackTrace()
             }
