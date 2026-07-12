@@ -1,0 +1,27 @@
+name: Run test suite
+description: Install the Python toolchain and run the repository checks.
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: pyproject.toml
+
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --all-extras --dev
+
+    - name: Run Ruff Linter
+      shell: bash
+      run: uv run ruff check src tests
+
+    - name: Run Pytest (excluding LLM tests)
+      shell: bash
+      run: uv run pytest

@@ -1,0 +1,34 @@
+name: Build and publish Docker image
+description: Build the repository image and publish its tags to GHCR.
+
+inputs:
+  github_token:
+    description: Token used to publish packages.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Log in to the Container registry
+      uses: actions/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github_token }}
+
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ghcr.io/${{ github.repository }}
+        tags: |
+          type=raw,value=latest
+          type=sha,format=short
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}

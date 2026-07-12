@@ -17,59 +17,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v6
 
-      - name: Setup Java JDK
-        uses: actions/setup-java@v5
+      - name: Run Android pipeline
+        uses: ./.ci-cd/android
         with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: '8.0.2'
-
-      # Cria a pasta de assets e copia os arquivos do frontend estático
-      - name: Sync Static PWA Assets to Android Project
-        run: |
-          mkdir -p .ci-cd/android/app/src/main/assets
-          cp -r src/static/* .ci-cd/android/app/src/main/assets/
-
-
-      # Compila o APK usando o Gradle pré-instalado na máquina virtual do runner
-      - name: Build APK with Gradle
-        run: |
-          cd .ci-cd/android
-          gradle assembleDebug
-
-      # Disponibiliza o APK gerado na interface do GitHub Actions para download
-      - name: Upload Compiled APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk
-
-      # Cria ou atualiza a release correspondente no GitHub com o APK compilado
-      - name: Deploy to GitHub Releases
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            tag_name="${{ github.ref_name }}"
-            title="Release $tag_name"
-            notes="Automated release build for tag $tag_name."
-          else
-            tag_name="latest"
-            title="Latest Debug APK"
-            notes="Latest automated debug build from master branch."
-          fi
-          
-          # Se for a release do master ("latest"), deleta a anterior para evitar conflito de tags/assets
-          if [ "$tag_name" = "latest" ]; then
-            gh release delete latest --yes || true
-          fi
-          
-          # Cria a nova release e faz o upload do APK
-          gh release create "$tag_name" .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk \
-            --title "$title" \
-            --notes "$notes" \
-            --prerelease
+          github_token: ${{ secrets.GITHUB_TOKEN }}
