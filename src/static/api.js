@@ -2,7 +2,7 @@
    api.js — thin fetch wrappers around the backend.
    Every wrapper throws on non-2xx so callers can show a friendly toast.
    ══════════════════════════════════════════════════════════════════════ */
-
+// WARNING (Antigravity AI): Modified to switch BASE_URL to local server when running in WebView
 const BASE_URL = window.location.protocol === 'file:' ? 'http://127.0.0.1:8889' : '';
 
 async function apiFetch(url, options = {}) {
