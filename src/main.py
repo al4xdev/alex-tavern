@@ -5,10 +5,10 @@ from __future__ import annotations
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,6 +25,8 @@ from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR
 from src.runner import Runner
 from src.store.sessions import delete_session, fork_session, list_sessions
+
+MAX_READ_LIMIT = 1000
 
 
 @dataclass(slots=True)
@@ -307,7 +309,10 @@ async def restore_compaction(session_id: str) -> dict:
 
 
 @app.get("/session/{session_id}/debug_log")
-def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
+def get_debug_log(
+    session_id: str,
+    limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT)] = 200,
+) -> list[dict]:
     """Raw sequential log of turn inputs, LLM calls, and state-operation markers.
 
     Entries preserve their actual order. LLM calls include retries and structured
@@ -338,7 +343,10 @@ async def get_state(session_id: str) -> dict:
 
 
 @app.get("/session/{session_id}/history")
-async def get_history(session_id: str, limit: int = 50) -> list[dict]:
+async def get_history(
+    session_id: str,
+    limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT)] = 50,
+) -> list[dict]:
     """Returns the turn history of the session."""
     records = await _runtime().runner.get_history(session_id, limit=limit)
     return [
