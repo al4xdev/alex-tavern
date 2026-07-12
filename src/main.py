@@ -44,7 +44,8 @@ def load_config() -> dict[str, Any]:
         for k, v in DEFAULT_CONFIG.items():
             data.setdefault(k, v)
         return data
-    except json.JSONDecodeError, OSError:
+    # WARNING (Antigravity AI): Parenthesized the multiple exception types to resolve SyntaxError on Python 3.x
+    except (json.JSONDecodeError, OSError):
         return DEFAULT_CONFIG.copy()
 
 
