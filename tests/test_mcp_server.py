@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -111,6 +112,44 @@ async def test_adapter_reports_http_errors_with_detail() -> None:
     try:
         with pytest.raises(ToolError, match="HTTP 404.*Session not found"):
             await api.session_state("missing")
+    finally:
+        await api.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("response_kwargs", "expected_detail"),
+    [
+        (
+            {
+                "json": {
+                    "detail": [
+                        {
+                            "type": "int_parsing",
+                            "loc": ["query", "limit"],
+                            "msg": "Input should be a valid integer",
+                        }
+                    ]
+                }
+            },
+            '[{"loc": ["query", "limit"], "msg": "Input should be a valid integer", '
+            '"type": "int_parsing"}]',
+        ),
+        ({"json": {"error": "backend failed"}}, '{"error": "backend failed"}'),
+        ({"text": "plain backend failure"}, "plain backend failure"),
+        ({"content": b""}, "Internal Server Error"),
+    ],
+)
+async def test_adapter_formats_structured_and_text_http_errors(
+    response_kwargs: dict[str, Any], expected_detail: str
+) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, request=request, **response_kwargs)
+
+    api = DebugApiClient(roleplay_transport=httpx.MockTransport(handler))
+    try:
+        with pytest.raises(ToolError, match=re.escape(expected_detail)):
+            await api.list_sessions()
     finally:
         await api.aclose()
 
