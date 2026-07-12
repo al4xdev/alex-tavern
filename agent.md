@@ -1,469 +1,298 @@
-# Diretrizes de Desenvolvimento e Prompting do Agente (`agent.md`)
+# Diretrizes do Projeto para Agentes
 
-Este repositório implementa um **sistema de roleplay multi-agente** (Narrador +
-Personagens) orquestrado por um backend stateless em FastAPI (`src/runner.py`), falando
-com um modelo local via llama.cpp.
+Alex Tavern é uma aplicação de roleplay multiagente orientada a estado. Um Narrador governa o
+mundo físico e roteia a cena; agentes de Personagem falam e pensam com contexto restrito; o
+Runner preserva a agência humana, persiste cada sessão e coordena chamadas a provedores LLM.
 
-Este é o **documento de princípios e arquitetura** do projeto. Ele descreve *o que o
-sistema é e como pensar sobre ele*, e reflete o **estado atual real do código** — não
-carrega lista de tarefas (isso vive no `plan.md`/`.plan/plan.md`, quando existir uma
-task em andamento). Qualquer LLM que edite este repo, mesmo as "menores" (hoje modelos
-MoE — *Mixture of Experts* — pós-treinados para agir como agentes, com contexto de
-sobra), deve ler tudo antes de tocar no código. Não precisa adivinhar nada aqui: o que
-está escrito é o que o código faz hoje, não uma aspiração.
+Este arquivo é o contrato de trabalho para qualquer agente que modificar o repositório. Ele
+descreve a arquitetura e as decisões vigentes. História, auditorias e implementações concluídas
+ficam em `.plan/closed/`; trabalho ainda aberto fica em `.plan/tasks/`.
 
----
+## 1. Visão atual
 
-> [!IMPORTANT]
-> ## Leia isto primeiro (vale mais que o resto do arquivo)
->
-> **Este projeto NÃO é um clone do SillyTavern nem do character.ai.** Se você é uma LLM
-> editando este repo, sua tarefa mais comum vai ser **resistir ao impulso** de trazer
-> conceitos daquelas ferramentas. Eles dominam a literatura de roleplay-com-IA, então
-> parecem "o jeito certo" — mas a maioria é **legado**.
->
-> ### A distinção que separa legado de não-legado
->
-> Antes de adicionar qualquer mecanismo, faça esta pergunta:
->
-> > **"Isto existe para compensar um modelo fraco / contexto pequeno — ou para resolver
-> > um problema estrutural que existe independente de quão bom seja o modelo?"**
->
-> - **Compensa fraqueza do modelo → é legado. NÃO adicione.** SillyTavern e character.ai
->   foram desenhados na era de 2k–4k de contexto e modelos ruins de seguir instrução.
->   Lorebook por palavra-chave, `{{char}}`/`{{user}}`, jailbreak no meio do histórico,
->   tuning de sampler por personagem, greeting/first_mes como muleta de estilo,
->   budgeting agressivo de tokens — tudo isso é *harness de completude de texto* para
->   modelo burro. Modelos de hoje (inclusive os MoE "menores") dispensam essas muletas.
-> - **Resolve problema estrutural → sobrevive.** Recuperação seletiva (RAG) e interface
->   estruturada (JSON schema / tool-calling) **não** são legado. Ver "O que NÃO é legado".
->
-> ### O princípio positivo
->
-> **Descreva regras de forma declarativa e deixe o modelo raciocinar.** Não force
-> comportamento com hack de string. Na dúvida entre "criar um mecanismo de controle" e
-> "confiar no raciocínio do modelo", **confie no modelo**.
->
-> ### ⚠️ Cuidado: LLMs agênticas falham em silêncio
-> Modelos agênticos erram **silenciosamente** em pequenos detalhes (um campo que não é
-> populado, um formato que quase-obedece, um histórico que some sem erro). **Nunca confie
-> em "rodou sem exceção" ou "passou no pytest".** Sempre inspecione a saída real: leia o
-> prompt montado, leia o JSON de resposta, leia o **estado salvo da sessão**
-> (`.data/sessions/{id}.json`), e leia o **log bruto de chamadas LLM**
-> (`.data/sessions/{id}.debug.jsonl`, ver §5). Rode um turno real contra o LLM de
-> verdade sempre que der, não só testes com client mockado.
+O projeto está deixando a fase experimental e consolidando uma arquitetura pequena, explícita e
+adaptável:
 
----
+- backend FastAPI e Runner independentes de fornecedor LLM;
+- um adapter backend e um adapter frontend por provider;
+- configuração e segredos pertencem ao servidor;
+- estado persistido em JSON com locks transacionais e escritas atômicas;
+- contratos estruturados entre programa e modelo;
+- frontend vanilla em módulos ES, sem globals de aplicação;
+- observabilidade, replay, MCP e playtests como ferramentas externas ao turno normal;
+- a documentação extensa é parte do estudo de caso, não um problema a ser reduzido.
 
-## Tabela de anti-padrões — NÃO traga isto de volta
+O objetivo não é acumular mecanismos. É manter limites claros para que novas features sejam
+adicionadas no dono correto, com testes e sem ampliar acoplamento.
 
-| ❌ Conceito legado (SillyTavern / character.ai) | Por que é legado | ✅ O jeito deste projeto |
+## 2. Regra forward-only
+
+> **“Mover, em vez de criar retrocompatibilidade e legados. O projeto é muito novo e não deve
+> ter dependência de ontem.”**
+
+Este é um projeto novo. Quando um contrato muda, todos os produtores e consumidores mudam juntos.
+
+Não criar:
+
+- conversores ou fallback para formatos anteriores;
+- leitura dupla de config, preset, sessão ou log;
+- campos antigos mantidos “por segurança”;
+- arquivos duplicados em runtime e source;
+- branches permanentes para comportamentos removidos;
+- wrappers que apenas preservam uma API interna abandonada;
+- caches ou storage alternativos para esconder divergência de contrato.
+
+Dados locais incompatíveis podem ser descartados durante o desenvolvimento. Se uma mudança exigir
+migração real no futuro, ela precisa ser uma decisão explícita de produto, isolada e testada; nunca
+deve aparecer incidentalmente dentro do parser atual.
+
+Remover o formato anterior por completo é preferível a transformar o código num conjunto de
+camadas de compatibilidade.
+
+## 3. Invariantes de domínio
+
+### Agência e imersão
+
+O humano controla um personagem do mundo. As LLMs não recebem a existência de um “Player”,
+usuário ou operador externo.
+
+- `Player.controlled_character_id` é conhecimento do Runner, não dos agentes.
+- registros internos com `speaker="Player"` são renderizados com o nome do personagem antes de
+  chegar a qualquer prompt;
+- quando o Narrador escolhe o personagem controlado como próximo falante, o Runner devolve o
+  controle ao humano e não gera sua fala;
+- não existe nome, persona ou prompt separado para o jogador;
+- nenhuma chamada nova pode contornar essa trava de agência.
+
+### Responsabilidades dos papéis
+
+| Papel | Responsabilidade | Contexto permitido |
 |---|---|---|
-| **Lorebook / World Info** por *trigger de palavra-chave* | Truque para caber conhecimento em 4k | Fato no prompt direto, ou o Narrador (que "sabe tudo") raciocina. Estado físico → `scene.physical_facts`. *(RAG de verdade é outra coisa — ver abaixo.)* |
-| **`{{char}}` / `{{user}}` / substituição de string bruta** | Modelo não entendia papéis; precisava de macro | Roles nativos (`system`/`user`) e IDs de personagem estruturados. Sem macro engine. |
-| **Jailbreak / prompt no meio do histórico** | Modelos velhos "saíam do personagem" | Regras declarativas no `system`. O modelo segue instrução. |
-| **Tuning de sampler** (temperature/top_p/top_k, ainda mais *por personagem*) | Micro-ajuste para arrancar coerência de modelo fraco | Config única no servidor. A prática atual é **cravar temperature ≈ 1 e controlar via nível de reasoning**, não via sampler. Nunca crie sampler por personagem. |
-| **Character card: greeting / first_mes / example dialogs / swipes** | Scripting de saída para modelo que não improvisava | O Personagem é um agente que gera fala a partir da sua `mind` + contexto. Tom se descreve, não se roteiriza. |
-| **Parser de texto por regex** (extrair decisão do Narrador de dentro da prosa) | Não havia saída estruturada | **JSON estruturado** via `chat_completion_json` com `json_schema` (grammar constrained decoding no llama.cpp). |
-| **Trim de histórico por "últimos N turnos" / clip por caractere** | Token budgeting de 4k | Trim **dirigido por tokens** (`trim_history_by_tokens`, usa `context_max`). |
-| **Contexto dinâmico / criar tags / "depth injection"** | Compensava esquecimento e contexto curto | Histórico direto + `context_for_character` do Narrador. Se crescer demais, ver **compactação** (§7), não injeção de tag. |
-| **Sistema de "options" gerado pelo Narrador** (`player_options`/`pending_options`) | Parecia agêntico mas era um estado de pausa complicado, com resolver de índice e undo tendo que saber lidar com ele | **Removido de verdade.** Gatilho manual do lado do undo: `force_speaker` (forçar quem age) + `suggest` (Narrador sugere fala/ação prontas pra preencher as caixas, sem pausar nem sujar histórico). Ver §4. |
+| Narrador | Mundo físico, consequência, transição, cena, humor e próximo falante | Cena, todos os personagens, `mind`, `body`, resumo e janela ativa |
+| Personagem | Somente fala e pensamento subjetivo em primeira pessoa | Sua `mind`, sua própria nota, contexto do Narrador e falas recentes |
+| Runner | Agência, ordem das chamadas, estado, locks, persistência e routing | Estado completo da aplicação, nunca decisões narrativas heurísticas |
+| Historiador | Compactar eventos antigos em resumo e notas por personagem | Chunk removido, resumo/notas atuais e IDs canônicos |
 
-> Se um pedido/PR usar qualquer termo da coluna esquerda, **pare e reavalie**. Quase
-> sempre a resposta certa é "não fazemos isso aqui — o modelo já resolve".
+Personagem não executa nem descreve ação física. Pensamento sobre outra pessoa é interpretação
+subjetiva, não descrição objetiva. `body`, cena, narração histórica, personalidade alheia e notas
+de outros personagens nunca entram no prompt de Character.
 
----
+### Estado canônico
 
-## O que NÃO é legado (não caia na sobre-correção)
+- Personagem usa uma única forma: `{"mind": {...}, "body": {...}}`.
+- Personalidade usa apenas `personality`.
+- Cena usa campos reservados (`location`, `time_of_day`, `present_characters`) e
+  `physical_facts` para fatos livres.
+- Built-ins imutáveis vivem em `src/defaults/`.
+- Config, presets do usuário, sessões, backups e logs vivem exclusivamente em `.data/` ou no
+  `ROLEPLAY_DATA_DIR` do deployment.
+- `.data/` nunca é rastreado pelo Git nem reutilizado por CI/CD.
 
-Recusar tudo que "lembra SillyTavern" é errar para o outro lado. Estes resolvem problema
-estrutural e **são bem-vindos** quando o projeto crescer:
+## 4. Arquitetura e ownership
 
-- **RAG / recuperação seletiva.** Um modelo perfeito ainda não lê um corpus de 10M tokens
-  numa tacada — o problema é *volume de dados*, não inteligência. O que é legado é o
-  *lorebook com trigger de palavra-chave*; recuperar conhecimento sob demanda não é.
-  **(Trabalho futuro; vem depois da compactação de conversa — ver §7.)**
-- **Saída estruturada (JSON schema / grammar / tool-calling).** Não é muleta — é o
-  *contrato de entrada/saída* entre programa e modelo. É a forma correta e robusta,
-  ainda mais importante com modelo pequeno (instruction-following mais fraco).
-
-Regra prática: se o mecanismo continuaria necessário mesmo com um modelo hipoteticamente
-perfeito, ele **não** é legado.
-
----
-
-## Modelo de papéis (o coração do design — NÃO quebre isto)
-
-Quem pode fazer o quê é **lei**. Toda separação de campos/contexto existe para servir a
-isto.
-
-| Papel | Pode | NÃO pode | O que recebe no prompt |
-|---|---|---|---|
-| **Usuário** (jogador) | **falar, pensar E agir** — por isso a UI tem 2 caixas (fala/pensamento + ação) | — | monta a cena no setup; não tem `name` próprio (ver Imersão) — só é identificado pelo `controlled_character_id` |
-| **Narrador** | **tudo que é físico**: ação, descrição, consequência, transição de cena, e **decidir quem fala** | saber qual personagem é o humano | **TUDO sobre o mundo**: personalidade completa de todos, `body` (aparência/roupa), `scene`, `story_summary` (quando existe) + janela ativa do histórico. É o cérebro do jogo — mas trata **todos os personagens igual** (não sabe que existe um jogador). |
-| **Personagem** | **só falar e pensar**, sempre em primeira pessoa | narrar, descrever ambiente, executar/descrever ação física (nem a sua, nem a de outro personagem — **nem dentro de um pensamento marcado**) | **O MÍNIMO**: a sua *própria* `mind` (personalidade, conhecimento, humor) + somente a sua própria `character_notes` + a mensagem do Narrador (`context_for_character`) + **no máximo as falas da janela ativa** (nunca narração/ação) |
-
-### Personagem: pensamento é reação subjetiva, nunca narração objetiva
-
-Achado real em playtest (não foi desenhado assim de propósito, apareceu no modelo): o
-Personagem tendia a "pensar" descrevendo a linguagem corporal de **outro** personagem
-como fato objetivo — ex. `**Ele aperta o punho da espada, pronto para o combate.**` —
-que é narração disfarçada de pensamento, e é função exclusiva do Narrador.
-
-A regra certa **não é** "nunca pensar sobre o corpo/ação de outro" (isso mataria
-reações válidas). É: **pensamento sobre outro personagem é permitido, mas tem que ser a
-leitura subjetiva de quem pensa, nunca a descrição objetiva do fato**.
-
-- ❌ proibido: `Ele aperta o punho da espada` (fato objetivo — função do Narrador)
-- ✅ permitido: `Ele parece tenso` / `isso me deixa nervosa` (o que o personagem
-  sente/interpreta, do próprio ponto de vista)
-
-E o `**pensamento**` **sempre** precisa estar entre os marcadores — sem exceção; texto
-solto sem marcação vira ambíguo (pode ser lido como narração).
-
-### ⚠️ Imersão — NENHUM agente sabe que existe um humano (regra dura, e já validada)
-
-O jogador **é** o personagem controlado, dentro do mundo. **Nenhuma LLM** — nem os
-Personagens, **nem o Narrador** — pode saber que existe um "jogador"/"usuário"/"humano".
-Todos os personagens são tratados igual. O Narrador é cego: ele narra e roteia sem saber
-que um dos personagens é dirigido por uma pessoa.
-
-- **Nenhum prompt (Narrador ou Personagem) contém a palavra "Player".** O input do humano
-  entra no mundo como fala/ação do **personagem controlado**. Na montagem de qualquer
-  prompt, `"Player"` é **renderizado com o NOME do personagem** via
-  `speaker_label()` (`src/models.py`) — usado em **todo** builder de histórico.
-- **O Narrador não recebe `PLAYER INPUT` nem "Player controls X".** Ele lê só o histórico
-  (cuja última entrada é a jogada do personagem controlado, como a de qualquer um) + cena +
-  personagens. Ele pode até **gerar uma lista de falas/ações para um personagem** (o
-  gatilho de sugestão, ver §4) sem saber que aquele personagem é o humano.
-- **A agência do jogador é preservada no CÓDIGO, não no prompt.** O `runner` conhece o
-  `controlled_character_id`. Quando o `next_speaker` (do Narrador, ou forçado via
-  `force_speaker`) é o personagem controlado, o runner **pausa e devolve o controle ao
-  jogador** em vez de gerar a fala dele. Assim o humano nunca é "jogado pela IA".
-- **Armazenamento ≠ renderização.** Internamente o registro é marcado como origem-jogador
-  (`speaker="Player"`, usado para undo/tooling) — mas isso é **traduzido** para o nome
-  do personagem antes de ir para qualquer LLM.
-- **Não existe campo de nome do jogador.** `Player` (dataclass em `models.py`) só tem
-  `controlled_character_id`. Um campo `name` chegou a existir e foi **removido** — nunca
-  era lido por nenhum prompt nem renderizado em lugar nenhum do front; era legado puro do
-  design anterior (antes do Narrador ficar cego). Não recrie.
-- **Sub-agente de limpeza de gramática (futuro, opcional, config):** normaliza o texto cru
-  do jogador **antes** de entrar no histórico, para não "sujar" nem denunciar o humano.
-  Não implemente sem pedido explícito.
-
-> 🎲 **Isto foi uma aposta arriscada, e já foi validada com LLM real.** Um GM cego pode
-> "atropelar" o personagem do jogador narrando/decidindo por ele. A trava de agência no
-> runner (pausar quando `next_speaker == controlado`) é o que segura. Em sessões reais
-> auditadas via log (§5), o Narrador rotear para o personagem controlado aconteceu em
-> parte dos turnos e o runner pausou corretamente em 100% dos casos observados até agora
-> (nenhum atropelo detectado). **Continue validando com volume** sempre que mudar o
-> prompt do Narrador ou o fluxo do runner — a aposta continua de pé, não está "resolvida
-> para sempre".
-
-### Consequências práticas (respeite ao editar)
-- **O Narrador traduz e enriquece.** Se o usuário digita algo simples como "pulei", o
-  Narrador descreve o físico disso na `narration`. Quanto **mais e melhor** o Narrador
-  descreve a cena, melhor o Personagem consegue reagir — o Narrador é o que dá contexto.
-- **A narração é ancorada em sentido, não tem teto de frases.** A instrução do Narrador
-  não diz "seja conciso (2-4 frases)" — isso *era* o motivo de narrações curtas e secas.
-  Hoje a instrução pede ancoragem sensorial explícita (toque, som, cheiro, textura — ver
-  `_build_system_prompt` em `narrator.py`) e deixa o tamanho seguir a cena. Não reintroduza
-  um teto de frases "pra ficar mais rápido" — isso é regressão, não otimização.
-- **O Personagem só reage/comenta o que o Narrador criou.** Ele lê a mensagem do Narrador
-  e responde falando ou pensando. Por isso ele precisa de pouco contexto.
-- **Nunca vaze para o prompt do Personagem**: `body` de ninguém, personalidade de *outros*
-  personagens, dump de `scene`, nem as **narrações/ações** passadas (histórico do
-  Personagem é filtrado por `content_type == "speech"`). No máximo, falas anteriores.
-- **Personalidade é um campo único (`personality`)**, e está certo assim. O escopo é por
-  papel, não por campo: o Narrador vê a personalidade completa de *todos*; o Personagem vê
-  só a *sua*. Não há (nem se deve recriar) split summary/full.
-- **`current_mood` é estado real**, atualizado pelo Narrador via `mood_updates` (inclusive
-  do personagem controlado pelo jogador — isso é design, não bug).
-- **Nunca use travessão/en-dash (`—`/`–`) em texto gerado.** Instrução injetada
-  incondicionalmente no mesmo ponto do idioma (`src/llm/client.py`, `chat_completion`),
-  pra todo agente. É estilo (o modelo puxava muito pra esse tique), não regra de jogo —
-  mas é global e sempre ativa, não recrie por agente.
-
----
-
-## 1. Arquitetura do Sistema
-
-```mermaid
-graph TD
-    Player[Jogada do humano] --> Runner[Runner.player_turn]
-    Runner -- persiste ANTES de chamar o Narrador --> State[(GameState)]
-    Runner --> Narrator[Agente Narrador - cego]
-    Narrator -- JSON estruturado --> Runner
-    Runner -- next_speaker ou force_speaker == controlado? --> Pause{Pausa}
-    Pause -- sim --> UI[Devolve controle ao humano]
-    Pause -- não --> Character[Agente Personagem]
-    Character -- Fala/Pensamento --> Runner
-    Runner -- grava TurnRecord + scene/mood snapshot --> State
-    Runner -.-> DebugLog[.debug.jsonl - log bruto append-only]
+```text
+Frontend ES modules
+    ├── api.js
+    ├── setup.js
+    ├── runtime-config.js
+    └── adapters/<provider>.js
+                 │ HTTP
+                 ▼
+FastAPI ── RuntimeState ── Runner ── role agents
+                                  │
+                                  ▼
+                         shared LLM client
+                          ├── adapters/<provider>.py
+                          ├── schema.py
+                          └── debug_log.py
 ```
 
-- **Estado stateless**: `src/runner.py` não guarda estado em memória (sem `self.game`).
-  A cada chamada: lock na sessão (`_get_lock`), carrega o `GameState` de
-  `.data/sessions/{id}.json`, invoca as LLMs, atualiza cena/humor, e persiste de volta.
-- **Narrador como mestre do jogo (Game Master), cego**: único que altera o mundo físico e
-  decide quem fala, mas nunca sabe que existe um humano. Responde JSON com schema
-  (`build_narrator_json_schema` em `narrator.py`):
-  - `narration` — o que acontece na cena a partir da última entrada do `HISTORY`.
-  - `next_speaker` — um ID de personagem ou `"Narrator"` (**nunca** `"Player"` — o
-    schema nem lista essa opção). Se cair no personagem controlado, o runner pausa.
-  - `context_for_character` — mensagem filtrada para o próximo personagem.
-  - `scene_update` — mudanças físicas (`{"chave": "valor"}`; valor `null` remove a chave).
-  - `mood_updates` — `{character_id: novo_humor}` só para quem mudou, ou `null`.
-  - **Não existe mais `player_options`** — removido junto com o sistema automático de
-    opções (ver §4).
-- **Personagens (Mind/Body)**: `mind` (personalidade, conhecimento, humor) e `body`
-  (aparência, roupa) são isolados. Só o Narrador vê `body`.
-- **`GameState`** (`src/models.py`) carrega os campos persistidos da compactação (§7):
-  `story_summary: str` e `character_notes: dict[str, str]`. `runner._call_narrator`
-  passa `game.story_summary` ao Narrador; `runner._call_character` passa somente
-  `game.character_notes[character_id]` ao Personagem que está sendo chamado.
+### Runner e concorrência
 
----
+`src/runner.py` não mantém `GameState` em `self`. Cada operação resolve a sessão pelo ID.
 
-## 2. Como um turno é montado (fluxo real, não aspiracional)
+Turnos, sugestões, snapshots, histórico, preview, fork, delete, undo, compactação e restauração
+compartilham o mesmo lock por sessão. Não introduza um endpoint que leia ou altere uma sessão fora
+desse limite transacional.
 
-Uma jogada do humano dispara **até duas chamadas LLM sequenciais**, mais uma opcional
-(sugestão, sob demanda). Ordem real em `runner.player_turn`:
+- save crítico usa temporário, flush, `fsync` e rename;
+- delete espera operações ativas e remove estado, log e backups juntos;
+- presets têm lock por nome;
+- debug JSONL tem lock próprio para append e leitura;
+- registries de locks usam referências fracas;
+- locks atuais são process-local: o deployment suportado usa um único processo Uvicorn.
 
-1. **Persiste a jogada do humano ANTES de chamar o Narrador.** Fala e ação viram
-   registros separados no histórico (`speaker="Player"`, `content_type="speech"`/`"action"`),
-   com o mesmo `turn_number` (ver §3). É por isso que o Narrador não precisa de um bloco
-   de input separado: a jogada já é a última entrada do `HISTORY` que ele lê.
-2. **Chamada 1 — Narrador** (`src/agents/narrator.py` → `chat_completion_json` +
-   `json_schema`).
-   - `system` (`_build_system_prompt`): papel + seção `FIELDS:` descrevendo cada campo do
-     JSON de saída. **Não** implora "return only JSON" — a gramática (`json_schema`)
-     garante o formato.
-   - `user` (`_build_user_prompt`): `STORY SO FAR` opcional (se já houve compactação) +
-     `CURRENT SCENE` + `CHARACTERS PRESENT` (personalidade completa + aparência + roupa +
-     humor) + `HISTORY` (janela ativa, ainda trimada por tokens via
-     `trim_history_by_tokens` se necessário). **Sem** bloco de input separado e **sem**
-     "Player controls": tudo já está no `HISTORY`, renderizado com `speaker_label()`.
-   - Saída: JSON validado. `next_speaker` inválido cai em fallback pra `"Narrator"` (não
-     mais para `"Player"` — o Narrador não conhece esse conceito).
-3. **Decide quem age a seguir**: `force_speaker` (se o gatilho manual foi usado, ver §4)
-   ou o `next_speaker` do Narrador. Se for o personagem controlado, o runner **pausa
-   aqui** — não chama o agente Personagem, devolve o resultado com esse `next_speaker`
-   pra UI decidir o que fazer (mostrar que é a vez do humano).
-4. **Chamada 2 — Personagem** (`src/agents/character.py` → `chat_completion`, texto
-   puro), só se o falante decidido for um personagem presente **e não-controlado**.
-   - `system`: "You are {name}…" + a `mind` *dele* (personality, knowledge, current_mood)
-     + `What you remember` opcional com **somente a nota desse personagem** + regras
-     (1ª pessoa, `**pensamento**` obrigatório e sempre marcado, pensamento é leitura
-     subjetiva nunca narração objetiva, 1–3 frases, nunca narrar/descrever ambiente ou
-     ação física).
-   - `user`: `SCENE CONTEXT` (= o `context_for_character` do Narrador) + `RECENT EVENTS`
-     (histórico filtrado só por `content_type == "speech"`, renderizado com
-     `speaker_label()`) + `"What do you say or think?"`.
-5. **Atualiza cena e humor** (`scene_update`/`mood_updates`), grava o(s) `TurnRecord`
-   restante(s) com deep copy de `scene`/`mood` (ver §3), salva a sessão.
+`RuntimeState`, pertencente ao FastAPI, reúne config persistida, config resolvida, cliente HTTP e
+Runner ativo. Uma troca de provider persiste e substitui o Runner sob o mesmo lock. Não recrie
+globals mutáveis paralelos.
 
-### Detalhes que importam ao editar
-- **Idioma (e a regra de evitar travessão) são injetados em tempo de chamada**
-  (`src/llm/client.py`, dentro de `chat_completion`): faz `deepcopy` das messages e
-  anexa as instruções ao primeiro `system`. O que os builders (`narrator.py`/
-  `character.py`) montam é **pré**-essas instruções; o preview de prompt
-  (`preview_narrator_prompt`, sem chamar o LLM) mostra essa versão pré-injeção.
-- **Duas chamadas independentes**: o Personagem relê o histórico por conta própria; só
-  recebe do Narrador o `context_for_character`. Nunca precomputa nada pro Personagem além
-  disso.
-- **Não existe mais debug embutido na resposta do turno.** O campo `debug`/`type`/
-  `options` que existiam na resposta da API foram removidos. Observabilidade é o log
-  bruto sequencial — ver §5.
+### Providers
 
----
+Backend adapters ficam em `src/llm/adapters/`. Cada adapter possui:
 
-## 3. Histórico, `turn_number` e undo
+- identidade e defaults;
+- campos secretos e requisitos de ativação;
+- settings forçados;
+- URL e autenticação;
+- adaptação do request;
+- extração do envelope de resposta.
 
-- **Todos os registros de uma mesma jogada compartilham o mesmo `turn_number`** (fala do
-  humano, ação do humano, narração, fala do personagem — o que existir naquele passo).
-  Calculado uma vez no início de `player_turn` (`step = último turn_number + 1`) e
-  repassado em cada `_append_history`. Pré-requisito do undo funcionar em passo inteiro.
-- **Cada `TurnRecord` carrega `scene_snapshot` e `mood_snapshot`** (deep copy da cena e do
-  humor de todos os personagens **no momento do append**, ou seja, **antes** de
-  `scene_update`/`mood_updates` daquele mesmo passo serem aplicados). Isso é o que
-  permite o undo restaurar exatamente o estado anterior ao passo.
-- **`undo_turn`** remove **todos** os registros com o maior `turn_number` de uma vez, e
-  restaura `scene`/`mood` a partir do snapshot de qualquer um deles (são idênticos entre
-  si, já que nada muda cena/humor entre os appends de um mesmo passo). Depois de
-  compactação (§7), o undo só alcança o que ainda está na janela ativa da sessão — turnos
-  já resumidos e removidos do histórico ativo não são mais alcançáveis por undo (só via
-  restaurar manualmente um backup `kb_N`).
+O cliente compartilhado possui HTTP, timeout, retry, política textual e parsing. Validação local
+pertence a `src/llm/schema.py`; persistência de observabilidade pertence a
+`src/llm/debug_log.py`. Diferenças de fornecedor não entram no Runner nem nos agentes.
 
----
+Frontend adapters ficam em `src/static/adapters/`. Cada um declara card, campos, segredo,
+settings forçados, parsing e serialização. `index.html` contém somente containers; não adicione
+formulário hardcoded por provider nem branches de provider em `runtime-config.js`.
 
-## 4. Gatilho manual (force_speaker + sugestão)
+Adicionar um provider exige os dois adapters e testes de config, redaction, request, response e
+UI. O registry backend é a fonte de verdade do contrato do servidor; a UI recusa catálogos
+divergentes em runtime.
 
-O sistema antigo (`player_options`/`pending_options`/`_resolve_chosen_option`) foi
-**removido**. Era um estado de pausa complicado: o Narrador gerava uma lista de opções, a
-sessão ficava pausada esperando escolha, e o undo precisava saber lidar com esse estado
-especial. Substituído por dois mecanismos manuais, do lado do botão de undo na UI:
+### Contratos estruturados
 
-- **`force_speaker`** (parâmetro opcional em `player_turn`/`POST /session/{id}/turn`):
-  id de personagem presente ou `"Narrator"`. Sobrepõe o `next_speaker` que o Narrador
-  escolheu. Se o falante forçado for o personagem controlado, o runner **ainda pausa**
-  (a agência nunca é contornada por esse mecanismo).
-- **`suggest`** (`POST /session/{id}/suggest`, agente `src/agents/narrator.py::suggest`):
-  pede ao Narrador (ainda cego) três sugestões de `{speech, action}` **para o personagem
-  controlado**, com um pedido genérico ("sugira jogadas para este personagem") que nunca
-  revela que é o humano. **Não persiste nada** — só devolve pro front preencher as duas
-  caixas de input. O humano ainda precisa apertar enviar, então entra pela via normal
-  (vira jogada de verdade, não suja histórico nem cria estado de pausa).
+Narrador, sugestões e Historiador usam JSON. Llama.cpp recebe JSON Schema nativo. DeepSeek V4
+Flash recebe `json_object`, a instrução técnica de schema adicionada pelo adapter e validação local
+posterior. Isso é adaptação de capacidade, não um prompt narrativo específico por provider.
 
-Ambos validados juntos com LLM real: pedir sugestão, escolher uma, e forçar o personagem
-não-controlado a responder com as duas caixas vazias — confirmado que nenhum registro
-`Player` fantasma é criado quando as caixas ficam em branco.
+`src/llm/schema.py` implementa um subconjunto explícito. Tipo, keyword ou constraint não suportado
+deve falhar antes de aceitar a resposta. Nunca ignore silenciosamente uma parte do schema e nunca
+substitua contrato estruturado por parser regex.
 
----
+### Configuração e segredos
 
-## 5. Observabilidade: log bruto sequencial (`.debug.jsonl`)
+`.data/config.json` é a única configuração runtime. Ela contém config comum, provider ativo e um
+objeto completo por provider.
 
-Substituiu o debug embutido por turno na resposta da API. Antes de cada turno, o Runner
-grava um marcador `turn_input` com `speech`, `action`, `force_speaker` solicitado e o
-override efetivo. Depois, cada chamada real ao LLM (sucesso, erro e retry) é interceptada
-em `chat_completion` e acrescenta outra linha em `.data/sessions/{session_id}.debug.jsonl`:
+- `GET /config` retorna somente representação redigida;
+- segredo em branco no PUT preserva o valor armazenado;
+- chave nunca entra em localStorage, cache do service worker, log ou argumento CLI;
+- `/config` é network-only;
+- deployments criam sua própria config; não copiam a config de desenvolvimento.
 
-```json
-{"ts": "...", "session_id": "...", "turn_number": N, "agent": "narrator|narrator_suggest|character:<nome>|summarizer", "request": {...}, "response": "...", "error": null, "duration_ms": 123.4, "attempt_number": 1, "prompt_chars": 4567}
-```
+## 5. Fluxo de um turno
 
-- **Append-only de propósito.** Nunca reescreve/apaga linha. `undo_turn` acrescenta uma
-  linha `{"agent": "undo", "removed_records": K}` só como marcador sequencial (não
-  reverte nada no log) — sem isso, uma mudança de humor por undo pareceria uma decisão
-  nova do Narrador quando alguém for debugar depois.
-- **Erros estruturados.** Além da mensagem compatível em `error`, o registro guarda
-  `error_type` e `error_repr`, portanto exceções como `ReadTimeout` nunca ficam vazias.
-- **Replay exato.** O driver exige `turn_input`; não infere inputs ou overrides pelo HISTORY.
-- **Endpoint**: `GET /session/{id}/debug_log` retorna as entradas parseadas. O front
-  (`app.js`) busca isso sob demanda (botão "🔄 Log" no drawer de debug), não mais um
-  campo por turno.
-- **É a ferramenta primária de auditoria deste projeto.** Todo audit de imersão ("Player"
-  vazando), agência (quem pausou/quem foi chamado) e consistência de estado neste projeto
-  foi feito lendo esse arquivo diretamente, não só rodando pytest.
+1. Runner adquire o lock da sessão e carrega o estado.
+2. Fala e ação humanas são persistidas no histórico com um único `turn_number`.
+3. Narrador recebe o estado canônico e devolve JSON validado.
+4. Runner aplica `force_speaker` quando solicitado e preserva a agência do personagem controlado.
+5. Se necessário, Character recebe apenas seu contexto permitido e gera texto.
+6. Runner aplica `scene_update` e `mood_updates`.
+7. Estado é salvo atomicamente e o resultado é devolvido.
 
-### MCP de debug e replay determinístico
+Todos os registros do passo compartilham `turn_number`, `scene_snapshot` e `mood_snapshot`. Undo
+remove o passo inteiro e restaura esses snapshots.
 
-`tools/mcp_server.py` expõe a superfície HTTP já existente para clientes externos de
-desenvolvimento por MCP/stdio. Ele é uma ferramenta de fora do runtime: não entra no
-turn loop, não injeta tools em prompt e não substitui o HTTP direto usado pelos agentes.
+Qualquer nova chamada ao modelo precisa propagar `session_id`, `turn_number` e `agent` para o log.
+Não existem chamadas LLM invisíveis.
 
-- Tools `inspect_*` enumeram rotas, sessões, estado, histórico, log bruto e cursor de replay.
-- Tools `mutate_*` iniciam/forkam sessões, enviam turnos, pedem sugestões, operam
-  compactação/undo e controlam o cursor.
-- `undo`, `compact` e `restore_compaction` exigem `confirm=true` no servidor, além do
-  `destructiveHint` usado pela UI do cliente MCP. Delete e retry não são expostos.
-- `tools/replay_llm.py` carrega respostas bem-sucedidas do JSONL uma vez e as serve na
-  ordem, com cursor protegido por lock. Mismatch de formato ou fita esgotada não avança.
-- `tools/replay_session.py` exige o formato atual com `turn_input`, envia cada jogada pela
-  API real e relê o estado após cada turno. Não existe inferência para logs legados.
-- A fixture mantida em `tests/fixtures/current_replay.debug.jsonl` cruza a janela padrão de
-  compactação e permite validar tudo isso sem iniciar llama.cpp.
+## 6. Prompts e contexto
 
-Arquitetura, inventário das 15 tools, registro em clientes, segurança e comandos completos
-estão no README principal e em `tools/README.md`.
+Prompts são compartilhados entre providers e descrevem regras de papel de forma declarativa.
 
----
+- não criar prompt narrativo especial para um fornecedor;
+- não repetir a mesma regra em várias camadas;
+- não introduzir macros, injeção por profundidade ou parser textual;
+- não limitar a narração por quantidade fixa de frases;
+- manter fatos atribuídos como alegações até confirmação pelo Narrador;
+- consequência imediata vem antes de expansão sensorial;
+- humor é estado persistente e muda somente quando houver mudança real;
+- texto gerado não usa em dash/en dash; a normalização é global no cliente;
+- histórico é limitado por orçamento de tokens, nunca por corte de caracteres.
 
-## 6. Tecnologias e Ambiente
+Compactação é um evento transacional: cria backup, resume turnos antigos, mantém a janela recente
+e atualiza `story_summary`/`character_notes`. Restauração só ocorre quando não apagaria turnos
+novos. RAG, se implementado, será recuperação semântica de volume externo e não um segundo sistema
+de memória para fatos já presentes na sessão.
 
-- **Python >= 3.14** com `uv` (venv em `.venv/`, ative com `source .venv/bin/activate.fish`).
-- **FastAPI / Uvicorn** (backend), **Ruff** (lint/format), **Mypy** (tipos),
-  **Pytest + pytest-asyncio** (testes).
-- **Provedores LLM por adapters isolados.** `src/llm/adapters/` contém contrato, registry e um
-  módulo por backend; `src/static/adapters/` contém a configuração declarativa equivalente para
-  a UI. Hoje há llama.cpp (JSON Schema nativo) e DeepSeek V4 Flash (`thinking=disabled`, JSON
-  Object + validação local). URL, payload, segredo, formulário e envelope de resposta não entram
-  no Runner nem nos agentes.
-- **Configuração única em `.data/config.json`.** `src/config.py` valida e persiste atomicamente o
-  provedor ativo e os conjuntos separados de llama.cpp/DeepSeek. A API e o frontend nunca
-  devolvem nem cacheiam a chave; mostram apenas se ela está configurada.
-- **Servidor dev**: `./start.sh` (porta 8889, `--reload`, `--host 0.0.0.0`).
+## 7. Observabilidade e ferramentas
 
----
+`.data/sessions/{id}.debug.jsonl` é a evidência primária de execução. Ele registra:
 
-## 7. Compactação de contexto (IMPLEMENTADA — MVP manual)
+- `turn_input` antes da primeira chamada;
+- request redigido, response, tentativa, duração e tamanho de prompt;
+- tipo e representação de erros;
+- marcadores de undo, compactação e restauração.
 
-Objetivo: quando a conversa ficar grande, resumir os turnos antigos numa "história até
-agora" (`story_summary`) e notas por personagem (`character_notes`), pra caber num
-modelo menor sem perder coerência de longo prazo. Baseado em como a Anthropic documenta
-compaction/memória estruturada/sub-agentes (pesquisa registrada, antes de virar plano,
-no histórico de conversa deste projeto).
+O log é append-only. Undo não apaga evidência.
 
-**Decisão de design importante**: isto **não** é memória recomputada a cada prompt (sem
-"camadas" recalculadas por chamada). É um **evento discreto e manual**:
+Ferramentas em `tools/` ficam fora do runtime narrativo:
 
-1. `compact_session` lê `compaction_keep_recent_turns` (padrão: 8) e conta
-   `turn_number` distintos, não registros individuais. Com até esse número de turnos,
-   devolve `compacted=False` sem backup nem chamada LLM.
-2. Acima da janela, faz backup do `{session_id}.json` atual como
-   `{session_id}.kb_N.json` (N incremental, cópia dos bytes crus).
-3. Um sub-agente **Historiador** (`src/agents/summarizer.py`) recebe somente os turnos
-   anteriores à janela, mais o resumo e as notas atuais. Ele é cego igual ao Narrador:
-   `speaker_label` traduz `"Player"` para o nome do personagem controlado. A saída usa
-   `json_schema` e contém o resumo completo reescrito + somente as notas alteradas.
-4. O runner substitui `game.story_summary`, mescla as notas retornadas em
-   `game.character_notes`, substitui `game.history` pelos turnos mantidos e salva.
-5. Nas chamadas seguintes, o Narrador recebe `STORY SO FAR` + janela ativa; cada
-   Personagem recebe somente seu `What you remember` + falas da janela ativa.
+- `replay_llm.py`: servidor determinístico compatível com a API LLM;
+- `replay_session.py`: reproduz inputs atuais contra a API real;
+- `mcp_server.py`: inspeção e mutações de debug via stdio;
+- `playtest_harness.py`: cenários repetíveis, fila e comparações A/B.
 
-**Undo comum depois de compactar:** só alcança turnos da janela ativa. Os turnos antigos
-não estão mais em `game.history`, portanto não participam de `undo_turn`.
+Não adicionar compatibilidade com logs sem `turn_input`. Fixtures representam somente o contrato
+atual.
 
-**Desfazer a compactação:** o botão dedicado chama `restore_last_compaction`, que pega o
-backup de maior N. Antes de sobrescrever a sessão, compara o maior `turn_number` do estado
-ativo com o do backup. Se o ativo tiver turno mais novo, recusa sem mudar nada, pois a
-restauração apagaria jogo novo. Se for seguro, restaura os bytes do backup e apaga esse
-backup consumido. Não há merge de históricos. Backups mais antigos podem continuar no
-disco, mas a mesma trava pode impedir restaurá-los se o histórico ativo já for mais novo.
+## 8. Frontend e deployments
 
-**Sem gatilho automático por token nesta versão** — só um botão manual do lado do undo,
-com barra de progresso **simulada** (não é progresso real medido; tem comentário em
-inglês no código avisando isso).
+O frontend é dependency-free e usa módulos ES. Comunicação entre módulos ocorre por imports e
+injeção explícita de callbacks, não por variáveis globais. Config do jogo pode usar localStorage;
+config e segredos de provider não podem.
 
-**Superfície implementada:** `POST /session/{id}/compact`, botão de compactação com
-progresso simulado, `POST /session/{id}/restore_compaction`, botão de restauração com
-confirmação, marcadores `compact`/`restore_compaction` no log e testes de integração do
-fluxo completo.
+Pipelines substantivas vivem em:
 
----
+- `.ci-cd/android/`;
+- `.ci-cd/test/`;
+- `.ci-cd/docker/`.
 
-## 8. Regras para Edição e Engenharia de Prompts
+Os três arquivos em `.github/workflows/` são apenas entrypoints obrigatórios do GitHub e delegam
+para composite actions em `.ci-cd`.
 
-1. **Nada da tabela de anti-padrões.** Regra número um.
-2. **Não quebre o modelo de papéis** (§ acima). Se sua mudança faz o Personagem receber
-   `body`, personalidade de outros, cena, narrações/ações passadas, ou `story_summary` —
-   pare, está errado.
-3. **Pensamento de Personagem é leitura subjetiva, nunca narração objetiva** — mesmo
-   sobre outro personagem. Reforce isso ao mexer no prompt, não remova a distinção.
-4. **Saída estruturada de verdade**: `chat_completion_json` + `json_schema` para agentes
-   lógicos (Narrador, Resumidor). Nunca parser por regex.
-5. **Confie no contexto nativo.** Trim só por tokens perto de `context_max`
-   (`trim_history_by_tokens`). Nunca por número de turnos nem clipando por caractere.
-6. **Prompts declarativos e curtos.** Descreva a regra; não empilhe reforços. Não
-   reintroduza teto de frases na narração do Narrador (ver §2 — foi removido de propósito).
-7. **Estado dinâmico é do Narrador** (humor, cena, fatos) via campos estruturados — não
-   hardcode nem heurística no runner.
-8. **`session_id`/`turn_number`/`agent` sempre repassados** em qualquer chamada nova ao
-   LLM, pra aparecer no log bruto (§5). Não crie uma chamada "silenciosa" fora dele.
-9. **Verifique de verdade** (ver o aviso de "falha silenciosa"): inspecione prompt
-   montado, JSON de resposta, estado salvo, e o `.debug.jsonl`. Rode contra o LLM real
-   quando possível. Não confie em "não deu erro" nem só em "passou no pytest".
+Todos os deployments executam o mesmo backend e o mesmo contrato de dados. Não manter stack de
+dependências, config ou source alternativo para um deployment. A versão de Python e dependências
+de cada pacote precisam ser compatíveis com o contrato canônico do `pyproject.toml`.
 
----
+Android é direcionado a Android 14+ e usa API Python local em loopback. Seu bootstrap precisa:
 
-## 9. Comandos Úteis
+- possuir uma única estratégia para servir o frontend;
+- iniciar o backend sem depender do cwd;
+- criar sua própria config canônica;
+- aguardar `/health` antes de liberar a UI;
+- registrar falhas de startup de forma legível.
+
+Não resolver falha Android com fallback para config ou layout antigos.
+
+## 9. Critério de entrega
+
+Uma mudança não está pronta apenas porque não lançou exceção.
+
+Antes de fechar:
+
+1. confirme ownership: a mudança está no módulo/adapter correto;
+2. remova o caminho substituído, sem mantê-lo como fallback;
+3. revise locks e atomicidade de toda mutação compartilhada;
+4. teste sucesso, erro, input vazio/inválido e concorrência quando aplicável;
+5. inspecione prompt, resposta bruta, estado persistido e debug log quando tocar LLM;
+6. execute um boundary real proporcional ao risco (HTTP, stdio, frontend ou provider);
+7. atualize README e mova plano/task concluído para `.plan/closed/`;
+8. confirme que `.data`, segredos e artefatos locais não estão no Git;
+9. não faça commit ou push sem autorização explícita e específica.
+
+Validação padrão após alterar Python:
 
 ```bash
-source .venv/bin/activate.fish   # venv (Fish shell)
-uv run pytest                    # testes
-uv run ruff check                # lint
-uv run ruff format               # formatação
-uv run mypy src                  # tipos
-./start.sh                       # sobe o servidor dev (porta 8889, --reload)
-tail -f .data/sessions/<id>.debug.jsonl | jq .   # acompanhar o log bruto ao vivo
+uvx ruff check .
+uvx ruff format --check .
+uvx mypy src/ tools/playtest_harness.py tools/mcp_server.py tools/replay_llm.py tools/replay_session.py
+uv run pytest -x
 ```
+
+Para frontend, valide todos os módulos com Node, carregue o registry de adapters e faça parsing do
+HTML. Para mudanças de integração, use também o smoke test HTTP ou a ferramenta real do boundary.
+
+## 10. Referências rápidas
+
+- `README.md`: estudo de caso e documentação detalhada.
+- `src/runner.py`: orquestração e agência.
+- `src/models.py`: domínio persistido.
+- `src/config.py`: config canônica e redaction.
+- `src/llm/adapters/`: providers backend.
+- `src/static/adapters/`: providers frontend.
+- `src/llm/schema.py`: contrato estruturado local.
+- `src/llm/debug_log.py`: observabilidade persistida.
+- `tools/README.md`: operação de replay, MCP e harness.
+- `.plan/tasks/`: trabalho aberto.
+- `.plan/closed/`: decisões e entregas concluídas.
