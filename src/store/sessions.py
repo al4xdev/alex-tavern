@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from src.models import GameState, dict_to_game_state, game_state_to_dict
+from src.paths import SESSIONS_DIR
 
-SESSIONS_DIR = Path(".data/sessions")
 _session_locks: dict[str, asyncio.Lock] = {}
 
 # Tech debt: _session_locks grows indefinitely (acceptable for MVP)

@@ -36,7 +36,7 @@ class Character:
 
 @dataclass
 class Player:
-    """The human playing. No name — no agent knows a human exists (see immersion rule in agent.md); the player is just the controlled_character_id."""
+    """Player agency through the controlled character, without a separate named entity."""
 
     controlled_character_id: str  # which character the player controls, fixed in the session
 

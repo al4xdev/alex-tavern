@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import asynccontextmanager, suppress
-from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -13,10 +12,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.paths import CONFIG_PATH, SESSIONS_DIR
 from src.runner import Runner
 from src.store.sessions import delete_session, fork_session, list_sessions
 
-CONFIG_PATH = Path(".data/config.json")
 DEFAULT_CONFIG = {
     "llm_host": "http://localhost:8888",
     "model": "",
@@ -39,7 +38,7 @@ def load_config() -> dict[str, Any]:
             )
         return DEFAULT_CONFIG.copy()
     try:
-        data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        data = cast(dict[str, Any], json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
         for k, v in DEFAULT_CONFIG.items():
             data.setdefault(k, v)
         return data
@@ -348,7 +347,7 @@ def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
     each with ``session_id``, ``turn_number`` and ``agent`` (who triggered it).
     Replaces the old debug logging embedded in the turn response.
     """
-    path = Path(f".data/sessions/{session_id}.debug.jsonl")
+    path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
     if not path.exists():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -494,7 +493,7 @@ def fork_session_endpoint(session_id: str) -> dict:
 @app.delete("/session/{session_id}")
 def delete_session_endpoint(session_id: str) -> dict:
     """Removes a session."""
-    path = Path(f".data/sessions/{session_id}.json")
+    path = SESSIONS_DIR / f"{session_id}.json"
     if not path.exists():
         raise HTTPException(status_code=404, detail="Session not found")
     delete_session(session_id)
