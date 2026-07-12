@@ -15,6 +15,7 @@ from mcp.types import ToolAnnotations
 
 DEFAULT_ROLEPLAY_URL = "http://127.0.0.1:8889"
 DEFAULT_REPLAY_URL = "http://127.0.0.1:8888"
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 420.0
 MAX_READ_LIMIT = 1000
 
 READ_ONLY = ToolAnnotations(
@@ -51,7 +52,7 @@ class DebugApiClient:
         roleplay_url: str = DEFAULT_ROLEPLAY_URL,
         replay_url: str = DEFAULT_REPLAY_URL,
         *,
-        timeout: float = 30.0,
+        timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
         roleplay_transport: httpx.AsyncBaseTransport | None = None,
         replay_transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
@@ -256,10 +257,11 @@ def create_mcp_server(
     roleplay_url: str = DEFAULT_ROLEPLAY_URL,
     replay_url: str = DEFAULT_REPLAY_URL,
     *,
+    request_timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     api: DebugApiClient | None = None,
 ) -> FastMCP:
     """Build the stdio MCP server and register its debug tools."""
-    debug_api = api or DebugApiClient(roleplay_url, replay_url)
+    debug_api = api or DebugApiClient(roleplay_url, replay_url, timeout=request_timeout)
 
     @asynccontextmanager
     async def lifespan(_: FastMCP) -> AsyncIterator[dict[str, Any]]:
@@ -382,17 +384,37 @@ def create_mcp_server(
     return server
 
 
+def _positive_timeout(value: str) -> float:
+    try:
+        timeout = float(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("request timeout must be a number") from exc
+    if timeout <= 0:
+        raise argparse.ArgumentTypeError("request timeout must be greater than zero")
+    return timeout
+
+
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the local Roleplay debug MCP over stdio.")
     parser.add_argument("--roleplay-url", default=DEFAULT_ROLEPLAY_URL)
     parser.add_argument("--replay-url", default=DEFAULT_REPLAY_URL)
+    parser.add_argument(
+        "--request-timeout",
+        type=_positive_timeout,
+        default=DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        help="HTTP request timeout in seconds (default: %(default)s)",
+    )
     return parser.parse_args(argv)
 
 
 def main() -> None:
     """Run the debug MCP server over stdio."""
     args = _parse_args()
-    create_mcp_server(args.roleplay_url, args.replay_url).run(transport="stdio")
+    create_mcp_server(
+        args.roleplay_url,
+        args.replay_url,
+        request_timeout=args.request_timeout,
+    ).run(transport="stdio")
 
 
 if __name__ == "__main__":

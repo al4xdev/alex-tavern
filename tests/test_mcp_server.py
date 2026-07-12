@@ -14,7 +14,12 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.server.fastmcp.exceptions import ToolError
 
-from tools.mcp_server import DebugApiClient, create_mcp_server
+from tools.mcp_server import (
+    DEFAULT_REQUEST_TIMEOUT_SECONDS,
+    DebugApiClient,
+    _parse_args,
+    create_mcp_server,
+)
 
 
 def _json_response(request: httpx.Request, payload: Any, status: int = 200) -> httpx.Response:
@@ -188,6 +193,24 @@ async def test_adapter_reports_timeout_and_invalid_json() -> None:
             await invalid_api.list_sessions()
     finally:
         await invalid_api.aclose()
+
+
+@pytest.mark.asyncio
+async def test_adapter_uses_configured_request_timeout() -> None:
+    api = DebugApiClient(timeout=75.5)
+    try:
+        assert api._roleplay.timeout == httpx.Timeout(75.5)
+        assert api._replay.timeout == httpx.Timeout(75.5)
+    finally:
+        await api.aclose()
+
+
+def test_mcp_cli_configures_positive_request_timeout() -> None:
+    assert _parse_args([]).request_timeout == DEFAULT_REQUEST_TIMEOUT_SECONDS
+    assert _parse_args(["--request-timeout", "75.5"]).request_timeout == 75.5
+    for invalid in ("0", "-1", "not-a-number"):
+        with pytest.raises(SystemExit):
+            _parse_args(["--request-timeout", invalid])
 
 
 @pytest.mark.asyncio
