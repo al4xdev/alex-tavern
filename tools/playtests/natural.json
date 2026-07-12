@@ -1,0 +1,21 @@
+{
+  "name": "natural-conversation",
+  "description": "A slower tavern conversation with gradual discovery, mostly automatic routing, and a post-compaction recall check.",
+  "narrator_directives": "Keep the scene grounded and conversational. Do not introduce a threat unless an existing event clearly causes one.",
+  "events": [
+    {"type":"turn","speech":"Long road today. How are you holding up?","action":"I settle into the chair opposite Lyra and warm my hands near the candle","force_speaker":"C2"},
+    {"type":"turn","speech":"We can rest before deciding where to go next.","action":"I listen to the tavern for a moment instead of watching the door","force_speaker":null},
+    {"type":"turn","speech":"The medallion feels warmer than it did this morning. Is that meaningful?","action":"I leave the medallion wrapped and set it between us","force_speaker":"C2"},
+    {"type":"turn","speech":"Mork, two bowls of whatever is still hot.","action":"I place a few coins on the table and wait for the tavern keeper","force_speaker":null},
+    {"type":"turn","speech":"You mentioned the northern forest before. What have you actually seen there?","action":"I keep my voice low so the nearby patrons cannot easily listen","force_speaker":"C2"},
+    {"type":"turn","speech":"Rumors are not enough to risk the road at night.","action":"I unfold our ordinary road map without marking a destination","force_speaker":null},
+    {"type":"turn","speech":"Which part is known, and which part are you guessing?","action":"I point first to the forest and then to the medallion","force_speaker":"C2"},
+    {"type":"turn","speech":"Good. We keep those separate.","action":"I fold the map and take a slow drink","force_speaker":null},
+    {"type":"turn","speech":"If we leave after sunrise, what would you bring?","action":"I check the straps on my pack without standing","force_speaker":"C2"},
+    {"type":"turn","speech":"Then we buy supplies in the morning and stay here tonight.","action":"I place the wrapped medallion in an inside pocket","force_speaker":null},
+    {"type":"turn","speech":"You did well today, Lyra. Try to get some rest.","action":"I move the candle farther from the edge of the table","force_speaker":"C2"},
+    {"type":"turn","speech":"One last check: no immediate danger that you can actually confirm?","action":"I wait for a direct answer before leaving the table","force_speaker":null},
+    {"type":"compact"},
+    {"type":"turn","speech":"Remind me what we confirmed about the medallion and what remained only a guess.","action":"I keep the medallion wrapped while I ask","force_speaker":"C2"}
+  ]
+}

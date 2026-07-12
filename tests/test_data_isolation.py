@@ -10,11 +10,12 @@ from src.paths import CONFIG_PATH, DATA_DIR, DEFAULTS_DIR, PRESETS_DIR, SESSIONS
 from tests.conftest import REAL_DATA_DIR, TEST_DATA_DIR, assert_safe_test_data_root
 
 
-def test_all_persistent_paths_are_inside_temporary_data_root() -> None:
+def test_all_mutable_paths_are_inside_temporary_data_root() -> None:
     assert DATA_DIR.resolve() == TEST_DATA_DIR.resolve()
-    for path in (CONFIG_PATH, DEFAULTS_DIR, PRESETS_DIR, SESSIONS_DIR):
+    for path in (CONFIG_PATH, PRESETS_DIR, SESSIONS_DIR):
         assert DATA_DIR.resolve() in path.resolve().parents
         assert REAL_DATA_DIR not in path.resolve().parents
+    assert DEFAULTS_DIR.resolve() == Path(__file__).resolve().parents[1] / "src" / "defaults"
 
 
 def test_guard_rejects_real_data_and_nested_paths() -> None:

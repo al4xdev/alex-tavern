@@ -1,0 +1,12 @@
+{
+  "name": "micro-consequence-pov",
+  "description": "Focused checks for immediate physical consequences, stable location, and unambiguous narrative viewpoint.",
+  "narrator_directives": "Use third person throughout. Resolve the final physical action before adding atmosphere.",
+  "events": [
+    {"type":"turn","speech":"","action":"I move an empty cup from the center of our table to its left edge","force_speaker":"Narrator"},
+    {"type":"turn","speech":"Mork, please close the nearest open window.","action":"I remain seated and wait for his response","force_speaker":"Narrator"},
+    {"type":"turn","speech":"Lyra, did he close it?","action":"","force_speaker":"C2"},
+    {"type":"turn","speech":"","action":"I stand, walk three steps to the door, and stop without opening it","force_speaker":"Narrator"},
+    {"type":"turn","speech":"Where am I standing now?","action":"","force_speaker":"C2"}
+  ]
+}

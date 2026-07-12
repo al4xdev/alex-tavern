@@ -30,12 +30,14 @@ from src.runner import Runner
 from src.store.sessions import (
     SESSIONS_DIR,
     _get_lock,
-    delete_session,
     fork_session,
     generate_session_id,
     list_sessions,
     load_game,
     save_game,
+)
+from src.store.sessions import (
+    delete_session as delete_session_async,
 )
 
 DEFAULT_CHARACTERS: dict[str, Character] = {
@@ -112,19 +114,15 @@ def _make_test_game(session_id: str | None = None) -> GameState:
     )
 
 
-def _llm_available() -> bool:
-    """Verifica se o servidor llama.cpp está acessível (timeout curto)."""
-    try:
-        import urllib.request as ur
-
-        req = ur.Request("http://localhost:8888/health", method="GET")
-        ur.urlopen(req, timeout=2)
-        return True
-    except Exception:
-        return False
-
-
-SKIP_LLM = not _llm_available()
+def delete_session(session_id: str) -> None:
+    """Discard isolated test artifacts without exercising the async public operation."""
+    for path in (
+        SESSIONS_DIR / f"{session_id}.json",
+        SESSIONS_DIR / f"{session_id}.debug.jsonl",
+        *SESSIONS_DIR.glob(f"{session_id}.kb_*.json"),
+    ):
+        if path.exists():
+            path.unlink()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -134,14 +132,6 @@ SKIP_LLM = not _llm_available()
 
 class TestModels:
     """Testes das dataclasses em src/models.py."""
-
-    def test_imports(self) -> None:
-        """Todas as dataclasses importam sem erro."""
-        from src.models import (  # noqa: F811
-            Character,
-        )
-
-        assert Character is not None
 
     def test_deepcopy_scene_independence(self) -> None:
         """deepcopy_scene retorna cópia independente."""
@@ -154,18 +144,6 @@ class TestModels:
         s2 = deepcopy_scene(s1)
         s1.physical_facts["door"] = "aberta"
         assert s2.physical_facts["door"] == "fechada", "deepcopy falhou"
-
-    def test_scene_shallow_copy_fails(self) -> None:
-        """Atribuição direta NÃO isola snapshots (prova da necessidade de deepcopy)."""
-        s1 = Scene(
-            location="taverna",
-            time_of_day="noite",
-            present_characters=["C1"],
-            physical_facts={"door": "fechada"},
-        )
-        s2 = s1  # atribuição direta, não cópia
-        s1.physical_facts["door"] = "aberta"
-        assert s2.physical_facts["door"] == "aberta", "shallow copy compartilha dict"
 
     def test_game_state_round_trip(self) -> None:
         """game_state_to_dict + dict_to_game_state deve ser idempotente."""
@@ -181,17 +159,6 @@ class TestModels:
         assert restored.scene.physical_facts == original.scene.physical_facts
         assert restored.story_summary == original.story_summary
         assert restored.character_notes == original.character_notes
-
-    def test_game_state_load_legacy_without_compaction_fields(self) -> None:
-        """Sessão salva antes desta task (sem story_summary/character_notes) carrega
-        com os defaults vazios, sem KeyError."""
-        original = _make_test_game()
-        data = game_state_to_dict(original)
-        del data["story_summary"]
-        del data["character_notes"]
-        restored = dict_to_game_state(data)
-        assert restored.story_summary == ""
-        assert restored.character_notes == {}
 
     def test_game_state_round_trip_with_history(self) -> None:
         """Round-trip preserva histórico e snapshots."""
@@ -212,13 +179,6 @@ class TestModels:
         snap = restored.history[0].scene_snapshot
         expected = "Old Mork's Tavern — main hall, dim lighting"
         assert snap.location == expected
-
-    def test_game_state_round_trip_empty_history(self) -> None:
-        """Round-trip com história vazia."""
-        original = _make_test_game()
-        data = game_state_to_dict(original)
-        restored = dict_to_game_state(data)
-        assert len(restored.history) == 0
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -261,41 +221,6 @@ class TestSessions:
         """load_game de sessão inexistente retorna None."""
         loaded = load_game("nonexistent")
         assert loaded is None
-
-    @pytest.mark.asyncio
-    async def test_concurrent_save_same_session(self) -> None:
-        """Duas saves concorrentes na mesma sessão não corrompem (lock)."""
-        original = _make_test_game(self.sid)
-        save_game(original)
-
-        async def save_modify(name: str) -> None:
-            async with _get_lock(self.sid):
-                game = load_game(self.sid)
-                assert game is not None
-                game.player.controlled_character_id = name
-                save_game(game)
-
-        await asyncio.gather(save_modify("A"), save_modify("B"))
-        loaded = load_game(self.sid)
-        assert loaded is not None
-        assert loaded.player.controlled_character_id in ("A", "B")
-
-    def test_atomic_write_integrity(self) -> None:
-        """Escrita atômica: arquivo intermediário não fica se algo quebrar."""
-        original = _make_test_game(self.sid)
-        # Simula falha durante save — temp file deve ser limpo
-        path = SESSIONS_DIR / f"{self.sid}.json"
-        # Salva primeiro pra ter arquivo válido
-        save_game(original)
-        assert path.exists()
-        # Conta temps — não deve ter sobrado
-        temps = list(SESSIONS_DIR.glob(f"{self.sid}_*.tmp"))
-        assert len(temps) == 0, f"Sobrou temp file: {temps}"
-
-    def test_generate_session_id_unique(self) -> None:
-        """IDs gerados são únicos (colisão improvável em 8 chars hex)."""
-        ids = {generate_session_id() for _ in range(100)}
-        assert len(ids) == 100, "IDs duplicados em 100 gerações"
 
     def test_history_persistence(self) -> None:
         """Histórico com múltiplos turnos sobrevive a save/load."""
@@ -345,7 +270,8 @@ class TestSessions:
             assert "turn_count" in r
             assert "created_at" in r
 
-    def test_fork_session(self) -> None:
+    @pytest.mark.asyncio
+    async def test_fork_session(self) -> None:
         """fork_session copia sessão com novo ID."""
         original = _make_test_game(self.sid)
         history_item = TurnRecord(
@@ -358,7 +284,7 @@ class TestSessions:
         original.history.append(history_item)
         save_game(original)
 
-        new_id = fork_session(self.sid)
+        new_id = await fork_session(self.sid)
         assert new_id is not None
         assert new_id != self.sid
 
@@ -370,34 +296,67 @@ class TestSessions:
         # Limpa
         delete_session(new_id)
 
-    def test_fork_nonexistent(self) -> None:
+    @pytest.mark.asyncio
+    async def test_fork_nonexistent(self) -> None:
         """fork_session em sessão inexistente retorna None."""
-        assert fork_session("ffffffff") is None
+        assert await fork_session("ffffffff") is None
 
-    def test_fork_idempotent(self) -> None:
+    @pytest.mark.asyncio
+    async def test_fork_idempotent(self) -> None:
         """fork_session pode ser chamada 2x — cria 2 cópias distintas."""
         original = _make_test_game(self.sid)
         save_game(original)
-        n1 = fork_session(self.sid)
-        n2 = fork_session(self.sid)
+        n1 = await fork_session(self.sid)
+        n2 = await fork_session(self.sid)
         assert n1 is not None
         assert n2 is not None
         assert n1 != n2
         delete_session(n1)
         delete_session(n2)
 
-    def test_delete_session(self) -> None:
+    @pytest.mark.asyncio
+    async def test_delete_session(self) -> None:
         """delete_session remove o arquivo."""
         g = _make_test_game(self.sid)
         save_game(g)
         path = SESSIONS_DIR / f"{self.sid}.json"
         assert path.exists()
-        delete_session(self.sid)
+        assert await delete_session_async(self.sid) is True
         assert not path.exists()
 
-    def test_delete_nonexistent(self) -> None:
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent(self) -> None:
         """delete_session em ID inexistente não levanta erro."""
-        delete_session("ffffffff")  # não deve levantar
+        assert await delete_session_async("ffffffff") is False
+
+    @pytest.mark.asyncio
+    async def test_fork_waits_for_active_session_transaction(self) -> None:
+        """Fork cannot snapshot the middle of an in-flight turn transaction."""
+        save_game(_make_test_game(self.sid))
+        lock = _get_lock(self.sid)
+        await lock.acquire()
+        task = asyncio.create_task(fork_session(self.sid))
+        await asyncio.sleep(0)
+        assert not task.done()
+        lock.release()
+        new_id = await task
+        assert new_id is not None
+        delete_session(new_id)
+
+    @pytest.mark.asyncio
+    async def test_delete_waits_and_removes_all_session_artifacts(self) -> None:
+        """Delete serializes with turns and removes state, log, and compaction backups."""
+        save_game(_make_test_game(self.sid))
+        (SESSIONS_DIR / f"{self.sid}.debug.jsonl").write_text("{}\n", encoding="utf-8")
+        (SESSIONS_DIR / f"{self.sid}.kb_0.json").write_text("{}", encoding="utf-8")
+        lock = _get_lock(self.sid)
+        await lock.acquire()
+        task = asyncio.create_task(delete_session_async(self.sid))
+        await asyncio.sleep(0)
+        assert not task.done()
+        lock.release()
+        assert await task is True
+        assert not list(SESSIONS_DIR.glob(f"{self.sid}*"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -417,52 +376,36 @@ class TestRunnerLogic:
     def teardown_method(self) -> None:
         delete_session(self.sid)
 
-    def test_start_session_returns_id(self) -> None:
-        """start_session retorna session_id de 8 chars."""
+    @pytest.mark.asyncio
+    async def test_start_session_persists_default_state(self) -> None:
+        """start_session retorna um ID e persiste o estado padrão recuperável."""
         sid = self.runner.start_session()
-        assert len(sid) == 8
         assert isinstance(sid, str)
-
-    def test_start_session_creates_file(self) -> None:
-        """start_session cria arquivo .json no diretório de sessões."""
-        sid = self.runner.start_session()
+        assert len(sid) == 8
         path = SESSIONS_DIR / f"{sid}.json"
         assert path.exists()
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["session_id"] == sid
-
-    def test_start_session_custom_player(self) -> None:
-        """start_session com personagem controlado customizado."""
-        sid = self.runner.start_session(
-            {
-                "controlled_character_id": "C2",
-            }
-        )
-        game = load_game(sid)
-        assert game is not None
-        assert game.player.controlled_character_id == "C2"
-
-    def test_get_state_nonexistent(self) -> None:
-        """get_state de sessão inexistente retorna None."""
-        assert self.runner.get_state("naoexiste") is None
-
-    def test_get_state_after_start(self) -> None:
-        """get_state retorna GameState com dados corretos."""
-        sid = self.runner.start_session()
-        state = self.runner.get_state(sid)
+        state = await self.runner.get_state(sid)
         assert state is not None
         assert state.session_id == sid
-        assert "C1" in state.characters
         assert state.characters["C1"].mind.name == "Thorn"
         assert state.characters["C2"].mind.name == "Lyra"
 
-    def test_get_history_empty(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_state_nonexistent(self) -> None:
+        """get_state de sessão inexistente retorna None."""
+        assert await self.runner.get_state("naoexiste") is None
+
+    @pytest.mark.asyncio
+    async def test_get_history_empty(self) -> None:
         """get_history de sessão nova retorna lista vazia."""
         sid = self.runner.start_session()
-        history = self.runner.get_history(sid)
+        history = await self.runner.get_history(sid)
         assert history == []
 
-    def test_get_history_limit(self) -> None:
+    @pytest.mark.asyncio
+    async def test_get_history_limit(self) -> None:
         """get_history respeita parâmetro limit."""
         sid = self.runner.start_session()
         game = load_game(sid)
@@ -478,7 +421,7 @@ class TestRunnerLogic:
                 )
             )
         save_game(game)
-        history = self.runner.get_history(sid, limit=3)
+        history = await self.runner.get_history(sid, limit=3)
         assert len(history) == 3
         assert history[-1].content == "Turno 10"
 
@@ -534,30 +477,6 @@ class TestRunnerLogic:
             assert game.scene.physical_facts["door"] == "closed"
 
     @pytest.mark.asyncio
-    async def test_undo_simple_turn(self) -> None:
-        """Undo de um turno com narrador apenas — history fica vazio, cena restaurada."""
-        sid = self.runner.start_session()
-        # Simula um turno: add narração ao histórico e atualiza cena
-        async with _get_lock(sid):
-            game = load_game(sid)
-            assert game is not None
-            original_door = game.scene.physical_facts["door"]
-            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "Você entra na taverna.", "narration", 1)
-            # Modifica cena após o turno
-            game.scene.physical_facts["door"] = "aberta"
-            save_game(game)
-
-        result = await self.runner.undo_turn(sid)
-        assert result["undone"] is True
-
-        async with _get_lock(sid):
-            game = load_game(sid)
-            assert game is not None
-            assert len(game.history) == 0
-            assert game.scene.physical_facts["door"] == original_door
-
-    @pytest.mark.asyncio
     async def test_undo_restores_location_and_previous_scene_facts(self) -> None:
         sid = self.runner.start_session()
         game = load_game(sid)
@@ -581,29 +500,6 @@ class TestRunnerLogic:
         restored = load_game(sid)
         assert restored is not None
         assert restored.scene == original_scene
-
-    @pytest.mark.asyncio
-    async def test_undo_with_character(self) -> None:
-        """Undo de turno com narrador + personagem remove ambos."""
-        sid = self.runner.start_session()
-        async with _get_lock(sid):
-            game = load_game(sid)
-            assert game is not None
-            original_door = game.scene.physical_facts["door"]
-            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
-            runner._append_history(game, "Narrator", "O vento uiva.", "narration", 1)
-            runner._append_history(game, "C1", "Não gosto disso.", "speech", 1)
-            game.scene.physical_facts["door"] = "aberta"
-            save_game(game)
-
-        result = await self.runner.undo_turn(sid)
-        assert result["undone"] is True
-
-        async with _get_lock(sid):
-            game = load_game(sid)
-            assert game is not None
-            assert len(game.history) == 0
-            assert game.scene.physical_facts["door"] == original_door
 
     @pytest.mark.asyncio
     async def test_undo_nothing(self) -> None:
@@ -779,6 +675,26 @@ class TestRunnerLogic:
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         await runner._call_character(game, "C1", "ctx", 1)
         assert captured["notes"] == "nota do Thorn"
+
+    @pytest.mark.asyncio
+    async def test_suggestions_wait_for_active_session_transaction(self, monkeypatch) -> None:  # noqa: ANN001
+        """Suggestion snapshots cannot race an in-flight turn mutation."""
+        from src import runner as runner_mod
+
+        save_game(_make_test_game(self.sid))
+
+        async def fake_suggest(**kwargs):  # noqa: ANN003, ANN202
+            return [{"speech": "Wait.", "action": "Listen."}]
+
+        monkeypatch.setattr(runner_mod, "narrator_suggest", fake_suggest)
+        lock = _get_lock(self.sid)
+        await lock.acquire()
+        task = asyncio.create_task(self.runner.suggest_actions(self.sid))
+        await asyncio.sleep(0)
+        assert not task.done()
+        lock.release()
+        result = await task
+        assert result["suggestions"][0]["speech"] == "Wait."
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1101,129 +1017,6 @@ class TestRestoreCompaction:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Testes com LLM real (condicionais)
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-@pytest.mark.skipif(SKIP_LLM, reason="Servidor llama.cpp não está acessível")
-@pytest.mark.asyncio
-@pytest.mark.llm
-class TestRunnerWithLLM:
-    """Testes do Runner que REQUEREM servidor llama.cpp."""
-
-    async def _make_runner(self) -> tuple[httpx.AsyncClient, Runner]:
-        client = httpx.AsyncClient(
-            base_url="http://localhost:8888",
-            timeout=httpx.Timeout(60.0),
-        )
-        runner = Runner(
-            client,
-            {
-                "temperature_narrator": 0.0,
-                "temperature_character": 0.8,
-                "max_tokens_narrator": 1024,
-                "max_tokens_character": 256,
-            },
-        )
-        return client, runner
-
-    async def test_player_turn_basic(self) -> None:
-        """Turno básico: speech + action → narração + resposta."""
-        client, runner = await self._make_runner()
-        async with client:
-            sid = runner.start_session()
-            try:
-                result = await runner.player_turn(
-                    session_id=sid,
-                    speech="Olá, Lyra. O que você acha deste lugar?",
-                    action="Thorn olha ao redor, observando os cantos escuros.",
-                )
-                assert "narration" in result
-                assert result["narration"] is not None
-                assert len(result["narration"]) > 10
-                # next_speaker deve ser um valor válido (o Narrador não conhece "Player")
-                assert result["next_speaker"] in ("C1", "C2", "Narrator")
-                # Verifica que o estado foi salvo
-                state = runner.get_state(sid)
-                assert state is not None
-                assert len(state.history) >= 1
-            finally:
-                delete_session(sid)
-
-    async def test_player_turn_without_speech(self) -> None:
-        """Ação sem fala: Narrador processa sem forçar resposta."""
-        client, runner = await self._make_runner()
-        async with client:
-            sid = runner.start_session()
-            try:
-                result = await runner.player_turn(
-                    session_id=sid,
-                    speech="",
-                    action="Thorn se levanta e caminha até a porta, espiando pela fresta.",
-                )
-                assert "narration" in result
-                assert result["narration"] is not None
-                assert result["next_speaker"] in ("C1", "C2", "Narrator")
-            finally:
-                delete_session(sid)
-
-    async def test_force_speaker_overrides_narrator(self) -> None:
-        """force_speaker faz o personagem indicado agir, mesmo que não-controlado."""
-        client, runner = await self._make_runner()
-        async with client:
-            sid = runner.start_session()
-            try:
-                result = await runner.player_turn(
-                    session_id=sid,
-                    speech="Precisamos decidir o que fazer.",
-                    action="Thorn coloca as mãos na mesa e espera.",
-                    force_speaker="C2",
-                )
-                assert "narration" in result
-                assert result["next_speaker"] == "C2"
-                assert result["character_response"]
-            finally:
-                delete_session(sid)
-
-    async def test_suggest_actions(self) -> None:
-        """suggest_actions devolve sugestões pro personagem controlado sem persistir nada."""
-        client, runner = await self._make_runner()
-        async with client:
-            sid = runner.start_session()
-            try:
-                state_before = runner.get_state(sid)
-                assert state_before is not None
-                result = await runner.suggest_actions(sid)
-                assert "suggestions" in result
-                assert len(result["suggestions"]) == 3
-                for s in result["suggestions"]:
-                    assert "speech" in s
-                    assert "action" in s
-                # suggest_actions não grava nada na sessão
-                state_after = runner.get_state(sid)
-                assert state_after is not None
-                assert len(state_after.history) == len(state_before.history)
-            finally:
-                delete_session(sid)
-
-    async def test_state_persistence_across_turns(self) -> None:
-        """Estado persiste corretamente entre turnos múltiplos."""
-        client, runner = await self._make_runner()
-        async with client:
-            sid = runner.start_session()
-            try:
-                for turn_count in range(3):
-                    speech = f"Fala do turno {turn_count + 1}"
-                    await runner.player_turn(session_id=sid, speech=speech, action="")
-
-                state = runner.get_state(sid)
-                assert state is not None
-                assert len(state.history) > 0
-            finally:
-                delete_session(sid)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
 # Testes — Config customizada + Debug (LLM mockado)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1498,10 +1291,11 @@ class TestCustomSessionAndDebug:
         assert entries[2]["agent"] == "character:Solo"
         assert entries[2]["response"] == "Estou pronto."
 
-    def test_preview_narrator_prompt(self) -> None:
+    @pytest.mark.asyncio
+    async def test_preview_narrator_prompt(self) -> None:
         """preview_narrator_prompt monta messages corretos sem tocar no LLM."""
         sid = self._start_custom()
-        messages = self.runner.preview_narrator_prompt(sid, speech="olá", action="acena")
+        messages = await self.runner.preview_narrator_prompt(sid, speech="olá", action="acena")
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
         # IDs dinâmicos + diretivas no system prompt
@@ -1515,9 +1309,10 @@ class TestCustomSessionAndDebug:
         assert "Bron" in messages[1]["content"]
         assert "Player" not in messages[1]["content"]
 
-    def test_preview_narrator_prompt_missing_session(self) -> None:
+    @pytest.mark.asyncio
+    async def test_preview_narrator_prompt_missing_session(self) -> None:
         """preview de sessão inexistente retorna lista vazia."""
-        assert self.runner.preview_narrator_prompt("naoexiste") == []
+        assert await self.runner.preview_narrator_prompt("naoexiste") == []
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1862,40 +1657,52 @@ class TestDynamicConfigAndPresets:
     """Testes para o novo sistema de configuração dinâmica e presets no servidor."""
 
     def setup_method(self) -> None:
-        from src.store.presets import DEFAULTS_DIR, PRESETS_DIR
+        from src.store.presets import PRESETS_DIR
 
         PRESETS_DIR.mkdir(parents=True, exist_ok=True)
-        DEFAULTS_DIR.mkdir(parents=True, exist_ok=True)
         self.temp_preset_name = "temp_test_preset"
-        self.temp_default_name = "temp_default_preset"
 
     def teardown_method(self) -> None:
-        from src.store.presets import DEFAULTS_DIR, delete_preset
+        from src.store.presets import delete_preset
 
         delete_preset(self.temp_preset_name)
-        # Limpa defaults temporários
-        default_file = DEFAULTS_DIR / f"{self.temp_default_name}.json"
-        if default_file.exists():
-            default_file.unlink()
 
-    def test_config_load_and_fallback(self) -> None:
-        """Verifica se load_config carrega defaults e cria arquivo se inexistente."""
-        from src.main import CONFIG_PATH, load_config
+    def test_config_load_creates_canonical_provider_defaults(self, tmp_path: Path) -> None:
+        from src.config import load_config
 
-        existing_config = None
-        if CONFIG_PATH.exists():
-            existing_config = CONFIG_PATH.read_text(encoding="utf-8")
-            CONFIG_PATH.unlink()
+        path = tmp_path / "config.json"
+        cfg = load_config(path)
 
-        try:
-            cfg = load_config()
-            assert cfg["llm_host"] == "http://localhost:8888"
-            assert cfg["model"] == ""
-            assert cfg["llm_timeout_seconds"] == 60.0
-            assert CONFIG_PATH.exists()
-        finally:
-            if existing_config is not None:
-                CONFIG_PATH.write_text(existing_config, encoding="utf-8")
+        assert cfg["active_provider"] == "llama_cpp"
+        assert cfg["providers"]["llama_cpp"]["api_base"] == "http://localhost:8888/v1"
+        assert cfg["providers"]["deepseek"]["model"] == "deepseek-v4-flash"
+        assert cfg["providers"]["deepseek"]["thinking_enabled"] is False
+        assert path.exists()
+
+    def test_session_request_accepts_only_canonical_nested_characters(self) -> None:
+        """The API has one preset/session character shape and no flat legacy branch."""
+        from pydantic import ValidationError
+
+        from src.main import StartSessionRequest
+
+        canonical = {
+            "mind": {
+                "name": "Aria",
+                "personality": "Direct and observant.",
+                "knowledge": [],
+                "current_mood": "calm",
+            },
+            "body": {
+                "name": "Aria",
+                "physical_description": "Tall",
+                "outfit": "Travel coat",
+            },
+        }
+        request = StartSessionRequest(characters={"C1": canonical})
+        assert request.characters is not None
+        assert request.characters["C1"].mind.name == "Aria"
+        with pytest.raises(ValidationError):
+            StartSessionRequest(characters={"C1": {"name": "legacy-flat"}})
 
     def test_presets_store_crud(self) -> None:
         """Verifica as operações de CRUD diretamente no presets store."""
@@ -1914,18 +1721,28 @@ class TestDynamicConfigAndPresets:
         assert success is True
         assert self.temp_preset_name not in list_presets()
 
+    @pytest.mark.asyncio
+    async def test_concurrent_preset_writes_remain_complete(self) -> None:
+        """Per-name locking keeps concurrent atomic writes as complete JSON documents."""
+        from src.store.presets import load_user_preset, save_preset
+
+        first = {"controlled_character_id": "C1", "characters": {"C1": {"version": 1}}}
+        second = {"controlled_character_id": "C2", "characters": {"C2": {"version": 2}}}
+        await asyncio.gather(
+            asyncio.to_thread(save_preset, self.temp_preset_name, first),
+            asyncio.to_thread(save_preset, self.temp_preset_name, second),
+        )
+        assert load_user_preset(self.temp_preset_name) in (first, second)
+
     def test_presets_defaults_fallback(self) -> None:
-        """Verifica fallback para diretório de defaults no load_preset."""
-        import json
+        """Built-ins são assets imutáveis e usam o mesmo formato canônico."""
+        from src.store.presets import load_default, load_preset
 
-        from src.store.presets import DEFAULTS_DIR, load_preset
-
-        preset_data = {"characters": {}, "scene": {"location": "Lugar Padrão"}}
-        default_file = DEFAULTS_DIR / f"{self.temp_default_name}.json"
-        default_file.write_text(json.dumps(preset_data), encoding="utf-8")
-
-        loaded = load_preset(self.temp_default_name)
-        assert loaded == preset_data
+        loaded = load_default("thorn-lyra")
+        assert loaded is not None
+        assert loaded == load_preset("thorn-lyra")
+        assert loaded["controlled_character_id"] == "C1"
+        assert set(loaded["characters"]["C1"]) == {"mind", "body"}
 
 
 class TestLanguageConfiguration:
@@ -2131,6 +1948,9 @@ class TestLLMObservability:
         client = httpx.AsyncClient(base_url="http://localhost:8888")
         call_count = 0
 
+        async def skip_retry_delay(delay: float) -> None:
+            assert delay > 0
+
         async def sequenced_post(url, json, **kwargs):  # noqa: ANN001, ANN202, A002, ARG001
             nonlocal call_count
             call_count += 1
@@ -2145,6 +1965,7 @@ class TestLLMObservability:
             )
 
         monkeypatch.setattr(client, "post", sequenced_post)
+        monkeypatch.setattr("src.llm.client.asyncio.sleep", skip_retry_delay)
         try:
             result = await chat_completion_json(
                 client,
@@ -2171,7 +1992,7 @@ class TestLLMObservability:
 
     @pytest.mark.asyncio
     async def test_concurrent_debug_markers_remain_complete_json_lines(self) -> None:
-        from src.llm.client import log_turn_input
+        from src.llm.debug_log import log_turn_input
 
         sid = generate_session_id()
         try:

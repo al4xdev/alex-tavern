@@ -32,16 +32,14 @@ cd alex-tavern
 # Install dependencies and generate default config (requires 'uv')
 ./install.sh
 
-# Open and adjust the configuration to point to your local LLM server
-# (e.g., set your LLM host, model name, and response language)
-nano .data/config.json
-
 # Start the server (runs on port 8889)
 ./start.sh
 ```
 
-> [!NOTE]
-> The `./install.sh` script automatically creates a default `.data/config.json`. Make sure to configure the `llm_host` (like `http://localhost:8888` for llama.cpp) and the `language` parameter (default is `Portuguese`) before running.
+Open the gear menu to choose the AI engine and edit its server-owned settings. The install script
+creates `.data/config.json`; provider configuration and API keys live only there, never in browser
+storage. llama.cpp remains available as a local engine, while DeepSeek uses
+`deepseek-v4-flash` with thinking explicitly disabled.
 
 ### 💻 Other Operating Systems (Windows / macOS)
 
@@ -447,6 +445,301 @@ tree hash before it, byte for byte — no code changed, only commit text.
 
 ---
 
+## ⚡ Multi-provider LLM architecture
+
+Alex Tavern supports multiple OpenAI-compatible inference backends without teaching the Runner,
+Narrator, Character, Suggestion, or Historian about individual vendors. The integration is split
+between a shared client and small provider adapters:
+
+```text
+Player turn / suggestion / compaction
+                 │
+                 ▼
+        Runner and role agents
+                 │
+                 │ provider-neutral messages, limits, schema
+                 ▼
+          shared LLM client
+    ┌────────────┼─────────────────────────────┐
+    │            │                             │
+    │ retries    │ raw observability log       │ JSON parsing and
+    │ timeout    │ without credentials         │ local validation
+    │            │                             │
+    └────────────┴──────────────┬──────────────┘
+                                │
+                     ProviderAdapter contract
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+            LlamaCppAdapter          DeepSeekAdapter
+            native json_schema       Bearer authentication
+            no required secret       forced non-reasoning mode
+            local/network host       json_object adaptation
+```
+
+This boundary exists because “OpenAI-compatible” does not mean “identical”. Providers commonly
+differ in URL construction, authentication, model requirements, structured-output capabilities,
+reasoning controls, defaults, and optional payload fields. Encoding those differences as branches
+throughout the agents would make every new provider a cross-cutting feature. Here, those decisions
+are registered once in `src/llm/adapters/`.
+
+### Ownership and responsibilities
+
+| Layer | Owns | Deliberately does not own |
+|---|---|---|
+| Role agents | Prompts, role rules, schemas, and output-token choice | URLs, API keys, vendor payloads |
+| Shared LLM client | HTTP execution, timeouts, retries, output policy, and JSON parsing | Provider forms, vendor payloads, response envelopes, debug persistence, or schema implementation |
+| Provider adapter | URL, headers, request capability adaptation, response extraction, defaults, secrets, and forced settings | Story logic, persistence, retry policy, or response side effects |
+| Schema validator | Supported JSON Schema contract and local output validation | HTTP, retries, prompts, or provider selection |
+| Debug log | Concurrent append/read of raw calls and state-operation markers | Provider credentials, HTTP execution, or story state |
+| Configuration service | Canonical config validation, atomic writes, redaction, secret preservation, and active-provider resolution | HTTP calls or prompt construction |
+| Frontend adapters | Provider cards, fields, secrets, forced UI settings, parsing, and serialization | Server persistence or backend transport rules |
+
+`ProviderAdapter` is a structural Python protocol. An implementation declares metadata and three
+operations:
+
+```python
+class ProviderAdapter(Protocol):
+    name: str
+    config_defaults: dict[str, Any]
+    secret_fields: tuple[str, ...]
+    model_required: bool
+    requires_secret_when_active: bool
+    forced_settings: dict[str, Any]
+
+    def completion_url(self, api_base: str) -> str: ...
+    def headers(self, api_key: str) -> dict[str, str] | None: ...
+    def prepare_request(
+        self,
+        messages: list[dict],
+        response_format: dict[str, Any] | None,
+        json_schema: dict[str, Any] | None,
+        thinking_enabled: bool,
+    ) -> PreparedRequest: ...
+
+    def extract_content(self, response: object) -> str: ...
+```
+
+The immutable registry is also the backend source of truth for provider identity and
+configuration metadata. `src/config.py` derives the supported names, default configuration,
+secret handling, model requirements, and forced settings from the registered adapters. This
+prevents the transport layer and backend configuration catalog from drifting apart.
+
+The frontend mirrors the same boundary in `src/static/adapters/`. The base adapter renders common
+controls and each provider module declaratively owns its card, fields, secret behavior, forced
+settings, parsing, and serialization. `index.html` contains only provider containers; it has no
+llama.cpp or DeepSeek form markup. The browser modules use explicit ES imports instead of shared
+application globals.
+
+### Request lifecycle
+
+A structured Narrator or Historian call follows this path:
+
+1. The agent builds provider-neutral messages and a JSON Schema describing its output contract.
+2. `llm_request_options()` projects only the active provider's transport settings into the call.
+3. The shared client resolves the adapter and calls `prepare_request()` exactly once.
+4. The adapter preserves the semantic contract using the strongest capability supported by that
+   provider.
+5. The shared client sends the request and asks the adapter to extract content from its declared
+   response envelope.
+6. `src/llm/schema.py` parses and validates structured output while
+   `src/llm/debug_log.py` records complete attempts under a per-session lock.
+7. HTTP, parsing, or schema failures are written to the raw debug log and enter the same bounded
+   retry path.
+8. Only a successfully parsed and validated value reaches the agent and application state.
+
+Plain Character dialogue uses the same path without a JSON Schema. This means provider switching
+does not create separate implementations of Narrator, Character, Suggestion, or Historian.
+
+The shared `httpx.AsyncClient` intentionally has no provider-bound `base_url`. Every adapter
+returns the completion URL for its request. Switching providers therefore does not require
+recreating the client, and one provider's host cannot leak into another provider's call.
+
+### Llama.cpp adapter
+
+Llama.cpp remains the default provider and requires no secret. Its adapter:
+
+- builds `<api_base>/chat/completions`;
+- sends no authorization header;
+- accepts an empty model name, which is useful when the server already owns model selection;
+- passes the native OpenAI-style `json_schema` response format through unchanged;
+- defaults to `http://localhost:8888/v1` and a 98,304-token configured context.
+
+The adapter works with a local process or a llama.cpp server elsewhere on the network. The API
+base belongs to the provider config, not to the global HTTP client.
+
+### DeepSeek adapter and DeepCode reference
+
+The DeepSeek implementation was verified from two independent sources: direct probes against the
+configured account and the locally cloned DeepCode client. The DeepCode implementation was used
+as a low-level behavioral reference, not copied as a runtime dependency. It confirmed the model
+identifier and the provider-specific non-reasoning payload already used by a working client:
+
+```json
+{
+  "model": "deepseek-v4-flash",
+  "thinking": {"type": "disabled"}
+}
+```
+
+A live model inventory exposed `deepseek-v4-flash` and `deepseek-v4-pro`. Alex Tavern deliberately
+selects `deepseek-v4-flash`, and `thinking_enabled` is forced to `false` by both defaults and
+validation. A submitted configuration cannot silently enable reasoning for this integration.
+
+Direct compatibility probes established a capability difference:
+
+| Capability | llama.cpp | DeepSeek V4 Flash API |
+|---|---:|---:|
+| OpenAI-style chat completions | Yes | Yes |
+| Bearer API key required | No | Yes |
+| `response_format: json_object` | Yes | Yes |
+| `response_format: json_schema` | Yes | Rejected by the probed API |
+| Explicit thinking control | Not needed here | `thinking.type = disabled` |
+
+DeepSeek returned HTTP 400 for `response_format: json_schema`, so pretending the two APIs are
+identical would either break structured calls or weaken application contracts. Instead, the
+adapter performs a capability-preserving transformation:
+
+1. Serialize the requested schema compactly into the system instruction.
+2. Ask DeepSeek for `response_format: {"type": "json_object"}`.
+3. Include `thinking: {"type": "disabled"}`.
+4. Authenticate only inside the adapter with `Authorization: Bearer <key>`.
+5. Let the shared client parse and validate the returned object locally against the original
+   schema.
+
+The local validator covers objects, arrays, primitive and nullable types, enums, constants,
+required properties, `additionalProperties`, array bounds, string length/pattern constraints, and
+numeric bounds. Unknown types, malformed declarations, references, combinators, and every other
+unsupported keyword are rejected before output can be accepted. A future schema feature must
+therefore be implemented explicitly; merely placing it in a prompt cannot create false safety.
+
+This fallback was exercised against the real API. Two invalid outputs in the stress suite were
+caught: one returned a `next_speaker` outside the allowed enum, and another returned a boolean
+where `scene_update` allowed only string or null. Both entered the retry path and neither reached
+application state.
+
+### Server-owned configuration and secret handling
+
+There is one canonical configuration file: `.data/config.json`. Provider settings are not split
+across environment caches, browser storage, or unrelated files. A representative redacted shape
+is:
+
+```json
+{
+  "active_provider": "llama_cpp",
+  "language": "Portuguese",
+  "compaction_keep_recent_turns": 8,
+  "providers": {
+    "llama_cpp": {
+      "api_base": "http://localhost:8888/v1",
+      "model": "",
+      "context_max": 98304,
+      "max_tokens_narrator": 2048,
+      "max_tokens_character": 1024,
+      "summarizer_max_tokens": 1024,
+      "llm_timeout_seconds": 60.0
+    },
+    "deepseek": {
+      "api_base": "https://api.deepseek.com",
+      "api_key": "<stored only on the server>",
+      "model": "deepseek-v4-flash",
+      "thinking_enabled": false,
+      "context_max": 524288,
+      "max_tokens_narrator": 2048,
+      "max_tokens_character": 1024,
+      "summarizer_max_tokens": 1024,
+      "llm_timeout_seconds": 60.0
+    }
+  }
+}
+```
+
+Writes use a temporary file, flush and `fsync`, then atomically replace the destination. Invalid
+or old config shapes fail explicitly; the loader does not accumulate legacy compatibility layers.
+The active provider must have all required secret fields before it can be selected.
+
+The setup modal's **Motor de IA** section calls `GET /config` and `PUT /config`:
+
+- `GET /config` removes every declared secret and returns only `api_key_configured: true/false`;
+- leaving the key field blank during `PUT /config` preserves the existing server-side key;
+- the frontend never writes provider configuration to localStorage;
+- `/config` is network-only in the service worker and cannot be satisfied from the PWA cache;
+- raw LLM logs contain provider and host diagnostics but never authorization headers or keys.
+
+The entire `.data/` directory is gitignored and removed from the repository index. Development,
+CI/CD, desktop, and packaged runtimes must create and own separate data directories rather than
+sharing a checked-in key, session, preset, or debug log.
+
+Built-in presets are immutable application assets under `src/defaults/`. User presets remain
+mutable runtime data under `.data/presets/`. Both use the same nested `mind`/`body` character
+shape from browser form through API, storage, and Runner; there is no flat legacy conversion path.
+
+### Runtime switching and concurrency
+
+Changing `active_provider` applies to subsequent operations, including existing sessions, because
+provider selection is application runtime configuration rather than persisted story state. It
+does not rewrite any session.
+
+Configuration, the shared HTTP client, and the active Runner live in an application-scoped
+`RuntimeState`, not mutable module globals. `PUT /config` validates and persists the update,
+resolves the active provider, and replaces the Runner under the state's runtime lock. This closes
+the race where concurrent updates could otherwise leave one config on disk and a different Runner
+in memory. An operation already executing keeps its bound Runner; later operations observe the
+newly selected provider.
+
+Session turns, suggestions, snapshots, history reads, prompt previews, forks, deletion,
+compaction, undo, and restore share the same per-session transaction lock. Delete waits for active
+work and removes state, debug log, and backups together. Preset writes/deletes and debug-log
+append/reads have their own locks. Lock registries use weak references so completed session or
+preset identifiers do not accumulate for the lifetime of the process.
+
+The lock and Runner are process-local. Multi-worker Uvicorn deployment would require a shared
+coordination mechanism and is not claimed by this architecture.
+
+### Repeatable provider playtests
+
+`tools/playtest_harness.py` can execute the same scenario set against any configured provider:
+
+```bash
+uv run python tools/playtest_harness.py \
+  --config-file .data/config.json \
+  --provider deepseek \
+  --model-label deepseek-v4-flash \
+  --language English \
+  --context-max 65536 \
+  --repeat 2 \
+  --max-in-flight 1
+```
+
+The key is read from the server-owned config and is never accepted as a command-line argument or
+written to the result manifest. For fair A/B work, the harness deliberately overrides experiment
+variables such as language, context, token limits, timeout, repetition count, and concurrency
+while retaining provider transport, model, and authentication from the selected config.
+
+The initial controlled comparison used four scenarios twice for each provider. DeepSeek was about
+25% faster and produced fewer Character action markers, nested physical facts, redundant moods,
+and forbidden dashes. It was not a strict model-quality upgrade: under the English suite it used
+second-person narration far more often and sometimes let the Narrator write another Character's
+actions or dialogue. Provider compatibility is therefore complete, while model/prompt quality
+remains an empirical and language-sensitive concern.
+
+### Adding another provider
+
+A third OpenAI-compatible backend should be added as another adapter, not as branches in agents or
+the harness:
+
+1. Add the backend adapter under `src/llm/adapters/` and implement `ProviderAdapter`.
+2. Declare defaults, secret fields, model requirements, and immutable forced settings on it.
+3. Implement URL, authorization headers, and request capability adaptation.
+4. Register the adapter in `_ADAPTERS`.
+5. Add a declarative frontend adapter under `src/static/adapters/`; do not add provider markup to
+   `index.html` or provider branches to `runtime-config.js`.
+6. Add tests for redaction, configuration validation, request transformation, and failure paths.
+7. Run the same harness scenarios against the existing baseline before judging model quality.
+
+Transport and response-envelope differences end at the adapter. A non-OpenAI response can be
+supported by implementing `extract_content()` in its adapter; it does not require conditionals in
+the shared client or role agents.
+
 ## 🚀 Running It
 
 ```bash
@@ -464,11 +757,167 @@ Start the development server:
 ```
 
 This runs `uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8889`. Configuration lives
-in `.data/config.json` (gitignored): which host serves the local model (an OpenAI-compatible
-endpoint, expected to be llama.cpp), context window size, per-agent max token limits, and
-response language. Presets (character and scene starting points) live under `.data/presets/`.
+in `.data/config.json` (gitignored); edit it through the gear menu or directly while the server is
+stopped. Presets (character and scene starting points) live under `.data/presets/`.
 
 <place_8:gif of ./start.sh booting and a fresh session being created from a preset>
+
+---
+
+## 🔌 MCP Debugging and Deterministic Replay
+
+Alex Tavern includes a debug-only [Model Context Protocol](https://modelcontextprotocol.io/)
+server for external development clients. MCP is deliberately **not** part of the roleplay
+pipeline: Narrator, Character, suggestion, and Historian calls still use the same direct
+OpenAI-compatible HTTP client. The MCP process sits outside the application and operates its
+ordinary HTTP API, exactly as a developer or test driver would.
+
+That boundary is important. The roleplay runtime does not become dependent on MCP, an MCP outage
+cannot break a turn, and the model never receives MCP tool definitions in its prompt. MCP is used
+where it adds real leverage: letting a coding agent inspect and drive a running application with
+typed tools instead of assembling ad hoc `curl` commands.
+
+### Architecture
+
+```text
+External MCP client
+        |
+        | stdio / JSON-RPC
+        v
+tools/mcp_server.py
+        |
+        | ordinary HTTP
+        +-----------------------> Roleplay API :8889
+        |                           Runner, sessions, frontend,
+        |                           undo, suggestions, compaction
+        |
+        +-----------------------> Replay API :8888
+                                    recorded output tape,
+                                    status, reset, seek
+
+Roleplay agents ----------------> :8888 /v1/chat/completions
+                                  (llama.cpp in normal use,
+                                   replay_llm.py during replay)
+```
+
+The three processes have separate responsibilities:
+
+| Component | Responsibility | Persistent state |
+|---|---|---|
+| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay or replay HTTP requests | None |
+| `src.main:app` | Run the real application, persistence, prompts, and frontend | Session data under `ROLEPLAY_DATA_DIR` |
+| `tools/replay_llm.py` | Serve recorded successful LLM responses in strict sequence | Immutable fixture loaded once plus an in-memory cursor |
+
+### Available tools
+
+The server exposes exactly 15 tools. Naming is part of the safety model: inspection is visibly
+separate from mutation.
+
+| Read-only tool | Purpose |
+|---|---|
+| `inspect_api_routes` | Enumerate the live Roleplay OpenAPI operations |
+| `inspect_sessions` | List saved sessions and summary metadata |
+| `inspect_session_state` | Read a complete serialized session |
+| `inspect_session_history` | Read a bounded recent history window |
+| `inspect_debug_log` | Read bounded raw LLM/debug records |
+| `inspect_replay_status` | Inspect tape size, cursor, remaining entries, and next response metadata |
+
+| Mutating tool | Purpose |
+|---|---|
+| `mutate_start_session` | Start from a preset or explicit configuration |
+| `mutate_fork_session` | Create a non-destructive copy |
+| `mutate_submit_turn` | Submit speech/action and optionally force a speaker |
+| `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
+| `mutate_undo_turn` | Undo the latest complete turn |
+| `mutate_compact_session` | Summarize older history and retain the configured recent window |
+| `mutate_restore_compaction` | Restore a compaction backup when the backend safety check allows it |
+| `mutate_reset_replay` | Rewind the replay tape to position zero |
+| `mutate_seek_replay` | Move the replay cursor to an absolute position |
+
+Session/preset deletion and retry are intentionally absent. Undo, compaction, and compaction
+restore are exposed because they are essential debugging operations, but each call must include
+`confirm=true`. MCP's `destructiveHint` annotation remains present for client UIs; the explicit
+argument is the server-side gate and does not rely on a particular client honoring the hint.
+
+`inspect_debug_log` deserves the same care as reading a local database. Entries can contain full
+system prompts, user-authored dialogue, model responses, timing, and exception details. The tool
+is bounded to at most 1,000 records per call, the MCP transport is local stdio, and the default
+HTTP targets use `127.0.0.1`. Pointing the process at remote APIs is an explicit CLI choice.
+
+### Running the MCP server
+
+Start the Roleplay application first:
+
+```bash
+./start.sh
+```
+
+Then register this repository-local process in an MCP client:
+
+```json
+{
+  "mcpServers": {
+    "alex-tavern-debug": {
+      "command": "uv",
+      "args": ["run", "python", "tools/mcp_server.py"],
+      "cwd": "/absolute/path/to/roleplay"
+    }
+  }
+}
+```
+
+The defaults are `http://127.0.0.1:8889` for Roleplay and
+`http://127.0.0.1:8888` for replay. Both can be changed explicitly:
+
+```bash
+uv run python tools/mcp_server.py \
+  --roleplay-url http://127.0.0.1:8889 \
+  --replay-url http://127.0.0.1:8888
+```
+
+Communication with the MCP client uses stdio, so stdout is reserved for protocol messages. The
+server owns two shared asynchronous HTTP clients and closes both through the FastMCP lifespan.
+Connection failures, timeouts, non-success HTTP responses, and invalid JSON become MCP
+`ToolError` results with the service and request identified.
+
+### Deterministic replay without llama.cpp
+
+Every current-format turn writes a `turn_input` marker before its first LLM request. It records
+the exact speech, action, requested force-speaker value, and validated effective override. That
+marker makes a session reproducible without guessing from prompt text.
+
+Start the fake OpenAI-compatible endpoint with a current debug log:
+
+```bash
+uv run python tools/replay_llm.py tests/fixtures/current_replay.debug.jsonl
+```
+
+Run the real application on port 8889 with `llm_host` pointing to port 8888, then drive and
+compare the complete conversation:
+
+```bash
+uv run python tools/replay_session.py tests/fixtures/current_replay.debug.jsonl
+```
+
+The driver resets the cursor, starts a real preset session, submits every recorded input, and
+requests state immediately after every turn. It rejects a wrong response turn number, missing
+history, or a persisted turn that does not match the input just submitted. When the source tape
+contains a Historian output it also triggers real compaction, then compares all successful
+`{turn_number, agent, response}` records in exact order. Optional source backup/final-state files
+enable full structural state comparison in addition to output comparison.
+
+Replay is strict about plain text versus structured output and never silently recycles a tape.
+Mismatch and exhaustion return HTTP 409 without advancing the cursor. Reset and seek share the
+same asynchronous lock as consumption, so concurrent callers cannot receive the same entry.
+
+Legacy logs without `turn_input` are intentionally rejected. The project does not infer player
+inputs or overrides from old Narrator prompts, avoiding a compatibility layer whose output would
+only appear exact while silently guessing important routing decisions.
+
+The maintained fixture contains nine turns and one summarizer response. The end-to-end reference
+run consumed all ten outputs, observed history after every turn, compacted from 18 to 16 active
+records, exhausted the cursor, and reported `matches: true`. More operational commands and the
+output schema are documented in [`tools/README.md`](tools/README.md).
 
 ---
 
@@ -597,14 +1046,3 @@ instance of a small plugin mechanism, not a special case: a slash-command layer 
 tools be registered and invoked on demand, instead of being hardcoded into the turn-assembly
 pipeline one `if` at a time. This keeps the core Narrator/Character loop untouched while still
 allowing ad hoc capabilities — RAG today, more later — to be bolted on cleanly.
-
-**An MCP server, scoped to debugging, not to the roleplay pipeline itself.** MCP doesn't have an
-honest use case *inside* the turn loop — the Narrator and Character agents already talk directly
-to the local model over a plain HTTP client, and there's no other MCP-aware client in that path
-to make a protocol worth the overhead. The place it's actually worth building is meta: a
-debug-only MCP server that lets an external coding agent (Claude Code, in practice) introspect
-the running backend directly — enumerate the API's routes, inspect a live session's state, and
-even drive the frontend itself (submit a turn, force a speaker, trigger a compaction) — through
-MCP tool calls instead of manually curling endpoints or clicking through the UI. This is the one
-place in the project where MCP's actual value proposition holds: a separate client, genuinely
-external to the app, operating it as a tool.

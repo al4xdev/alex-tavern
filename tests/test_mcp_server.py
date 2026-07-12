@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 from mcp.server.fastmcp.exceptions import ToolError
 
 from tools.mcp_server import DebugApiClient, create_mcp_server
@@ -205,3 +210,58 @@ async def test_mcp_registry_separates_tools_and_omits_delete_and_retry() -> None
     for name in ("mutate_undo_turn", "mutate_compact_session", "mutate_restore_compaction"):
         assert by_name[name].annotations is not None
         assert by_name[name].annotations.destructiveHint is True
+
+
+@pytest.mark.asyncio
+async def test_destructive_mcp_tools_require_explicit_confirmation() -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _json_response(request, {"ok": True})
+
+    api = DebugApiClient(roleplay_transport=httpx.MockTransport(handler))
+    server = create_mcp_server(api=api)
+    try:
+        for tool_name in (
+            "mutate_undo_turn",
+            "mutate_compact_session",
+            "mutate_restore_compaction",
+        ):
+            with pytest.raises(ToolError, match="confirm=true"):
+                await server.call_tool(tool_name, {"session_id": "abc"})
+            await server.call_tool(tool_name, {"session_id": "abc", "confirm": True})
+    finally:
+        await api.aclose()
+
+    assert [request.url.path for request in requests] == [
+        "/session/abc/undo",
+        "/session/abc/compact",
+        "/session/abc/restore_compaction",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_mcp_stdio_initializes_and_lists_tools() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    parameters = StdioServerParameters(
+        command=sys.executable,
+        args=["tools/mcp_server.py"],
+        cwd=repository_root,
+    )
+
+    with Path(os.devnull).open("w", encoding="utf-8") as errlog:
+        async with (
+            stdio_client(parameters, errlog=errlog) as (read, write),
+            ClientSession(read, write) as session,
+        ):
+            initialized = await session.initialize()
+            tools = await session.list_tools()
+
+    assert initialized.serverInfo.name == "Alex Tavern Debug"
+    assert len(tools.tools) == 15
+    assert {tool.name for tool in tools.tools} >= {
+        "inspect_api_routes",
+        "mutate_submit_turn",
+        "mutate_compact_session",
+    }

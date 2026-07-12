@@ -346,6 +346,27 @@ em `chat_completion` e acrescenta outra linha em `.data/sessions/{session_id}.de
   vazando), agência (quem pausou/quem foi chamado) e consistência de estado neste projeto
   foi feito lendo esse arquivo diretamente, não só rodando pytest.
 
+### MCP de debug e replay determinístico
+
+`tools/mcp_server.py` expõe a superfície HTTP já existente para clientes externos de
+desenvolvimento por MCP/stdio. Ele é uma ferramenta de fora do runtime: não entra no
+turn loop, não injeta tools em prompt e não substitui o HTTP direto usado pelos agentes.
+
+- Tools `inspect_*` enumeram rotas, sessões, estado, histórico, log bruto e cursor de replay.
+- Tools `mutate_*` iniciam/forkam sessões, enviam turnos, pedem sugestões, operam
+  compactação/undo e controlam o cursor.
+- `undo`, `compact` e `restore_compaction` exigem `confirm=true` no servidor, além do
+  `destructiveHint` usado pela UI do cliente MCP. Delete e retry não são expostos.
+- `tools/replay_llm.py` carrega respostas bem-sucedidas do JSONL uma vez e as serve na
+  ordem, com cursor protegido por lock. Mismatch de formato ou fita esgotada não avança.
+- `tools/replay_session.py` exige o formato atual com `turn_input`, envia cada jogada pela
+  API real e relê o estado após cada turno. Não existe inferência para logs legados.
+- A fixture mantida em `tests/fixtures/current_replay.debug.jsonl` cruza a janela padrão de
+  compactação e permite validar tudo isso sem iniciar llama.cpp.
+
+Arquitetura, inventário das 15 tools, registro em clientes, segurança e comandos completos
+estão no README principal e em `tools/README.md`.
+
 ---
 
 ## 6. Tecnologias e Ambiente
@@ -353,10 +374,14 @@ em `chat_completion` e acrescenta outra linha em `.data/sessions/{session_id}.de
 - **Python >= 3.14** com `uv` (venv em `.venv/`, ative com `source .venv/bin/activate.fish`).
 - **FastAPI / Uvicorn** (backend), **Ruff** (lint/format), **Mypy** (tipos),
   **Pytest + pytest-asyncio** (testes).
-- **llama.cpp** local, API compatível com OpenAI. Host configurável em
-  `.data/config.json` (`llm_host`) — pode ser uma máquina na rede local, não
-  necessariamente `localhost`; confira o config antes de assumir que o LLM está
-  inacessível.
+- **Provedores LLM por adapters isolados.** `src/llm/adapters/` contém contrato, registry e um
+  módulo por backend; `src/static/adapters/` contém a configuração declarativa equivalente para
+  a UI. Hoje há llama.cpp (JSON Schema nativo) e DeepSeek V4 Flash (`thinking=disabled`, JSON
+  Object + validação local). URL, payload, segredo, formulário e envelope de resposta não entram
+  no Runner nem nos agentes.
+- **Configuração única em `.data/config.json`.** `src/config.py` valida e persiste atomicamente o
+  provedor ativo e os conjuntos separados de llama.cpp/DeepSeek. A API e o frontend nunca
+  devolvem nem cacheiam a chave; mostram apenas se ela está configurada.
 - **Servidor dev**: `./start.sh` (porta 8889, `--reload`, `--host 0.0.0.0`).
 
 ---

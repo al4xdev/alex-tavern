@@ -7,23 +7,27 @@ import json
 import os
 import re
 import tempfile
+import threading
 import uuid
 from pathlib import Path
 from typing import Any
+from weakref import WeakValueDictionary
 
 from src.models import GameState, dict_to_game_state, game_state_to_dict
 from src.paths import SESSIONS_DIR
 
-_session_locks: dict[str, asyncio.Lock] = {}
-
-# Tech debt: _session_locks grows indefinitely (acceptable for MVP)
+_session_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
+_session_locks_guard = threading.Lock()
 
 
 def _get_lock(session_id: str) -> asyncio.Lock:
     """Returns (or creates) the lock for this session."""
-    if session_id not in _session_locks:
-        _session_locks[session_id] = asyncio.Lock()
-    return _session_locks[session_id]
+    with _session_locks_guard:
+        lock = _session_locks.get(session_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            _session_locks[session_id] = lock
+        return lock
 
 
 def generate_session_id() -> str:
@@ -188,15 +192,19 @@ def restore_last_backup(session_id: str) -> dict:
     return {"restored": True, "history_length": len(backup_data.get("history", []))}
 
 
-def delete_session(session_id: str) -> None:
-    """Removes the session file and the raw LLM call log. Used in tests."""
-    path = _session_path(session_id)
-    if path.exists():
-        path.unlink()
-    debug_path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
-    if debug_path.exists():
-        debug_path.unlink()
-    _session_locks.pop(session_id, None)
+async def delete_session(session_id: str) -> bool:
+    """Remove every artifact for a session after all active operations finish."""
+    async with _get_lock(session_id):
+        paths = [
+            _session_path(session_id),
+            SESSIONS_DIR / f"{session_id}.debug.jsonl",
+            *SESSIONS_DIR.glob(f"{session_id}.kb_*.json"),
+        ]
+        existed = any(path.exists() for path in paths)
+        for path in paths:
+            if path.exists():
+                path.unlink()
+        return existed
 
 
 def list_sessions() -> list[dict]:
@@ -239,7 +247,7 @@ def list_sessions() -> list[dict]:
     return summaries
 
 
-def fork_session(session_id: str) -> str | None:
+async def fork_session(session_id: str) -> str | None:
     """Creates a copy of the session with a new ID.
 
     Args:
@@ -248,11 +256,12 @@ def fork_session(session_id: str) -> str | None:
     Returns:
         New session_id, or None if the original session does not exist.
     """
-    game = load_game(session_id)
-    if game is None:
-        return None
+    async with _get_lock(session_id):
+        game = load_game(session_id)
+        if game is None:
+            return None
 
-    new_id = generate_session_id()
-    game.session_id = new_id
-    save_game(game)
-    return new_id
+        new_id = generate_session_id()
+        game.session_id = new_id
+        save_game(game)
+        return new_id

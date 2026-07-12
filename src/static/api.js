@@ -23,7 +23,19 @@ async function apiFetch(url, options = {}) {
     return data;
 }
 
-const api = {
+export const api = {
+    getConfig() {
+        return apiFetch('/config');
+    },
+
+    saveConfig(config) {
+        return apiFetch('/config', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
+    },
+
     getDefaults(name = '') {
         const url = name ? `/defaults?name=${encodeURIComponent(name)}` : '/defaults';
         return apiFetch(url);

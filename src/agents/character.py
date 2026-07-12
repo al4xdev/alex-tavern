@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 
+from src.config import llm_request_options
 from src.llm.client import chat_completion, normalize_generated_text, resolve_llm_timeout
 from src.models import Character, TurnRecord, speaker_label, trim_history_by_tokens
 
@@ -130,6 +131,7 @@ async def act(
         session_id=session_id,
         turn_number=turn_number,
         agent=f"character:{character.mind.name}",
+        **llm_request_options(config),
     )
 
     return normalize_generated_text(content.strip())

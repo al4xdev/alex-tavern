@@ -1,4 +1,6 @@
-.plan/
+.plan/*
+!.plan/closed/
+!.plan/closed/**
 __pycache__/
 *.pyc
 .venv/
@@ -7,5 +9,3 @@ __pycache__/
 dist/
 .data/
 unsloth_compiled_cache/
-src/static/app.js2
-

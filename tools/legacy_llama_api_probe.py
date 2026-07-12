@@ -1,8 +1,11 @@
-"""Tests of the llama.cpp API (OpenAI-compatible) with Gemma 4.
+"""Historical standalone probe of the llama.cpp API with an older Gemma setup.
+
+This is retained for reference, not as part of the current pytest suite. Use
+``tools/playtest_harness.py`` for repeatable runtime/model evaluation.
 
 Usage:
-    uv run python tests/test_llama_api.py
-    uv run python tests/test_llama_api.py --skip-chat
+    uv run python tools/legacy_llama_api_probe.py
+    uv run python tools/legacy_llama_api_probe.py --skip-chat
 
 Results saved in /tmp/llama_test_results.json.
 

@@ -1,0 +1,11 @@
+{
+  "name": "micro-character-role",
+  "description": "Focused checks for Character speech/thought boundaries with minimal physical pressure.",
+  "narrator_directives": "Keep the tavern calm. Route context without adding danger or new objects.",
+  "events": [
+    {"type":"turn","speech":"What do you think of this place?","action":"","force_speaker":"C2"},
+    {"type":"turn","speech":"Tell me one thing you know for certain about the forest.","action":"","force_speaker":"C2"},
+    {"type":"turn","speech":"And one thing you are merely guessing?","action":"","force_speaker":"C2"},
+    {"type":"turn","speech":"Do you trust me enough to say when you do not know?","action":"","force_speaker":"C2"}
+  ]
+}

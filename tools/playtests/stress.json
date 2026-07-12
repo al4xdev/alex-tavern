@@ -1,0 +1,31 @@
+{
+  "name": "stress-regression",
+  "description": "Twenty-turn Thorn/Lyra regression with forced routing, location changes, compaction, continuation, and undo.",
+  "narrator_directives": "",
+  "events": [
+    {"type":"turn","speech":"Keep your voice down, Lyra. Someone has been watching us since we entered","action":"I set the faintly glowing medallion on the table, but keep two fingers over it while I scan the tavern","force_speaker":"C2"},
+    {"type":"turn","speech":"Tell me what the medallion is doing, in plain words","action":"I slide the medallion toward Lyra and turn my chair so I can watch both the door and the hooded stranger","force_speaker":"C2"},
+    {"type":"suggest"},
+    {"type":"turn","speech":"You in the hood. If you want something, ask before my patience runs out","action":"I raise one hand toward the stranger without drawing my sword","force_speaker":null},
+    {"type":"turn","speech":"Lyra, stop. That symbol belongs to the old Iron Guard","action":"I pull the medallion back and study its markings under the candlelight","force_speaker":"Narrator"},
+    {"type":"turn","speech":"My brother carried this mark on his last patrol. Where did you find it?","action":"I lean across the table, staring at Lyra more intensely than I intended","force_speaker":"C2"},
+    {"type":"turn","speech":"Mork, bar the door. Nobody leaves until we understand what is happening","action":"I stand, move between the patrons and Lyra, and rest my hand on the hilt of my sword","force_speaker":null},
+    {"type":"turn","speech":"If the forest sent this thing here, waiting inside will not make us safer","action":"I wrap the medallion in a scrap of cloth and secure it inside my armor","force_speaker":"C2"},
+    {"type":"turn","speech":"Pack only what you need. We leave through the kitchen","action":"I check the rear corridor for an ambush and signal Lyra to follow","force_speaker":"C2"},
+    {"type":"turn","speech":"Stay close. The rain will hide us, but it will hide anyone following us too","action":"I push open the kitchen exit and step into the alley, shielding my eyes from the rain","force_speaker":null},
+    {"type":"turn","speech":"There, by the drain. The same symbol again","action":"I crouch beside a fresh mark scratched into the stone and compare it with the medallion","force_speaker":"C2"},
+    {"type":"turn","speech":"Can you trace the magic without touching it?","action":"I hold the wrapped medallion near the scratched symbol while keeping it out of Lyra's reach","force_speaker":"C2"},
+    {"type":"turn","speech":"Then we follow the trail, but we do it my way: slowly","action":"I lead us north through the narrow streets, checking every rooftop and doorway","force_speaker":null},
+    {"type":"turn","speech":"That bell has rung three times, but the tower is empty","action":"I stop beneath the abandoned watchtower and listen for movement above us","force_speaker":"Narrator"},
+    {"type":"turn","speech":"Lyra, light the smallest spell you have. No fireworks","action":"I draw my sword and enter the watchtower ahead of her","force_speaker":"C2"},
+    {"type":"turn","speech":"These are Iron Guard orders. My unit was sent into the forest on a lie","action":"I lift a water-damaged dispatch from the floor and read it beside Lyra's light","force_speaker":"C2"},
+    {"type":"turn","speech":"I blamed myself for years. Someone arranged that ambush","action":"My sword lowers as I hand the dispatch to Lyra, no longer hiding that my hands are shaking","force_speaker":"C2"},
+    {"type":"turn","speech":"We finish this. At dawn, we take the north road","action":"I fold the dispatch, place it beside the medallion, and search the room for supplies","force_speaker":null},
+    {"type":"turn","speech":"Do you hear scratching behind that wall?","action":"I press my ear to the loose boards, then motion for Lyra to stand back","force_speaker":"C2"},
+    {"type":"turn","speech":"On my count, break the ward. I will handle whatever comes through","action":"I brace in front of Lyra with my sword raised and count down from three","force_speaker":"C2"},
+    {"type":"turn","speech":"That map leads straight into the corrupted forest. So does the truth","action":"I spread the hidden map across a crate, mark our route at first light, and finally sheath my sword","force_speaker":"C2"},
+    {"type":"compact"},
+    {"type":"turn","speech":"Before we leave, tell me the three facts we cannot afford to forget.","action":"I point in turn to the medallion, the Iron Guard dispatch, and the route marked on the hidden map.","force_speaker":"C2"},
+    {"type":"undo"}
+  ]
+}

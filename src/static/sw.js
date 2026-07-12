@@ -5,12 +5,17 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v2';
+const CACHE = 'rpt-shell-v4';
 const SHELL = [
     '/',
     '/index.html',
     '/style.css',
     '/api.js',
+    '/runtime-config.js',
+    '/adapters/base.js',
+    '/adapters/llama-cpp.js',
+    '/adapters/deepseek.js',
+    '/adapters/index.js',
     '/setup.js',
     '/app.js',
     '/manifest.webmanifest',
@@ -22,7 +27,7 @@ const SHELL = [
 ];
 
 // Backend routes must never be served from cache.
-const API_PREFIXES = ['/session', '/defaults', '/health'];
+const API_PREFIXES = ['/session', '/sessions', '/defaults', '/presets', '/config', '/health'];
 
 function isApi(pathname) {
     return API_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

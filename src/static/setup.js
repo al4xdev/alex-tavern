@@ -1,13 +1,13 @@
+import { api } from './api.js';
+
 /* ══════════════════════════════════════════════════════════════════════
    setup.js — the setup/lobby overlay: characters, scene, narrator
    directives, controlled character. Persists to localStorage and builds
    the config object for POST /session/start.
    ══════════════════════════════════════════════════════════════════════ */
 
-const Setup = (() => {
-    const LS_KEY = 'rpt_setup_v1';       // autosave of last setup
-    const PRESETS_KEY = 'rpt_presets_v1'; // named presets: { name: config }
-    const BUILTIN = '__thorn_lyra__';
+export const Setup = (() => {
+    const LS_KEY = 'rpt_setup_v2'; // canonical nested mind/body setup
 
     // DOM refs
     const overlay      = document.getElementById('setup-overlay');
@@ -30,6 +30,8 @@ const Setup = (() => {
     const cardTpl      = document.getElementById('char-card-template');
 
     let onStartCb = null;
+    let onOpenCb = null;
+    let notifyCb = () => {};
     let hasSession = false; // whether the close (✕) button is allowed
 
     /* ── Row builders ─────────────────────────────────────────────────── */
@@ -74,14 +76,16 @@ const Setup = (() => {
     function makeCharCard(data = {}) {
         const frag = cardTpl.content.cloneNode(true);
         const card = frag.querySelector('.char-card');
-        card.querySelector('.char-name').value     = data.name || '';
-        card.querySelector('.char-personality').value = data.personality || '';
-        card.querySelector('.char-mood').value      = data.current_mood || '';
-        card.querySelector('.char-outfit').value    = data.outfit || '';
-        card.querySelector('.char-physical').value  = data.physical_description || '';
+        const mind = data.mind || {};
+        const body = data.body || {};
+        card.querySelector('.char-name').value = mind.name || body.name || '';
+        card.querySelector('.char-personality').value = mind.personality || '';
+        card.querySelector('.char-mood').value = mind.current_mood || '';
+        card.querySelector('.char-outfit').value = body.outfit || '';
+        card.querySelector('.char-physical').value = body.physical_description || '';
 
         const kList = card.querySelector('.knowledge-list');
-        (data.knowledge && data.knowledge.length ? data.knowledge : ['']).forEach((k) =>
+        (mind.knowledge && mind.knowledge.length ? mind.knowledge : ['']).forEach((k) =>
             makeKnowledgeRow(kList, k));
 
         card.querySelector('.char-add-knowledge')
@@ -133,13 +137,19 @@ const Setup = (() => {
             const knowledge = [...card.querySelectorAll('.knowledge-val')]
                 .map((i) => i.value.trim())
                 .filter(Boolean);
+            const name = card.querySelector('.char-name').value.trim();
             characters[cid] = {
-                name: card.querySelector('.char-name').value.trim(),
-                personality: card.querySelector('.char-personality').value.trim(),
-                knowledge,
-                current_mood: card.querySelector('.char-mood').value.trim(),
-                physical_description: card.querySelector('.char-physical').value.trim(),
-                outfit: card.querySelector('.char-outfit').value.trim(),
+                mind: {
+                    name,
+                    personality: card.querySelector('.char-personality').value.trim(),
+                    knowledge,
+                    current_mood: card.querySelector('.char-mood').value.trim(),
+                },
+                body: {
+                    name,
+                    physical_description: card.querySelector('.char-physical').value.trim(),
+                    outfit: card.querySelector('.char-outfit').value.trim(),
+                },
             };
         });
 
@@ -157,6 +167,7 @@ const Setup = (() => {
             scene: {
                 location: sceneLocEl.value.trim(),
                 time_of_day: sceneTimeEl.value.trim(),
+                present_characters: [...Object.keys(characters), 'Player'],
                 physical_facts,
             },
         };
@@ -186,35 +197,11 @@ const Setup = (() => {
         }
     }
 
-    /* ── Preset (from /defaults, which returns full dataclass dicts) ───── */
-    function flattenPresetCharacters(raw) {
-        const out = {};
-        Object.entries(raw || {}).forEach(([cid, ch]) => {
-            out[cid] = {
-                name: ch.mind.name,
-                personality: ch.mind.personality,
-                knowledge: ch.mind.knowledge || [],
-                current_mood: ch.mind.current_mood,
-                physical_description: ch.body.physical_description,
-                outfit: ch.body.outfit,
-            };
-        });
-        return out;
-    }
-
+    /* ── Built-in presets use the same canonical shape as user presets ─ */
     async function loadBuiltinPreset(name = '') {
         try {
             const data = await api.getDefaults(name);
-            populate({
-                narrator_directives: directivesEl.value.trim(),
-                controlled_character_id: 'C1',
-                characters: flattenPresetCharacters(data.characters),
-                scene: {
-                    location: data.scene.location,
-                    time_of_day: data.scene.time_of_day,
-                    physical_facts: data.scene.physical_facts,
-                },
-            });
+            populate(data.preset);
         } catch (err) {
             showError(`Não foi possível carregar o preset padrão: ${err.message}`);
         }
@@ -234,9 +221,9 @@ const Setup = (() => {
         if (ids.length === 0) return 'Adicione ao menos um personagem.';
         for (const cid of ids) {
             const c = cfg.characters[cid];
-            if (!c.name) return `Personagem ${cid} precisa de um nome.`;
-            if (!c.personality)
-                return `Personagem ${c.name || cid} precisa de uma personalidade.`;
+            if (!c.mind.name) return `Personagem ${cid} precisa de um nome.`;
+            if (!c.mind.personality)
+                return `Personagem ${c.mind.name || cid} precisa de uma personalidade.`;
         }
         if (!cfg.scene.location) return 'A cena precisa de um local.';
         if (!cfg.controlled_character_id) return 'Escolha qual personagem você controla.';
@@ -256,7 +243,7 @@ const Setup = (() => {
 
     /* ── Named presets ────────────────────────────────────────────────── */
     function notify(msg, type = 'success') {
-        if (typeof toast === 'function') toast(msg, type, 2500);
+        notifyCb(msg, type, 2500);
     }
 
     async function refreshPresetSelect(selected) {
@@ -264,11 +251,10 @@ const Setup = (() => {
         let userPresets = [];
         try {
             const defData = await api.getDefaults();
-            defaultPresets = defData.presets || ['thorn-lyra'];
+            defaultPresets = defData.presets;
             userPresets = await api.listPresets();
         } catch (err) {
             showError(`Erro ao atualizar presets: ${err.message}`);
-            defaultPresets = ['thorn-lyra'];
         }
 
         presetSelect.innerHTML = '';
@@ -349,6 +335,7 @@ const Setup = (() => {
         clearError();
         closeBtn.style.display = hasSession ? '' : 'none';
         overlay.classList.add('active');
+        if (onOpenCb) onOpenCb();
     }
     function close() {
         overlay.classList.remove('active');
@@ -368,6 +355,8 @@ const Setup = (() => {
 
     function init(opts) {
         onStartCb = opts.onStart;
+        onOpenCb = opts.onOpen;
+        notifyCb = opts.notify || notifyCb;
 
         addFactBtn.addEventListener('click', () => makeKvRow(factsListEl, '', ''));
         addCharBtn.addEventListener('click', () => makeCharCard({}));
