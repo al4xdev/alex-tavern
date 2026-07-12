@@ -95,6 +95,9 @@ def log_llm_call(
     provider: str,
     api_base: str,
     thinking_enabled: bool,
+    usage: dict[str, Any] | None,
+    cache_hit_tokens: int | None,
+    cache_miss_tokens: int | None,
 ) -> None:
     """Append one raw request/result attempt without secrets."""
     if not session_id:
@@ -119,6 +122,15 @@ def log_llm_call(
                 },
             },
             "response": response,
+            "usage": usage,
+            "prompt_cache": (
+                {
+                    "hit_tokens": cache_hit_tokens,
+                    "miss_tokens": cache_miss_tokens,
+                }
+                if cache_hit_tokens is not None or cache_miss_tokens is not None
+                else None
+            ),
             "error": (str(error) or repr(error)) if error is not None else None,
             "error_type": type(error).__name__ if error is not None else None,
             "error_repr": repr(error) if error is not None else None,

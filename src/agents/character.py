@@ -67,14 +67,12 @@ def _normalize_output(result: dict) -> CharacterOutput:
     return {"speech": speech, "thought": thought}
 
 
-def _build_system_prompt(character: Character, notes: str = "") -> str:
-    memory_line = f"What you remember: {notes.strip()}\n" if notes.strip() else ""
+def _build_system_prompt(character: Character) -> str:
+    """Build the stable Character prefix; changing state belongs in the user suffix."""
     return (
         f"You are {character.mind.name}. Stay in character at all times.\n"
         f"Personality: {character.mind.personality}\n"
         f"Knowledge: {', '.join(character.mind.knowledge)}\n"
-        f"Current mood: {character.mind.current_mood}\n"
-        f"{memory_line}"
         "\n"
         "RULES:\n"
         "- You are a character in a roleplay scene, not the Narrator: never state\n"
@@ -96,6 +94,24 @@ def _build_system_prompt(character: Character, notes: str = "") -> str:
         "  grammar and remove accidental duplicated words before answering.\n"
         "- Keep responses to 1-3 sentences.\n"
         "- You may address other characters directly.\n"
+    )
+
+
+def _build_user_prompt(context: str, history_text: str, current_mood: str, notes: str) -> str:
+    """Put append-only history before the Character's changing state and context."""
+    memory = notes.strip() or "(none yet)"
+    return (
+        "RECENT EVENTS:\n"
+        f"{history_text}\n"
+        "\n"
+        "CURRENT PRIVATE STATE:\n"
+        f"Current mood: {current_mood}\n"
+        f"What you remember: {memory}\n"
+        "\n"
+        "SCENE CONTEXT (what you perceive right now):\n"
+        f"{context}\n"
+        "\n"
+        "Return your audible speech and private thought in the requested fields."
     )
 
 
@@ -175,17 +191,14 @@ async def act(
         max_tokens_character=max_tokens_character,
     )
     messages = [
-        {"role": "system", "content": _build_system_prompt(character, notes)},
+        {"role": "system", "content": _build_system_prompt(character)},
         {
             "role": "user",
-            "content": (
-                "SCENE CONTEXT (what you perceive right now):\n"
-                f"{context}\n"
-                "\n"
-                "RECENT EVENTS:\n"
-                f"{history_text}\n"
-                "\n"
-                "Return your audible speech and private thought in the requested fields."
+            "content": _build_user_prompt(
+                context,
+                history_text,
+                character.mind.current_mood,
+                notes,
             ),
         },
     ]
@@ -195,7 +208,7 @@ async def act(
         attempt_messages = messages
         if attempt:
             attempt_messages = [dict(message) for message in messages]
-            attempt_messages[0]["content"] += (
+            attempt_messages[-1]["content"] += (
                 "\nCORRECTION: Your previous response was invalid. Remove every physical "
                 "action or gesture. Return only audible dialogue and/or genuinely internal "
                 "thought.\n"

@@ -1675,6 +1675,26 @@ class TestEdgeCases:
         )
         assert "STORY SO FAR" not in prompt
 
+    def test_narrator_prompt_orders_stable_prefix_before_changing_state(self) -> None:
+        from src.agents.narrator import _build_user_prompt
+
+        scene = deepcopy_scene(DEFAULT_SCENE)
+        history = [TurnRecord(1, "C2", "Olá.", "speech", scene)]
+        prompt = _build_user_prompt(
+            scene,
+            DEFAULT_CHARACTERS,
+            "C1",
+            history,
+            story_summary="Resumo antigo.",
+            forced_speaker="C2",
+        )
+
+        assert prompt.index("CHARACTERS PRESENT:") < prompt.index("STORY SO FAR:")
+        assert prompt.index("STORY SO FAR:") < prompt.index("HISTORY:")
+        assert prompt.index("HISTORY:") < prompt.index("CURRENT SCENE:")
+        assert prompt.index("CURRENT SCENE:") < prompt.index("CURRENT MOODS:")
+        assert prompt.index("CURRENT MOODS:") < prompt.index("ROUTING CONSTRAINT:")
+
     def test_narrator_prompt_never_receives_private_thoughts(self) -> None:
         from src.agents.narrator import _build_user_prompt
 
@@ -1758,34 +1778,56 @@ class TestEdgeCases:
 
     def test_character_prompt_includes_own_notes(self) -> None:
         """A nota do próprio personagem vira uma linha 'What you remember' no prompt."""
-        from src.agents.character import _build_system_prompt
+        from src.agents.character import _build_user_prompt
 
         thorn = DEFAULT_CHARACTERS["C1"]
-        prompt = _build_system_prompt(thorn, notes="Ficou tenso ao ouvir sobre a Guarda de Ferro.")
+        prompt = _build_user_prompt(
+            "Contexto.",
+            "(none)",
+            thorn.mind.current_mood,
+            "Ficou tenso ao ouvir sobre a Guarda de Ferro.",
+        )
         assert "What you remember: Ficou tenso ao ouvir sobre a Guarda de Ferro." in prompt
 
     def test_character_prompt_never_leaks_another_characters_notes(self) -> None:
         """act() só recebe a nota do PRÓPRIO personagem — nunca a de outro.
 
-        A assinatura de `act`/`_build_system_prompt` só aceita uma string
+        A assinatura de `act`/`_build_user_prompt` só aceita uma string
         (a nota de um personagem só), então não há como o runner passar o
         dict inteiro por engano — mas o teste documenta a garantia: a nota
         de C2 nunca aparece no prompt de C1 quando só a nota de C1 é passada.
         """
-        from src.agents.character import _build_system_prompt
+        from src.agents.character import _build_user_prompt
 
         thorn = DEFAULT_CHARACTERS["C1"]
-        prompt = _build_system_prompt(thorn, notes="Nota exclusiva do Thorn.")
+        prompt = _build_user_prompt(
+            "Contexto.", "(none)", thorn.mind.current_mood, "Nota exclusiva do Thorn."
+        )
         assert "Nota exclusiva do Thorn." in prompt
         assert "nota da Lyra" not in prompt  # nunca foi passada, nem podia vazar
 
-    def test_character_prompt_omits_notes_line_when_empty(self) -> None:
-        """Sem nota, a linha 'What you remember' nem aparece."""
-        from src.agents.character import _build_system_prompt
+    def test_character_prompt_marks_empty_notes_explicitly(self) -> None:
+        """Sem nota, o estado privado explicita que ainda não há memória compactada."""
+        from src.agents.character import _build_user_prompt
 
         thorn = DEFAULT_CHARACTERS["C1"]
-        prompt = _build_system_prompt(thorn)
-        assert "What you remember:" not in prompt
+        prompt = _build_user_prompt("Contexto.", "(none)", thorn.mind.current_mood, "")
+        assert "What you remember: (none yet)" in prompt
+
+    def test_character_prompt_keeps_rules_stable_and_state_after_history(self) -> None:
+        from src.agents.character import _build_system_prompt, _build_user_prompt
+
+        calm = copy.deepcopy(DEFAULT_CHARACTERS["C1"])
+        tense = copy.deepcopy(calm)
+        tense.mind.current_mood = "tense"
+
+        assert _build_system_prompt(calm) == _build_system_prompt(tense)
+        assert "Current mood:" not in _build_system_prompt(calm)
+        user_prompt = _build_user_prompt(
+            "A porta range.", "Turn 1: Olá.", "tense", "Lembra da chave."
+        )
+        assert user_prompt.index("RECENT EVENTS:") < user_prompt.index("CURRENT PRIVATE STATE:")
+        assert user_prompt.index("CURRENT PRIVATE STATE:") < user_prompt.index("SCENE CONTEXT")
 
     def test_agent_prompts_encode_quality_and_provenance_rules(self) -> None:
         from src.agents.character import _build_system_prompt as build_character_prompt
@@ -2148,7 +2190,13 @@ class TestLLMObservability:
             content = "not-json" if call_count == 2 else '{"result":"ok"}'
             return httpx.Response(
                 200,
-                json={"choices": [{"message": {"content": content}}]},
+                json={
+                    "choices": [{"message": {"content": content}}],
+                    "usage": {
+                        "prompt_tokens": 20,
+                        "prompt_tokens_details": {"cached_tokens": 12},
+                    },
+                },
                 request=request,
             )
 
@@ -2174,6 +2222,8 @@ class TestLLMObservability:
             assert entries[1]["response"] == "not-json"
             assert entries[2]["error"] is None
             assert entries[2]["response"] == '{"result":"ok"}'
+            assert entries[2]["usage"]["prompt_tokens"] == 20
+            assert entries[2]["prompt_cache"] == {"hit_tokens": 12, "miss_tokens": 8}
         finally:
             await client.aclose()
             delete_session(sid)

@@ -14,6 +14,13 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > window active. See [Context compaction](#-context-compaction) for the exact behavior and
 > restore safeguards.
 
+> [!NOTE]
+> **Provider-native prompt caching is verified on both supported backends.** DeepSeek reused
+> 3,968 of 4,031 prompt tokens in the controlled repeated-prefix probe; llama.cpp reused 5,456
+> of 5,457. Alex Tavern records the provider's real hit/miss counters in the session JSONL.
+> See [Verified prompt caching](#-verified-prompt-caching) and the
+> [Task 09 evidence](docs/09-prompt-caching.md).
+
 <place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
 ---
@@ -56,6 +63,69 @@ uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
 
 > [!NOTE]
 > **Docker Support**: A `Dockerfile` and GitHub Action workflow are available and fully supported. The container runs as a non-root system user (`appuser` with UID/GID 10001) for security. When mounting a volume to `/app/.data`, ensure the host directory has write permissions for UID 10001.
+
+---
+
+## ⚡ Verified prompt caching
+
+Roleplay prompts grow as history accumulates. Alex Tavern orders stable identity and instruction
+blocks before frequently changing scene, mood, routing, and private-state blocks, then lets each
+inference backend reuse the matching prefix. This is not a response cache: every Narrator and
+Character response is generated normally.
+
+The cache belongs to the provider, while the adapters expose a consistent evidence path:
+
+| Backend | Behavior | Provider evidence |
+|---|---|---|
+| DeepSeek | [Context Caching](https://api-docs.deepseek.com/guides/kv_cache/) is automatic; no application cache key or request flag is required | `usage.prompt_cache_hit_tokens` and `usage.prompt_cache_miss_tokens` |
+| llama.cpp | The adapter sends `cache_prompt: true`; the server reuses matching tokens from its [KV/prompt cache](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md) | `usage.prompt_tokens_details.cached_tokens` |
+
+The controlled Task 09 probe used a unique long prefix, one warm call, three identical repeats,
+and a negative call that changed the beginning of the prefix:
+
+| Provider | Warm call | Best identical repeat | Changed-prefix control |
+|---|---:|---:|---:|
+| DeepSeek V4 Flash | 0 / 4,031 cached | 3,968 / 4,031 cached (98.4%) | 0 / 4,032 cached |
+| llama.cpp build `b9950-bcde81f10` | 0 / 5,457 cached | 5,456 / 5,457 cached (>99.9%) | 0 / 5,457 cached |
+
+The resulting JSONL is provider-specific under `usage` and normalized under `prompt_cache`.
+These are compact excerpts from the real successful repeat calls:
+
+```json
+{"agent":"prompt_cache_probe:repeat-1","provider":"deepseek","usage":{"prompt_tokens":4031,"completion_tokens":1,"total_tokens":4032,"prompt_cache_hit_tokens":3968,"prompt_cache_miss_tokens":63},"prompt_cache":{"hit_tokens":3968,"miss_tokens":63}}
+```
+
+```json
+{"agent":"prompt_cache_probe:repeat-3","provider":"llama_cpp","usage":{"prompt_tokens":5457,"completion_tokens":2,"total_tokens":5459,"prompt_tokens_details":{"cached_tokens":5456}},"prompt_cache":{"hit_tokens":5456,"miss_tokens":1}}
+```
+
+Inspect cache behavior across any normal or probe session with:
+
+```bash
+jq -c '
+  select(.usage != null)
+  | {turn_number, agent, provider, usage, prompt_cache, duration_ms}
+' .data/sessions/<session-id>.debug.jsonl
+```
+
+To reproduce the controlled probes using the provider settings and API key already stored in
+`.data/config.json`:
+
+```bash
+uv run python -m tools.prompt_cache_probe --provider deepseek
+uv run python -m tools.prompt_cache_probe --provider llama_cpp
+```
+
+Each command exits successfully only when an identical repeat has a non-zero hit and the changed
+early prefix has a smaller hit. The output contains no API key. Full environment, hashes, calls,
+timings, limitations, and raw usage objects are preserved in
+[the Task 09 evidence](docs/09-prompt-caching.md).
+
+Scene or mood updates, a different forced-speaker constraint, history trimming, and manual
+compaction can change an early portion of a prompt. The providers naturally reuse the unchanged
+prefix and evaluate the changed suffix; Alex Tavern does not own cache keys and therefore does
+not perform manual invalidation. Explicit llama.cpp slot allocation remains deployment-owned and
+is not required for correctness.
 
 ---
 
@@ -232,12 +302,12 @@ Alex Tavern exposes two complementary inspection layers:
    command-line inspection, deterministic replay, MCP tools, or analysis by a connected agent.
 
 The JSONL records the exact turn input before the first model call, followed by every real LLM
-attempt and state-operation markers such as undo, compaction, and restore. A redacted two-line
-example looks like this:
+attempt, raw provider token usage, normalized prompt-cache hit/miss counts, and state-operation
+markers such as undo, compaction, and restore. A redacted two-line example looks like this:
 
 ```jsonl
 {"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2"},"effective_force_speaker":"C2"}
-{"ts":"2026-07-12T22:02:03Z","session_id":"a1b2c3d4","turn_number":12,"agent":"character:Lyra","provider":"deepseek","model":"deepseek-v4-flash","request":{"messages":[{"role":"system","content":"[full system prompt]"},{"role":"user","content":"[full filtered context]"}],"max_tokens":1024,"response_format":{"type":"json_object"},"provider_options":{"api_base":"https://api.deepseek.com","thinking_enabled":false}},"response":"{\"speech\":\"Estou bem.\",\"thought\":\"Ele parece preocupado.\"}","error":null,"error_type":null,"duration_ms":2650.4,"attempt_number":1,"prompt_chars":2418,"prompt_estimated_tokens":604}
+{"ts":"2026-07-12T22:02:03Z","session_id":"a1b2c3d4","turn_number":12,"agent":"character:Lyra","provider":"deepseek","model":"deepseek-v4-flash","request":{"messages":[{"role":"system","content":"[full system prompt]"},{"role":"user","content":"[full filtered context]"}],"max_tokens":1024,"response_format":{"type":"json_object"},"provider_options":{"api_base":"https://api.deepseek.com","thinking_enabled":false}},"response":"{\"speech\":\"Estou bem.\",\"thought\":\"Ele parece preocupado.\"}","usage":{"prompt_tokens":604,"completion_tokens":18,"total_tokens":622,"prompt_cache_hit_tokens":512,"prompt_cache_miss_tokens":92},"prompt_cache":{"hit_tokens":512,"miss_tokens":92},"error":null,"error_type":null,"duration_ms":2650.4,"attempt_number":1,"prompt_chars":2418,"prompt_estimated_tokens":604}
 ```
 
 `session_id`, `turn_number`, append order, and `agent` make the causal chain machine-readable:
@@ -497,7 +567,7 @@ are registered once in `src/llm/adapters/`.
 | Configuration service | Canonical config validation, atomic writes, redaction, secret preservation, and active-provider resolution | HTTP calls or prompt construction |
 | Frontend adapters | Provider cards, fields, secrets, forced UI settings, parsing, and serialization | Server persistence or backend transport rules |
 
-`ProviderAdapter` is a structural Python protocol. An implementation declares metadata and three
+`ProviderAdapter` is a structural Python protocol. An implementation declares metadata and four
 operations:
 
 ```python
@@ -519,7 +589,7 @@ class ProviderAdapter(Protocol):
         thinking_enabled: bool,
     ) -> PreparedRequest: ...
 
-    def extract_content(self, response: object) -> str: ...
+    def extract_response(self, response: object) -> ParsedResponse: ...
 ```
 
 The immutable registry is also the backend source of truth for provider identity and
@@ -542,8 +612,8 @@ A structured Narrator or Historian call follows this path:
 3. The shared client resolves the adapter and calls `prepare_request()` exactly once.
 4. The adapter preserves the semantic contract using the strongest capability supported by that
    provider.
-5. The shared client sends the request and asks the adapter to extract content from its declared
-   response envelope.
+5. The shared client sends the request and asks the adapter to extract content, raw token usage,
+   and normalized prompt-cache evidence from its declared response envelope.
 6. `src/llm/schema.py` parses and validates structured output while
    `src/llm/debug_log.py` records complete attempts under a per-session lock.
 7. HTTP, parsing, or schema failures are written to the raw debug log and enter the same bounded
@@ -566,6 +636,7 @@ Llama.cpp remains the default provider and requires no secret. Its adapter:
 - sends no authorization header;
 - accepts an empty model name, which is useful when the server already owns model selection;
 - passes the native OpenAI-style `json_schema` response format through unchanged;
+- sends `cache_prompt: true` and normalizes `prompt_tokens_details.cached_tokens`;
 - defaults to `http://localhost:8888/v1` and a 98,304-token configured context.
 
 The adapter works with a local process or a llama.cpp server elsewhere on the network. The API
@@ -738,8 +809,8 @@ the harness:
 7. Run the same harness scenarios against the existing baseline before judging model quality.
 
 Transport and response-envelope differences end at the adapter. A non-OpenAI response can be
-supported by implementing `extract_content()` in its adapter; it does not require conditionals in
-the shared client or role agents.
+supported by implementing `extract_response()` in its adapter; it does not require conditionals
+in the shared client or role agents.
 
 ## 🚀 Running It
 
@@ -962,11 +1033,11 @@ old, already-processed tool call outputs to save context has no clean analog her
 project has no bulky tool results to clear in the first place — its closest equivalent is simply
 old narration and dialogue, which the compaction mechanism already addresses directly.
 
-**Prompt caching.** Reusing a stable prefix (system
-instructions, rarely changing content) ahead of frequently changing content (the rolling history)
-is the standard shape of prompt caching, and a local inference server can reuse a shared prefix
-per generation slot similarly. Compaction and context clearing invalidate the changed suffix;
-prompt caching is therefore an optional optimization rather than a correctness dependency.
+**Prompt caching.** Stable identity and instruction content precedes frequently changing state,
+and provider adapters retain the real token counters in JSONL. DeepSeek caching is automatic;
+llama.cpp receives `cache_prompt: true`. Compaction changes the rewritten suffix and naturally
+causes misses from that point without an application-owned invalidation mechanism. See the
+[verified probe and practical examples](#-verified-prompt-caching).
 
 **Silent failure as an operating risk.** Structurally valid output can still be semantically wrong.
 Schema validation, persisted state, prompt preview, JSONL evidence, deterministic replay, and live

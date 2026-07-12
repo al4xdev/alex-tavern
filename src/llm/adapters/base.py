@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -13,6 +14,16 @@ class PreparedRequest:
     messages: list[dict]
     response_format: dict[str, Any] | None
     extra_payload: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class ParsedResponse:
+    """Provider response content plus optional token/cache evidence."""
+
+    content: str
+    usage: dict[str, Any] | None
+    cache_hit_tokens: int | None = None
+    cache_miss_tokens: int | None = None
 
 
 class ProviderResponseError(ValueError):
@@ -44,12 +55,12 @@ class ProviderAdapter(Protocol):
     ) -> PreparedRequest:
         """Adapt capabilities while preserving the requested semantic contract."""
 
-    def extract_content(self, response: object) -> str:
-        """Extract generated content from this provider's response envelope."""
+    def extract_response(self, response: object) -> ParsedResponse:
+        """Extract content and usage evidence from the provider envelope."""
 
 
-def extract_openai_content(response: object) -> str:
-    """Strictly extract ``choices[0].message.content`` from an OpenAI envelope."""
+def extract_openai_response(response: object) -> ParsedResponse:
+    """Strictly extract content while retaining optional OpenAI-style usage."""
     if not isinstance(response, dict):
         raise ProviderResponseError("Provider response must be a JSON object")
     choices = response.get("choices")
@@ -64,4 +75,13 @@ def extract_openai_content(response: object) -> str:
     content = message.get("content")
     if not isinstance(content, str):
         raise ProviderResponseError("Provider response message.content must be a string")
-    return content
+    raw_usage = response.get("usage")
+    usage = deepcopy(raw_usage) if isinstance(raw_usage, dict) else None
+    return ParsedResponse(content=content, usage=usage)
+
+
+def nonnegative_int(value: object) -> int | None:
+    """Return a non-negative integer metric without accepting booleans."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        return None
+    return value

@@ -3,6 +3,28 @@
 These tools run outside the normal Alex Tavern runtime. They can reproduce a recorded session
 through the real Roleplay HTTP API without running llama.cpp.
 
+## Prompt-cache probe
+
+`prompt_cache_probe.py` proves provider-native prefix reuse through the same adapter, shared
+client, and JSONL logger used by normal roleplay calls. It sends one warm request, three identical
+repeats, and an early-prefix negative control:
+
+```bash
+uv run python -m tools.prompt_cache_probe --provider deepseek
+uv run python -m tools.prompt_cache_probe --provider llama_cpp
+```
+
+The selected provider must already be reachable. Settings and the DeepSeek key come from
+`.data/config.json`; credentials are neither printed nor logged. The command exits with status 0
+only when a repeat reports non-zero cached tokens and the negative control reports fewer hits.
+Its secret-free JSON result is printed to stdout, and complete calls remain in
+`.data/sessions/cache-probe-<provider>-<nonce>.debug.jsonl`.
+
+See [`docs/09-prompt-caching.md`](../docs/09-prompt-caching.md) for the verified DeepSeek and
+llama.cpp runs, exact counters, server build, model, limitations, and inspection commands.
+
+---
+
 ## 1. Start the recorded LLM replay
 
 Stop llama.cpp so port 8888 is free, then run:
@@ -43,13 +65,14 @@ uv run python tools/replay_session.py .data/sessions/<source-id>.debug.jsonl
 
 The driver:
 
-1. reads exact speech, action, and force-speaker values from required `turn_input` markers;
+1. reads exact speech, private thought, action, and force-speaker values from required
+   `turn_input` markers (older markers default missing `thought` to an empty string);
 2. resets the replay cursor;
 3. starts a fresh `thorn-lyra` session through the API;
 4. submits every recorded turn and immediately reads the resulting session state;
 5. verifies that both the turn response and latest persisted history record match that input's
    turn number, retaining history length/location observations in `turn_states`;
-6. triggers compaction when the source contains a summarizer output;
+6. triggers compaction when the source contains a world/private summarizer output;
 7. compares successful `{turn_number, agent, response}` entries in exact order.
 
 It prints the new session id and preserves the new `.json`, `.debug.jsonl`, and compaction backup
@@ -147,14 +170,14 @@ All session JSON, backups, raw logs, config, presets, and defaults created by te
 directory. A session-wide safety guard aborts collection if storage ever resolves to the real
 repository `.data` directory or one of its children.
 
-## Verified current-format fixture
+## Replay fixture status
 
-The maintained [`current_replay.debug.jsonl`](../tests/fixtures/current_replay.debug.jsonl)
-fixture uses the current `turn_input` format and contains nine complete Narrator-only turns plus
-one summarizer response. It deliberately crosses the default eight-turn compaction window.
+The checked-in [`current_replay.debug.jsonl`](../tests/fixtures/current_replay.debug.jsonl) fixture
+contains nine Narrator-only turns plus one legacy summarizer response. Its `turn_input` records
+predate the explicit `thought` field, which the parser safely defaults to an empty string.
 
-The reference end-to-end run used the real Roleplay HTTP application and `replay_llm.py`, with no
-llama.cpp process:
+Before structured Character thoughts and partitioned world/private compaction, this tape was
+verified end to end with the real Roleplay HTTP application and `replay_llm.py`:
 
 - nine exact inputs submitted through the real API;
 - state inspected successfully after every turn;
@@ -163,6 +186,11 @@ llama.cpp process:
 - all 10 successful outputs matched in exact order;
 - replay cursor finished at 10/10 with zero remaining entries;
 - final result reported `matches: true`.
+
+Those numbers are historical evidence, not a current end-to-end guarantee: current compaction can
+consume one public summary response plus multiple private-memory responses. The fixture remains a
+parser, cursor, and backward-compatible input regression; record a new live tape before using it
+to validate exact current compaction outputs.
 
 The older `7cb448da`/`614f2910` logs remain historical debugging evidence but contain no
 `turn_input` markers. They are intentionally not accepted by the current conversation driver.
