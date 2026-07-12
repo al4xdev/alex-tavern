@@ -7,6 +7,10 @@ on:
     tags:
       - 'v*'
 
+# Permissões necessárias para criar/atualizar Releases no repositório
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,3 +60,25 @@ jobs:
         with:
           name: app-debug-apk
           path: .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk
+
+      # Cria ou atualiza a release correspondente no GitHub com o APK compilado
+      - name: Deploy to GitHub Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            tag_name="${{ github.ref_name }}"
+            title="Release $tag_name"
+            notes="Automated release build for tag $tag_name."
+          else
+            tag_name="latest"
+            title="Latest Debug APK"
+            notes="Latest automated debug build from master branch."
+          fi
+          
+          # Cria a release caso não exista, ou atualiza o arquivo se já existir (--clobber)
+          gh release create "$tag_name" .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk \
+            --title "$title" \
+            --notes "$notes" \
+            --prerelease \
+            --clobber
