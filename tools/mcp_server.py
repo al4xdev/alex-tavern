@@ -12,6 +12,7 @@ import httpx
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
+from pydantic import StrictBool
 
 DEFAULT_ROLEPLAY_URL = "http://127.0.0.1:8889"
 DEFAULT_REPLAY_URL = "http://127.0.0.1:8888"
@@ -354,19 +355,23 @@ def create_mcp_server(
         return await debug_api.mutate_session(session_id, "suggest")
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
-    async def mutate_undo_turn(session_id: str, confirm: bool = False) -> dict[str, Any]:
+    async def mutate_undo_turn(session_id: str, confirm: StrictBool = False) -> dict[str, Any]:
         """Remove the most recent Roleplay turn where the HTTP API supports it."""
         _require_destructive_confirmation("undo", confirm)
         return await debug_api.mutate_session(session_id, "undo")
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
-    async def mutate_compact_session(session_id: str, confirm: bool = False) -> dict[str, Any]:
+    async def mutate_compact_session(
+        session_id: str, confirm: StrictBool = False
+    ) -> dict[str, Any]:
         """Summarize older history and retain a recoverable compaction backup."""
         _require_destructive_confirmation("compaction", confirm)
         return await debug_api.mutate_session(session_id, "compact")
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
-    async def mutate_restore_compaction(session_id: str, confirm: bool = False) -> dict[str, Any]:
+    async def mutate_restore_compaction(
+        session_id: str, confirm: StrictBool = False
+    ) -> dict[str, Any]:
         """Restore the latest compaction backup when the backend safety check permits it."""
         _require_destructive_confirmation("compaction restore", confirm)
         return await debug_api.mutate_session(session_id, "restore_compaction")

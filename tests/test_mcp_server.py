@@ -294,6 +294,12 @@ async def test_destructive_mcp_tools_require_explicit_confirmation() -> None:
         ):
             with pytest.raises(ToolError, match="confirm=true"):
                 await server.call_tool(tool_name, {"session_id": "abc"})
+            for invalid_confirmation in ("true", "false", 1, 0):
+                with pytest.raises(ToolError, match="valid boolean"):
+                    await server.call_tool(
+                        tool_name,
+                        {"session_id": "abc", "confirm": invalid_confirmation},
+                    )
             await server.call_tool(tool_name, {"session_id": "abc", "confirm": True})
     finally:
         await api.aclose()
