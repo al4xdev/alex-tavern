@@ -13,7 +13,7 @@ sequencial.
 - Fluxos relevantes: `src/runner.py`, `src/llm/client.py`, `src/agents/narrator.py`,
   `src/agents/character.py` e `src/agents/summarizer.py`
 
-O roteiro usado foi `.plan/02-readme-media/manual-playtest-script.md`. Alguns valores de
+O roteiro usado foi o script manual privado de playtest do projeto. Alguns valores de
 `force_speaker` foram escolhidos livremente durante o teste, portanto nem todo desvio do texto
 esperado é atribuível aos agentes.
 

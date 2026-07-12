@@ -13,7 +13,7 @@ turno pós-compactação e undo
 - Estado final: `/tmp/roleplay-report-playtest.DmyEbG/sessions/89c21c6c.json`
 - Backup pré-compactação: `/tmp/roleplay-report-playtest.DmyEbG/sessions/89c21c6c.kb_0.json`
 - Log bruto: `/tmp/roleplay-report-playtest.DmyEbG/sessions/89c21c6c.debug.jsonl`
-- Roteiro: `.plan/02-readme-media/manual-playtest-script.md`
+- Roteiro: script manual privado de playtest do projeto
 
 ## Resumo da execução
 

@@ -2,7 +2,7 @@
 
 **Data:** 2026-07-12
 
-**Fonte exclusiva:** `.plan/closed/report.md`
+**Fonte exclusiva:** [`report.md`](./report.md)
 
 **Resultado:** os seis bugs objetivos foram corrigidos e verificados; os problemas qualitativos
 foram mitigados, mas continuam dependentes do modelo.
@@ -65,7 +65,7 @@ Elas foram corrigidas e estão incluídas nas validações acima.
 
 ## Fora de escopo e riscos residuais
 
-- `.plan/closed/report.md` permaneceu inalterado como evidência original.
+- `report.md` permaneceu inalterado como evidência original.
 - O trabalho Android/Docker não foi alterado. Há uma incompatibilidade potencial a acompanhar no
   APK: o Gradle fixa Python 3.11, FastAPI 0.99 e Pydantic 1, enquanto o projeto declara Python
   3.14+ e FastAPI 0.115+.

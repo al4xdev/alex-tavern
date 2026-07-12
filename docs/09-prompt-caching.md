@@ -79,7 +79,7 @@ The probe used the actual llama.cpp endpoint configured by Alex Tavern, after `/
 
 | Field | Value |
 |---|---|
-| API base | `http://192.168.0.183:8888/v1` |
+| API base | Private llama.cpp network endpoint (redacted) |
 | Build | `b9950-bcde81f10` |
 | Model | `gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf` |
 | Quantization reported by server | `Q4_0` |
