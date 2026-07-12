@@ -37,13 +37,13 @@ android {
         }
 
         python {
-            version "3.8"
+            version "3.11"
             
             pip {
-                install "fastapi"
+                install "pydantic<2"
+                install "fastapi==0.99.1"
                 install "uvicorn"
                 install "httpx"
-                install "pydantic"
             }
         }
     }
