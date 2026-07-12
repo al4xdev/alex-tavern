@@ -152,7 +152,7 @@ def test_analysis_detects_observable_signals() -> None:
             "agent": "character:Lyra",
             "turn_number": 1,
             "request": {"messages": []},
-            "response": '"Fine," I whisper, my eyes narrowing.',
+            "response": '{"speech":null,"thought":"Arrumo o cabelo atrás da orelha."}',
             "error": None,
             "duration_ms": 5.0,
             "attempt_number": 2,

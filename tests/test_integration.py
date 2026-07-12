@@ -180,6 +180,28 @@ class TestModels:
         expected = "Old Mork's Tavern — main hall, dim lighting"
         assert snap.location == expected
 
+    def test_legacy_history_migration_handles_empty_and_is_idempotent(self) -> None:
+        from src.models import migrate_legacy_history
+
+        assert migrate_legacy_history([]) == []
+        scene = deepcopy_scene(DEFAULT_SCENE)
+        legacy = [
+            TurnRecord(1, "C2", "**Isso parece estranho.**\nEu concordo.", "speech", scene)
+        ]
+        migrated = migrate_legacy_history(legacy)
+        assert [(record.content_type, record.content) for record in migrated] == [
+            ("thought", "Isso parece estranho."),
+            ("speech", "Eu concordo."),
+        ]
+        assert migrate_legacy_history(migrated) == migrated
+
+    def test_legacy_history_migration_leaves_partial_markup_unchanged(self) -> None:
+        from src.models import migrate_legacy_history
+
+        scene = deepcopy_scene(DEFAULT_SCENE)
+        partial = [TurnRecord(1, "C2", "**pensamento incompleto", "speech", scene)]
+        assert migrate_legacy_history(partial) == partial
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes Unitários — Sessions (Persistência)
@@ -628,7 +650,7 @@ class TestRunnerLogic:
         async def fake_character(game, character_id, context, turn_number):  # noqa: ANN001, ANN202
             captured["character_id"] = character_id
             captured["context"] = context
-            return "I answer."
+            return {"speech": "I answer.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(self.runner, "_call_character", fake_character)
@@ -651,6 +673,7 @@ class TestRunnerLogic:
         assert marker["agent"] == "turn_input"
         assert marker["input"] == {
             "speech": "Answer me.",
+            "thought": "",
             "action": "",
             "force_speaker": "C2",
         }
@@ -666,7 +689,7 @@ class TestRunnerLogic:
 
         async def fake_act(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return "fala"
+            return {"speech": "fala", "thought": None}
 
         monkeypatch.setattr(runner_mod, "character_act", fake_act)
 
@@ -675,6 +698,30 @@ class TestRunnerLogic:
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         await runner._call_character(game, "C1", "ctx", 1)
         assert captured["notes"] == "nota do Thorn"
+
+    @pytest.mark.asyncio
+    async def test_private_thought_only_turn_persists_without_calling_narrator(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        sid = self.runner.start_session()
+
+        async def forbidden_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            raise AssertionError("Narrator must not receive a thought-only turn")
+
+        monkeypatch.setattr(self.runner, "_call_narrator", forbidden_narrator)
+        result = await self.runner.player_turn(
+            sid,
+            thought="Não devo demonstrar preocupação.",
+            force_speaker="C2",
+        )
+        game = await self.runner.get_state(sid)
+        assert game is not None
+        assert result["narration"] is None
+        assert result["next_speaker"] == game.player.controlled_character_id
+        assert [(record.content_type, record.content) for record in game.history] == [
+            ("thought", "Não devo demonstrar preocupação.")
+        ]
+        delete_session(sid)
 
     @pytest.mark.asyncio
     async def test_suggestions_wait_for_active_session_transaction(self, monkeypatch) -> None:  # noqa: ANN001
@@ -832,7 +879,7 @@ class TestCompactSession:
         async def fake_character(game, character_id, context, turn_number):  # noqa: ANN001, ANN202
             captured["note"] = game.character_notes.get(character_id, "")
             captured["context"] = context
-            return "I remember this gate."
+            return {"speech": "I remember this gate.", "thought": None}
 
         monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
@@ -847,7 +894,10 @@ class TestCompactSession:
         )
 
         assert compacted["compacted"] is True
-        assert result["character_response"] == "I remember this gate."
+        assert result["character_response"] == {
+            "speech": "I remember this gate.",
+            "thought": None,
+        }
         assert captured == {
             "summary": "Durable world summary.",
             "note": "Lyra remembers the sealed gate.",
@@ -1245,7 +1295,8 @@ class TestCustomSessionAndDebug:
         from src.store.sessions import SESSIONS_DIR
 
         async def mock_post(url, json, **kwargs):  # noqa: ANN001, A002, ARG001
-            if json.get("response_format", {}).get("type") == "json_schema":
+            schema_name = json.get("response_format", {}).get("json_schema", {}).get("name")
+            if schema_name == "narrator_turn":
                 content = json_module.dumps(
                     {
                         "narration": "A cripta range.",
@@ -1256,7 +1307,7 @@ class TestCustomSessionAndDebug:
                     }
                 )
             else:
-                content = "Estou pronto."
+                content = json_module.dumps({"speech": "Estou pronto.", "thought": None})
             req = httpx.Request("POST", url)
             return httpx.Response(
                 200, json={"choices": [{"message": {"content": content}}]}, request=req
@@ -1274,7 +1325,7 @@ class TestCustomSessionAndDebug:
         )
         self.created.append(sid)
         result = await self.runner.player_turn(sid, speech="oi")
-        assert result["character_response"] == "Estou pronto."
+        assert result["character_response"] == {"speech": "Estou pronto.", "thought": None}
 
         debug_path = SESSIONS_DIR / f"{sid}.debug.jsonl"
         assert debug_path.exists()
@@ -1289,7 +1340,10 @@ class TestCustomSessionAndDebug:
         assert entries[1]["agent"] == "narrator"
         assert entries[1]["response"] is not None
         assert entries[2]["agent"] == "character:Solo"
-        assert entries[2]["response"] == "Estou pronto."
+        assert json_module.loads(entries[2]["response"]) == {
+            "speech": "Estou pronto.",
+            "thought": None,
+        }
 
     @pytest.mark.asyncio
     async def test_preview_narrator_prompt(self) -> None:
@@ -1373,8 +1427,8 @@ class TestSummarizerAgent:
         assert "SPEAKER=Thorn" in messages[1]["content"]
         assert "Player" not in messages[1]["content"]
 
-    def test_build_summarizer_messages_shows_current_summary_and_notes(self) -> None:
-        """Resumo e notas atuais entram no prompt, pra o Resumidor atualizar."""
+    def test_build_summarizer_messages_keeps_private_notes_out(self) -> None:
+        """O resumo público nunca recebe notas privadas existentes."""
         from src.agents.summarizer import build_summarizer_messages
 
         messages = build_summarizer_messages(
@@ -1386,8 +1440,7 @@ class TestSummarizerAgent:
         )
         user_content = messages[1]["content"]
         assert "Thorn e Lyra se conheceram na taverna." in user_content
-        assert "Desconfia de magia." in user_content
-        assert "(none yet)" in user_content  # C2 ainda sem nota
+        assert "Desconfia de magia." not in user_content
 
     @pytest.mark.asyncio
     async def test_summarize_returns_only_changed_notes(self, monkeypatch) -> None:  # noqa: ANN001
@@ -1396,10 +1449,9 @@ class TestSummarizerAgent:
         from src.agents import summarizer as summarizer_mod
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "story_summary": "Resumo atualizado.",
-                "character_notes": {"C1": "Ficou tenso ao ouvir sobre a Guarda de Ferro."},
-            }
+            if kwargs["agent"] == "summarizer:world":
+                return {"story_summary": "Resumo atualizado."}
+            return {"character_note": "Ficou tenso ao ouvir sobre a Guarda de Ferro."}
 
         monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
 
@@ -1410,7 +1462,15 @@ class TestSummarizerAgent:
             controlled_id="C1",
             story_summary="Resumo antigo.",
             character_notes={"C1": "nota antiga", "C2": "nota antiga da Lyra"},
-            evicted_turns=[],
+            evicted_turns=[
+                TurnRecord(
+                    turn_number=1,
+                    speaker="Player",
+                    content="Penso na Guarda de Ferro.",
+                    content_type="thought",
+                    scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+                )
+            ],
             config={},
         )
         assert summary == "Resumo atualizado."
@@ -1419,18 +1479,16 @@ class TestSummarizerAgent:
         await client.aclose()
 
     @pytest.mark.asyncio
-    async def test_summarize_keeps_only_canonical_character_ids(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_summarize_isolates_private_character_calls(self, monkeypatch) -> None:  # noqa: ANN001
         from src.agents import summarizer as summarizer_mod
 
+        prompts: dict[str, str] = {}
+
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "story_summary": "Summary.",
-                "character_notes": {
-                    "C1": "Canonical Thorn note.",
-                    "C2": "Canonical Lyra note.",
-                    "Unknown": "Ignored.",
-                },
-            }
+            prompts[kwargs["agent"]] = messages[1]["content"]
+            if kwargs["agent"] == "summarizer:world":
+                return {"story_summary": "Summary."}
+            return {"character_note": f"Private {kwargs['agent']} note."}
 
         monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
         client = httpx.AsyncClient(base_url="http://localhost:8888")
@@ -1440,22 +1498,37 @@ class TestSummarizerAgent:
             controlled_id="C1",
             story_summary="",
             character_notes={},
-            evicted_turns=[],
+            evicted_turns=[
+                TurnRecord(
+                    turn_number=1,
+                    speaker="Player",
+                    content="Segredo do Thorn.",
+                    content_type="thought",
+                    scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+                ),
+                TurnRecord(
+                    turn_number=1,
+                    speaker="C2",
+                    content="Segredo da Lyra.",
+                    content_type="thought",
+                    scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
+                ),
+            ],
             config={},
         )
-        assert changed_notes == {
-            "C1": "Canonical Thorn note.",
-            "C2": "Canonical Lyra note.",
-        }
+        assert set(changed_notes) == {"C1", "C2"}
+        assert "Segredo do Thorn." not in prompts["summarizer:Lyra"]
+        assert "Segredo da Lyra." not in prompts["summarizer:Thorn"]
+        assert "Segredo do Thorn." not in prompts["summarizer:world"]
+        assert "Segredo da Lyra." not in prompts["summarizer:world"]
         await client.aclose()
 
-    def test_summarizer_schema_allows_only_session_character_ids(self) -> None:
+    def test_summarizer_schema_is_public_only(self) -> None:
         from src.agents.summarizer import build_summarizer_json_schema
 
-        schema = build_summarizer_json_schema(["hero", "guide"])["schema"]["properties"]
-        notes_schema = schema["character_notes"]
-        assert set(notes_schema["properties"]) == {"hero", "guide"}
-        assert notes_schema["additionalProperties"] is False
+        schema = build_summarizer_json_schema(["hero", "guide"])["schema"]
+        assert set(schema["properties"]) == {"story_summary"}
+        assert schema["additionalProperties"] is False
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1519,8 +1592,7 @@ class TestEdgeCases:
         runner._update_scene(game, None)
         assert game.scene.physical_facts["door"] == "closed"
 
-    def test_format_history_for_character_only_speech(self) -> None:
-        """O Personagem só vê falas — narração e ação são filtradas do histórico."""
+    def test_format_history_for_character_sees_public_speech_and_own_thought(self) -> None:
         from src.agents.character import _format_history_for_character
 
         scene = deepcopy_scene(DEFAULT_SCENE)
@@ -1553,13 +1625,29 @@ class TestEdgeCases:
                 content_type="speech",
                 scene_snapshot=scene,
             ),
+            TurnRecord(
+                turn_number=1,
+                speaker="C2",
+                content="Meu próprio segredo.",
+                content_type="thought",
+                scene_snapshot=scene,
+            ),
+            TurnRecord(
+                turn_number=1,
+                speaker="C1",
+                content="Segredo alheio.",
+                content_type="thought",
+                scene_snapshot=scene,
+            ),
         ]
-        text = _format_history_for_character(history, DEFAULT_CHARACTERS, "C1")
+        text = _format_history_for_character(history, DEFAULT_CHARACTERS, "C1", "C2")
         assert "Thorn acena" not in text
         assert "porta range" not in text
         assert "Thorn: oi" in text  # "Player" traduzido pro nome do controlado
         assert "Player" not in text
         assert "Oi Thorn." in text
+        assert "Meu próprio segredo." in text
+        assert "Segredo alheio." not in text
 
     def test_narrator_prompt_includes_story_summary(self) -> None:
         """story_summary não vazio vira uma seção STORY SO FAR no prompt do Narrador."""
@@ -1586,6 +1674,87 @@ class TestEdgeCases:
             history=[],
         )
         assert "STORY SO FAR" not in prompt
+
+    def test_narrator_prompt_never_receives_private_thoughts(self) -> None:
+        from src.agents.narrator import _build_user_prompt
+
+        scene = deepcopy_scene(DEFAULT_SCENE)
+        history = [
+            TurnRecord(1, "Player", "Segredo do Thorn.", "thought", scene),
+            TurnRecord(1, "Player", "Pode me ouvir?", "speech", scene),
+        ]
+        prompt = _build_user_prompt(
+            DEFAULT_SCENE,
+            DEFAULT_CHARACTERS,
+            "C1",
+            history,
+            context_max=4096,
+        )
+        assert "Segredo do Thorn." not in prompt
+        assert "Pode me ouvir?" in prompt
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ({"speech": "Olá.", "thought": None}, {"speech": "Olá.", "thought": None}),
+            (
+                {"speech": None, "thought": "Isso parece errado."},
+                {"speech": None, "thought": "Isso parece errado."},
+            ),
+            (
+                {"speech": "Olá.", "thought": "Preciso ter cuidado."},
+                {"speech": "Olá.", "thought": "Preciso ter cuidado."},
+            ),
+        ],
+    )
+    def test_character_output_accepts_speech_thought_or_both(
+        self, raw: dict, expected: dict
+    ) -> None:
+        from src.agents.character import _normalize_output
+
+        assert _normalize_output(raw) == expected
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            {"speech": None, "thought": None},
+            {"speech": " ", "thought": ""},
+            {"speech": None, "thought": "Arrumo um tufo de cabelo atrás da orelha."},
+        ],
+    )
+    def test_character_output_rejects_empty_or_physical_action(self, raw: dict) -> None:
+        from src.agents.character import _normalize_output
+
+        with pytest.raises(ValueError):
+            _normalize_output(raw)
+
+    @pytest.mark.asyncio
+    async def test_character_retries_once_after_physical_action(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.agents import character as character_mod
+
+        responses = iter(
+            [
+                {"speech": "Oi.", "thought": "Inclino a cabeça."},
+                {"speech": "Oi.", "thought": "Ele parece cansado para mim."},
+            ]
+        )
+
+        async def fake_json(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
+            return next(responses)
+
+        monkeypatch.setattr(character_mod, "chat_completion_json", fake_json)
+        async with httpx.AsyncClient() as client:
+            output = await character_mod.act(
+                client=client,
+                character=DEFAULT_CHARACTERS["C2"],
+                context="Thorn parece cansado.",
+                history=[],
+                characters=DEFAULT_CHARACTERS,
+                controlled_id="C1",
+                character_id="C2",
+                config={},
+            )
+        assert output == {"speech": "Oi.", "thought": "Ele parece cansado para mim."}
 
     def test_character_prompt_includes_own_notes(self) -> None:
         """A nota do próprio personagem vira uma linha 'What you remember' no prompt."""
@@ -1859,6 +2028,8 @@ class TestLanguageConfiguration:
     async def test_character_text_is_normalized_after_raw_response_is_logged(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
+        import json as json_module
+
         from src.agents.character import act
 
         sid = generate_session_id()
@@ -1868,7 +2039,20 @@ class TestLanguageConfiguration:
             request = httpx.Request("POST", url)
             return httpx.Response(
                 200,
-                json={"choices": [{"message": {"content": "Wait — listen between doors 1–3."}}]},
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "content": json_module.dumps(
+                                    {
+                                        "speech": "Wait — listen between doors 1–3.",
+                                        "thought": None,
+                                    }
+                                )
+                            }
+                        }
+                    ]
+                },
                 request=request,
             )
 
@@ -1881,15 +2065,19 @@ class TestLanguageConfiguration:
                 history=[],
                 characters={"C1": _custom_char("Plain")},
                 controlled_id="C1",
+                character_id="C1",
                 config={},
                 session_id=sid,
                 turn_number=1,
             )
 
-            assert output == "Wait, listen between doors 1-3."
+            assert output == {"speech": "Wait, listen between doors 1-3.", "thought": None}
             path = SESSIONS_DIR / f"{sid}.debug.jsonl"
             raw_entry = json.loads(path.read_text(encoding="utf-8"))
-            assert raw_entry["response"] == "Wait — listen between doors 1–3."
+            assert json.loads(raw_entry["response"]) == {
+                "speech": "Wait — listen between doors 1–3.",
+                "thought": None,
+            }
         finally:
             await client.aclose()
             delete_session(sid)
@@ -1998,7 +2186,9 @@ class TestLLMObservability:
         try:
             await asyncio.gather(
                 *(
-                    asyncio.to_thread(log_turn_input, sid, index, "speech", "action", None, None)
+                    asyncio.to_thread(
+                        log_turn_input, sid, index, "speech", "thought", "action", None, None
+                    )
                     for index in range(1, 21)
                 )
             )

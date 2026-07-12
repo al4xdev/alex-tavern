@@ -194,6 +194,7 @@ class DebugApiClient:
         session_id: str,
         *,
         speech: str = "",
+        thought: str = "",
         action: str = "",
         force_speaker: str | None = None,
     ) -> dict[str, Any]:
@@ -205,6 +206,7 @@ class DebugApiClient:
                 f"/session/{session_id}/turn",
                 payload={
                     "speech": speech,
+                    "thought": thought,
                     "action": action,
                     "force_speaker": force_speaker,
                 },
@@ -213,7 +215,7 @@ class DebugApiClient:
 
     async def mutate_session(self, session_id: str, operation: str) -> dict[str, Any]:
         if operation not in {"suggest", "undo", "compact", "restore_compaction"}:
-            raise ValueError(f"Unsupported session operation: {operation}")
+            raise ToolError(f"Unsupported session operation: {operation}")
         return cast(
             dict[str, Any],
             await self._request("Roleplay", "POST", f"/session/{session_id}/{operation}"),
@@ -328,6 +330,7 @@ def create_mcp_server(
     async def mutate_submit_turn(
         session_id: str,
         speech: str = "",
+        thought: str = "",
         action: str = "",
         force_speaker: str | None = None,
     ) -> dict[str, Any]:
@@ -335,6 +338,7 @@ def create_mcp_server(
         return await debug_api.submit_turn(
             session_id,
             speech=speech,
+            thought=thought,
             action=action,
             force_speaker=force_speaker,
         )

@@ -69,9 +69,9 @@ usuário ou operador externo.
 | Papel | Responsabilidade | Contexto permitido |
 |---|---|---|
 | Narrador | Mundo físico, consequência, transição, cena, humor e próximo falante | Cena, todos os personagens, `mind`, `body`, resumo e janela ativa |
-| Personagem | Somente fala e pensamento subjetivo em primeira pessoa | Sua `mind`, sua própria nota, contexto do Narrador e falas recentes |
+| Personagem | Somente fala e pensamento subjetivo em primeira pessoa | Sua `mind`, sua própria nota, contexto do Narrador, falas públicas e pensamentos próprios |
 | Runner | Agência, ordem das chamadas, estado, locks, persistência e routing | Estado completo da aplicação, nunca decisões narrativas heurísticas |
-| Historiador | Compactar eventos antigos em resumo e notas por personagem | Chunk removido, resumo/notas atuais e IDs canônicos |
+| Historiador | Compactar eventos antigos sem cruzar fronteiras privadas | Resumo mundial recebe eventos públicos; cada memória privada recebe eventos públicos, nota própria e pensamentos próprios |
 
 Personagem não executa nem descreve ação física. Pensamento sobre outra pessoa é interpretação
 subjetiva, não descrição objetiva. `body`, cena, narração histórica, personalidade alheia e notas
@@ -151,7 +151,7 @@ divergentes em runtime.
 
 ### Contratos estruturados
 
-Narrador, sugestões e Historiador usam JSON. Llama.cpp recebe JSON Schema nativo. DeepSeek V4
+Narrador, Character, sugestões e Historiador usam JSON. Llama.cpp recebe JSON Schema nativo. DeepSeek V4
 Flash recebe `json_object`, a instrução técnica de schema adicionada pelo adapter e validação local
 posterior. Isso é adaptação de capacidade, não um prompt narrativo específico por provider.
 
@@ -173,10 +173,10 @@ objeto completo por provider.
 ## 5. Fluxo de um turno
 
 1. Runner adquire o lock da sessão e carrega o estado.
-2. Fala e ação humanas são persistidas no histórico com um único `turn_number`.
+2. Fala, pensamento privado e ação humanos são persistidos separadamente com um único `turn_number`.
 3. Narrador recebe o estado canônico e devolve JSON validado.
 4. Runner aplica `force_speaker` quando solicitado e preserva a agência do personagem controlado.
-5. Se necessário, Character recebe apenas seu contexto permitido e gera texto.
+5. Se necessário, Character recebe apenas seu contexto permitido e gera `speech`/`thought` estruturados.
 6. Runner aplica `scene_update` e `mood_updates`.
 7. Estado é salvo atomicamente e o resultado é devolvido.
 

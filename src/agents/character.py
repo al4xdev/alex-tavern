@@ -1,12 +1,70 @@
-"""Character Agent — acts in-character, replies with speech or thought."""
+"""Character Agent — replies with private thought and/or public speech."""
 
 from __future__ import annotations
+
+import re
+from typing import TypedDict
 
 import httpx
 
 from src.config import llm_request_options
-from src.llm.client import chat_completion, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
 from src.models import Character, TurnRecord, speaker_label, trim_history_by_tokens
+
+
+class CharacterOutput(TypedDict):
+    speech: str | None
+    thought: str | None
+
+
+_PHYSICAL_ACTION_RE = re.compile(
+    r"(?:^|[.!?]\s+)(?:eu\s+|i\s+)?(?:"
+    r"arrum(?:o|ei)|inclin(?:o|ei)|erg(?:o|ui)|abaix(?:o|ei)|toc(?:o|uei)|"
+    r"segur(?:o|ei)|agarr(?:o|ei)|pux(?:o|ei)|empurr(?:o|ei)|levant(?:o|ei)|"
+    r"and(?:o|ei)|caminh(?:o|ei)|olh(?:o|ei)|encar(?:o|ei)|vir(?:o|ei)|"
+    r"sorr(?:io|i)|pis[cq](?:o|uei)|tamboril(?:o|ei)|"
+    r"adjust|tilt|raise|lower|touch|hold|grip|pull|push|stand|walk|look|"
+    r"stare|turn|smile|blink|drum|tuck|nod|brush|sit"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def build_character_json_schema() -> dict:
+    """Return the provider-enforced shape for one Character response."""
+    return {
+        "name": "character_response",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "speech": {"type": ["string", "null"]},
+                "thought": {"type": ["string", "null"]},
+            },
+            "required": ["speech", "thought"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def _normalize_output(result: dict) -> CharacterOutput:
+    """Normalize nullable fields and reject empty or action-like thoughts."""
+    speech_value = result.get("speech")
+    thought_value = result.get("thought")
+    speech = (
+        normalize_generated_text(speech_value.strip())
+        if isinstance(speech_value, str) and speech_value.strip()
+        else None
+    )
+    thought = (
+        normalize_generated_text(thought_value.strip())
+        if isinstance(thought_value, str) and thought_value.strip()
+        else None
+    )
+    if speech is None and thought is None:
+        raise ValueError("Character response must contain speech, thought, or both")
+    if any(text is not None and _PHYSICAL_ACTION_RE.search(text) for text in (speech, thought)):
+        raise ValueError("Character response appears to describe a physical action")
+    return {"speech": speech, "thought": thought}
 
 
 def _build_system_prompt(character: Character, notes: str = "") -> str:
@@ -24,10 +82,13 @@ def _build_system_prompt(character: Character, notes: str = "") -> str:
         "  may react to what you perceive in others, but only as your own\n"
         "  subjective read: what it seems like to you, not what is happening\n"
         '  ("he seems tense", never "he grips the hilt of his sword").\n'
-        "- Speak in first person, as dialogue.\n"
-        "- Use **text** for internal thoughts; always wrap them, no exceptions.\n"
-        "  A thought is your own reaction, opinion, or feeling about yourself\n"
-        "  or someone else, filtered through your own perspective.\n"
+        "- Never perform or describe a physical action, including your own body,\n"
+        "  gestures, posture, facial expression, or movement. Physical action belongs\n"
+        "  exclusively to the Narrator. A thought such as 'I tuck my hair behind my\n"
+        "  ear' is forbidden; 'His voice sounds unusually soft to me' is valid.\n"
+        "- Put audible first-person dialogue in speech. Put only your private internal\n"
+        "  reaction, opinion, or feeling in thought. Do not use markdown wrappers.\n"
+        "  Either field may be null, but they cannot both be null or empty.\n"
         "- Facts may come only from your Knowledge, What you remember, SCENE CONTEXT,\n"
         "  or RECENT EVENTS. If a detail is absent, omit it or clearly express doubt;\n"
         "  never invent a location, backstory, relationship, or prior event.\n"
@@ -42,17 +103,21 @@ def _format_history_for_character(
     history: list[TurnRecord],
     characters: dict[str, Character],
     controlled_id: str,
+    character_id: str,
     context_max: int | None = None,
     max_tokens_character: int = 1024,
 ) -> str:
     """Formats the history as linear text for the character.
 
-    The character only sees previous dialogue — never narration nor actions (that
-    would break the role model: only the Narrator narrates/describes/acts). They react
-    to the current Narrator message (``context_for_character``), trimmed by
-    token budget if ``context_max`` is provided.
+    The character sees public dialogue and only its own private thoughts. It never
+    receives narration, actions, or another character's thoughts.
     """
-    hist = [rec for rec in history if rec.content_type == "speech"]
+    hist = [
+        rec
+        for rec in history
+        if rec.content_type == "speech"
+        or (rec.content_type == "thought" and rec.speaker == character_id)
+    ]
     if context_max is not None:
         hist = trim_history_by_tokens(hist, context_max, max_tokens_character)
     if not hist:
@@ -60,7 +125,8 @@ def _format_history_for_character(
     lines: list[str] = []
     for rec in hist:
         label = speaker_label(rec.speaker, characters, controlled_id)
-        lines.append(f"Turn {rec.turn_number} | SPEAKER={label}: {rec.content}")
+        kind = "PRIVATE THOUGHT" if rec.content_type == "thought" else "SPEECH"
+        lines.append(f"Turn {rec.turn_number} | TYPE={kind} | SPEAKER={label}: {rec.content}")
     return "\n".join(lines)
 
 
@@ -71,12 +137,13 @@ async def act(
     history: list[TurnRecord],
     characters: dict[str, Character],
     controlled_id: str,
+    character_id: str,
     config: dict,
     session_id: str = "",
     turn_number: int = 0,
     notes: str = "",
-) -> str:
-    """Builds the Character prompt, calls the LLM, and returns speech/thought.
+) -> CharacterOutput:
+    """Build the Character prompt and return separate speech/thought fields.
 
     Args:
         client: Shared httpx.AsyncClient.
@@ -88,6 +155,7 @@ async def act(
                     `body`/personality to the prompt).
         controlled_id: ID of the human-controlled character — only used to
                        translate the internal "Player" marker to the character's name.
+        character_id: Canonical ID of the Character being called.
         config: Server config (max_tokens).
         session_id: Passed to the raw LLM call log (see ``src/llm/client.py``).
         turn_number: Passed to the raw call log.
@@ -95,13 +163,14 @@ async def act(
                see ``runner.compact_session``) — never another character's.
 
     Returns:
-        The speech/thought (raw string, without JSON).
+        Nullable speech/thought fields, with at least one populated.
     """
     max_tokens_character = config.get("max_tokens_character", 1024)
     history_text = _format_history_for_character(
         history,
         characters,
         controlled_id,
+        character_id,
         context_max=config.get("context_max"),
         max_tokens_character=max_tokens_character,
     )
@@ -116,22 +185,37 @@ async def act(
                 "RECENT EVENTS:\n"
                 f"{history_text}\n"
                 "\n"
-                "What do you say or think?"
+                "Return your audible speech and private thought in the requested fields."
             ),
         },
     ]
 
-    content = await chat_completion(
-        client,
-        messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens_character,
-        timeout=resolve_llm_timeout(config),
-        session_id=session_id,
-        turn_number=turn_number,
-        agent=f"character:{character.mind.name}",
-        **llm_request_options(config),
-    )
-
-    return normalize_generated_text(content.strip())
+    last_error: ValueError | None = None
+    for attempt in range(2):
+        attempt_messages = messages
+        if attempt:
+            attempt_messages = [dict(message) for message in messages]
+            attempt_messages[0]["content"] += (
+                "\nCORRECTION: Your previous response was invalid. Remove every physical "
+                "action or gesture. Return only audible dialogue and/or genuinely internal "
+                "thought.\n"
+            )
+        result = await chat_completion_json(
+            client,
+            attempt_messages,
+            model=config.get("model", ""),
+            language=config.get("language", ""),
+            max_tokens=max_tokens_character,
+            timeout=resolve_llm_timeout(config),
+            json_schema=build_character_json_schema(),
+            retries=0,
+            session_id=session_id,
+            turn_number=turn_number,
+            agent=f"character:{character.mind.name}",
+            **llm_request_options(config),
+        )
+        try:
+            return _normalize_output(result)
+        except ValueError as exc:
+            last_error = exc
+    raise ValueError(f"Invalid Character response after correction: {last_error}")

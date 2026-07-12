@@ -13,7 +13,7 @@ const state = {
     controlledId: null,
     order: [],          // stable ordering of cids for color assignment
     debug: false,
-    lastInputs: null,       // { speech, action, forceSpeaker } for retry
+    lastInputs: null,       // { speech, thought, action, forceSpeaker } for retry
     lastTurnFailed: false,  // true when last sendTurn errored
     canUndo: false,         // true when there's a turn to undo
     abortController: null,  // AbortController for current turn
@@ -27,6 +27,7 @@ const sceneLocation = document.getElementById('scene-location');
 const sceneTags     = document.getElementById('scene-tags');
 const optionsPanel  = document.getElementById('options-panel');
 const inputSpeech   = document.getElementById('input-speech');
+const inputThought  = document.getElementById('input-thought');
 const inputAction   = document.getElementById('input-action');
 const sendBtn       = document.getElementById('send-btn');
 const sessionsBtn   = document.getElementById('sessions-btn');
@@ -73,6 +74,7 @@ function toast(message, type = 'info', ms = 4000) {
 function setLoading(on) {
     const disable = on || !state.sessionId;
     inputSpeech.disabled = disable;
+    inputThought.disabled = disable;
     inputAction.disabled = disable;
     sendBtn.disabled = disable;
     spinner.classList.toggle('active', on);
@@ -265,25 +267,34 @@ function renderHistory(history) {
     chatLog.appendChild(emptyState);
     emptyState.style.display = 'none';
 
-    let playerBuffer = null; // { turnNumber, speech, action }
-    const flushPlayerBuffer = () => {
-        if (!playerBuffer) return;
-        addMessage('Player', buildPlayerEcho(playerBuffer.speech, playerBuffer.action), 'speech');
-        playerBuffer = null;
+    let responseBuffer = null;
+    const flushResponseBuffer = () => {
+        if (!responseBuffer) return;
+        addMessage(responseBuffer.speaker, responseBuffer, 'response');
+        responseBuffer = null;
     };
     for (const record of (history || [])) {
-        if (record.speaker === 'Player' && (record.content_type === 'speech' || record.content_type === 'action')) {
-            if (!playerBuffer || playerBuffer.turnNumber !== record.turn_number) {
-                flushPlayerBuffer();
-                playerBuffer = { turnNumber: record.turn_number, speech: '', action: '' };
+        const combinable = ['speech', 'thought', 'action'].includes(record.content_type) &&
+            record.speaker !== 'Narrator';
+        if (combinable) {
+            if (!responseBuffer || responseBuffer.turnNumber !== record.turn_number ||
+                responseBuffer.speaker !== record.speaker) {
+                flushResponseBuffer();
+                responseBuffer = {
+                    turnNumber: record.turn_number,
+                    speaker: record.speaker,
+                    speech: null,
+                    thought: null,
+                    action: null,
+                };
             }
-            playerBuffer[record.content_type] = record.content;
+            responseBuffer[record.content_type] = record.content;
             continue;
         }
-        flushPlayerBuffer();
+        flushResponseBuffer();
         addMessage(record.speaker, record.content, record.content_type);
     }
-    flushPlayerBuffer();
+    flushResponseBuffer();
 }
 
 async function loadSession(sessionId) {
@@ -302,6 +313,7 @@ async function loadSession(sessionId) {
         renderHistory(gameState.history);
 
         inputSpeech.disabled = false;
+        inputThought.disabled = false;
         inputAction.disabled = false;
         sendBtn.disabled = false;
         inputAction.placeholder = `🎬 Ação (você é ${controlledName()})`;
@@ -346,6 +358,7 @@ function retryTurn() {
     hideActionPopup();
     // Restore inputs (they may have been cleared on error)
     inputSpeech.value = state.lastInputs.speech || '';
+    inputThought.value = state.lastInputs.thought || '';
     inputAction.value = state.lastInputs.action || '';
     if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
     sendTurn(true);
@@ -457,6 +470,23 @@ function revealTypewriter(msg, units) {
     requestAnimationFrame(tick);
 }
 
+function messageSegments(content, contentType) {
+    if (content && typeof content === 'object') {
+        return [
+            content.thought ? { type: 'thought', text: content.thought } : null,
+            content.speech ? { type: 'speech', text: content.speech } : null,
+            content.action ? { type: 'action', text: `🎬 ${content.action}` } : null,
+        ].filter(Boolean);
+    }
+    if (contentType === 'thought') return [{ type: 'thought', text: content }];
+
+    // Compatibility for sessions created before thought became a typed record.
+    return content.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part) => {
+        const thought = part.startsWith('**') && part.endsWith('**');
+        return { type: thought ? 'thought' : contentType, text: thought ? part.slice(2, -2) : part };
+    });
+}
+
 function addMessage(speaker, content, contentType, { animate = false } = {}) {
     const info = speakerInfo(speaker);
 
@@ -483,13 +513,11 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
     body.className = 'msg-content';
     const shouldType = animate && !prefersReducedMotion();
 
-    // Render **text** as italic thought
-    const parts = content.split(/(\*\*[^*]+\*\*)/g);
     const units = [];
-    for (const part of parts) {
-        if (!part) continue;
-        const isThought = part.startsWith('**') && part.endsWith('**');
-        const text = isThought ? part.slice(2, -2) : part;
+    const segments = messageSegments(content, contentType);
+    segments.forEach((segment, index) => {
+        const isThought = segment.type === 'thought';
+        const text = `${index ? '\n' : ''}${segment.text}`;
         let node;
         if (isThought) {
             node = document.createElement('span');
@@ -500,7 +528,7 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
         node.textContent = shouldType ? '' : text;
         body.appendChild(node);
         units.push({ node, text });
-    }
+    });
     msg.appendChild(body);
     chatLog.appendChild(msg);
     emptyState.style.display = 'none';
@@ -511,8 +539,8 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
 
 /* Combines the player's speech + action into the single echo bubble text
    (used both for the live echo in sendTurn and for replaying history). */
-function buildPlayerEcho(speech, action) {
-    return [speech, action ? `🎬 ${action}` : ''].filter(Boolean).join('\n');
+function buildPlayerEcho(speech, thought, action) {
+    return { speech: speech || null, thought: thought || null, action: action || null };
 }
 
 /* ── Sugestão de jogada ("sugira pra mim") ─────────────────────────────── */
@@ -548,6 +576,7 @@ function renderSuggestions(suggestions) {
         // Fills both boxes — does not send on its own, the player confirms on Send.
         btn.addEventListener('click', () => {
             inputSpeech.value = s.speech || '';
+            inputThought.value = '';
             inputAction.value = s.action || '';
             clearSuggestions();
             inputSpeech.focus();
@@ -765,8 +794,9 @@ async function previewPrompt() {
     if (!state.sessionId) { toast('Inicie uma sessão primeiro', 'error'); return; }
     try {
         const speech = inputSpeech.value.trim();
+        const thought = inputThought.value.trim();
         const action = inputAction.value.trim();
-        const data = await api.previewPrompt(state.sessionId, { speech, action });
+        const data = await api.previewPrompt(state.sessionId, { speech, thought, action });
         debugContent.innerHTML = '';
         debugContent.appendChild(
             renderDebugBlock('Preview — Narrador', data.narrator_messages, null));
@@ -829,6 +859,7 @@ async function startSession(cfg) {
         ingestState(data.state);
         emptyState.style.display = 'none';
         inputSpeech.disabled = false;
+        inputThought.disabled = false;
         inputAction.disabled = false;
         sendBtn.disabled = false;
         inputAction.placeholder = `🎬 Ação (você é ${controlledName()})`;
@@ -845,15 +876,20 @@ async function startSession(cfg) {
 async function sendTurn(isRetry = false) {
     if (!state.sessionId) return;
     const speech = inputSpeech.value.trim();
+    const thought = inputThought.value.trim();
     const action = inputAction.value.trim();
     const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
+    if (!speech && !thought && !action) {
+        toast('Escreva uma fala, pensamento ou ação', 'info', 2500);
+        return;
+    }
 
     // Save inputs for potential retry
-    state.lastInputs = { speech, action, forceSpeaker };
+    state.lastInputs = { speech, thought, action, forceSpeaker };
 
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
-    if (!isRetry && (speech || action)) {
-        addMessage('Player', buildPlayerEcho(speech, action), 'speech');
+    if (!isRetry) {
+        addMessage('Player', buildPlayerEcho(speech, thought, action), 'response');
     }
 
     setLoading(true);
@@ -868,6 +904,7 @@ async function sendTurn(isRetry = false) {
     try {
         const data = await api.turn(state.sessionId, {
             speech: speech || '',
+            thought: thought || '',
             action: action || '',
             force_speaker: forceSpeaker || undefined,
         }, ac.signal);
@@ -876,7 +913,7 @@ async function sendTurn(isRetry = false) {
 
         if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
         if (data.character_response) {
-            addMessage(data.next_speaker || 'Narrator', data.character_response, 'speech', { animate: true });
+            addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
         }
 
         if (data.scene_update) {
@@ -887,6 +924,7 @@ async function sendTurn(isRetry = false) {
         }
 
         inputSpeech.value = '';
+        inputThought.value = '';
         inputAction.value = '';
         if (forceSpeakerSelect) forceSpeakerSelect.value = '';
         inputSpeech.focus();
@@ -967,6 +1005,9 @@ inputAction.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTurn(); }
 });
 inputSpeech.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputThought.focus(); }
+});
+inputThought.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputAction.focus(); }
 });
 

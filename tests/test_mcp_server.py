@@ -73,7 +73,9 @@ async def test_adapter_maps_supported_operations_to_http() -> None:
         await api.debug_log("abc", 75)
         await api.start_session(preset_name="thorn-lyra", controlled_character_id="C1")
         await api.fork_session("abc")
-        await api.submit_turn("abc", speech="Hello", action="Wave", force_speaker="C2")
+        await api.submit_turn(
+            "abc", speech="Hello", thought="Stay alert.", action="Wave", force_speaker="C2"
+        )
         for operation in ("suggest", "undo", "compact", "restore_compaction"):
             await api.mutate_session("abc", operation)
         assert await api.replay_status() == {"cursor": 1}
@@ -94,7 +96,7 @@ async def test_adapter_maps_supported_operations_to_http() -> None:
     )
     turn_request = next(request for request in requests if request.url.path.endswith("/turn"))
     assert turn_request.read().decode() == (
-        '{"speech":"Hello","action":"Wave","force_speaker":"C2"}'
+        '{"speech":"Hello","thought":"Stay alert.","action":"Wave","force_speaker":"C2"}'
     )
     assert any(request.url.path == "/replay/reset" for request in requests)
     assert any(request.url.path == "/replay/seek/3" for request in requests)
@@ -160,7 +162,7 @@ async def test_adapter_validates_limits_and_replay_position_before_http() -> Non
                 await api.debug_log("abc", limit)
         with pytest.raises(ToolError, match="zero or greater"):
             await api.seek_replay(-1)
-        with pytest.raises(ValueError, match="Unsupported"):
+        with pytest.raises(ToolError, match="Unsupported"):
             await api.mutate_session("abc", "delete")
     finally:
         await api.aclose()
