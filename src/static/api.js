@@ -3,8 +3,11 @@
    Every wrapper throws on non-2xx so callers can show a friendly toast.
    ══════════════════════════════════════════════════════════════════════ */
 
+const BASE_URL = window.location.protocol === 'file:' ? 'http://127.0.0.1:8889' : '';
+
 async function apiFetch(url, options = {}) {
-    const res = await fetch(url, options);
+    const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+    const res = await fetch(fullUrl, options);
     let data = null;
     try {
         data = await res.json();
