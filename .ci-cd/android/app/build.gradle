@@ -13,7 +13,7 @@ tasks.register('copyPythonSources', Copy) {
 // Faz com que as tarefas do Chaquopy dependam da cópia das fontes
 project.afterEvaluate {
     tasks.configureEach { task ->
-        if (task.name.contains("Python") || task.name.contains("python")) {
+        if (task.name != 'copyPythonSources' && (task.name.contains("Python") || task.name.contains("python"))) {
             task.dependsOn 'copyPythonSources'
         }
     }
