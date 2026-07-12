@@ -8,12 +8,11 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, cast
 
 import httpx
 
-_SESSIONS_DIR = Path(".data/sessions")
+from src.paths import SESSIONS_DIR
 
 
 def _log_llm_call(
@@ -36,7 +35,7 @@ def _log_llm_call(
     """
     if not session_id:
         return
-    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     entry = {
         "ts": datetime.now(UTC).isoformat(),
         "session_id": session_id,
@@ -51,7 +50,7 @@ def _log_llm_call(
         "response": response,
         "error": error,
     }
-    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -65,7 +64,7 @@ def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
     """
     if not session_id:
         return
-    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     entry = {
         "ts": datetime.now(UTC).isoformat(),
         "session_id": session_id,
@@ -73,7 +72,7 @@ def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
         "agent": "undo",
         "removed_records": removed_records,
     }
-    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -89,7 +88,7 @@ def log_compact(
     """
     if not session_id:
         return
-    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     entry = {
         "ts": datetime.now(UTC).isoformat(),
         "session_id": session_id,
@@ -98,7 +97,7 @@ def log_compact(
         "evicted_records": evicted_records,
         "kept_records": kept_records,
     }
-    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
@@ -112,7 +111,7 @@ def log_restore_compaction(session_id: str, restored: bool, reason: str) -> None
     """
     if not session_id:
         return
-    _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     entry = {
         "ts": datetime.now(UTC).isoformat(),
         "session_id": session_id,
@@ -120,7 +119,7 @@ def log_restore_compaction(session_id: str, restored: bool, reason: str) -> None
         "restored": restored,
         "reason": reason,
     }
-    path = _SESSIONS_DIR / f"{session_id}.debug.jsonl"
+    path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 

@@ -7,9 +7,10 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from typing import Any, cast
 
-PRESETS_DIR = Path(".data/presets")
-DEFAULTS_DIR = Path(".data/defaults")
+from src.paths import DEFAULTS_DIR, PRESETS_DIR
+
 _preset_locks: dict[str, asyncio.Lock] = {}
 
 
@@ -61,7 +62,7 @@ def load_preset(name: str) -> dict | None:
         if not path.exists():
             return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, OSError):
         return None
 

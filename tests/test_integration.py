@@ -320,10 +320,6 @@ class TestSessions:
 
     def test_list_sessions_empty(self) -> None:
         """list_sessions retorna [] quando não há sessões."""
-        # Limpa diretório temporário (apenas arquivos .json de teste)
-        for f in SESSIONS_DIR.iterdir():
-            if f.suffix == ".json":
-                f.unlink()
         result = list_sessions()
         assert result == []
 
