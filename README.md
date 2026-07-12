@@ -89,9 +89,9 @@ A single human action can trigger up to two sequential LLM calls:
    unchanged, `null` means the fact is removed from the scene entirely).
 2. **Character call**, only if the routed speaker is a present, non-human-controlled character.
    Receives its own personality, knowledge, and current mood, the Narrator's filtered context
-   message, and prior speech lines only — narration and physical action entries are excluded
-   even though they live in the same history array. Replies in plain text, first person, one to
-   three sentences, thoughts wrapped in the project's bold-markdown convention.
+   message, public speech, and only that Character's own private thoughts. Narration, actions,
+   and other Characters' thoughts are excluded. Replies as structured JSON with nullable
+   `speech` and `thought` fields; at least one must be populated.
 
 If the routed speaker is the human-controlled character (or forced to be, see
 [manual triggers](#-manual-trigger-system-force-speaker--suggestions)), the runner stops after
@@ -181,9 +181,9 @@ inside the fiction. Deliberately left unimplemented until it's actually needed.
 
 | Role | Can | Cannot | Receives in its prompt |
 |---|---|---|---|
-| **Human player** | Speak, think, and act (two input boxes: speech/thought, and physical action) | — the human designs the scene at setup time | — |
-| **Narrator** | Everything physical: action, description, consequence, scene transitions, and deciding who speaks next | Cannot know which character is human-controlled | Everything about the world: full personality and appearance (the `body`) of every character, the scene, the running story summary, and the active history window. Treats every character identically |
-| **Character** | Only speak or think, strictly first person | Cannot narrate, cannot describe environment, cannot perform or describe physical action — not even its own, not even inside a marked thought | Only its own mind (personality, knowledge, mood), its own accumulated character note, the Narrator's `context_for_character` message, and prior speech lines from the active history (never narration, never actions) |
+| **Human player** | Speak, think, and act through three independent inputs | — the human designs the scene at setup time | — |
+| **Narrator** | Everything physical: action, description, consequence, scene transitions, and deciding who speaks next | Cannot know which character is human-controlled or read private thoughts | Everything observable about the world: full personality and appearance (the `body`) of every character, the scene, the running public story summary, and the active public history window |
+| **Character** | Only speak or think, strictly first person | Cannot narrate, describe environment, or perform/describe physical action, including its own | Only its own mind, private accumulated note, Narrator-filtered context, public speech, and its own prior thoughts |
 
 Two real bugs surfaced through live playtesting rather than being designed in from the start:
 
@@ -277,13 +277,14 @@ intercept **once**, right there, for everything. Every actual call to the local 
 character speech, suggestions, summarization) appends one line of JSON to a per-session file,
 right before the request would otherwise return — success or failure. Each line carries a
 timestamp, session id, turn number, which agent triggered it (`"narrator"`,
-`"narrator_suggest"`, `"character:<name>"`, `"summarizer"`), the full outgoing request (model,
+`"narrator_suggest"`, `"character:<name>"`, `"summarizer:world"` or
+`"summarizer:<name>"`), the full outgoing request (model,
 messages, max tokens, response format), and either the response text or the error. This
 naturally captures retries too, since the wrapper's own retry loop logs through the same point
 on every attempt.
 
 Before that first model call, each turn also appends a `turn_input` marker with the exact speech,
-action, requested `force_speaker`, and validated effective override. Call records include the
+private thought, action, requested `force_speaker`, and validated effective override. Call records include the
 attempt number, duration, approximate prompt size, and structured exception type/representation,
 so an exception with an empty string still remains diagnosable and new logs can be replayed
 without inferring UI actions from the Narrator prompt.
@@ -547,8 +548,9 @@ A structured Narrator or Historian call follows this path:
    retry path.
 8. Only a successfully parsed and validated value reaches the agent and application state.
 
-Plain Character dialogue uses the same path without a JSON Schema. This means provider switching
-does not create separate implementations of Narrator, Character, Suggestion, or Historian.
+Character responses use a JSON Schema with nullable `speech` and `thought` fields. Provider
+switching does not create separate implementations of Narrator, Character, Suggestion, or
+Historian.
 
 The shared `httpx.AsyncClient` intentionally has no provider-bound `base_url`. Every adapter
 returns the completion URL for its request. Switching providers therefore does not require
@@ -936,13 +938,11 @@ should be enforced at decode time, not negotiated through instruction-following 
 especially with a smaller local model where instruction-following is weaker than a frontier
 model's.
 
-**Sub-agents with isolated, clean context.** The Character agent and the Narrator agent never
-share a context window. The Character doesn't receive the Narrator's full world state, only a
-filtered message meant specifically for it. The Historian (summarizer) agent follows the same
-pattern: a separate, clean call that receives only what it needs (the outgoing history slice
-plus the current running summary and notes) and returns a condensed result, never the entire
-conversation. Mirrors the general multi-agent pattern of specialized agents working in isolated
-contexts and returning condensed results to whatever coordinates them.
+**Sub-agents with isolated, clean context.** Character and Narrator never share a context window.
+The Character receives only a filtered message, public speech, and its own private memory. During
+compaction, the world summarizer receives only observable events; separate per-character calls
+receive public events plus that Character's thoughts and note. Private thoughts therefore cannot
+enter another Character's note or the public story summary through prompt sharing.
 
 **Structured note-taking as durable, external memory.** Scene facts and character mood are
 external, structured state that persists cheaply outside the prose, read back in as needed

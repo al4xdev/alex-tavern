@@ -69,9 +69,9 @@ def test_turn_input_markers_recover_exact_payload_without_state() -> None:
 
     turns = build_recorded_turns_from_turn_inputs(records)
 
-    assert [(turn.speech, turn.action, turn.force_speaker) for turn in turns] == [
-        ("Speak", "", None),
-        ("", "Move", "C2"),
+    assert [(turn.speech, turn.thought, turn.action, turn.force_speaker) for turn in turns] == [
+        ("Speak", "", "", None),
+        ("", "", "Move", "C2"),
     ]
 
 

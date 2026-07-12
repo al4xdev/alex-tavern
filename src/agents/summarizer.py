@@ -7,6 +7,8 @@ knows a human exists, only sees character names (via ``speaker_label``).
 
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 
 from src.config import llm_request_options
@@ -17,9 +19,8 @@ from src.models import Character, TurnRecord, speaker_label
 def _build_system_prompt(narrator_directives: str = "") -> str:
     prompt = (
         "You are a Historian distilling the story so far, so it keeps fitting a\n"
-        "smaller model's limited context window. You read a chunk of older events\n"
-        "that are about to be discarded from active memory, and fold anything that\n"
-        "still matters into the running world summary and per-character notes.\n"
+        "smaller model's limited context window. You receive only public, observable\n"
+        "events. Fold anything that still matters into the running world summary.\n"
         "\n"
         "FIELDS:\n"
         '- "story_summary": the FULL rewritten world summary; merge the current\n'
@@ -27,18 +28,14 @@ def _build_system_prompt(narrator_directives: str = "") -> str:
         "  key facts, open promises or threats, relationships that changed, items\n"
         "  or people that appeared or disappeared. Prioritize not losing\n"
         "  information over brevity, but stay dense, not verbose.\n"
-        '- "character_notes": an object mapping character id to an updated note,\n'
-        "  ONLY for characters whose note actually needs to change because of\n"
-        "  these events. Omit any character whose existing note is still accurate\n"
-        "  and do not repeat it.\n"
-        "\n"
         "RULES:\n"
         "- These events are being discarded after this. If something matters\n"
-        "  later, it must survive into story_summary or a character note.\n"
+        "  later in the public world, it must survive into story_summary.\n"
         "- TYPE=speech is an attributed claim, not automatically a canonical world fact.\n"
         "- TYPE=action is an attempt until a later TYPE=narration confirms its outcome.\n"
         "- Preserve uncertainty, unknown identities, unresolved threads, and attribution.\n"
         "  Never turn an unsupported claim or inference into an unqualified fact.\n"
+        "- Never include private thoughts or inferred private mental state.\n"
     )
     if narrator_directives.strip():
         prompt += (
@@ -48,21 +45,34 @@ def _build_system_prompt(narrator_directives: str = "") -> str:
     return prompt
 
 
-def build_summarizer_json_schema(character_ids: list[str]) -> dict:
-    """Builds the structural JSON schema for the Summarizer's response."""
+def build_summarizer_json_schema(character_ids: list[str] | None = None) -> dict:
+    """Build the public world-summary schema.
+
+    ``character_ids`` remains accepted for source compatibility; private notes
+    now use isolated calls and are never part of the public response.
+    """
+    del character_ids
     return {
         "name": "summarizer_output",
         "schema": {
             "type": "object",
             "properties": {
                 "story_summary": {"type": "string"},
-                "character_notes": {
-                    "type": "object",
-                    "properties": {cid: {"type": "string"} for cid in character_ids},
-                    "additionalProperties": False,
-                },
             },
-            "required": ["story_summary", "character_notes"],
+            "required": ["story_summary"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_private_memory_json_schema() -> dict:
+    """Build the schema for one character's isolated compacted memory."""
+    return {
+        "name": "private_character_memory",
+        "schema": {
+            "type": "object",
+            "properties": {"character_note": {"type": "string"}},
+            "required": ["character_note"],
             "additionalProperties": False,
         },
     }
@@ -81,14 +91,14 @@ def _build_user_prompt(
     lines.append(f"  {story_summary or '(none yet)'}")
     lines.append("")
 
-    lines.append("CURRENT CHARACTER NOTES:")
-    for cid, ch in characters.items():
-        note = character_notes.get(cid, "(none yet)")
-        lines.append(f"  ID={cid} | NAME={ch.mind.name} | NOTE={note}")
-    lines.append("")
+    # Kept in the signature for compatibility, but private notes must never
+    # enter a prompt that can write the public story summary.
+    del character_notes
 
     lines.append("EVENTS TO SUMMARIZE (oldest to newest, being discarded after this):")
     for rec in evicted_turns:
+        if rec.content_type == "thought":
+            continue
         label = speaker_label(rec.speaker, characters, controlled_id)
         lines.append(
             f"  Turn {rec.turn_number} | TYPE={rec.content_type} | SPEAKER={label}: {rec.content}"
@@ -98,17 +108,46 @@ def _build_user_prompt(
     return "\n".join(lines)
 
 
-def _canonical_character_notes(
-    raw_notes: object, characters: dict[str, Character]
-) -> dict[str, str]:
-    """Keep only string notes keyed by canonical IDs from this session."""
-    if not isinstance(raw_notes, dict):
-        return {}
-    return {
-        character_id: note
-        for character_id, note in raw_notes.items()
-        if character_id in characters and isinstance(note, str)
-    }
+def _private_owner(record: TurnRecord, controlled_id: str) -> str:
+    return controlled_id if record.speaker == "Player" else record.speaker
+
+
+def build_private_memory_messages(
+    character_id: str,
+    character: Character,
+    controlled_id: str,
+    current_note: str,
+    evicted_turns: list[TurnRecord],
+    characters: dict[str, Character],
+    narrator_directives: str = "",
+) -> list[dict]:
+    """Build a prompt containing public events plus only this character's thoughts."""
+    rules = (
+        f"You compact private memory for {character.mind.name} (ID={character_id}).\n"
+        "Return the full rewritten private note for this character. Preserve public\n"
+        "events they experienced and their own private thoughts. Never infer another\n"
+        "character's thoughts, and never write a world summary.\n"
+        "TYPE=speech is an attributed claim. TYPE=action is an attempt until confirmed\n"
+        "by TYPE=narration. TYPE=thought is private and belongs only to this character.\n"
+    )
+    if narrator_directives.strip():
+        rules += f"\nWORLD DIRECTIVES:\n{narrator_directives.strip()}\n"
+    lines = [f"CURRENT PRIVATE NOTE:\n  {current_note or '(none yet)'}", "", "EVENTS:"]
+    for record in evicted_turns:
+        if (
+            record.content_type == "thought"
+            and _private_owner(record, controlled_id) != character_id
+        ):
+            continue
+        label = speaker_label(record.speaker, characters, controlled_id)
+        lines.append(
+            f"  Turn {record.turn_number} | TYPE={record.content_type} | "
+            f"SPEAKER={label}: {record.content}"
+        )
+    return [
+        {"role": "system", "content": rules},
+        {"role": "user", "content": "\n".join(lines)},
+    ]
 
 
 def build_summarizer_messages(
@@ -147,16 +186,7 @@ async def summarize(
     session_id: str = "",
     turn_number: int = 0,
 ) -> tuple[str, dict[str, str]]:
-    """Calls the Summarizer, returns the updated summary and the notes that changed.
-
-    ``character_notes`` returned contains ONLY the entries the LLM decided
-    to update (characters not mentioned in the evicted events are omitted
-    purposely) — the caller (``runner.compact_session``) merges this with
-    the existing ``character_notes`` in ``GameState``.
-
-    Returns:
-        Tuple of ``(story_summary, changed_character_notes)``.
-    """
+    """Compact public history and isolated per-character private memories."""
     max_tokens = config.get("summarizer_max_tokens", 1024)
     messages = build_summarizer_messages(
         characters=characters,
@@ -167,6 +197,7 @@ async def summarize(
         narrator_directives=narrator_directives,
     )
 
+    common_options = llm_request_options(config)
     result = await chat_completion_json(
         client,
         messages,
@@ -174,18 +205,50 @@ async def summarize(
         language=config.get("language", ""),
         max_tokens=max_tokens,
         timeout=resolve_llm_timeout(config),
-        json_schema=build_summarizer_json_schema(list(characters)),
+        json_schema=build_summarizer_json_schema(),
         session_id=session_id,
         turn_number=turn_number,
-        agent="summarizer",
-        **llm_request_options(config),
+        agent="summarizer:world",
+        **common_options,
     )
 
     new_summary = normalize_generated_text(str(result.get("story_summary", story_summary)))
-    changed_notes = {
-        character_id: normalize_generated_text(note)
-        for character_id, note in _canonical_character_notes(
-            result.get("character_notes"), characters
-        ).items()
+    relevant_ids = {
+        character_id
+        for character_id, character in characters.items()
+        if any(
+            _private_owner(record, controlled_id) == character_id
+            or character.mind.name.casefold() in record.content.casefold()
+            for record in evicted_turns
+        )
     }
+
+    async def compact_private(character_id: str) -> tuple[str, str]:
+        character = characters[character_id]
+        private_result = await chat_completion_json(
+            client,
+            build_private_memory_messages(
+                character_id,
+                character,
+                controlled_id,
+                character_notes.get(character_id, ""),
+                evicted_turns,
+                characters,
+                narrator_directives,
+            ),
+            model=config.get("model", ""),
+            language=config.get("language", ""),
+            max_tokens=max_tokens,
+            timeout=resolve_llm_timeout(config),
+            json_schema=build_private_memory_json_schema(),
+            session_id=session_id,
+            turn_number=turn_number,
+            agent=f"summarizer:{character.mind.name}",
+            **common_options,
+        )
+        note = normalize_generated_text(str(private_result.get("character_note", "")))
+        return character_id, note
+
+    private_results = await asyncio.gather(*(compact_private(cid) for cid in sorted(relevant_ids)))
+    changed_notes = {character_id: note for character_id, note in private_results if note}
     return new_summary, changed_notes

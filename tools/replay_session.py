@@ -23,6 +23,7 @@ class RecordedTurn:
 
     turn_number: int
     speech: str
+    thought: str
     action: str
     force_speaker: str | None
 
@@ -98,10 +99,12 @@ def build_recorded_turns_from_turn_inputs(
         if turn_number in seen_turns:
             raise ReplaySessionError(f"Duplicate turn_input marker for turn {turn_number}")
         speech = input_payload.get("speech")
+        thought = input_payload.get("thought", "")
         action = input_payload.get("action")
         force_speaker = input_payload.get("force_speaker")
         if (
             not isinstance(speech, str)
+            or not isinstance(thought, str)
             or not isinstance(action, str)
             or (force_speaker is not None and not isinstance(force_speaker, str))
         ):
@@ -110,6 +113,7 @@ def build_recorded_turns_from_turn_inputs(
             RecordedTurn(
                 turn_number=turn_number,
                 speech=speech,
+                thought=thought,
                 action=action,
                 force_speaker=force_speaker,
             )
@@ -235,6 +239,7 @@ async def replay_and_compare(
                 f"/session/{session_id}/turn",
                 payload={
                     "speech": turn.speech,
+                    "thought": turn.thought,
                     "action": turn.action,
                     "force_speaker": turn.force_speaker,
                 },
@@ -263,7 +268,8 @@ async def replay_and_compare(
         )
 
         has_summarizer_output = any(
-            output.get("agent") == "summarizer" for output in successful_outputs(source_records)
+            str(output.get("agent", "")).startswith("summarizer")
+            for output in successful_outputs(source_records)
         )
         compact_result = (
             await _request(app_client, "POST", f"/session/{session_id}/compact")

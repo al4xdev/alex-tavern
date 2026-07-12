@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from src.config import (
     ConfigValidationError,
@@ -120,13 +120,25 @@ class StartSessionResponse(BaseModel):
 
 class PlayerTurnRequest(BaseModel):
     speech: str = ""
+    thought: str = ""
     action: str = ""
     force_speaker: str | None = None
+
+    @model_validator(mode="after")
+    def require_content(self) -> PlayerTurnRequest:
+        if not any(value.strip() for value in (self.speech, self.thought, self.action)):
+            raise ValueError("A turn needs speech, thought, or action")
+        return self
+
+
+class CharacterResponse(BaseModel):
+    speech: str | None = None
+    thought: str | None = None
 
 
 class PlayerTurnResponse(BaseModel):
     narration: str | None = None
-    character_response: str | None = None
+    character_response: CharacterResponse | None = None
     next_speaker: str | None = None
     scene_update: dict | None = None
     turn_number: int | None = None
@@ -135,6 +147,7 @@ class PlayerTurnResponse(BaseModel):
 
 class PreviewPromptRequest(BaseModel):
     speech: str = ""
+    thought: str = ""
     action: str = ""
 
 
@@ -249,6 +262,7 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
     result = await _runtime().runner.player_turn(
         session_id=session_id,
         speech=body.speech,
+        thought=body.thought,
         action=body.action,
         force_speaker=body.force_speaker,
     )
@@ -429,7 +443,7 @@ def delete_preset_endpoint(name: str) -> dict:
 async def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
     """Returns the Narrator messages for the current state — without calling the LLM."""
     messages = await _runtime().runner.preview_narrator_prompt(
-        session_id, speech=body.speech, action=body.action
+        session_id, speech=body.speech, thought=body.thought, action=body.action
     )
     if not messages:
         raise HTTPException(status_code=404, detail="Session not found")

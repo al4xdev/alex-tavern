@@ -26,8 +26,11 @@ DEFAULT_SCENARIO_DIR = Path(__file__).resolve().parent / "playtests"
 SUPPORTED_EVENTS = {"turn", "suggest", "compact", "restore_compaction", "undo"}
 SECOND_PERSON_RE = re.compile(r"\b(?:you|your|yours|yourself)\b", re.IGNORECASE)
 CHARACTER_ACTION_RE = re.compile(
-    r"\b(?:I (?:say|whisper|mutter|stammer|blink|stumble|lean|peer|stare|glance|"
-    r"grip|pull|raise|hold|step|turn)|my (?:eyes|hands?|fingers?|grip|heart|body|feet))\b",
+    r"\b(?:(?:I |eu )?(?:blink|stumble|lean|peer|stare|glance|grip|pull|raise|"
+    r"hold|step|turn|arrumo|inclino|ergo|abaixo|toco|seguro|agarro|puxo|empurro|"
+    r"levanto|ando|caminho|olho|encaro|viro|sorrio|pisco|tamborilo)|"
+    r"(?:my |meus? |minhas? )(?:eyes|hands?|fingers?|grip|heart|body|feet|"
+    r"olhos?|mãos?|dedos?|corpo|pés?))\b",
     re.IGNORECASE,
 )
 
@@ -119,15 +122,16 @@ def load_scenario(path: Path) -> Scenario:
         event = dict(raw_event)
         if event_type == "turn":
             speech = event.get("speech", "")
+            thought = event.get("thought", "")
             action = event.get("action", "")
             force_speaker = event.get("force_speaker")
-            if not isinstance(speech, str) or not isinstance(action, str):
+            if not all(isinstance(value, str) for value in (speech, thought, action)):
                 raise PlaytestConfigurationError(
-                    f"{path}: turn event {index} speech/action must be strings"
+                    f"{path}: turn event {index} speech/thought/action must be strings"
                 )
-            if not speech and not action:
+            if not speech and not thought and not action:
                 raise PlaytestConfigurationError(
-                    f"{path}: turn event {index} needs speech or action"
+                    f"{path}: turn event {index} needs speech, thought, or action"
                 )
             if force_speaker is not None and not isinstance(force_speaker, str):
                 raise PlaytestConfigurationError(
@@ -136,6 +140,7 @@ def load_scenario(path: Path) -> Scenario:
             event = {
                 "type": "turn",
                 "speech": speech,
+                "thought": thought,
                 "action": action,
                 "force_speaker": force_speaker,
             }
@@ -194,6 +199,7 @@ async def _run_event(runner: Any, session_id: str, event: dict[str, Any]) -> Any
         return await runner.player_turn(
             session_id,
             speech=event["speech"],
+            thought=event["thought"],
             action=event["action"],
             force_speaker=event["force_speaker"],
         )

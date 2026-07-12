@@ -19,6 +19,9 @@ def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
     assert 'data-provider="deepseek"' not in html
     assert 'id="provider-switch"' in html
     assert 'id="provider-panels"' in html
+    assert 'id="input-speech"' in html
+    assert 'id="input-thought"' in html
+    assert 'id="input-action"' in html
 
 
 def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -> None:

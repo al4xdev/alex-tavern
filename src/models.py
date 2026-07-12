@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -61,6 +62,45 @@ class TurnRecord:
     content_type: str  # "speech", "thought", "narration", "action"
     scene_snapshot: Scene  # deepcopy of the scene in that turn
     mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
+
+
+_LEGACY_THOUGHT_RE = re.compile(r"(\*\*[^*]+\*\*)")
+
+
+def migrate_legacy_history(history: list[TurnRecord]) -> list[TurnRecord]:
+    """Split legacy ``**thought**`` fragments out of speech records.
+
+    The transformation is idempotent: only speech records containing legacy
+    wrappers are expanded, while already typed thought records pass through.
+    """
+    migrated: list[TurnRecord] = []
+    for record in history:
+        if record.content_type != "speech" or "**" not in record.content:
+            migrated.append(record)
+            continue
+        parts = _LEGACY_THOUGHT_RE.split(record.content)
+        expanded: list[TurnRecord] = []
+        converted = False
+        for part in parts:
+            content = part.strip()
+            if not content:
+                continue
+            is_thought = content.startswith("**") and content.endswith("**")
+            if is_thought:
+                content = content[2:-2].strip()
+                converted = True
+            expanded.append(
+                TurnRecord(
+                    turn_number=record.turn_number,
+                    speaker=record.speaker,
+                    content=content,
+                    content_type="thought" if is_thought else "speech",
+                    scene_snapshot=record.scene_snapshot,
+                    mood_snapshot=record.mood_snapshot,
+                )
+            )
+        migrated.extend(expanded if converted else [record])
+    return migrated
 
 
 @dataclass
@@ -199,7 +239,7 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         characters=characters,
         player=player,
         scene=scene,
-        history=history,
+        history=migrate_legacy_history(history),
         created_at=data.get("created_at", ""),
         narrator_directives=data.get("narrator_directives", ""),
         story_summary=data.get("story_summary", ""),

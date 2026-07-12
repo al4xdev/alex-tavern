@@ -158,9 +158,10 @@ def _build_user_prompt(
 
     # History — complete window, or trimmed by token budget if context_max is provided
     lines.append("HISTORY:")
-    hist = history
+    # Thoughts are private and must never become Narrator knowledge.
+    hist = [rec for rec in history if rec.content_type != "thought"]
     if context_max is not None:
-        hist = trim_history_by_tokens(history, context_max, max_tokens_narrator)
+        hist = trim_history_by_tokens(hist, context_max, max_tokens_narrator)
     if hist:
         for rec in hist:
             label = speaker_label(rec.speaker, characters, player_controlled_id)

@@ -56,6 +56,7 @@ def log_turn_input(
     session_id: str,
     turn_number: int,
     speech: str,
+    thought: str,
     action: str,
     requested_force_speaker: str | None,
     effective_force_speaker: str | None,
@@ -70,6 +71,7 @@ def log_turn_input(
             "agent": "turn_input",
             "input": {
                 "speech": speech,
+                "thought": thought,
                 "action": action,
                 "force_speaker": requested_force_speaker,
             },

@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 import httpx
 
+from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.agents.narrator import suggest as narrator_suggest
@@ -126,6 +127,7 @@ class Runner:
         self,
         session_id: str,
         speech: str = "",
+        thought: str = "",
         action: str = "",
         force_speaker: str | None = None,
     ) -> dict:
@@ -147,7 +149,8 @@ class Runner:
 
         Args:
             session_id: Session ID.
-            speech: Player's speech/thought.
+            speech: Player's audible speech.
+            thought: Player character's private thought.
             action: Player's physical action.
             force_speaker: Manual trigger — ID of a present character or
                 "Narrator", to force who acts next instead of letting the
@@ -157,6 +160,8 @@ class Runner:
             Dict with: narration, character_response, next_speaker,
             scene_update, turn_number.
         """
+        if not any(value.strip() for value in (speech, thought, action)):
+            raise ValueError("A turn needs speech, thought, or action")
         async with _get_lock(session_id):
             game = load_game(session_id)
             if game is None:
@@ -168,13 +173,15 @@ class Runner:
 
             effective_force_speaker = (
                 force_speaker
-                if force_speaker in game.characters or force_speaker == "Narrator"
+                if (speech or action)
+                and (force_speaker in game.characters or force_speaker == "Narrator")
                 else None
             )
             log_turn_input(
                 session_id,
                 step,
                 speech,
+                thought,
                 action,
                 force_speaker,
                 effective_force_speaker,
@@ -183,8 +190,23 @@ class Runner:
             # Persist the turn BEFORE calling the Narrator (blind).
             if speech:
                 self._append_history(game, "Player", speech, "speech", step)
+            if thought:
+                self._append_history(game, "Player", thought, "thought", step)
             if action:
                 self._append_history(game, "Player", action, "action", step)
+
+            # A private thought has no observable event for the Narrator to
+            # resolve. Persist it as a complete step without replaying the
+            # previous public event or inventing a reaction to hidden content.
+            if thought and not speech and not action:
+                save_game(game)
+                return {
+                    "narration": None,
+                    "character_response": None,
+                    "next_speaker": game.player.controlled_character_id,
+                    "scene_update": None,
+                    "turn_number": step,
+                }
 
             # Call Narrator
             narrator_raw = await self._call_narrator(game, step, effective_force_speaker)
@@ -195,7 +217,7 @@ class Runner:
 
             speaker = effective_force_speaker or narrator_raw["next_speaker"]
             controlled = game.player.controlled_character_id
-            character_response: str | None = None
+            character_response: CharacterOutput | None = None
 
             # The Narrator is blind and can route to the controlled character —
             # in this case, the runner does NOT generate their speech; pauses and returns
@@ -203,7 +225,14 @@ class Runner:
             if speaker in game.characters and speaker != controlled:
                 ctx = narrator_raw.get("context_for_character", "")
                 character_response = await self._call_character(game, speaker, ctx, step)
-                self._append_history(game, speaker, character_response, "speech", step)
+                if character_response["thought"]:
+                    self._append_history(
+                        game, speaker, character_response["thought"], "thought", step
+                    )
+                if character_response["speech"]:
+                    self._append_history(
+                        game, speaker, character_response["speech"], "speech", step
+                    )
 
             # Update scene
             scene_up = narrator_raw.get("scene_update")
@@ -420,7 +449,7 @@ class Runner:
 
     async def _call_character(
         self, game: GameState, character_id: str, context: str, turn_number: int
-    ) -> str:
+    ) -> CharacterOutput:
         """Calls Character agent with filtered context. Returns the content."""
         return await character_act(
             client=self.client,
@@ -429,6 +458,7 @@ class Runner:
             history=game.history,
             characters=game.characters,
             controlled_id=game.player.controlled_character_id,
+            character_id=character_id,
             config=self.config,
             session_id=game.session_id,
             turn_number=turn_number,
@@ -436,7 +466,7 @@ class Runner:
         )
 
     async def preview_narrator_prompt(
-        self, session_id: str, speech: str = "", action: str = ""
+        self, session_id: str, speech: str = "", thought: str = "", action: str = ""
     ) -> list[dict]:
         """Assembles and returns the Narrator's messages for the current state.
 
@@ -463,6 +493,16 @@ class Runner:
                         speaker="Player",
                         content=speech,
                         content_type="speech",
+                        scene_snapshot=game.scene,
+                    )
+                )
+            if thought:
+                history.append(
+                    TurnRecord(
+                        turn_number=next_turn,
+                        speaker="Player",
+                        content=thought,
+                        content_type="thought",
                         scene_snapshot=game.scene,
                     )
                 )
