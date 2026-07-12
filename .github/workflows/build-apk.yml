@@ -7,7 +7,6 @@ on:
     tags:
       - 'v*'
 
-# Permissões necessárias para criar/atualizar Releases no repositório
 permissions:
   contents: write
 
@@ -76,9 +75,13 @@ jobs:
             notes="Latest automated debug build from master branch."
           fi
           
-          # Cria a release caso não exista, ou atualiza o arquivo se já existir (--clobber)
+          # Se for a release do master ("latest"), deleta a anterior para evitar conflito de tags/assets
+          if [ "$tag_name" = "latest" ]; then
+            gh release delete latest --yes || true
+          fi
+          
+          # Cria a nova release e faz o upload do APK
           gh release create "$tag_name" .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk \
             --title "$title" \
             --notes "$notes" \
-            --prerelease \
-            --clobber
+            --prerelease
