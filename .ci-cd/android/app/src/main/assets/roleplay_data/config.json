@@ -1,8 +1,27 @@
 {
-	"llm_host": "http://192.168.0.183:8888",
-	"model": "",
-	"context_max": 98304,
-	"max_tokens_narrator": 2048,
-	"max_tokens_character": 1024,
-	"language": "Portuguese"
+  "active_provider": "llama_cpp",
+  "language": "Portuguese",
+  "compaction_keep_recent_turns": 8,
+  "providers": {
+    "llama_cpp": {
+      "api_base": "http://192.168.0.183:8888/v1",
+      "model": "",
+      "context_max": 98304,
+      "max_tokens_narrator": 2048,
+      "max_tokens_character": 1024,
+      "summarizer_max_tokens": 1024,
+      "llm_timeout_seconds": 60.0
+    },
+    "deepseek": {
+      "api_base": "https://api.deepseek.com",
+      "api_key": "",
+      "model": "deepseek-v4-flash",
+      "thinking_enabled": false,
+      "context_max": 524288,
+      "max_tokens_narrator": 2048,
+      "max_tokens_character": 1024,
+      "summarizer_max_tokens": 1024,
+      "llm_timeout_seconds": 60.0
+    }
+  }
 }

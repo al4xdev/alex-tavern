@@ -273,6 +273,7 @@ select.text-input { cursor: pointer; }
 /* AI engine — server-owned config, visually separated from adventure presets */
 .ai-engine-section {
     position: relative;
+    flex-shrink: 0;
     overflow: hidden;
     background:
         linear-gradient(135deg, rgba(124, 108, 255, 0.08), transparent 48%),
