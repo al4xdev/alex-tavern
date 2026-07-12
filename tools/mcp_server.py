@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from typing import Any, cast
@@ -91,9 +92,11 @@ class DebugApiClient:
             try:
                 body = response.json()
             except ValueError:
-                detail = response.text
+                detail = response.text or response.reason_phrase
             else:
                 detail = body.get("detail", body) if isinstance(body, dict) else body
+                if not isinstance(detail, str):
+                    detail = json.dumps(detail, ensure_ascii=False, sort_keys=True)
             raise ToolError(
                 f"{service} returned HTTP {response.status_code} for {method} {path}: {detail}"
             )
