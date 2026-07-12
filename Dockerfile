@@ -29,6 +29,9 @@ COPY --from=builder --chown=appuser:appgroup /app /app
 # Ensure data directory exists and is owned by the appuser
 RUN mkdir -p /app/.data && chown -R appuser:appgroup /app/.data
 
+# Make sure entrypoint script is executable
+RUN chmod +x /app/entrypoint.sh
+
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Expose the API port
@@ -39,6 +42,9 @@ VOLUME [ "/app/.data" ]
 
 # Switch to the non-root user
 USER appuser
+
+# Define the entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Command to run uvicorn
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8889"]
