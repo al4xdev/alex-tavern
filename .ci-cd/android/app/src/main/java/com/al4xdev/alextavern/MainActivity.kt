@@ -179,6 +179,16 @@ class MainActivity : AppCompatActivity() {
                     e.printStackTrace()
                 }
             }
+            .setNegativeButton("Copiar") { _, _ ->
+                try {
+                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    val clip = android.content.ClipData.newPlainText("TavernLogs", logs)
+                    clipboard.setPrimaryClip(clip)
+                    android.widget.Toast.makeText(this, "Logs copiados!", android.widget.Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
             .show()
     }
 
