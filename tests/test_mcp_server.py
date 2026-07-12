@@ -27,9 +27,7 @@ async def test_adapter_maps_supported_operations_to_http() -> None:
                 request,
                 {
                     "paths": {
-                        "/sessions": {
-                            "get": {"summary": "List", "operationId": "get_sessions"}
-                        },
+                        "/sessions": {"get": {"summary": "List", "operationId": "get_sessions"}},
                         "/session/{session_id}": {
                             "delete": {"summary": "Delete", "operationId": "delete_session"}
                         },
@@ -166,12 +164,8 @@ async def test_adapter_validates_limits_and_replay_position_before_http() -> Non
 @pytest.mark.asyncio
 async def test_mcp_registry_separates_tools_and_omits_delete_and_retry() -> None:
     api = DebugApiClient(
-        roleplay_transport=httpx.MockTransport(
-            lambda request: _json_response(request, {})
-        ),
-        replay_transport=httpx.MockTransport(
-            lambda request: _json_response(request, {})
-        ),
+        roleplay_transport=httpx.MockTransport(lambda request: _json_response(request, {})),
+        replay_transport=httpx.MockTransport(lambda request: _json_response(request, {})),
     )
     server = create_mcp_server(api=api)
     try:

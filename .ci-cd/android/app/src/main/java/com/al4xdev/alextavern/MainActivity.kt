@@ -23,8 +23,8 @@ class MainActivity : AppCompatActivity() {
             dataDir.mkdirs()
         }
 
-        // Copia recursivamente a estrutura de dados (.data) dos assets para o armazenamento do celular
-        copyAssetsFolder(".data", dataDir)
+        // Copia recursivamente a estrutura de dados (roleplay_data) dos assets para o armazenamento do celular
+        copyAssetsFolder("roleplay_data", dataDir)
 
         // Inicializa o Chaquopy Runtime
         if (!Python.isStarted()) {
@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
         try {
             val assetsList = assets.list(assetDirPath) ?: return
             if (assetsList.isEmpty()) {
-                val relativePath = assetDirPath.removePrefix(".data/").removePrefix(".data")
+                val relativePath = assetDirPath.removePrefix("roleplay_data/").removePrefix("roleplay_data")
                 if (relativePath.isEmpty()) return
                 val targetFile = File(targetDir, relativePath)
                 if (targetFile.exists() && !overwrite) {

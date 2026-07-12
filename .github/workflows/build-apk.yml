@@ -34,18 +34,6 @@ jobs:
           mkdir -p .ci-cd/android/app/src/main/assets
           cp -r src/static/* .ci-cd/android/app/src/main/assets/
 
-      # COPIA DE CONFIGURAÇÃO DE DEBUG (IP DO LLM)
-      # TODO: REMOVE THIS FOR PRODUCTION - ONLY FOR DEBUG
-      # Copia a pasta de dados local contendo seu config.json configurado para o IP local do seu PC.
-      # Certifique-se de que a pasta existe no git ou remova temporariamente do .gitignore ao commitar para esta revisão.
-      - name: Copy Local .data for Debugging (LLM Host IP)
-        run: |
-          if [ -d ".data" ]; then
-            echo "Pasta .data encontrada! Copiando para os assets do APK..."
-            cp -r .data .ci-cd/android/app/src/main/assets/.data
-          else
-            echo "Pasta .data não encontrada. O app usará as configurações padrão."
-          fi
 
       # Compila o APK usando o Gradle pré-instalado na máquina virtual do runner
       - name: Build APK with Gradle

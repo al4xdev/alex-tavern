@@ -63,7 +63,7 @@ def load_preset(name: str) -> dict | None:
             return None
     try:
         return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return None
 
 
