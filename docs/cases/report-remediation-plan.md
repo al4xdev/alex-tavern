@@ -1,14 +1,14 @@
 # Plano de remediação do `report.md`
 
 **Data:** 2026-07-12
-**Fonte exclusiva:** [`.plan/closed/report.md`](./report.md)
+**Fonte exclusiva:** [`report.md`](./report.md)
 **Estado:** pronto para execução autônoma
-**Saída prevista:** [`.plan/closed/report-remediation-final.md`](./report-remediation-final.md)
+**Saída prevista:** [`report-remediation-final.md`](./report-remediation-final.md)
 
 ## Objetivo
 
-Corrigir e verificar os problemas encontrados no playtest Thorn/Lyra sem incorporar o backlog de
-`.plan/tasks/`. O arquivo `report.md` permanece inalterado como evidência original. Ao final, será
+Corrigir e verificar os problemas encontrados no playtest Thorn/Lyra sem incorporar o backlog
+privado de tasks. O arquivo `report.md` permanece inalterado como evidência original. Ao final, será
 gerado um relatório rastreável, com mudanças, testes, resultados do playtest e riscos residuais.
 
 ## Baseline confirmado
@@ -37,9 +37,9 @@ e defeitos de linguagem. A relação entre tamanho de contexto e timeout continu
 
 ## Limites de escopo
 
-- Não implementar itens de `.plan/tasks/`, incluindo agente de correção gramatical, compactação
+- Não implementar itens do backlog privado, incluindo agente de correção gramatical, compactação
   automática, RAG, internacionalização ou mídia do README.
-- Não alterar nem reescrever `.plan/closed/report.md`.
+- Não alterar nem reescrever `report.md`.
 - Não fazer commit, push ou outra mutação git.
 - Não usar, limpar ou modificar sessões reais em `.data/` durante testes ou playtests.
 - Não declarar um problema qualitativo como resolvido apenas porque um prompt foi alterado.
@@ -262,7 +262,7 @@ Depois:
 
 ## Relatório final obrigatório
 
-Criar `.plan/closed/report-remediation-final.md` com:
+Criar `report-remediation-final.md` com:
 
 1. resumo executivo;
 2. hash/commit-base analisado e escopo do diff;
@@ -287,4 +287,4 @@ O trabalho estará concluído quando:
 - a suíte determinística estiver verde;
 - o playtest real estiver concluído ou formalmente marcado como bloqueado por indisponibilidade do
   endpoint, sem impedir as demais entregas;
-- `.plan/closed/report-remediation-final.md` permitir auditoria achado por achado.
+- `report-remediation-final.md` permitir auditoria achado por achado.

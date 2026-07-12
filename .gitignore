@@ -1,6 +1,4 @@
-.plan/*
-!.plan/closed/
-!.plan/closed/**
+.plan/
 __pycache__/
 *.pyc
 .venv/

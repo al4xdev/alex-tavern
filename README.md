@@ -1044,6 +1044,14 @@ Schema validation, persisted state, prompt preview, JSONL evidence, deterministi
 provider probes provide complementary checks. The observability layers above make these checks
 available without changing the turn pipeline.
 
+## 🧪 Engineering case studies
+
+Completed investigations are published under [`docs/cases/`](docs/cases/README.md), including the
+original finding, implementation plan, final validation, and task closure where applicable. These
+are development records rather than a second product specification: later closure reports and the
+current source supersede intermediate assumptions. Active tasks, scratch reports, and unfinished
+planning remain private under the ignored `.plan/` directory.
+
 ---
 
 ## 🔮 Future Work
