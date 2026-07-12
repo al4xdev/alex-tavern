@@ -71,8 +71,7 @@ class Runner:
             defaults = list_defaults()
             if not defaults:
                 raise ValueError(
-                    "The session needs at least one character, "
-                    "and no default preset was found."
+                    "The session needs at least one character, and no default preset was found."
                 )
             preset_data = load_preset(defaults[0])
             if not preset_data or "characters" not in preset_data:

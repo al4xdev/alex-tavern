@@ -44,7 +44,7 @@ def load_config() -> dict[str, Any]:
         for k, v in DEFAULT_CONFIG.items():
             data.setdefault(k, v)
         return data
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return DEFAULT_CONFIG.copy()
 
 
@@ -172,9 +172,7 @@ def start_session(req: StartSessionRequest) -> dict:
     if req.preset_name:
         preset_val = load_preset(req.preset_name)
         if preset_val is None:
-            raise HTTPException(
-                status_code=404, detail=f"Preset '{req.preset_name}' not found."
-            )
+            raise HTTPException(status_code=404, detail=f"Preset '{req.preset_name}' not found.")
         preset_data = preset_val
 
     if not preset_data and not req.characters and not req.scene:
@@ -413,9 +411,7 @@ def get_defaults(name: str | None = None) -> dict:
 
     preset_val = load_preset(target_name)
     if not preset_val:
-        raise HTTPException(
-            status_code=404, detail=f"Default preset '{target_name}' not found."
-        )
+        raise HTTPException(status_code=404, detail=f"Default preset '{target_name}' not found.")
 
     return {
         "presets": defaults,
