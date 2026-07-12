@@ -10,4 +10,4 @@ DATA_DIR = Path(os.environ.get(DATA_DIR_ENV, ".data")).expanduser()
 CONFIG_PATH = DATA_DIR / "config.json"
 SESSIONS_DIR = DATA_DIR / "sessions"
 PRESETS_DIR = DATA_DIR / "presets"
-DEFAULTS_DIR = DATA_DIR / "defaults"
+DEFAULTS_DIR = Path(__file__).resolve().parent / "defaults"

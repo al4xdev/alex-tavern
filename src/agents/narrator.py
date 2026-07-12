@@ -6,6 +6,7 @@ import json
 
 import httpx
 
+from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
 from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
 
@@ -267,6 +268,7 @@ async def narrate(
         session_id=session_id,
         turn_number=turn_number,
         agent="narrator",
+        **llm_request_options(config),
     )
 
     # Validate required fields
@@ -405,6 +407,7 @@ async def suggest(
         session_id=session_id,
         turn_number=turn_number,
         agent="narrator_suggest",
+        **llm_request_options(config),
     )
 
     suggestions: list[dict] = result.get("suggestions", [])

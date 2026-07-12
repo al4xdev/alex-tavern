@@ -16,7 +16,7 @@ from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.summarizer import summarize
-from src.llm.client import log_compact, log_restore_compaction, log_turn_input, log_undo
+from src.llm.debug_log import log_compact, log_restore_compaction, log_turn_input, log_undo
 from src.models import (
     GameState,
     Player,
@@ -59,6 +59,14 @@ class Runner:
         """
         cfg = session_config or {}
         session_id = generate_session_id()
+        preset_data: dict | None = None
+
+        if "characters" not in cfg or "scene" not in cfg:
+            from src.store.presets import list_defaults, load_default
+
+            defaults = list_defaults()
+            if defaults:
+                preset_data = load_default(defaults[0])
 
         if "characters" in cfg:
             characters = cfg["characters"]
@@ -66,14 +74,11 @@ class Runner:
                 raise ValueError("The session needs at least one character.")
         else:
             from src.models import dict_to_character
-            from src.store.presets import list_defaults, load_preset
 
-            defaults = list_defaults()
-            if not defaults:
+            if preset_data is None:
                 raise ValueError(
                     "The session needs at least one character, and no default preset was found."
                 )
-            preset_data = load_preset(defaults[0])
             if not preset_data or "characters" not in preset_data:
                 raise ValueError(
                     "The session needs at least one character, and the default preset is corrupted."
@@ -81,29 +86,20 @@ class Runner:
             characters = {
                 cid: dict_to_character(cdata) for cid, cdata in preset_data["characters"].items()
             }
-
         if "scene" in cfg:
             scene = cfg["scene"]
+        elif preset_data and "scene" in preset_data:
+            from src.models import Scene
+
+            sdata = preset_data["scene"]
+            scene = Scene(
+                location=sdata["location"],
+                time_of_day=sdata["time_of_day"],
+                present_characters=list(sdata.get("present_characters", [])),
+                physical_facts=dict(sdata.get("physical_facts", {})),
+            )
         else:
-            from src.store.presets import list_defaults, load_preset
-
-            defaults = list_defaults()
-            if defaults:
-                preset_data = load_preset(defaults[0])
-                if preset_data and "scene" in preset_data:
-                    from src.models import Scene
-
-                    sdata = preset_data["scene"]
-                    scene = Scene(
-                        location=sdata["location"],
-                        time_of_day=sdata["time_of_day"],
-                        present_characters=list(sdata.get("present_characters", [])),
-                        physical_facts=dict(sdata.get("physical_facts", {})),
-                    )
-                else:
-                    raise ValueError("No default scene available.")
-            else:
-                raise ValueError("No default scene available.")
+            raise ValueError("No default scene available.")
 
         # Do not trust the client: present_characters is derived from the characters.
         scene.present_characters = [*characters, "Player"]
@@ -229,16 +225,18 @@ class Runner:
                 "turn_number": step,
             }
 
-    def get_state(self, session_id: str) -> GameState | None:
-        """Loads GameState from JSON (no lock — safe due to atomic write)."""
-        return load_game(session_id)
+    async def get_state(self, session_id: str) -> GameState | None:
+        """Load one consistent state snapshot after active mutations finish."""
+        async with _get_lock(session_id):
+            return load_game(session_id)
 
-    def get_history(self, session_id: str, limit: int = 50) -> list[TurnRecord]:
-        """Returns the last N turns of the history."""
-        game = load_game(session_id)
-        if game is None:
-            return []
-        return game.history[-limit:]
+    async def get_history(self, session_id: str, limit: int = 50) -> list[TurnRecord]:
+        """Return the last N records from a transactionally consistent snapshot."""
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return []
+            return game.history[-limit:]
 
     async def undo_turn(self, session_id: str) -> dict:
         """Undoes the entire last player turn step.
@@ -294,24 +292,25 @@ class Runner:
         Returns:
             Dict with ``suggestions`` (list of ``{"speech", "action"}``).
         """
-        game = load_game(session_id)
-        if game is None:
-            return {"error": f"Session {session_id} not found"}
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return {"error": f"Session {session_id} not found"}
 
-        target_id = game.player.controlled_character_id
-        turn_number = game.history[-1].turn_number if game.history else 0
-        suggestions = await narrator_suggest(
-            client=self.client,
-            scene=game.scene,
-            characters=game.characters,
-            target_id=target_id,
-            history=game.history,
-            config=self.config,
-            narrator_directives=game.narrator_directives,
-            session_id=game.session_id,
-            turn_number=turn_number,
-        )
-        return {"suggestions": suggestions}
+            target_id = game.player.controlled_character_id
+            turn_number = game.history[-1].turn_number if game.history else 0
+            suggestions = await narrator_suggest(
+                client=self.client,
+                scene=game.scene,
+                characters=game.characters,
+                target_id=target_id,
+                history=game.history,
+                config=self.config,
+                narrator_directives=game.narrator_directives,
+                session_id=game.session_id,
+                turn_number=turn_number,
+            )
+            return {"suggestions": suggestions}
 
     async def compact_session(self, session_id: str) -> dict:
         """Session compaction — discrete and manual event (Task 3 of the plan).
@@ -436,7 +435,7 @@ class Runner:
             notes=game.character_notes.get(character_id, ""),
         )
 
-    def preview_narrator_prompt(
+    async def preview_narrator_prompt(
         self, session_id: str, speech: str = "", action: str = ""
     ) -> list[dict]:
         """Assembles and returns the Narrator's messages for the current state.
@@ -450,43 +449,44 @@ class Runner:
             List of messages (system + user), or empty list if the session
             does not exist.
         """
-        game = load_game(session_id)
-        if game is None:
-            return []
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return []
 
-        history = list(game.history)
-        next_turn = (history[-1].turn_number + 1) if history else 1
-        if speech:
-            history.append(
-                TurnRecord(
-                    turn_number=next_turn,
-                    speaker="Player",
-                    content=speech,
-                    content_type="speech",
-                    scene_snapshot=game.scene,
+            history = list(game.history)
+            next_turn = (history[-1].turn_number + 1) if history else 1
+            if speech:
+                history.append(
+                    TurnRecord(
+                        turn_number=next_turn,
+                        speaker="Player",
+                        content=speech,
+                        content_type="speech",
+                        scene_snapshot=game.scene,
+                    )
                 )
-            )
-        if action:
-            history.append(
-                TurnRecord(
-                    turn_number=next_turn,
-                    speaker="Player",
-                    content=action,
-                    content_type="action",
-                    scene_snapshot=game.scene,
+            if action:
+                history.append(
+                    TurnRecord(
+                        turn_number=next_turn,
+                        speaker="Player",
+                        content=action,
+                        content_type="action",
+                        scene_snapshot=game.scene,
+                    )
                 )
-            )
 
-        return build_narrator_messages(
-            scene=game.scene,
-            characters=game.characters,
-            player_controlled_id=game.player.controlled_character_id,
-            history=history,
-            narrator_directives=game.narrator_directives,
-            context_max=self.config.get("context_max"),
-            max_tokens_narrator=self.config.get("max_tokens_narrator", 2048),
-            story_summary=game.story_summary,
-        )
+            return build_narrator_messages(
+                scene=game.scene,
+                characters=game.characters,
+                player_controlled_id=game.player.controlled_character_id,
+                history=history,
+                narrator_directives=game.narrator_directives,
+                context_max=self.config.get("context_max"),
+                max_tokens_narrator=self.config.get("max_tokens_narrator", 2048),
+                story_summary=game.story_summary,
+            )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
         """Applies reserved Scene fields and physical-fact deltas.

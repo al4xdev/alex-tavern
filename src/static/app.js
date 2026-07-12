@@ -1,3 +1,7 @@
+import { api } from './api.js';
+import { RuntimeConfig } from './runtime-config.js';
+import { Setup } from './setup.js';
+
 /* ══════════════════════════════════════════════════════════════════════
    app.js — game view: dynamic rendering, turns, debug drawer, toasts.
    ══════════════════════════════════════════════════════════════════════ */
@@ -1019,5 +1023,10 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── Init ─────────────────────────────────────────────────────────────── */
-Setup.init({ onStart: (cfg) => startSession(cfg) });
+RuntimeConfig.init({ notify: toast });
+Setup.init({
+    onStart: (cfg) => startSession(cfg),
+    onOpen: () => RuntimeConfig.refresh(),
+    notify: toast,
+});
 openSessionsModal(); // show sessions list on first load (empty state offers "Nova sessão")

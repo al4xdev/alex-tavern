@@ -239,6 +239,14 @@ def _validate_limit(limit: int) -> None:
         raise ToolError(f"limit must be between 1 and {MAX_READ_LIMIT}")
 
 
+def _require_destructive_confirmation(operation: str, confirm: bool) -> None:
+    """Require an explicit boolean confirmation for state-destructive tools."""
+    if confirm is not True:
+        raise ToolError(
+            f"{operation} can change or discard session state; call again with confirm=true"
+        )
+
+
 def create_mcp_server(
     roleplay_url: str = DEFAULT_ROLEPLAY_URL,
     replay_url: str = DEFAULT_REPLAY_URL,
@@ -337,18 +345,21 @@ def create_mcp_server(
         return await debug_api.mutate_session(session_id, "suggest")
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
-    async def mutate_undo_turn(session_id: str) -> dict[str, Any]:
+    async def mutate_undo_turn(session_id: str, confirm: bool = False) -> dict[str, Any]:
         """Remove the most recent Roleplay turn where the HTTP API supports it."""
+        _require_destructive_confirmation("undo", confirm)
         return await debug_api.mutate_session(session_id, "undo")
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
-    async def mutate_compact_session(session_id: str) -> dict[str, Any]:
+    async def mutate_compact_session(session_id: str, confirm: bool = False) -> dict[str, Any]:
         """Summarize older history and retain a recoverable compaction backup."""
+        _require_destructive_confirmation("compaction", confirm)
         return await debug_api.mutate_session(session_id, "compact")
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
-    async def mutate_restore_compaction(session_id: str) -> dict[str, Any]:
+    async def mutate_restore_compaction(session_id: str, confirm: bool = False) -> dict[str, Any]:
         """Restore the latest compaction backup when the backend safety check permits it."""
+        _require_destructive_confirmation("compaction restore", confirm)
         return await debug_api.mutate_session(session_id, "restore_compaction")
 
     @server.tool(annotations=CURSOR_MUTATION)

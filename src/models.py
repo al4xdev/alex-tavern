@@ -128,17 +128,6 @@ def game_state_to_dict(game: GameState) -> dict[str, Any]:
     return asdict(game)
 
 
-def resolve_personality(data: dict[str, Any]) -> str:
-    """Reads ``personality`` or migrates from the legacy format (``personality_summary`` +
-    ``personality_full``), to avoid breaking data saved before the unification.
-    """
-    personality = data.get("personality")
-    if personality is not None:
-        return str(personality)
-    legacy = [data.get("personality_summary"), data.get("personality_full")]
-    return "\n\n".join(p for p in legacy if p)
-
-
 def dict_to_character(data: dict[str, Any]) -> Character:
     """Builds a Character from a dict with ``mind`` and ``body`` keys.
 
@@ -149,7 +138,7 @@ def dict_to_character(data: dict[str, Any]) -> Character:
     return Character(
         mind=CharacterMind(
             name=mind_data["name"],
-            personality=resolve_personality(mind_data),
+            personality=str(mind_data["personality"]),
             knowledge=list(mind_data["knowledge"]),
             current_mood=mind_data["current_mood"],
         ),

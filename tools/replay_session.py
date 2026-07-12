@@ -156,6 +156,34 @@ def first_difference(expected: object, actual: object, path: str = "$") -> str |
     return None
 
 
+def inspect_turn_state(state: object, expected_turn_number: int) -> dict[str, Any]:
+    """Validate and summarize the live state immediately after one submitted turn."""
+    if not isinstance(state, dict):
+        raise ReplaySessionError(f"State after turn {expected_turn_number} is not a JSON object")
+    history = state.get("history")
+    if not isinstance(history, list):
+        raise ReplaySessionError(f"State after turn {expected_turn_number} has no history array")
+    recorded_turns = [
+        record.get("turn_number")
+        for record in history
+        if isinstance(record, dict) and isinstance(record.get("turn_number"), int)
+    ]
+    latest_turn_number = recorded_turns[-1] if recorded_turns else None
+    if latest_turn_number != expected_turn_number:
+        raise ReplaySessionError(
+            f"State drift after turn {expected_turn_number}: "
+            f"latest persisted turn is {latest_turn_number!r}"
+        )
+    scene = state.get("scene")
+    location = scene.get("location") if isinstance(scene, dict) else None
+    return {
+        "turn_number": expected_turn_number,
+        "history_records": len(history),
+        "latest_persisted_turn": latest_turn_number,
+        "location": location if isinstance(location, str) else None,
+    }
+
+
 async def _request(
     client: httpx.AsyncClient,
     method: str,
@@ -198,9 +226,10 @@ async def replay_and_compare(
         if not isinstance(started, dict) or not isinstance(started.get("session_id"), str):
             raise ReplaySessionError("Session start response did not contain a session id")
         session_id = started["session_id"]
+        turn_states: list[dict[str, Any]] = []
 
         for turn in turns:
-            await _request(
+            turn_result = await _request(
                 app_client,
                 "POST",
                 f"/session/{session_id}/turn",
@@ -210,6 +239,19 @@ async def replay_and_compare(
                     "force_speaker": turn.force_speaker,
                 },
             )
+            if (
+                not isinstance(turn_result, dict)
+                or turn_result.get("turn_number") != turn.turn_number
+            ):
+                actual_turn = (
+                    turn_result.get("turn_number") if isinstance(turn_result, dict) else None
+                )
+                raise ReplaySessionError(
+                    f"Turn response drift at recorded turn {turn.turn_number}: "
+                    f"backend returned {actual_turn!r}"
+                )
+            state_after_turn = await _request(app_client, "GET", f"/session/{session_id}/state")
+            turn_states.append(inspect_turn_state(state_after_turn, turn.turn_number))
 
         before_compaction = await _request(app_client, "GET", f"/session/{session_id}/state")
         if not isinstance(before_compaction, dict):
@@ -251,6 +293,7 @@ async def replay_and_compare(
     return {
         "session_id": session_id,
         "turns_replayed": len(turns),
+        "turn_states": turn_states,
         "compact_result": compact_result,
         "replay_status": replay_status,
         "successful_outputs": len(successful_outputs(typed_new_records)),

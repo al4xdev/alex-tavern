@@ -1,0 +1,51 @@
+{
+  "controlled_character_id": "C1",
+  "characters": {
+    "C1": {
+      "mind": {
+        "name": "Thorn",
+        "personality": "Thorn é um guerreiro veterano de 40 anos que serviu na Guarda de Ferro por duas décadas. Estoico, leal até a morte, e desconfiado de magia. Fala em frases curtas e diretas. Protege os mais fracos por instinto. Carrega culpa por não ter salvo seu irmão mais novo numa emboscada anos atrás.",
+        "knowledge": [
+          "A Guarda de Ferro foi dissolvida há 3 anos",
+          "A taverna do Velho Mork é um ponto de encontro de mercenários",
+          "Lyra é uma maga que ele conheceu há 2 semanas"
+        ],
+        "current_mood": "cauteloso"
+      },
+      "body": {
+        "name": "Thorn",
+        "physical_description": "Alto, musculoso, cicatriz no queixo, cabelo grisalho curto",
+        "outfit": "Armadura de couro reforçada, espada longa na cintura"
+      }
+    },
+    "C2": {
+      "mind": {
+        "name": "Lyra",
+        "personality": "Lyra é uma maga élfica de 120 anos (jovem pra um elfo). Curiosa ao ponto de se meter em perigo. Impulsiva — age primeiro, pensa depois. Quando nervosa, fala sem parar. Tem um senso de humor sarcástico. Trata magia como ciência, não misticismo. Saiu da torre dos magos porque se entediou com teoria.",
+        "knowledge": [
+          "A floresta ao norte está corrompida por magia negra",
+          "O medalhão que encontraram emite uma aura arcana fraca",
+          "Thorn é um guerreiro que ela conheceu há 2 semanas"
+        ],
+        "current_mood": "curiosa"
+      },
+      "body": {
+        "name": "Lyra",
+        "physical_description": "Esguia, orelhas pontudas, olhos violeta, cabelo prateado longo",
+        "outfit": "Túnica azul escura com runas bordadas, cajado de carvalho"
+      }
+    }
+  },
+  "scene": {
+    "location": "Taverna do Velho Mork — salão principal, meia-luz",
+    "time_of_day": "noite",
+    "present_characters": ["C1", "C2", "Player"],
+    "physical_facts": {
+      "lighting": "velas fracas",
+      "crowd": "meia dúzia de bêbados",
+      "weather_outside": "chuva forte",
+      "door": "fechada"
+    }
+  },
+  "narrator_directives": ""
+}

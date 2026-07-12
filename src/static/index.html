@@ -33,6 +33,37 @@
             </div>
 
             <div class="modal-body">
+                <!-- Runtime / provider configuration (persisted only in .data/config.json) -->
+                <section class="section ai-engine-section" aria-labelledby="ai-engine-title">
+                    <div class="section-head ai-engine-head">
+                        <div>
+                            <h3 class="section-title" id="ai-engine-title">⚡ Motor de IA</h3>
+                            <p class="field-hint">Escolha onde a história é processada. Salvo no servidor, nunca no navegador.</p>
+                        </div>
+                        <span class="engine-status" id="engine-status">Carregando…</span>
+                    </div>
+
+                    <div class="provider-switch" id="provider-switch" role="radiogroup" aria-label="Provedor de inteligência artificial"></div>
+
+                    <div class="grid-2">
+                        <div class="field-group">
+                            <label class="field-label" for="runtime-language">Idioma das respostas</label>
+                            <input class="text-input" id="runtime-language" type="text" autocomplete="off">
+                        </div>
+                        <div class="field-group">
+                            <label class="field-label" for="runtime-compact-turns">Turnos recentes após compactar</label>
+                            <input class="text-input" id="runtime-compact-turns" type="number" min="1" inputmode="numeric">
+                        </div>
+                    </div>
+
+                    <div id="provider-panels"></div>
+
+                    <div class="runtime-config-actions">
+                        <p class="runtime-config-error" id="runtime-config-error" role="alert"></p>
+                        <button class="btn btn-mini" id="runtime-config-save-btn" type="button">Salvar motor</button>
+                    </div>
+                </section>
+
                 <!-- Presets -->
                 <div class="section" id="presets-section">
                     <h3 class="section-title">💾 Presets</h3>
@@ -258,8 +289,6 @@
     <!-- Toast container -->
     <div class="toast-wrap" id="toast-wrap"></div>
 
-    <script src="api.js"></script>
-    <script src="setup.js"></script>
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>

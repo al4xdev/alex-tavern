@@ -2,56 +2,40 @@
 
 from __future__ import annotations
 
-import json
-from contextlib import asynccontextmanager, suppress
-from typing import Any, cast
+import threading
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.llm.client import resolve_llm_timeout
-from src.paths import CONFIG_PATH, SESSIONS_DIR
+from src.config import (
+    ConfigValidationError,
+    load_config,
+    merge_config_update,
+    public_config,
+    resolve_active_config,
+)
+from src.llm.debug_log import read_entries
+from src.paths import DATA_DIR
 from src.runner import Runner
 from src.store.sessions import delete_session, fork_session, list_sessions
 
-DEFAULT_CONFIG = {
-    "llm_host": "http://localhost:8888",
-    "model": "",
-    "context_max": 98304,
-    "max_tokens_narrator": 2048,
-    "max_tokens_character": 1024,
-    "llm_timeout_seconds": 60.0,
-    "language": "Portuguese",
-    "compaction_keep_recent_turns": 8,
-    "summarizer_max_tokens": 1024,
-}
 
+@dataclass(slots=True)
+class RuntimeState:
+    """Application-scoped mutable runtime switched as one transaction."""
 
-def load_config() -> dict[str, Any]:
-    """Carrega a configuração a partir de .data/config.json com fallback."""
-    if not CONFIG_PATH.exists():
-        CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with suppress(OSError):
-            CONFIG_PATH.write_text(
-                json.dumps(DEFAULT_CONFIG, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
-        return DEFAULT_CONFIG.copy()
-    try:
-        data = cast(dict[str, Any], json.loads(CONFIG_PATH.read_text(encoding="utf-8")))
-        for k, v in DEFAULT_CONFIG.items():
-            data.setdefault(k, v)
-        return data
-    # WARNING (Antigravity AI): Parenthesized the multiple exception types to resolve SyntaxError on Python 3.x
-    except (json.JSONDecodeError, OSError):
-        return DEFAULT_CONFIG.copy()
-
-
-SERVER_CONFIG: dict[str, Any] = {}
-llm_client: httpx.AsyncClient | None = None
-runner: Runner | None = None
+    stored_config: dict[str, Any]
+    server_config: dict[str, Any]
+    llm_client: httpx.AsyncClient
+    runner: Runner
+    config_lock: threading.RLock = field(default_factory=threading.RLock)
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────
@@ -59,18 +43,29 @@ runner: Runner | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ANN201
-    global llm_client, runner, SERVER_CONFIG  # noqa: PLW0603
-    SERVER_CONFIG = load_config()
-    llm_client = httpx.AsyncClient(
-        base_url=SERVER_CONFIG["llm_host"],
-        timeout=httpx.Timeout(resolve_llm_timeout(SERVER_CONFIG)),
+    stored_config = load_config()
+    server_config = resolve_active_config(stored_config)
+    llm_client = httpx.AsyncClient()
+    app.state.runtime = RuntimeState(
+        stored_config=stored_config,
+        server_config=server_config,
+        llm_client=llm_client,
+        runner=Runner(llm_client, server_config),
     )
-    runner = Runner(llm_client, SERVER_CONFIG)
     yield
     await llm_client.aclose()
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+def _runtime() -> RuntimeState:
+    """Return initialized application state or fail clearly outside lifespan."""
+    runtime = getattr(app.state, "runtime", None)
+    if not isinstance(runtime, RuntimeState):
+        raise RuntimeError("Application runtime is not initialized")
+    return runtime
+
 
 # CORS — allow all in MVP (local frontend)
 app.add_middleware(
@@ -85,18 +80,28 @@ app.add_middleware(
 # ── Pydantic models ───────────────────────────────────────────────────────
 
 
-class CharacterInput(BaseModel):
+class CharacterMindInput(BaseModel):
     name: str
     personality: str = ""
     knowledge: list[str] = Field(default_factory=list)
     current_mood: str = ""
+
+
+class CharacterBodyInput(BaseModel):
+    name: str
     physical_description: str = ""
     outfit: str = ""
+
+
+class CharacterInput(BaseModel):
+    mind: CharacterMindInput
+    body: CharacterBodyInput
 
 
 class SceneInput(BaseModel):
     location: str = ""
     time_of_day: str = ""
+    present_characters: list[str] = Field(default_factory=list)
     physical_facts: dict[str, str] = Field(default_factory=dict)
 
 
@@ -158,16 +163,15 @@ class RestoreCompactionResponse(BaseModel):
 
 
 @app.post("/session/start", response_model=StartSessionResponse)
-def start_session(req: StartSessionRequest) -> dict:
+async def start_session(req: StartSessionRequest) -> dict:
     """Creates a new roleplay session."""
-    assert runner is not None, "Runner not initialized"
+    active_runner = _runtime().runner
     from src.models import (
-        Character,
         Scene,
         dict_to_character,
         game_state_to_dict,
     )
-    from src.store.presets import list_defaults, load_preset
+    from src.store.presets import list_defaults, load_default, load_preset
 
     preset_data: dict[str, Any] = {}
     if req.preset_name:
@@ -179,65 +183,17 @@ def start_session(req: StartSessionRequest) -> dict:
     if not preset_data and not req.characters and not req.scene:
         defaults = list_defaults()
         if defaults:
-            first_def = load_preset(defaults[0])
+            first_def = load_default(defaults[0])
             if first_def:
                 preset_data = first_def
-
-    def parse_character_data(cdata: dict[str, Any]) -> Character:
-        from src.models import CharacterBody, CharacterMind, resolve_personality
-
-        if "mind" in cdata and "body" in cdata:
-            mind_data = cdata["mind"]
-            body_data = cdata["body"]
-            return Character(
-                mind=CharacterMind(
-                    name=mind_data["name"],
-                    personality=resolve_personality(mind_data),
-                    knowledge=list(mind_data.get("knowledge", [])),
-                    current_mood=mind_data.get("current_mood", ""),
-                ),
-                body=CharacterBody(
-                    name=body_data["name"],
-                    physical_description=body_data["physical_description"],
-                    outfit=body_data["outfit"],
-                ),
-            )
-        else:
-            return Character(
-                mind=CharacterMind(
-                    name=cdata["name"],
-                    personality=resolve_personality(cdata),
-                    knowledge=list(cdata.get("knowledge", [])),
-                    current_mood=cdata.get("current_mood", ""),
-                ),
-                body=CharacterBody(
-                    name=cdata["name"],
-                    physical_description=cdata.get("physical_description", ""),
-                    outfit=cdata.get("outfit", ""),
-                ),
-            )
 
     characters = {}
     if req.characters:
         for cid, ci in req.characters.items():
-            characters[cid] = dict_to_character(
-                {
-                    "mind": {
-                        "name": ci.name,
-                        "personality": ci.personality,
-                        "knowledge": ci.knowledge,
-                        "current_mood": ci.current_mood,
-                    },
-                    "body": {
-                        "name": ci.name,
-                        "physical_description": ci.physical_description,
-                        "outfit": ci.outfit,
-                    },
-                }
-            )
+            characters[cid] = dict_to_character(ci.dict())
     elif "characters" in preset_data:
         for cid, cdata in preset_data["characters"].items():
-            characters[cid] = parse_character_data(cdata)
+            characters[cid] = dict_to_character(cdata)
 
     scene = None
     if req.scene is not None:
@@ -278,11 +234,11 @@ def start_session(req: StartSessionRequest) -> dict:
         cfg["scene"] = scene
 
     try:
-        session_id = runner.start_session(cfg)
+        session_id = active_runner.start_session(cfg)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    game = runner.get_state(session_id)
+    game = await active_runner.get_state(session_id)
     assert game is not None, "Newly-created session should exist"
     return {"session_id": session_id, "state": game_state_to_dict(game)}
 
@@ -290,8 +246,7 @@ def start_session(req: StartSessionRequest) -> dict:
 @app.post("/session/{session_id}/turn", response_model=PlayerTurnResponse)
 async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
     """Processes a Player's turn."""
-    assert runner is not None, "Runner not initialized"
-    result = await runner.player_turn(
+    result = await _runtime().runner.player_turn(
         session_id=session_id,
         speech=body.speech,
         action=body.action,
@@ -303,8 +258,7 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
 @app.post("/session/{session_id}/suggest", response_model=SuggestResponse)
 async def suggest_actions(session_id: str) -> dict:
     """Possible move suggestions from the Narrator for the controlled character (manual trigger)."""
-    assert runner is not None, "Runner not initialized"
-    result = await runner.suggest_actions(session_id)
+    result = await _runtime().runner.suggest_actions(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
@@ -318,8 +272,7 @@ async def compact_session(session_id: str) -> dict:
     active history. See ``Runner.compact_session`` for full
     behavior (backup, window, post-compaction undo).
     """
-    assert runner is not None, "Runner not initialized"
-    result = await runner.compact_session(session_id)
+    result = await _runtime().runner.compact_session(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
@@ -333,8 +286,7 @@ async def restore_compaction(session_id: str) -> dict:
     otherwise it refuses (see ``Runner.restore_last_compaction``), to
     never discard actual turns.
     """
-    assert runner is not None, "Runner not initialized"
-    result = await runner.restore_last_compaction(session_id)
+    result = await _runtime().runner.restore_last_compaction(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
@@ -348,32 +300,22 @@ def get_debug_log(session_id: str, limit: int = 200) -> list[dict]:
     diagnostics; ``turn_input`` records the exact API payload before the first call.
     Replaces the old debug logging embedded in the turn response.
     """
-    path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
-    if not path.exists():
-        return []
-    lines = path.read_text(encoding="utf-8").splitlines()
-    entries: list[dict] = []
-    for line in lines[-limit:]:
-        with suppress(json.JSONDecodeError):
-            entries.append(json.loads(line))
-    return entries
+    return read_entries(session_id, limit)
 
 
 @app.post("/session/{session_id}/undo")
 async def undo_turn(session_id: str) -> dict:
     """Undoes the last turn of the session."""
-    assert runner is not None, "Runner not initialized"
-    result = await runner.undo_turn(session_id)
+    result = await _runtime().runner.undo_turn(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
 
 
 @app.get("/session/{session_id}/state")
-def get_state(session_id: str) -> dict:
+async def get_state(session_id: str) -> dict:
     """Returns the complete session state."""
-    assert runner is not None, "Runner not initialized"
-    game = runner.get_state(session_id)
+    game = await _runtime().runner.get_state(session_id)
     if game is None:
         raise HTTPException(status_code=404, detail="Session not found")
     from src.models import game_state_to_dict
@@ -382,10 +324,9 @@ def get_state(session_id: str) -> dict:
 
 
 @app.get("/session/{session_id}/history")
-def get_history(session_id: str, limit: int = 50) -> list[dict]:
+async def get_history(session_id: str, limit: int = 50) -> list[dict]:
     """Returns the turn history of the session."""
-    assert runner is not None, "Runner not initialized"
-    records = runner.get_history(session_id, limit=limit)
+    records = await _runtime().runner.get_history(session_id, limit=limit)
     return [
         {
             "turn_number": r.turn_number,
@@ -400,7 +341,7 @@ def get_history(session_id: str, limit: int = 50) -> list[dict]:
 @app.get("/defaults")
 def get_defaults(name: str | None = None) -> dict:
     """Returns the default preset for the UI to pre-fill."""
-    from src.store.presets import list_defaults, load_preset
+    from src.store.presets import list_defaults, load_default
 
     defaults = list_defaults()
     target_name = name
@@ -410,15 +351,36 @@ def get_defaults(name: str | None = None) -> dict:
     if not target_name:
         raise HTTPException(status_code=404, detail="No default preset available.")
 
-    preset_val = load_preset(target_name)
+    preset_val = load_default(target_name)
     if not preset_val:
         raise HTTPException(status_code=404, detail=f"Default preset '{target_name}' not found.")
 
     return {
         "presets": defaults,
-        "characters": preset_val.get("characters", {}),
-        "scene": preset_val.get("scene", {}),
+        "preset": preset_val,
     }
+
+
+@app.get("/config")
+def get_runtime_config() -> dict:
+    """Return the complete browser-editable config with its API key redacted."""
+    return public_config(_runtime().stored_config)
+
+
+@app.put("/config")
+def put_runtime_config(body: dict[str, Any]) -> dict:
+    """Atomically persist config.json and switch subsequent LLM calls to it."""
+    runtime = _runtime()
+    with runtime.config_lock:
+        try:
+            stored = merge_config_update(body)
+        except ConfigValidationError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        resolved = resolve_active_config(stored)
+        runtime.stored_config = stored
+        runtime.server_config = resolved
+        runtime.runner = Runner(runtime.llm_client, resolved)
+        return public_config(stored)
 
 
 # ── Presets API ──────────────────────────────────────────────────────────
@@ -435,9 +397,9 @@ def get_presets() -> list[str]:
 @app.get("/presets/{name}")
 def get_preset(name: str) -> dict:
     """Returns the complete preset configuration."""
-    from src.store.presets import load_preset
+    from src.store.presets import load_user_preset
 
-    preset_val = load_preset(name)
+    preset_val = load_user_preset(name)
     if preset_val is None:
         raise HTTPException(status_code=404, detail=f"Preset '{name}' not found.")
     return preset_val
@@ -448,7 +410,6 @@ def put_preset(name: str, body: StartSessionRequest) -> dict:
     """Saves or updates a user preset."""
     from src.store.presets import save_preset
 
-    # Saves in the same format as the request (which is frontend-compatible)
     save_preset(name, body.dict(exclude_none=True))
     return {"saved": True}
 
@@ -465,10 +426,11 @@ def delete_preset_endpoint(name: str) -> dict:
 
 
 @app.post("/session/{session_id}/preview_prompt")
-def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
+async def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
     """Returns the Narrator messages for the current state — without calling the LLM."""
-    assert runner is not None, "Runner not initialized"
-    messages = runner.preview_narrator_prompt(session_id, speech=body.speech, action=body.action)
+    messages = await _runtime().runner.preview_narrator_prompt(
+        session_id, speech=body.speech, action=body.action
+    )
     if not messages:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"narrator_messages": messages}
@@ -481,21 +443,19 @@ def get_sessions() -> list[dict]:
 
 
 @app.post("/session/{session_id}/fork")
-def fork_session_endpoint(session_id: str) -> dict:
+async def fork_session_endpoint(session_id: str) -> dict:
     """Creates a copy of the session with a new ID."""
-    new_id = fork_session(session_id)
+    new_id = await fork_session(session_id)
     if new_id is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"session_id": new_id}
 
 
 @app.delete("/session/{session_id}")
-def delete_session_endpoint(session_id: str) -> dict:
+async def delete_session_endpoint(session_id: str) -> dict:
     """Removes a session."""
-    path = SESSIONS_DIR / f"{session_id}.json"
-    if not path.exists():
+    if not await delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
-    delete_session(session_id)
     return {"deleted": True}
 
 
@@ -503,18 +463,17 @@ def delete_session_endpoint(session_id: str) -> dict:
 def health() -> dict:
     """Simple health check."""
     return {"status": "ok"}
+
+
 @app.get("/bootstrap_log")
-def get_bootstrap_log():
+def get_bootstrap_log() -> HTMLResponse:
     """Returns the Android bootstrap log for diagnostics."""
-    from fastapi.responses import HTMLResponse
-    from src.paths import DATA_DIR
     log_path = DATA_DIR.parent / "bootstrap.log"
     if log_path.exists():
         content = log_path.read_text(encoding="utf-8")
         html_content = f"<html><body><h3>Bootstrap Log</h3><pre>{content}</pre></body></html>"
         return HTMLResponse(content=html_content, status_code=200)
     return HTMLResponse(content="<html><body><h3>Log not found</h3></body></html>", status_code=404)
-
 
 
 # ── Static Files (frontend) ──────────────────────────────────────────────
