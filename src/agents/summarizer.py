@@ -90,8 +90,7 @@ def _build_user_prompt(
     for rec in evicted_turns:
         label = speaker_label(rec.speaker, characters, controlled_id)
         lines.append(
-            f"  Turn {rec.turn_number} | TYPE={rec.content_type} | "
-            f"SPEAKER={label}: {rec.content}"
+            f"  Turn {rec.turn_number} | TYPE={rec.content_type} | SPEAKER={label}: {rec.content}"
         )
     lines.append("")
 

@@ -59,9 +59,7 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
     return prompt
 
 
-def build_narrator_json_schema(
-    character_ids: list[str], forced_speaker: str | None = None
-) -> dict:
+def build_narrator_json_schema(character_ids: list[str], forced_speaker: str | None = None) -> dict:
     """Builds the structural JSON schema for the Narrator's response.
 
     Used with ``response_format: {"type": "json_schema", ...}`` — LLM output
