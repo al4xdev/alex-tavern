@@ -6,8 +6,7 @@ import pytest
 
 from tools.replay_session import (
     ReplaySessionError,
-    build_recorded_turns,
-    build_recorded_turns_from_narrator_history,
+    build_recorded_turns_from_turn_inputs,
     first_difference,
     normalize_state,
     successful_outputs,
@@ -45,89 +44,47 @@ def _source_state() -> dict:
     }
 
 
-def test_build_recorded_turns_uses_character_calls_to_align_force_speaker() -> None:
-    records = [
-        {"turn_number": 1, "agent": "narrator", "response": "{}"},
-        {"turn_number": 1, "agent": "character:Lyra", "response": "Hello"},
-        {"turn_number": 2, "agent": "narrator", "response": "{}"},
-    ]
-
-    turns = build_recorded_turns(_source_state(), records)
-
-    assert [(turn.speech, turn.action, turn.force_speaker) for turn in turns] == [
-        ("Speak", "Act", "C2"),
-        ("", "Wait", "Narrator"),
-    ]
-
-
-def test_build_recorded_turns_rejects_unknown_character() -> None:
-    records = [
-        {"turn_number": 1, "agent": "narrator", "response": "{}"},
-        {"turn_number": 1, "agent": "character:Ghost", "response": "Boo"},
-    ]
-
-    with pytest.raises(ReplaySessionError, match="Ghost"):
-        build_recorded_turns(_source_state(), records)
-
-
-def test_build_recorded_turns_recovers_inputs_from_latest_narrator_history() -> None:
-    history = """CURRENT SCENE:
-  Location: Tavern
-
-HISTORY:
-  Turn 1 — Thorn: Speak exactly
-  Turn 1 — Thorn: Act exactly
-  Turn 1 — Narrator: Something happens
-  Turn 1 — C2: Hello
-  Turn 2 — Thorn: Continue
-  Turn 2 — Thorn: Move
-"""
+def test_turn_input_markers_recover_exact_payload_without_state() -> None:
     records = [
         {
             "turn_number": 1,
-            "agent": "narrator",
-            "request": {"messages": [{"role": "user", "content": "HISTORY:\nold"}]},
-            "response": "{}",
+            "agent": "turn_input",
+            "input": {"speech": "Speak", "action": "", "force_speaker": None},
+            "effective_force_speaker": None,
         },
-        {"turn_number": 1, "agent": "character:Lyra", "response": "Hello"},
+        {"turn_number": 1, "agent": "narrator", "response": "{}"},
         {
             "turn_number": 2,
-            "agent": "narrator",
-            "request": {"messages": [{"role": "user", "content": history}]},
-            "response": "{}",
+            "agent": "turn_input",
+            "input": {"speech": "", "action": "Move", "force_speaker": "C2"},
+            "effective_force_speaker": "C2",
         },
     ]
 
-    turns = build_recorded_turns_from_narrator_history(
-        records,
-        controlled_name="Thorn",
-        character_ids_by_name={"Lyra": "C2"},
-    )
+    turns = build_recorded_turns_from_turn_inputs(records)
 
     assert [(turn.speech, turn.action, turn.force_speaker) for turn in turns] == [
-        ("Speak exactly", "Act exactly", "C2"),
-        ("Continue", "Move", "Narrator"),
+        ("Speak", "", None),
+        ("", "Move", "C2"),
     ]
 
 
-def test_prompt_recovery_rejects_turn_without_both_input_fields() -> None:
-    records = [
-        {
-            "turn_number": 1,
-            "agent": "narrator",
-            "request": {
-                "messages": [{"role": "user", "content": "HISTORY:\n  Turn 1 — Thorn: Only"}]
-            },
-            "response": "{}",
-        }
-    ]
-
-    with pytest.raises(ReplaySessionError, match="exactly speech plus action"):
-        build_recorded_turns_from_narrator_history(
-            records,
-            controlled_name="Thorn",
-            character_ids_by_name={"Lyra": "C2"},
+def test_turn_input_markers_are_required() -> None:
+    with pytest.raises(ReplaySessionError, match="no turn_input"):
+        build_recorded_turns_from_turn_inputs(
+            [{"turn_number": 1, "agent": "narrator", "response": "{}"}]
         )
+
+
+def test_turn_input_markers_reject_duplicate_turns() -> None:
+    marker = {
+        "turn_number": 1,
+        "agent": "turn_input",
+        "input": {"speech": "Speak", "action": "Act", "force_speaker": None},
+    }
+
+    with pytest.raises(ReplaySessionError, match="Duplicate"):
+        build_recorded_turns_from_turn_inputs([marker, marker])
 
 
 def test_successful_outputs_ignores_errors_markers_and_volatile_fields() -> None:
@@ -140,6 +97,13 @@ def test_successful_outputs_ignores_errors_markers_and_volatile_fields() -> None
             "response": "{}",
         },
         {"ts": "two", "turn_number": 1, "agent": "narrator", "error": "timeout"},
+        {
+            "ts": "invalid-json",
+            "turn_number": 1,
+            "agent": "narrator",
+            "response": "not-json",
+            "error": "JSONDecodeError",
+        },
         {"ts": "three", "agent": "compact", "kept_records": 2},
     ]
 

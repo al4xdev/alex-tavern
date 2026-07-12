@@ -727,9 +727,22 @@ function renderRawLog(entries) {
         return;
     }
     entries.forEach((e) => {
-        const title = `Turno ${e.turn_number} · ${e.agent}${e.error ? ' · ERRO' : ''}`;
+        const metrics = e.duration_ms != null
+            ? ` · tentativa ${e.attempt_number || 1} · ${e.duration_ms} ms`
+            : '';
+        const title = `Turno ${e.turn_number} · ${e.agent}${e.error ? ' · ERRO' : ''}${metrics}`;
         const messages = (e.request && e.request.messages) || [];
-        const raw = e.error ? `[ERROR] ${e.error}` : e.response;
+        let raw;
+        if (e.agent === 'turn_input') {
+            raw = `[TURN INPUT]\n${JSON.stringify({
+                input: e.input,
+                effective_force_speaker: e.effective_force_speaker,
+            }, null, 2)}`;
+        } else if (e.error) {
+            raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
+        } else {
+            raw = e.response;
+        }
         debugContent.appendChild(renderDebugBlock(title, messages, raw));
     });
 }

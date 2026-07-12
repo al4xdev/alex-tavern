@@ -6,7 +6,7 @@ import json
 
 import httpx
 
-from src.llm.client import chat_completion_json
+from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
 from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
 
 
@@ -20,7 +20,7 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         '- "narration": describe what happens in the scene based on the last event in\n'
         "  HISTORY and the current state. Ground it in the senses: when a character\n"
         "  touches, looks, or moves, name the concrete physical detail they perceive\n"
-        "  (the grain of the wood, the cold of steel, the weight of a door swinging) —\n"
+        "  (the grain of the wood, the cold of steel, the weight of a door swinging),\n"
         "  write it as if the reader is inhabiting that character's body. Favor vivid,\n"
         "  immersive prose over a quick summary; take as many sentences as the moment\n"
         "  deserves, don't rush the scene.\n"
@@ -31,30 +31,45 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         '- "context_for_character": a string with filtered information for the next\n'
         "  speaker. Include only what THAT character would perceive. If next_speaker\n"
         "  is Narrator, use empty string.\n"
-        '- "scene_update": object with physical changes to the scene (e.g.,\n'
-        '  {"door": "open", "weather": "rain"}). Use null if nothing changed.\n'
+        '- "scene_update": object with changes to the current scene (e.g.,\n'
+        '  {"location": "Old Watchtower", "door": "open"}). "location" and\n'
+        '  "time_of_day" are reserved Scene fields. Every other key is a physical\n'
+        "  fact for the current location. Reuse one stable snake_case key for the\n"
+        "  same fact; never create simultaneous synonyms such as weather and\n"
+        "  weather_outside. Use null if nothing changed.\n"
         "  Set a key's value to null to remove that fact from the scene entirely\n"
         "  (e.g., an item that no longer exists).\n"
         '- "mood_updates": null OR an object mapping character_id to their new mood,\n'
-        "  only for characters whose mood actually changed this turn (e.g.\n"
-        '  {"C1": "furioso"}). Omit characters whose mood is unchanged.\n'
+        "  only after a meaningful emotional transition. Mood is persistent state,\n"
+        "  not a pose or momentary synonym. Omit unchanged characters.\n"
+        "\n"
+        "RULES:\n"
+        "- Resolve the immediate consequence of the final HISTORY event before adding\n"
+        "  atmosphere, introducing a new thread, or moving the scene forward.\n"
+        "- Never assert a character's unspoken thoughts, intentions, or emotions as\n"
+        "  objective fact. Describe observable evidence and concrete perceptions only.\n"
+        "- Dialogue is an attributed claim, not automatically world truth. A character's\n"
+        "  action is an attempt until narration confirms its outcome. Preserve uncertainty.\n"
     )
     if narrator_directives.strip():
         prompt += (
-            "\nWORLD DIRECTIVES (tone, rules, setting — always respect these):\n"
+            "\nWORLD DIRECTIVES (tone, rules, setting; always respect these):\n"
             f"{narrator_directives.strip()}\n"
         )
     return prompt
 
 
-def build_narrator_json_schema(character_ids: list[str]) -> dict:
+def build_narrator_json_schema(
+    character_ids: list[str], forced_speaker: str | None = None
+) -> dict:
     """Builds the structural JSON schema for the Narrator's response.
 
     Used with ``response_format: {"type": "json_schema", ...}`` — LLM output
     is grammar-constrained and does not rely on textual prompts like
     "no markdown, no code fences".
     """
-    speakers = [*character_ids, "Narrator"]
+    all_speakers = [*character_ids, "Narrator"]
+    speakers = [forced_speaker] if forced_speaker in all_speakers else all_speakers
     return {
         "name": "narrator_turn",
         "schema": {
@@ -65,6 +80,10 @@ def build_narrator_json_schema(character_ids: list[str]) -> dict:
                 "context_for_character": {"type": "string"},
                 "scene_update": {
                     "type": ["object", "null"],
+                    "properties": {
+                        "location": {"type": "string"},
+                        "time_of_day": {"type": "string"},
+                    },
                     "additionalProperties": {"type": ["string", "null"]},
                 },
                 "mood_updates": {
@@ -92,6 +111,7 @@ def _build_user_prompt(
     context_max: int | None = None,
     max_tokens_narrator: int = 2048,
     story_summary: str = "",
+    forced_speaker: str | None = None,
 ) -> str:
     """Builds the user prompt with scene, characters, and history.
 
@@ -114,11 +134,23 @@ def _build_user_prompt(
     lines.append(f"  Physical facts: {json.dumps(scene.physical_facts, ensure_ascii=False)}")
     lines.append("")
 
+    if forced_speaker is not None:
+        lines.append("ROUTING CONSTRAINT:")
+        lines.append(f"  next_speaker is fixed as {forced_speaker}.")
+        if forced_speaker == "Narrator":
+            lines.append("  context_for_character must be an empty string.")
+        else:
+            lines.append(
+                "  context_for_character must contain only what "
+                f"{forced_speaker} perceives right now."
+            )
+        lines.append("")
+
     # Present characters
     lines.append("CHARACTERS PRESENT:")
     for cid in characters:
         ch = characters[cid]
-        lines.append(f"  {cid} — {ch.mind.name}")
+        lines.append(f"  ID={cid} | NAME={ch.mind.name}")
         lines.append(f"    Personality: {ch.mind.personality}")
         lines.append(f"    Appearance: {ch.body.physical_description}")
         lines.append(f"    Outfit: {ch.body.outfit}")
@@ -133,9 +165,12 @@ def _build_user_prompt(
     if hist:
         for rec in hist:
             label = speaker_label(rec.speaker, characters, player_controlled_id)
-            lines.append(f"  Turn {rec.turn_number} — {label}: {rec.content}")
+            lines.append(
+                f"  Turn {rec.turn_number} | TYPE={rec.content_type} | "
+                f"SPEAKER={label}: {rec.content}"
+            )
     else:
-        lines.append("  (none — first turn)")
+        lines.append("  (none, first turn)")
     lines.append("")
 
     return "\n".join(lines)
@@ -150,6 +185,7 @@ def build_narrator_messages(
     context_max: int | None = None,
     max_tokens_narrator: int = 2048,
     story_summary: str = "",
+    forced_speaker: str | None = None,
 ) -> list[dict]:
     """Assembles the Narrator messages (system + user) — pure, without calling the LLM.
 
@@ -170,6 +206,7 @@ def build_narrator_messages(
                 context_max=context_max,
                 max_tokens_narrator=max_tokens_narrator,
                 story_summary=story_summary,
+                forced_speaker=forced_speaker,
             ),
         },
     ]
@@ -186,6 +223,7 @@ async def narrate(
     session_id: str = "",
     turn_number: int = 0,
     story_summary: str = "",
+    forced_speaker: str | None = None,
 ) -> dict:
     """Builds the Narrator prompt, calls the LLM, and returns a validated dict.
 
@@ -217,6 +255,7 @@ async def narrate(
         context_max=config.get("context_max"),
         max_tokens_narrator=max_tokens_narrator,
         story_summary=story_summary,
+        forced_speaker=forced_speaker,
     )
 
     result = await chat_completion_json(
@@ -225,7 +264,8 @@ async def narrate(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens_narrator,
-        json_schema=build_narrator_json_schema(list(characters)),
+        timeout=resolve_llm_timeout(config),
+        json_schema=build_narrator_json_schema(list(characters), forced_speaker),
         session_id=session_id,
         turn_number=turn_number,
         agent="narrator",
@@ -242,13 +282,28 @@ async def narrate(
 
     # Validate next_speaker — valid speakers derived dynamically from IDs
     valid_speakers = set(characters) | {"Narrator"}
-    if result["next_speaker"] not in valid_speakers:
+    if forced_speaker in valid_speakers:
+        result["next_speaker"] = forced_speaker
+        if forced_speaker == "Narrator":
+            result["context_for_character"] = ""
+    elif result["next_speaker"] not in valid_speakers:
         # Fallback: normalize to Narrator (the Narrator does not know "Player")
         result["next_speaker"] = "Narrator"
 
     # scene_update and mood_updates can be None
     result.setdefault("scene_update", None)
     result.setdefault("mood_updates", None)
+
+    for field in ("narration", "context_for_character"):
+        if isinstance(result.get(field), str):
+            result[field] = normalize_generated_text(result[field])
+    for field in ("scene_update", "mood_updates"):
+        values = result.get(field)
+        if isinstance(values, dict):
+            result[field] = {
+                key: normalize_generated_text(value) if isinstance(value, str) else value
+                for key, value in values.items()
+            }
 
     return result
 
@@ -258,7 +313,7 @@ def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") 
         "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
         f"Suggest 3 plausible next moves for {target_id}, given their personality, mood,\n"
         "knowledge and the current scene/history. Each suggestion is a distinct, in-\n"
-        "character option — vary tone/approach across the 3.\n"
+        "character option; vary tone/approach across the 3.\n"
         "\n"
         'Return an object with a "suggestions" array of exactly 3 items, each with\n'
         '"speech" (what they say, or empty string) and "action" (what they physically\n'
@@ -266,7 +321,7 @@ def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") 
     )
     if narrator_directives.strip():
         prompt += (
-            "\nWORLD DIRECTIVES (tone, rules, setting — always respect these):\n"
+            "\nWORLD DIRECTIVES (tone, rules, setting; always respect these):\n"
             f"{narrator_directives.strip()}\n"
         )
     return prompt
@@ -347,6 +402,7 @@ async def suggest(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens_narrator,
+        timeout=resolve_llm_timeout(config),
         json_schema=build_suggest_json_schema(),
         session_id=session_id,
         turn_number=turn_number,
@@ -354,4 +410,10 @@ async def suggest(
     )
 
     suggestions: list[dict] = result.get("suggestions", [])
-    return suggestions
+    return [
+        {
+            key: normalize_generated_text(value) if isinstance(value, str) else value
+            for key, value in suggestion.items()
+        }
+        for suggestion in suggestions
+    ]

@@ -284,6 +284,12 @@ messages, max tokens, response format), and either the response text or the erro
 naturally captures retries too, since the wrapper's own retry loop logs through the same point
 on every attempt.
 
+Before that first model call, each turn also appends a `turn_input` marker with the exact speech,
+action, requested `force_speaker`, and validated effective override. Call records include the
+attempt number, duration, approximate prompt size, and structured exception type/representation,
+so an exception with an empty string still remains diagnosable and new logs can be replayed
+without inferring UI actions from the Narrator prompt.
+
 A separate, non-LLM breadcrumb was added later, once it became clear that undo silently changes
 mood/scene state with *no* LLM call, which could look indistinguishable from a fresh Narrator
 decision when reading the log afterward: a single

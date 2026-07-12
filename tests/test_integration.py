@@ -558,6 +558,31 @@ class TestRunnerLogic:
             assert game.scene.physical_facts["door"] == original_door
 
     @pytest.mark.asyncio
+    async def test_undo_restores_location_and_previous_scene_facts(self) -> None:
+        sid = self.runner.start_session()
+        game = load_game(sid)
+        assert game is not None
+        original_scene = copy.deepcopy(game.scene)
+        self.runner._append_history(game, "Narrator", "The road opens.", "narration", 1)
+        self.runner._update_scene(
+            game,
+            {"location": "The Old Watchtower", "door": "ajar"},
+        )
+        save_game(game)
+
+        persisted = load_game(sid)
+        assert persisted is not None
+        assert persisted.scene.location == "The Old Watchtower"
+        assert persisted.scene.physical_facts == {"door": "ajar"}
+
+        result = await self.runner.undo_turn(sid)
+
+        assert result["undone"] is True
+        restored = load_game(sid)
+        assert restored is not None
+        assert restored.scene == original_scene
+
+    @pytest.mark.asyncio
     async def test_undo_with_character(self) -> None:
         """Undo de turno com narrador + personagem remove ambos."""
         sid = self.runner.start_session()
@@ -686,6 +711,55 @@ class TestRunnerLogic:
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         await runner._call_narrator(game, 1)
         assert captured["story_summary"] == "Resumo de teste."
+
+    @pytest.mark.asyncio
+    async def test_force_speaker_is_known_before_character_context_is_built(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        sid = self.runner.start_session()
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(game, turn_number, forced_speaker=None):  # noqa: ANN001, ANN202
+            captured["forced_speaker"] = forced_speaker
+            return {
+                "narration": "The room stills.",
+                "next_speaker": "C1",
+                "context_for_character": f"Context filtered for {forced_speaker}",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        async def fake_character(game, character_id, context, turn_number):  # noqa: ANN001, ANN202
+            captured["character_id"] = character_id
+            captured["context"] = context
+            return "I answer."
+
+        monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(self.runner, "_call_character", fake_character)
+
+        result = await self.runner.player_turn(
+            sid,
+            speech="Answer me.",
+            force_speaker="C2",
+        )
+
+        assert result["next_speaker"] == "C2"
+        assert captured == {
+            "forced_speaker": "C2",
+            "character_id": "C2",
+            "context": "Context filtered for C2",
+        }
+
+        debug_path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+        marker = json.loads(debug_path.read_text(encoding="utf-8").splitlines()[0])
+        assert marker["agent"] == "turn_input"
+        assert marker["input"] == {
+            "speech": "Answer me.",
+            "action": "",
+            "force_speaker": "C2",
+        }
+        assert marker["effective_force_speaker"] == "C2"
+        delete_session(sid)
 
     @pytest.mark.asyncio
     async def test_call_character_passes_own_notes_only(self, monkeypatch) -> None:  # noqa: ANN001
@@ -819,6 +893,52 @@ class TestCompactSession:
         game = load_game(self.sid)
         assert game is not None
         assert len(game.history) == turns_after_compaction - 2  # um passo (2 registros) a menos
+
+    @pytest.mark.asyncio
+    async def test_turn_after_compaction_uses_summary_and_character_note(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        from src import runner as runner_mod
+
+        async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
+            return "Durable world summary.", {"C2": "Lyra remembers the sealed gate."}
+
+        captured: dict[str, str] = {}
+
+        async def fake_narrator(game, turn_number, forced_speaker=None):  # noqa: ANN001, ANN202
+            captured["summary"] = game.story_summary
+            return {
+                "narration": "The gate hums.",
+                "next_speaker": "C2",
+                "context_for_character": "The sealed gate is visible.",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        async def fake_character(game, character_id, context, turn_number):  # noqa: ANN001, ANN202
+            captured["note"] = game.character_notes.get(character_id, "")
+            captured["context"] = context
+            return "I remember this gate."
+
+        monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
+        monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(self.runner, "_call_character", fake_character)
+        self._seed_history(12)
+
+        compacted = await self.runner.compact_session(self.sid)
+        result = await self.runner.player_turn(
+            self.sid,
+            action="Thorn points to the gate.",
+            force_speaker="C2",
+        )
+
+        assert compacted["compacted"] is True
+        assert result["character_response"] == "I remember this gate."
+        assert captured == {
+            "summary": "Durable world summary.",
+            "note": "Lyra remembers the sealed gate.",
+            "context": "The sealed gate is visible.",
+        }
 
     @pytest.mark.asyncio
     async def test_compact_missing_session(self) -> None:
@@ -1262,6 +1382,71 @@ class TestCustomSessionAndDebug:
         assert result["next_speaker"] == "Narrator"
 
     @pytest.mark.asyncio
+    async def test_forced_speaker_constrains_schema_and_context_target(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        from src.agents import narrator as narrator_mod
+
+        captured: dict[str, object] = {}
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            captured["messages"] = messages
+            captured["json_schema"] = kwargs["json_schema"]
+            return {
+                "narration": "Something happens.",
+                "next_speaker": "C1",
+                "context_for_character": "Only C2 can perceive this.",
+            }
+
+        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        result = await narrator_mod.narrate(
+            client=self.client,
+            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
+            characters={"C1": _custom_char("One"), "C2": _custom_char("Two")},
+            player_controlled_id="C1",
+            history=[],
+            config={},
+            forced_speaker="C2",
+        )
+
+        schema = captured["json_schema"]
+        assert isinstance(schema, dict)
+        next_speaker = schema["schema"]["properties"]["next_speaker"]
+        assert next_speaker["enum"] == ["C2"]
+        messages = captured["messages"]
+        assert isinstance(messages, list)
+        assert "next_speaker is fixed as C2" in messages[1]["content"]
+        assert "what C2 perceives" in messages[1]["content"]
+        assert result["next_speaker"] == "C2"
+
+    @pytest.mark.asyncio
+    async def test_forced_narrator_always_clears_character_context(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        from src.agents import narrator as narrator_mod
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return {
+                "narration": "Something happens.",
+                "next_speaker": "C1",
+                "context_for_character": "Stale character context.",
+            }
+
+        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        result = await narrator_mod.narrate(
+            client=self.client,
+            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
+            characters={"C1": _custom_char("One")},
+            player_controlled_id="C1",
+            history=[],
+            config={},
+            forced_speaker="Narrator",
+        )
+
+        assert result["next_speaker"] == "Narrator"
+        assert result["context_for_character"] == ""
+
+    @pytest.mark.asyncio
     async def test_debug_log_records_llm_calls(self, monkeypatch) -> None:  # noqa: ANN001
         """Cada chamada REAL ao LLM grava uma linha no log bruto .debug.jsonl da sessão.
 
@@ -1309,13 +1494,15 @@ class TestCustomSessionAndDebug:
         entries = [
             json_module.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines()
         ]
-        assert len(entries) == 2  # uma chamada ao Narrador, uma ao Personagem
+        assert len(entries) == 3  # payload do turno, Narrador e Personagem
         assert entries[0]["session_id"] == sid
         assert entries[0]["turn_number"] == 1
-        assert entries[0]["agent"] == "narrator"
-        assert entries[0]["response"] is not None
-        assert entries[1]["agent"] == "character:Solo"
-        assert entries[1]["response"] == "Estou pronto."
+        assert entries[0]["agent"] == "turn_input"
+        assert entries[0]["input"]["speech"] == "oi"
+        assert entries[1]["agent"] == "narrator"
+        assert entries[1]["response"] is not None
+        assert entries[2]["agent"] == "character:Solo"
+        assert entries[2]["response"] == "Estou pronto."
 
     def test_preview_narrator_prompt(self) -> None:
         """preview_narrator_prompt monta messages corretos sem tocar no LLM."""
@@ -1392,6 +1579,9 @@ class TestSummarizerAgent:
 
         assert "Thorn" in messages[1]["content"]
         assert "Encaro Lyra" in messages[1]["content"]
+        assert "TYPE=speech" in messages[1]["content"]
+        assert "TYPE=narration" in messages[1]["content"]
+        assert "SPEAKER=Thorn" in messages[1]["content"]
         assert "Player" not in messages[1]["content"]
 
     def test_build_summarizer_messages_shows_current_summary_and_notes(self) -> None:
@@ -1439,6 +1629,45 @@ class TestSummarizerAgent:
         assert "C2" not in changed_notes  # não mencionada -> não retorna, runner mantém a antiga
         await client.aclose()
 
+    @pytest.mark.asyncio
+    async def test_summarize_keeps_only_canonical_character_ids(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.agents import summarizer as summarizer_mod
+
+        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return {
+                "story_summary": "Summary.",
+                "character_notes": {
+                    "C1": "Canonical Thorn note.",
+                    "C2": "Canonical Lyra note.",
+                    "Unknown": "Ignored.",
+                },
+            }
+
+        monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+        client = httpx.AsyncClient(base_url="http://localhost:8888")
+        _, changed_notes = await summarizer_mod.summarize(
+            client=client,
+            characters=DEFAULT_CHARACTERS,
+            controlled_id="C1",
+            story_summary="",
+            character_notes={},
+            evicted_turns=[],
+            config={},
+        )
+        assert changed_notes == {
+            "C1": "Canonical Thorn note.",
+            "C2": "Canonical Lyra note.",
+        }
+        await client.aclose()
+
+    def test_summarizer_schema_allows_only_session_character_ids(self) -> None:
+        from src.agents.summarizer import build_summarizer_json_schema
+
+        schema = build_summarizer_json_schema(["hero", "guide"])["schema"]["properties"]
+        notes_schema = schema["character_notes"]
+        assert set(notes_schema["properties"]) == {"hero", "guide"}
+        assert notes_schema["additionalProperties"] is False
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes — Edge Cases
@@ -1456,6 +1685,42 @@ class TestEdgeCases:
         assert game.scene.physical_facts["door"] == "open"
         assert game.scene.physical_facts["lighting"] == "off"
         # Campo não afetado permanece
+        assert game.scene.physical_facts["weather_outside"] == "heavy rain"
+
+    def test_update_scene_routes_reserved_fields_and_clears_old_location_facts(self) -> None:
+        game = _make_test_game()
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+
+        runner._update_scene(
+            game,
+            {
+                "location": "  The Old Watchtower  ",
+                "time_of_day": "dawn",
+                "door": "ajar",
+            },
+        )
+
+        assert game.scene.location == "The Old Watchtower"
+        assert game.scene.time_of_day == "dawn"
+        assert game.scene.physical_facts == {"door": "ajar"}
+        assert "location" not in game.scene.physical_facts
+        assert "time_of_day" not in game.scene.physical_facts
+
+    def test_update_scene_does_not_clear_facts_without_real_location_change(self) -> None:
+        game = _make_test_game()
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+
+        runner._update_scene(
+            game,
+            {
+                "location": game.scene.location,
+                "time_of_day": None,
+                "door": None,
+            },
+        )
+
+        assert game.scene.time_of_day == DEFAULT_SCENE.time_of_day
+        assert "door" not in game.scene.physical_facts
         assert game.scene.physical_facts["weather_outside"] == "heavy rain"
 
     def test_update_scene_none(self) -> None:
@@ -1562,7 +1827,28 @@ class TestEdgeCases:
 
         thorn = DEFAULT_CHARACTERS["C1"]
         prompt = _build_system_prompt(thorn)
-        assert "What you remember" not in prompt
+        assert "What you remember:" not in prompt
+
+    def test_agent_prompts_encode_quality_and_provenance_rules(self) -> None:
+        from src.agents.character import _build_system_prompt as build_character_prompt
+        from src.agents.narrator import _build_system_prompt as build_narrator_prompt
+        from src.agents.summarizer import _build_system_prompt as build_summarizer_prompt
+
+        narrator_prompt = build_narrator_prompt(["C1"])
+        character_prompt = build_character_prompt(_custom_char("Plain"))
+        summarizer_prompt = build_summarizer_prompt()
+
+        assert "Resolve the immediate consequence" in narrator_prompt
+        assert "unspoken thoughts" in narrator_prompt
+        assert "Mood is persistent state" in narrator_prompt
+        assert "Dialogue is an attributed claim" in narrator_prompt
+        assert "never invent a location, backstory" in character_prompt
+        assert "Never repeat a complete sentence" in character_prompt
+        assert "TYPE=speech is an attributed claim" in summarizer_prompt
+        assert "TYPE=action is an attempt" in summarizer_prompt
+        for prompt in (narrator_prompt, character_prompt, summarizer_prompt):
+            assert "—" not in prompt
+            assert "–" not in prompt
 
     def test_append_history_deepcopy(self) -> None:
         """_append_history usa deepcopy — modificar cena posterior não afeta snapshot."""
@@ -1611,6 +1897,7 @@ class TestDynamicConfigAndPresets:
             cfg = load_config()
             assert cfg["llm_host"] == "http://localhost:8888"
             assert cfg["model"] == ""
+            assert cfg["llm_timeout_seconds"] == 60.0
             assert CONFIG_PATH.exists()
         finally:
             if existing_config is not None:
@@ -1722,7 +2009,7 @@ class TestLanguageConfiguration:
         msgs = captured_payload["messages"]
         assert msgs[0]["role"] == "system"
         assert "- Always respond and write in French." in msgs[0]["content"]
-        assert "em dashes" in msgs[0]["content"]
+        assert "em dash" in msgs[0]["content"]
         assert msgs[1]["role"] == "user"
 
     @pytest.mark.asyncio
@@ -1752,5 +2039,173 @@ class TestLanguageConfiguration:
 
         assert captured_payload is not None
         content = captured_payload["messages"][0]["content"]
-        assert "em dashes" in content
+        assert "em dash" in content
         assert "Always respond and write in" not in content
+        assert "—" not in content
+        assert "–" not in content
+
+    @pytest.mark.asyncio
+    async def test_character_text_is_normalized_after_raw_response_is_logged(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        from src.agents.character import act
+
+        sid = generate_session_id()
+        client = httpx.AsyncClient(base_url="http://localhost:8888")
+
+        async def mock_post(url, json, **kwargs):  # noqa: ANN001, ANN202, A002, ARG001
+            request = httpx.Request("POST", url)
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"content": "Wait — listen between doors 1–3."}}
+                    ]
+                },
+                request=request,
+            )
+
+        monkeypatch.setattr(client, "post", mock_post)
+        try:
+            output = await act(
+                client=client,
+                character=_custom_char("Plain"),
+                context="A sound.",
+                history=[],
+                characters={"C1": _custom_char("Plain")},
+                controlled_id="C1",
+                config={},
+                session_id=sid,
+                turn_number=1,
+            )
+
+            assert output == "Wait, listen between doors 1-3."
+            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            raw_entry = json.loads(path.read_text(encoding="utf-8"))
+            assert raw_entry["response"] == "Wait — listen between doors 1–3."
+        finally:
+            await client.aclose()
+            delete_session(sid)
+
+    def test_generated_text_normalization_is_idempotent(self) -> None:
+        from src.llm.client import normalize_generated_text
+
+        normalized = normalize_generated_text("One — two, range 1–3.")
+        assert normalized == "One, two, range 1-3."
+        assert normalize_generated_text(normalized) == normalized
+
+
+class TestLLMObservability:
+    """Regression coverage for structured debug-call diagnostics."""
+
+    @pytest.mark.asyncio
+    async def test_empty_timeout_error_keeps_type_repr_and_metrics(self, monkeypatch) -> None:
+        from src.llm.client import chat_completion
+
+        sid = generate_session_id()
+        client = httpx.AsyncClient(base_url="http://localhost:8888")
+
+        async def timeout_post(url, json, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            request = httpx.Request("POST", url)
+            raise httpx.ReadTimeout("", request=request)
+
+        monkeypatch.setattr(client, "post", timeout_post)
+        try:
+            with pytest.raises(httpx.ReadTimeout):
+                await chat_completion(
+                    client,
+                    [{"role": "user", "content": "A measured prompt."}],
+                    session_id=sid,
+                    turn_number=14,
+                    agent="narrator",
+                )
+
+            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            entry = json.loads(path.read_text(encoding="utf-8"))
+            assert entry["error"]
+            assert entry["error_type"] == "ReadTimeout"
+            assert "ReadTimeout" in entry["error_repr"]
+            assert entry["duration_ms"] >= 0
+            assert entry["attempt_number"] == 1
+            assert entry["prompt_chars"] > len("A measured prompt.")
+            assert entry["prompt_estimated_tokens"] == entry["prompt_chars"] // 4
+        finally:
+            await client.aclose()
+            delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_structured_retry_logs_http_json_and_success_attempts(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        from src.llm.client import chat_completion_json
+
+        sid = generate_session_id()
+        client = httpx.AsyncClient(base_url="http://localhost:8888")
+        call_count = 0
+
+        async def sequenced_post(url, json, **kwargs):  # noqa: ANN001, ANN202, A002, ARG001
+            nonlocal call_count
+            call_count += 1
+            request = httpx.Request("POST", url)
+            if call_count == 1:
+                return httpx.Response(503, text="busy", request=request)
+            content = "not-json" if call_count == 2 else '{"result":"ok"}'
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": content}}]},
+                request=request,
+            )
+
+        monkeypatch.setattr(client, "post", sequenced_post)
+        try:
+            result = await chat_completion_json(
+                client,
+                [{"role": "user", "content": "Return JSON."}],
+                retries=2,
+                session_id=sid,
+                turn_number=3,
+                agent="narrator",
+            )
+
+            assert result == {"result": "ok"}
+            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            assert [entry["attempt_number"] for entry in entries] == [1, 2, 3]
+            assert entries[0]["error_type"] == "HTTPStatusError"
+            assert entries[0]["response"] is None
+            assert entries[1]["error_type"] == "JSONDecodeError"
+            assert entries[1]["response"] == "not-json"
+            assert entries[2]["error"] is None
+            assert entries[2]["response"] == '{"result":"ok"}'
+        finally:
+            await client.aclose()
+            delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_debug_markers_remain_complete_json_lines(self) -> None:
+        from src.llm.client import log_turn_input
+
+        sid = generate_session_id()
+        try:
+            await asyncio.gather(
+                *(
+                    asyncio.to_thread(log_turn_input, sid, index, "speech", "action", None, None)
+                    for index in range(1, 21)
+                )
+            )
+
+            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+            assert len(entries) == 20
+            assert {entry["turn_number"] for entry in entries} == set(range(1, 21))
+            assert {entry["agent"] for entry in entries} == {"turn_input"}
+        finally:
+            delete_session(sid)
+
+    def test_timeout_configuration_rejects_invalid_values(self) -> None:
+        from src.llm.client import DEFAULT_LLM_TIMEOUT_SECONDS, resolve_llm_timeout
+
+        assert resolve_llm_timeout({"llm_timeout_seconds": 12.5}) == 12.5
+        assert resolve_llm_timeout({"llm_timeout_seconds": 0}) == DEFAULT_LLM_TIMEOUT_SECONDS
+        assert resolve_llm_timeout({"llm_timeout_seconds": True}) == DEFAULT_LLM_TIMEOUT_SECONDS
+        assert resolve_llm_timeout({"llm_timeout_seconds": "slow"}) == DEFAULT_LLM_TIMEOUT_SECONDS

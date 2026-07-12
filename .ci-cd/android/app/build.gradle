@@ -1,0 +1,82 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.chaquo.python'
+}
+
+// Tarefa para copiar as fontes do Python para o diretório de build mantendo o namespace 'src'
+tasks.register('copyPythonSources', Copy) {
+    from "../../../src"
+    into "${project.buildDir}/pythonSrc/src"
+}
+
+// Faz com que as tarefas do Chaquopy dependam da cópia das fontes
+project.afterEvaluate {
+    tasks.configureEach { task ->
+        if (task.name.contains("Python") || task.name.contains("python")) {
+            task.dependsOn 'copyPythonSources'
+        }
+    }
+}
+
+android {
+    namespace 'com.al4xdev.alextavern'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.al4xdev.alextavern"
+        minSdk 24
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+
+        python {
+            version "3.8"
+            
+            pip {
+                install "fastapi"
+                install "uvicorn"
+                install "httpx"
+                install "pydantic"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    sourceSets {
+        main {
+            python {
+                // Aponta para a pasta temporária de build contendo o namespace 'src'
+                srcDirs = ["${project.buildDir}/pythonSrc"]
+            }
+        }
+    }
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.10.1'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+}
