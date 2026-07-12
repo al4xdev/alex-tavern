@@ -54,8 +54,8 @@ uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
 
 *Note: The server will automatically generate the default `.data/config.json` on its first launch. You can then edit it manually.*
 
-> [!WARNING]
-> **Docker Support**: A `Dockerfile` and GitHub Action workflow are available, but they have **not** been heavily tested yet. Use Docker at your own discretion.
+> [!NOTE]
+> **Docker Support**: A `Dockerfile` and GitHub Action workflow are available and fully supported. The container runs as a non-root system user (`appuser` with UID/GID 10001) for security. When mounting a volume to `/app/.data`, ensure the host directory has write permissions for UID 10001.
 
 ---
 

@@ -16,8 +16,19 @@ RUN uv sync --frozen --no-dev
 
 # Use an ultra-small Python 3.14 Alpine runner image
 FROM python:3.14-alpine
+
+# Create a system user and group
+RUN addgroup -g 10001 -S appgroup && \
+    adduser -u 10001 -S appuser -G appgroup
+
 WORKDIR /app
-COPY --from=builder /app /app
+
+# Copy files with correct ownership
+COPY --from=builder --chown=appuser:appgroup /app /app
+
+# Ensure data directory exists and is owned by the appuser
+RUN mkdir -p /app/.data && chown -R appuser:appgroup /app/.data
+
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Expose the API port
@@ -25,6 +36,9 @@ EXPOSE 8889
 
 # Create data directory volume
 VOLUME [ "/app/.data" ]
+
+# Switch to the non-root user
+USER appuser
 
 # Command to run uvicorn
 CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8889"]
