@@ -56,9 +56,8 @@ Call count and response kind must remain aligned with the fixture.
 - Exact API replay uses the `turn_input` marker written before the first LLM call of every turn.
   It contains player `speech`, `thought`, `action`, requested `force_speaker`, and the validated effective
   override.
-- The maintained `tests/fixtures/current_replay.debug.jsonl` fixture exercises the current format
-  with nine turns and one summarizer output. The `tests/fixtures/legacy_replay.debug.jsonl` fixture
-  exercises the legacy format where `thought` is absent. Logs without `turn_input` are rejected deliberately;
+- The maintained `tests/fixtures/current_replay.debug.jsonl` fixture exercises the current three-field format
+  with nine turns and one summarizer output. Logs without `turn_input` are rejected deliberately;
   no prompt/HISTORY inference or legacy compatibility layer is maintained.
 - The driver should be able to start a preset session, submit the fixture turns sequentially,
   inspect state after each turn, trigger compaction, and report mismatches without a browser.

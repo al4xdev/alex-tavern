@@ -172,26 +172,11 @@ repository `.data` directory or one of its children.
 
 ## Replay fixture status
 
-Two checked-in fixtures are maintained:
+One checked-in fixture is maintained:
 
-1. [`current_replay.debug.jsonl`](../tests/fixtures/current_replay.debug.jsonl): A three-field replay fixture containing nine Narrator-only turns plus one legacy summarizer response, with explicit `thought` fields (including non-empty thoughts) in the `turn_input` markers.
-2. [`legacy_replay.debug.jsonl`](../tests/fixtures/legacy_replay.debug.jsonl): A legacy two-field replay fixture that predates the explicit `thought` field, where the parser safely defaults missing `thought` values to `""`.
+[`current_replay.debug.jsonl`](../tests/fixtures/current_replay.debug.jsonl): A three-field replay fixture containing nine Narrator-only turns plus one legacy summarizer response, with explicit `thought` fields (including non-empty thoughts) in the `turn_input` markers.
 
-Before structured Character thoughts and partitioned world/private compaction, the legacy tape was
-verified end to end with the real Roleplay HTTP application and `replay_llm.py`:
-
-- nine exact inputs submitted through the real API;
-- state inspected successfully after every turn;
-- history grew from 2 through 18 records before compaction;
-- compaction evicted 2 records and retained 16;
-- all 10 successful outputs matched in exact order;
-- replay cursor finished at 10/10 with zero remaining entries;
-- final result reported `matches: true`.
-
-Those numbers are historical evidence, not a current end-to-end guarantee: current compaction can
-consume one public summary response plus multiple private-memory responses. The fixtures remain a
-parser, cursor, and backward-compatible input regression; record a new live tape before using it
-to validate exact current compaction outputs.
+Strict three-field validation is enforced: `thought` must be a string key in every `turn_input` marker. There is no legacy fallback or compatibility layer for missing fields.
 
 The older `7cb448da`/`614f2910` logs remain historical debugging evidence but contain no
 `turn_input` markers. They are intentionally not accepted by the current conversation driver.

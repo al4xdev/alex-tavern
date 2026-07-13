@@ -89,7 +89,7 @@ caminho de transição de cena sem que a cena tivesse mudado semanticamente.
 
 **Severidade observada:** alta em relação ao modelo de papéis documentado.
 
-O `agent.md` define que Character pode somente falar e pensar, nunca executar ou descrever ação
+O `AGENTS.md` define que Character pode somente falar e pensar, nunca executar ou descrever ação
 física própria ou alheia. Nos 20 turnos houve 15 respostas de Lyra, e todas incluíram ação ou
 descrição física própria. A resposta pós-compactação repetiu o padrão.
 
