@@ -1967,6 +1967,451 @@ class TestEdgeCases:
         body = PlayerTurnRequest(narrator_hint="A storm approaches.")
         assert body.narrator_hint == "A storm approaches."
 
+    def test_pydantic_turn_request_rejects_unknown_field(self) -> None:
+        """Campo desconhecido é rejeitado por extra='forbid'."""
+        from pydantic import ValidationError
+
+        from src.main import PlayerTurnRequest
+
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            PlayerTurnRequest(**{"speech": "Hi", "narrator_hnit": "typo"})
+
+    def test_pydantic_turn_request_rejects_skip_with_speech(self) -> None:
+        """skip=True + speech lança erro."""
+        from src.main import PlayerTurnRequest
+
+        with pytest.raises(ValueError, match="skip=True cannot be combined"):
+            PlayerTurnRequest(skip=True, speech="Don't ignore me")
+
+    def test_pydantic_turn_request_rejects_skip_with_thought(self) -> None:
+        """skip=True + thought lança erro."""
+        from src.main import PlayerTurnRequest
+
+        with pytest.raises(ValueError, match="skip=True cannot be combined"):
+            PlayerTurnRequest(skip=True, thought="I think")
+
+    def test_pydantic_turn_request_rejects_skip_with_action(self) -> None:
+        """skip=True + action lança erro."""
+        from src.main import PlayerTurnRequest
+
+        with pytest.raises(ValueError, match="skip=True cannot be combined"):
+            PlayerTurnRequest(skip=True, action="Move")
+
+    def test_pydantic_turn_request_accepts_skip_with_hint(self) -> None:
+        """skip=True + narrator_hint é aceito."""
+        from src.main import PlayerTurnRequest
+
+        body = PlayerTurnRequest(skip=True, narrator_hint="Storm passes.")
+        assert body.skip is True
+        assert body.narrator_hint == "Storm passes."
+
+
+class TestHttpBoundary:
+    """Testes da fronteira HTTP com ASGITransport — Pydantic → route → Runner."""
+
+    @pytest.mark.asyncio
+    async def test_hint_only_reaches_runner(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """narrator_hint como único conteúdo via HTTP chega ao Runner."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["narrator_hint"] = narrator_hint
+            return {
+                "narration": "The wind stirs.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            # Start session
+            start_resp = await http.post("/session/start", json={})
+            assert start_resp.status_code == 200
+            sid = start_resp.json()["session_id"]
+
+            # Turn with only narrator_hint
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={"narrator_hint": "A storm approaches."},
+            )
+            assert turn_resp.status_code == 200
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert captured.get("narrator_hint") == "A storm approaches."
+
+    @pytest.mark.asyncio
+    async def test_skip_only_reaches_runner(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """skip=true via HTTP chega ao Runner."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["called"] = True
+            return {
+                "narration": "Time passes.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={"skip": True},
+            )
+            assert turn_resp.status_code == 200
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert captured.get("called") is True
+
+    @pytest.mark.asyncio
+    async def test_action_and_hint_via_http(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """action + narrator_hint via HTTP: ambos chegam ao Runner."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["narrator_hint"] = narrator_hint
+            return {
+                "narration": "He swings.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={
+                    "action": "Draws sword",
+                    "narrator_hint": "A bird screeches.",
+                },
+            )
+            assert turn_resp.status_code == 200
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert captured.get("narrator_hint") == "A bird screeches."
+
+    @pytest.mark.asyncio
+    async def test_empty_body_returns_422(self) -> None:
+        """POST /session/X/turn com body vazio retorna 422."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={},
+            )
+            assert turn_resp.status_code == 422
+            await llm_client.aclose()
+
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_unknown_field_returns_422(self) -> None:
+        """Campo desconhecido no body do turn retorna 422 (extra='forbid')."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={"speech": "Hi", "narrator_hnit": "typo"},
+            )
+            assert turn_resp.status_code == 422
+            await llm_client.aclose()
+
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_skip_with_speech_returns_422(self) -> None:
+        """skip=true + speech retorna 422."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={"skip": True, "speech": "Don't ignore me"},
+            )
+            assert turn_resp.status_code == 422
+            await llm_client.aclose()
+
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_skip_with_hint_is_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """skip=true + narrator_hint é aceito (422-free)."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["narrator_hint"] = narrator_hint
+            captured["called"] = True
+            return {
+                "narration": "The storm passes.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={"skip": True, "narrator_hint": "Storm fades."},
+            )
+            assert turn_resp.status_code == 200
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert captured.get("called") is True
+        assert captured.get("narrator_hint") == "Storm fades."
+
+    @pytest.mark.asyncio
+    async def test_thought_with_hint_calls_narrator(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """thought + narrator_hint NÃO faz early return — Narrador é chamado."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["narrator_hint"] = narrator_hint
+            captured["called"] = True
+            return {
+                "narration": "Rain begins to fall.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={
+                    "thought": "I am afraid.",
+                    "narrator_hint": "A storm begins.",
+                },
+            )
+            assert turn_resp.status_code == 200
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert captured.get("called") is True
+        assert captured.get("narrator_hint") == "A storm begins."
+
+    @pytest.mark.asyncio
+    async def test_hint_only_with_force_speaker(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """hint-only + force_speaker preserva o speaker via HTTP."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["forced_speaker"] = forced_speaker
+            captured["narrator_hint"] = narrator_hint
+            return {
+                "narration": "Lyra steps forward.",
+                "next_speaker": "C1",
+                "context_for_character": "Lyra approaches you.",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+
+        async def fake_character(
+            game,
+            character_id,
+            context,
+            turn_number,  # noqa: ANN001, ANN202
+        ) -> dict:
+            return {"speech": "Yes?", "thought": None}
+
+        monkeypatch.setattr(runner, "_call_character", fake_character)
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            start_resp = await http.post("/session/start", json={})
+            sid = start_resp.json()["session_id"]
+
+            turn_resp = await http.post(
+                f"/session/{sid}/turn",
+                json={
+                    "narrator_hint": "Lyra enters.",
+                    "force_speaker": "C2",
+                },
+            )
+            assert turn_resp.status_code == 200, turn_resp.json()
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert captured.get("forced_speaker") == "C2"
+        assert captured.get("narrator_hint") == "Lyra enters."
+
 
 class TestDynamicConfigAndPresets:
     """Testes para o novo sistema de configuração dinâmica e presets no servidor."""
