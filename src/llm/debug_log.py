@@ -60,6 +60,8 @@ def log_turn_input(
     action: str,
     requested_force_speaker: str | None,
     effective_force_speaker: str | None,
+    narrator_hint: str = "",
+    skip: bool = False,
 ) -> None:
     """Append the exact API turn payload before any LLM call for that turn."""
     _append(
@@ -74,6 +76,8 @@ def log_turn_input(
                 "thought": thought,
                 "action": action,
                 "force_speaker": requested_force_speaker,
+                "narrator_hint": narrator_hint,
+                "skip": skip,
             },
             "effective_force_speaker": effective_force_speaker,
         },

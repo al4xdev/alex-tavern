@@ -125,11 +125,17 @@ class PlayerTurnRequest(BaseModel):
     thought: str = ""
     action: str = ""
     force_speaker: str | None = None
+    narrator_hint: str = ""
+    skip: bool = False
 
     @model_validator(mode="after")
     def require_content(self) -> PlayerTurnRequest:
-        if not any(value.strip() for value in (self.speech, self.thought, self.action)):
-            raise ValueError("A turn needs speech, thought, or action")
+        if self.skip:
+            return self
+        if not any(
+            value.strip() for value in (self.speech, self.thought, self.action, self.narrator_hint)
+        ):
+            raise ValueError("A turn needs speech, thought, action, or narrator_hint")
         return self
 
 
@@ -261,6 +267,8 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         thought=body.thought,
         action=body.action,
         force_speaker=body.force_speaker,
+        narrator_hint=body.narrator_hint,
+        skip=body.skip,
     )
     return result
 

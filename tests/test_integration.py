@@ -185,9 +185,7 @@ class TestModels:
 
         assert migrate_legacy_history([]) == []
         scene = deepcopy_scene(DEFAULT_SCENE)
-        legacy = [
-            TurnRecord(1, "C2", "**Isso parece estranho.**\nEu concordo.", "speech", scene)
-        ]
+        legacy = [TurnRecord(1, "C2", "**Isso parece estranho.**\nEu concordo.", "speech", scene)]
         migrated = migrate_legacy_history(legacy)
         assert [(record.content_type, record.content) for record in migrated] == [
             ("thought", "Isso parece estranho."),
@@ -676,6 +674,8 @@ class TestRunnerLogic:
             "thought": "",
             "action": "",
             "force_speaker": "C2",
+            "narrator_hint": "",
+            "skip": False,
         }
         assert marker["effective_force_speaker"] == "C2"
         delete_session(sid)
@@ -1346,8 +1346,6 @@ class TestCustomSessionAndDebug:
         }
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes — Agente Resumidor (summarizer.py)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1867,6 +1865,107 @@ class TestEdgeCases:
         game.scene.physical_facts["door"] = "open"
         # Snapshot não foi afetado
         assert game.history[0].scene_snapshot.physical_facts["door"] == "closed"
+
+    @pytest.mark.asyncio
+    async def test_narrator_hint_propagates_to_narrator(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:  # noqa: ANN001
+        """narrator_hint passado no player_turn chega ao _call_narrator."""
+
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["narrator_hint"] = narrator_hint
+            return {
+                "narration": "The storm rolls in.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        sid = runner.start_session()
+        try:
+            await runner.player_turn(
+                session_id=sid,
+                speech="Hello.",
+                narrator_hint="A storm approaches from the east.",
+            )
+            assert captured.get("narrator_hint") == "A storm approaches from the east."
+        finally:
+            delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_narrator_hint_only_turn_no_speech(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """narrator_hint como único conteúdo do turno não é rejeitado e chega ao narrador."""
+        captured: dict[str, object] = {}
+
+        async def fake_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001, ANN202
+        ) -> dict:
+            captured["narrator_hint"] = narrator_hint
+            return {
+                "narration": "A gust of wind tousles the grass.",
+                "next_speaker": "C1",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        sid = runner.start_session()
+        try:
+            await runner.player_turn(
+                session_id=sid,
+                narrator_hint="Wind picks up.",
+            )
+            assert captured.get("narrator_hint") == "Wind picks up."
+            assert captured.get("narrator_hint")  # non-empty
+        finally:
+            delete_session(sid)
+
+    def test_pydantic_turn_request_accepts_narrator_hint(self) -> None:
+        """PlayerTurnRequest deserializa narrator_hint e skip corretamente."""
+        from src.main import PlayerTurnRequest
+
+        body = PlayerTurnRequest(
+            narrator_hint="Something is coming.",
+        )
+        assert body.narrator_hint == "Something is coming."
+        assert body.skip is False
+
+    def test_pydantic_turn_request_accepts_skip_without_content(self) -> None:
+        """PlayerTurnRequest com skip=true não precisa de speech/thought/action/hint."""
+        from src.main import PlayerTurnRequest
+
+        body = PlayerTurnRequest(skip=True)
+        assert body.skip is True
+        # não levanta — skip=true bypassa o validator
+
+    def test_pydantic_turn_request_rejects_empty(self) -> None:
+        """PlayerTurnRequest totalmente vazio ainda é rejeitado."""
+        from src.main import PlayerTurnRequest
+
+        with pytest.raises(ValueError, match="needs speech, thought, action, or narrator_hint"):
+            PlayerTurnRequest()
+
+    def test_pydantic_turn_request_logs_narrator_hint(self) -> None:
+        """PlayerTurnRequest com narrator_hint preenche o campo no debug log input."""
+        from src.main import PlayerTurnRequest
+
+        body = PlayerTurnRequest(narrator_hint="A storm approaches.")
+        assert body.narrator_hint == "A storm approaches."
 
 
 class TestDynamicConfigAndPresets:

@@ -162,9 +162,8 @@ class Runner:
             Dict with: narration, character_response, next_speaker,
             scene_update, turn_number.
         """
-        if (
-            not skip
-            and not any(value.strip() for value in (speech, thought, action, narrator_hint))
+        if not skip and not any(
+            value.strip() for value in (speech, thought, action, narrator_hint)
         ):
             raise ValueError("A turn needs speech, thought, action, narrator_hint, or skip")
         async with _get_lock(session_id):
@@ -183,13 +182,15 @@ class Runner:
                 else None
             )
             log_turn_input(
-                session_id,
-                step,
-                speech,
-                thought,
-                action,
-                force_speaker,
-                effective_force_speaker,
+                session_id=session_id,
+                turn_number=step,
+                speech=speech,
+                thought=thought,
+                action=action,
+                requested_force_speaker=force_speaker,
+                effective_force_speaker=effective_force_speaker,
+                narrator_hint=narrator_hint,
+                skip=skip,
             )
 
             # Persist the turn BEFORE calling the Narrator (blind).
