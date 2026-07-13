@@ -13,5 +13,15 @@
     "id": "settings_tips",
     "text_key": "help.warning.settings",
     "help_path": "settings"
+  },
+  {
+    "id": "gestures_tips",
+    "text_key": "help.warning.gestures",
+    "help_path": "gestures"
+  },
+  {
+    "id": "actions_tips",
+    "text_key": "help.warning.actions",
+    "help_path": "actions"
   }
 ]
