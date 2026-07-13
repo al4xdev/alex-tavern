@@ -720,8 +720,18 @@ select.text-input { cursor: pointer; }
     flex-direction: column;
     gap: 10px;
     padding: 8px 4px;
-    scroll-behavior: smooth;
     min-width: 0;
+    overflow-anchor: none;
+}
+.chat-log > * {
+    overflow-anchor: none;
+}
+.chat-log::after {
+    content: "";
+    display: block;
+    height: 20px;
+    flex-shrink: 0;
+    overflow-anchor: auto;
 }
 
 /* Message bubbles */
@@ -943,6 +953,28 @@ select.text-input { cursor: pointer; }
     border-top: 1px solid var(--glass-border);
     padding-top: 12px;
 }
+.input-fields-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.input-expand-btn {
+    display: none;
+    width: 100%;
+    background: var(--surface-hi);
+    border: 1px solid var(--glass-border);
+    color: var(--text-2);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-align: left;
+    transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.input-expand-btn:hover {
+    background: rgba(56, 56, 78, 0.9);
+    color: var(--text-1);
+}
 .input-row { display: flex; gap: 8px; align-items: stretch; }
 .input-field {
     flex: 1;
@@ -989,8 +1021,9 @@ select.text-input { cursor: pointer; }
     bottom: calc(100% + 8px);
     right: 0;
     display: flex;
-    gap: 4px;
-    padding: 4px;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
     background: var(--surface-solid);
     border: 1px solid var(--glass-border-hi);
     border-radius: var(--radius-sm);
@@ -1023,6 +1056,78 @@ select.text-input { cursor: pointer; }
     left: 0;
     right: 0;
     height: 10px;
+}
+.action-popup-primary {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.action-popup-secondary {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: 1px solid transparent;
+    pointer-events: none;
+    clip-path: circle(0% at 75% -10%);
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.2s ease-in,
+                clip-path 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                padding-top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                margin-top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                border-top-color 0.3s ease;
+}
+.action-popup-secondary.open {
+    max-height: 120px;
+    opacity: 1;
+    pointer-events: auto;
+    padding-top: 6px;
+    margin-top: 4px;
+    border-top-color: var(--glass-border-hi);
+    clip-path: circle(150% at 75% -10%);
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.4s ease-out,
+                clip-path 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                padding-top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                margin-top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                border-top-color 0.4s ease;
+}
+#action-expand-more-btn {
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+#action-expand-more-btn.active {
+    transform: rotate(180deg);
+    background: var(--surface-hi);
+}
+.action-popup-secondary .action-popup-row {
+    transform: translateY(-8px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.action-popup-secondary.open .action-popup-row {
+    transform: translateY(0);
+    opacity: 1;
+}
+.action-popup-secondary.open .action-popup-row:nth-child(1) { transition-delay: 0.1s; }
+.action-popup-secondary.open .action-popup-row:nth-child(2) { transition-delay: 0.15s; }
+.action-popup-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+.action-btn-group {
+    display: flex;
+    gap: 1px;
+    background: var(--glass-border);
+    padding: 1px;
+    border-radius: 6px;
+}
+.action-btn-group .action-btn {
+    border-radius: 5px;
 }
 .action-btn {
     width: 34px;
@@ -1141,6 +1246,22 @@ select.text-input { cursor: pointer; }
     .scene-panel { font-size: 0.8rem; }
     .msg { max-width: 92%; }
 
+    .chat-log {
+        padding: 8px 4px;
+        min-width: 0;
+        overflow-anchor: none; /* Disable default anchor */
+    }
+    .chat-log > * {
+        overflow-anchor: none;
+    }
+    .chat-log::after {
+        content: "";
+        display: block;
+        height: 20px;
+        flex-shrink: 0;
+        overflow-anchor: auto; /* Anchor to the bottom spacer */
+    }
+
     /* Setup modal becomes a full-screen sheet */
     .overlay { padding: 0; }
     .modal {
@@ -1169,6 +1290,51 @@ select.text-input { cursor: pointer; }
     }
     .debug-close-btn { display: inline-flex; }
     .debug-pre { max-height: none; }
+    
+    --material-ease: cubic-bezier(0.2, 0, 0, 1);
+    
+    .input-area {
+        position: relative;
+        overflow: visible;
+        border-radius: var(--radius-sm);
+        transition: max-height 0.45s var(--material-ease), margin 0.45s var(--material-ease);
+    }
+    .input-fields-container {
+        max-height: 500px;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        transition: max-height 0.45s var(--material-ease), 
+                    opacity 0.3s 0.15s ease,
+                    transform 0.45s var(--material-ease);
+    }
+    .input-expand-btn {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 2;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-10px) scale(0.95);
+        transition: opacity 0.2s ease, transform 0.45s var(--material-ease);
+    }
+    
+    .input-area.collapsed .input-fields-container {
+        max-height: 0;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(10px) scale(0.95);
+        transition: max-height 0.45s var(--material-ease), 
+                    opacity 0.2s ease,
+                    transform 0.45s var(--material-ease);
+    }
+    .input-area.collapsed .input-expand-btn {
+        position: relative;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+        transition: opacity 0.3s 0.15s ease, transform 0.45s var(--material-ease);
+    }
 }
 
 /* Very small phones — drop non-essential text to keep one row usable */

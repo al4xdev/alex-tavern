@@ -270,7 +270,11 @@
 
         <div class="options-panel" id="options-panel"></div>
 
-        <div class="input-area" id="input-area">
+        <div class="input-area collapsed" id="input-area">
+            <button class="btn btn-ghost input-expand-btn" id="input-expand-btn" type="button" data-i18n="input.expand">
+                💬 Write message...
+            </button>
+            <div class="input-fields-container" id="input-fields-container">
             <div class="input-row">
                 <input type="text" class="input-field" id="input-speech"
                     placeholder="💬 Speech..." data-i18n-placeholder="input.speech" disabled>
@@ -284,25 +288,37 @@
                     placeholder="🎬 Action..." data-i18n-placeholder="input.action" disabled>
                 <div class="send-actions">
                     <div class="action-popup" id="action-popup">
-                        <select class="force-speaker-select" id="force-speaker-select"
-                            title="Force who acts next" aria-label="Force speaker" data-i18n-title="action.forceTitle" data-i18n-aria-label="action.forceAria">
-                            <option value="" data-i18n="action.automatic">🎲 Automatic</option>
-                        </select>
-                        <button class="icon-btn action-btn" id="action-suggest-btn" title="Move suggestion" aria-label="Suggest a move" data-i18n-title="action.suggestTitle" data-i18n-aria-label="action.suggestAria">💡</button>
-                        <button class="icon-btn action-btn" id="action-hint-btn" title="Narrator event hint" aria-label="Suggest an event for the Narrator" data-i18n-title="action.hintTitle" data-i18n-aria-label="action.hintAria">📜</button>
-                        <button class="icon-btn action-btn action-compact-btn" id="action-compact-btn"
-                            title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
-                            <span class="compact-progress" id="compact-progress"></span>
-                            <span class="compact-icon">🗜️</span>
-                        </button>
-                        <button class="icon-btn action-btn" id="action-restore-compaction-btn"
-                            title="Undo last compaction (only when safe)" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
-                        <button class="icon-btn action-btn" id="action-undo-btn" title="Undo turn" aria-label="Undo last turn" data-i18n-title="action.undoTitle" data-i18n-aria-label="action.undoAria">↩</button>
-                        <button class="icon-btn action-btn" id="action-skip-btn" title="Skip turn" aria-label="Skip player turn" data-i18n-title="action.skipTitle" data-i18n-aria-label="action.skipAria">⏭</button>
-                        <button class="icon-btn action-btn" id="action-retry-btn" title="Try again" aria-label="Resend turn" data-i18n-title="action.retryTitle" data-i18n-aria-label="action.retryAria">↻</button>
+                        <div class="action-popup-primary">
+                            <select class="force-speaker-select" id="force-speaker-select"
+                                title="Force who acts next" aria-label="Force speaker" data-i18n-title="action.forceTitle" data-i18n-aria-label="action.forceAria">
+                                <option value="" data-i18n="action.automatic">🎲 Automatic</option>
+                            </select>
+                            <button class="icon-btn action-btn" id="action-expand-more-btn" title="More options" aria-label="More options">⋯</button>
+                            <button class="icon-btn action-btn" id="action-skip-btn" title="Skip turn" aria-label="Skip player turn" data-i18n-title="action.skipTitle" data-i18n-aria-label="action.skipAria">⏭</button>
+                        </div>
+                        <div class="action-popup-secondary" id="action-popup-secondary">
+                            <div class="action-popup-row">
+                                <button class="icon-btn action-btn" id="action-suggest-btn" title="Move suggestion" aria-label="Suggest a move" data-i18n-title="action.suggestTitle" data-i18n-aria-label="action.suggestAria">💡</button>
+                                <button class="icon-btn action-btn" id="action-hint-btn" title="Narrator event hint" aria-label="Suggest an event for the Narrator" data-i18n-title="action.hintTitle" data-i18n-aria-label="action.hintAria">📜</button>
+                            </div>
+                            <div class="action-popup-row">
+                                <button class="icon-btn action-btn" id="action-undo-btn" title="Undo turn" aria-label="Undo last turn" data-i18n-title="action.undoTitle" data-i18n-aria-label="action.undoAria">↩</button>
+                                <button class="icon-btn action-btn" id="action-retry-btn" title="Try again" aria-label="Resend turn" data-i18n-title="action.retryTitle" data-i18n-aria-label="action.retryAria">↻</button>
+                                <div class="action-btn-group">
+                                    <button class="icon-btn action-btn action-compact-btn" id="action-compact-btn"
+                                        title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
+                                        <span class="compact-progress" id="compact-progress"></span>
+                                        <span class="compact-icon">🗜️</span>
+                                    </button>
+                                    <button class="icon-btn action-btn" id="action-restore-compaction-btn"
+                                        title="Undo last compaction (only when safe)" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <button class="send-btn" id="send-btn" disabled data-i18n="input.send">Send</button>
                 </div>
+            </div>
             </div>
         </div>
     </div>

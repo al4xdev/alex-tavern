@@ -35,6 +35,8 @@ const chatLog       = document.getElementById('chat-log');
 const sceneLocation = document.getElementById('scene-location');
 const sceneTags     = document.getElementById('scene-tags');
 const optionsPanel  = document.getElementById('options-panel');
+const inputArea     = document.getElementById('input-area');
+const inputExpandBtn= document.getElementById('input-expand-btn');
 const inputSpeech   = document.getElementById('input-speech');
 const inputThought  = document.getElementById('input-thought');
 const inputAction   = document.getElementById('input-action');
@@ -55,6 +57,8 @@ const debugRefreshBtn = document.getElementById('debug-refresh-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
 const actionSkipBtn = document.getElementById('action-skip-btn');
+const actionExpandMoreBtn = document.getElementById('action-expand-more-btn');
+const actionPopupSecondary = document.getElementById('action-popup-secondary');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
 const actionHintBtn = document.getElementById('action-hint-btn');
 const actionCompactBtn = document.getElementById('action-compact-btn');
@@ -100,7 +104,7 @@ function setLoading(on) {
 }
 
 function scrollToBottom() {
-    chatLog.scrollTop = chatLog.scrollHeight;
+    chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
 }
 
 /* ── Action popup (undo / retry / force-speaker / suggest) ────────────── */
@@ -123,6 +127,8 @@ function updateActionPopup() {
 
 function hideActionPopup() {
     if (actionPopup) actionPopup.classList.remove('visible');
+    if (actionPopupSecondary) actionPopupSecondary.classList.remove('open');
+    if (actionExpandMoreBtn) actionExpandMoreBtn.classList.remove('active');
 }
 
 async function skipTurn() {
@@ -397,7 +403,12 @@ async function loadSession(sessionId) {
         inputAction.disabled = false;
         sendBtn.disabled = false;
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
-        inputSpeech.focus();
+        if (window.innerWidth > 760) {
+            inputSpeech.focus();
+        } else {
+            inputArea.classList.add('collapsed');
+            chatLog.scrollTop = chatLog.scrollHeight - chatLog.clientHeight - 15;
+        }
 
         closeSessionsModal();
         toast(t('sessions.loaded', { id: sessionId }), 'success', 2500);
@@ -433,7 +444,7 @@ async function undoLastTurn() {
             inputAction.value = state.lastInputs.action || '';
             if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
             state.narratorHint = state.lastInputs.narratorHint || '';
-            inputSpeech.focus();
+            if (window.innerWidth > 760) inputSpeech.focus();
         }
 
         toast(t('turn.undone'), 'success', 2000);
@@ -672,7 +683,7 @@ function renderSuggestions(suggestions) {
             inputThought.value = '';
             inputAction.value = s.action || '';
             clearSuggestions();
-            inputSpeech.focus();
+            if (window.innerWidth > 760) inputSpeech.focus();
         });
         optionsPanel.appendChild(btn);
     });
@@ -1002,7 +1013,7 @@ async function startSession(cfg) {
         inputAction.disabled = false;
         sendBtn.disabled = false;
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
-        inputSpeech.focus();
+        if (window.innerWidth > 760) inputSpeech.focus();
         toast(t('turn.started', { name: controlledName() }), 'success', 2500);
     } catch (err) {
         toast(t('turn.startError', { error: err.message }), 'error');
@@ -1068,7 +1079,7 @@ async function sendTurn(isRetry = false) {
         inputAction.value = '';
         state.narratorHint = '';
         if (forceSpeakerSelect) forceSpeakerSelect.value = '';
-        inputSpeech.focus();
+        if (window.innerWidth > 760) inputSpeech.focus();
         state.lastTurnFailed = false;
         state.canUndo = true;
         updateActionPopup();
@@ -1134,6 +1145,13 @@ document.addEventListener('click', (e) => {
 if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
 if (actionSkipBtn) actionSkipBtn.addEventListener('click', skipTurn);
+if (actionExpandMoreBtn && actionPopupSecondary) {
+    actionExpandMoreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        actionPopupSecondary.classList.toggle('open');
+        actionExpandMoreBtn.classList.toggle('active');
+    });
+}
 if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
 if (actionHintBtn) actionHintBtn.addEventListener('click', openHintPopup);
 if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
@@ -1159,6 +1177,72 @@ inputSpeech.addEventListener('keydown', (e) => {
 });
 inputThought.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputAction.focus(); }
+});
+
+if (inputExpandBtn) {
+    inputExpandBtn.addEventListener('click', () => {
+        scrollToBottom();
+    });
+}
+
+// Swipe gestures for input area
+let touchStartY = 0;
+inputArea.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+inputArea.addEventListener('touchend', (e) => {
+    if (window.innerWidth > 760) return;
+    const touchEndY = e.changedTouches[0].clientY;
+    const deltaY = touchEndY - touchStartY;
+    
+    if (deltaY > 30) {
+        const activeEl = document.activeElement;
+        if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
+            activeEl.blur();
+        }
+        inputArea.classList.add('collapsed');
+    } else if (deltaY < -30) {
+        inputArea.classList.remove('collapsed');
+    }
+}, { passive: true });
+
+// Push messages up when the input area expands (chatLog shrinks)
+let prevChatLogHeight = chatLog.clientHeight;
+new ResizeObserver(() => {
+    const newHeight = chatLog.clientHeight;
+    const diff = prevChatLogHeight - newHeight;
+    if (diff > 0) {
+        // Container shrank, push text up
+        chatLog.scrollTop += diff;
+    } else if (diff < 0) {
+        // Container grew, scroll down if we were pinned to bottom
+        const distanceToBottom = chatLog.scrollHeight - chatLog.scrollTop - prevChatLogHeight;
+        if (distanceToBottom <= 15) {
+            chatLog.scrollTop += diff; 
+        }
+    }
+    prevChatLogHeight = newHeight;
+}).observe(chatLog);
+
+let lastScrollTop = 0;
+chatLog.addEventListener('scroll', () => {
+    if (window.innerWidth > 760) return;
+    
+    const currentScrollTop = chatLog.scrollTop;
+    const isScrollingUp = currentScrollTop < lastScrollTop;
+    const distanceToBottom = chatLog.scrollHeight - currentScrollTop - chatLog.clientHeight;
+    
+    if (!isScrollingUp && distanceToBottom <= 10) {
+        inputArea.classList.remove('collapsed');
+    } else if (isScrollingUp && distanceToBottom > 40) {
+        const activeEl = document.activeElement;
+        const isInputFocused = activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction;
+        if (!isInputFocused) {
+            inputArea.classList.add('collapsed');
+        }
+    }
+    lastScrollTop = currentScrollTop;
 });
 
 // Sessions button — open sessions modal
