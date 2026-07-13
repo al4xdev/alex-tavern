@@ -1,5 +1,7 @@
 /* Declarative frontend adapter factory for one server-side LLM provider. */
 
+import { bindTranslation, t } from '../i18n.js';
+
 const INTEGER_FIELDS = new Set([
     'context_max',
     'max_tokens_narrator',
@@ -20,11 +22,11 @@ function makeElement(tag, className = '', text = '') {
 
 export function standardGenerationFields() {
     return [
-        { key: 'context_max', label: 'Contexto', type: 'number', min: 1 },
-        { key: 'max_tokens_narrator', label: 'Narrador', type: 'number', min: 1 },
-        { key: 'max_tokens_character', label: 'Personagem', type: 'number', min: 1 },
-        { key: 'summarizer_max_tokens', label: 'Resumo', type: 'number', min: 1 },
-        { key: 'llm_timeout_seconds', label: 'Timeout (s)', type: 'number', min: 0.5, step: 0.5 },
+        { key: 'context_max', labelKey: 'provider.context', type: 'number', min: 1 },
+        { key: 'max_tokens_narrator', labelKey: 'provider.narrator', type: 'number', min: 1 },
+        { key: 'max_tokens_character', labelKey: 'provider.character', type: 'number', min: 1 },
+        { key: 'summarizer_max_tokens', labelKey: 'provider.summary', type: 'number', min: 1 },
+        { key: 'llm_timeout_seconds', labelKey: 'provider.timeout', type: 'number', min: 0.5, step: 0.5 },
     ];
 }
 
@@ -45,7 +47,7 @@ export function createProviderAdapter(definition) {
         const copy = makeElement('span', 'provider-copy');
         copy.append(
             makeElement('strong', '', definition.label),
-            makeElement('small', '', definition.description),
+            bindTranslation(makeElement('small'), definition.descriptionKey),
         );
         card.append(orbit, copy, makeElement('span', 'provider-badge', definition.badge));
         card.addEventListener('click', () => onSelect(definition.id));
@@ -55,7 +57,7 @@ export function createProviderAdapter(definition) {
     function renderField(field, parent) {
         const wrapper = makeElement('div', 'field-group provider-wide');
         const id = inputId(definition.id, field.key);
-        const label = makeElement('label', 'field-label', field.label);
+        const label = bindTranslation(makeElement('label', 'field-label'), field.labelKey);
         label.htmlFor = id;
         const input = makeElement('input', 'text-input');
         input.id = id;
@@ -63,12 +65,15 @@ export function createProviderAdapter(definition) {
         input.type = field.type || 'text';
         input.autocomplete = field.autocomplete || 'off';
         if (field.placeholder) input.placeholder = field.placeholder;
+        if (field.placeholderKey) bindTranslation(input, field.placeholderKey, {}, 'placeholder');
         if (field.min !== undefined) input.min = String(field.min);
         if (field.step !== undefined) input.step = String(field.step);
         if (input.type === 'number') input.inputMode = field.step ? 'decimal' : 'numeric';
         wrapper.append(label, input);
-        if (field.hint || field.secret) {
-            const hint = makeElement('p', 'field-hint', field.hint || '');
+        if (field.hint || field.hintKey || field.secret) {
+            const hint = field.hintKey
+                ? bindTranslation(makeElement('p', 'field-hint'), field.hintKey)
+                : makeElement('p', 'field-hint', field.hint || '');
             hint.dataset.fieldHint = field.key;
             wrapper.appendChild(hint);
         }
@@ -88,7 +93,7 @@ export function createProviderAdapter(definition) {
             const notice = makeElement('div', 'reasoning-lock provider-wide');
             notice.append(
                 makeElement('span', 'reasoning-lock-icon', definition.notice.icon),
-                makeElement('span', 'reasoning-lock-copy', definition.notice.text),
+                bindTranslation(makeElement('span', 'reasoning-lock-copy'), definition.notice.textKey),
             );
             panel.appendChild(notice);
         }
@@ -97,7 +102,7 @@ export function createProviderAdapter(definition) {
         if (numericFields.length) {
             const grid = makeElement('div', 'provider-number-grid');
             numericFields.forEach((field) => {
-                const label = makeElement('label', '', field.label);
+                const label = bindTranslation(makeElement('label'), field.labelKey);
                 const input = makeElement('input', 'text-input');
                 input.id = inputId(definition.id, field.key);
                 input.dataset.providerField = field.key;
@@ -120,9 +125,7 @@ export function createProviderAdapter(definition) {
             if (field.secret) {
                 const configured = Boolean(config[`${field.key}_configured`]);
                 const hint = panel.querySelector(`[data-field-hint="${field.key}"]`);
-                hint.textContent = configured
-                    ? 'Chave configurada no servidor. Deixe em branco para mantê-la.'
-                    : 'Nenhuma chave configurada. Ela será salva somente no servidor.';
+                bindTranslation(hint, configured ? 'provider.keyConfigured' : 'provider.keyMissing');
                 hint.classList.toggle('configured', configured);
             }
         });
@@ -148,7 +151,7 @@ export function createProviderAdapter(definition) {
 
     return Object.freeze({
         id: definition.id,
-        statusText: definition.statusText,
+        statusText: () => t('engine.statusActive', { kind: definition.badge }),
         statusClass: definition.statusClass || '',
         renderCard,
         renderPanel,

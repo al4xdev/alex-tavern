@@ -21,6 +21,12 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > See [Verified prompt caching](#-verified-prompt-caching) and the
 > [Task 09 evidence](docs/09-prompt-caching.md).
 
+> [!NOTE]
+> **Docker and Android builds are available.** The current container image is published as
+> `ghcr.io/al4xdev/alex-tavern:latest`. An experimental Android APK is published through GitHub
+> Releases as the **Latest Debug APK**. Despite living on the Releases page, the APK is a rough
+> debug build for active development, not a production-ready mobile release.
+
 <place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
 ---
@@ -46,6 +52,56 @@ creates `.data/config.json`; provider configuration and API keys live only there
 storage. llama.cpp remains available as a local engine, while DeepSeek uses
 `deepseek-v4-flash` with thinking explicitly disabled.
 
+The same menu also selects the interface language. English is the default and fallback;
+Portuguese browsers start in Portuguese. Changing the interface between `en` and `pt-BR` updates
+the visible application immediately and synchronizes the model response language to **English**
+or **Brazilian Portuguese** without changing the active session, form contents, or chat history.
+
+### 🐳 Docker
+
+On Linux, the helper script is the shortest path:
+
+```bash
+./start_docker.sh
+```
+
+It creates or reuses the repository's `.data/` directory, pulls
+`ghcr.io/al4xdev/alex-tavern:latest`, replaces an existing `alex-tavern` container, bind-mounts
+`.data` at `/app/.data`, and starts the application in the background with host networking. Open
+<http://localhost:8889> after it starts. Because the container adopts the current Unix UID/GID,
+the mounted files remain owned by the local user.
+
+Windows users only need Docker Desktop and can run the published image directly from PowerShell;
+no Python or `uv` installation is required:
+
+```powershell
+docker pull ghcr.io/al4xdev/alex-tavern:latest
+docker volume create alex-tavern-data
+docker run -d --name alex-tavern -p 8889:8889 `
+  -v alex-tavern-data:/app/.data --restart unless-stopped `
+  ghcr.io/al4xdev/alex-tavern:latest
+```
+
+Then open <http://localhost:8889>. The named volume preserves configuration, presets, sessions,
+and debug logs when the container is replaced. To update an existing installation, pull the new
+image, run `docker rm -f alex-tavern`, and execute the `docker run` command again. When a Windows
+container must reach llama.cpp running on the host, use
+`http://host.docker.internal:<port>/v1` as its API base.
+
+### 🤖 Experimental Android APK
+
+Download `app-debug.apk` from the
+[Latest Debug APK release](https://github.com/al4xdev/alex-tavern/releases/tag/latest) and
+sideload it on Android 7.0 or newer. Android may require permission to install apps from the
+browser or file manager used to open the APK.
+
+The APK bundles the web interface and runs the FastAPI backend locally inside the application.
+It does **not** bundle an LLM: configure DeepSeek or a llama.cpp server reachable from the phone
+through the gear menu. The Android build is currently rough and may contain platform-specific
+problems; it is intentionally labeled a debug APK even though CI publishes it on the Releases
+page. Every push to `master` rebuilds the APK and replaces the `latest` prerelease, while `v*`
+tags create matching prereleases.
+
 ### 💻 Other Operating Systems (Windows / macOS)
 
 On systems where the repository shell scripts are unavailable, install and start the application
@@ -59,10 +115,8 @@ uv sync
 uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
 ```
 
-*Note: The server will automatically generate the default `.data/config.json` on its first launch. You can then edit it manually.*
-
-> [!NOTE]
-> **Docker Support**: A `Dockerfile` and GitHub Action workflow are available and fully supported. The container runs as a non-root system user (`appuser` with UID/GID 10001) for security. When mounting a volume to `/app/.data`, ensure the host directory has write permissions for UID 10001.
+*Note: The server automatically generates `.data/config.json` on first launch. The gear menu is
+the preferred editor; manual edits should be made only while the server is stopped.*
 
 ---
 
@@ -175,11 +229,12 @@ human's turn.
 
 Two details are part of the prompt contract:
 
-- **Language is injected at call time, not at prompt-build time.** The language instruction
-  (and an instruction to avoid em/en dashes entirely) is appended to the system message inside
-  the shared LLM client wrapper, after the narrator/character prompt builders already did their
-  work. The "debug preview" of a prompt (built without calling the LLM) is intentionally the
-  pre-language version.
+- **Language is injected at call time, not at prompt-build time.** The selected interface locale
+  is persisted in the browser and synchronized to the server as `English` or
+  `Brazilian Portuguese`. That response-language instruction (and an instruction to avoid em/en
+  dashes entirely) is appended to the system message inside the shared LLM client wrapper after
+  the narrator/character prompt builders finish. The "debug preview" of a prompt, built without
+  calling the LLM, is intentionally the pre-language version.
 - **The two calls are fully independent.** The Character agent re-reads the history itself; it
   isn't handed anything precomputed by the Narrator beyond the one filtered context string.
 
@@ -240,8 +295,8 @@ assembled.
 Character output uses the structural contract `{speech: string|null, thought: string|null}`.
 Either field may be null, but both cannot be empty. History stores them as separate typed records,
 the UI renders `thought` directly, and prompts expose private thoughts only to their owner. Obvious
-action-like Character output is rejected once with a corrective retry. When an older session is
-loaded, legacy `**thought**` fragments are split idempotently into typed records.
+action-like Character output is rejected once with a corrective retry. The frontend consumes only
+the canonical typed history representation and contains no markdown-era compatibility parser.
 
 ---
 
@@ -295,7 +350,7 @@ step, and does not cause another character to react to information they cannot k
 Alex Tavern exposes two complementary inspection layers:
 
 1. **In-app inspection.** Enabling Debug opens a drawer with a bounded rendered view of the
-   session log. `Preview do prompt` assembles the next Narrator prompt without calling an LLM;
+   session log. `Prompt preview` assembles the next Narrator prompt without calling an LLM;
    `Log` shows actual requests, raw responses, errors, retries, and timing.
 2. **Persistent JSONL evidence.** Every session writes an append-only
    `.data/sessions/{session_id}.debug.jsonl`. Each line is one chronological event, suitable for
@@ -332,8 +387,8 @@ sensitive session data.
 - **Character thought is subjective, not physical narration.** Prompts distinguish interpretation
   from observable action, while the structured response contract and local validator enforce the
   boundary outside prompt wording.
-- **Language policy is centralized.** The configured response language is injected at call time,
-  so provider and role-agent implementations do not duplicate it.
+- **Language policy is centralized.** The interface selector synchronizes the response language,
+  which is injected at call time so provider and role-agent implementations do not duplicate it.
 
 ---
 
@@ -506,6 +561,11 @@ the same typed renderer, so presentation no longer depends on parsing model-auth
 
 The interface is dependency-free and built from native ES modules. Current behavior includes:
 
+- English and Brazilian Portuguese catalogs, browser-locale detection, safe English fallback,
+  and a versioned interface preference in `localStorage`;
+- immediate in-place translation of static and dynamic controls, validation, tooltips, debug
+  states, and accessibility labels without recreating forms or sessions;
+- automatic synchronization between interface locale and model response language;
 - an action menu for undo, retry, force-speaker, suggestions, compaction, and restore;
 - a network-first service worker with cache fallback for the application shell;
 - typewriter reveal for Narrator and Character responses, with click-to-skip and
@@ -698,7 +758,7 @@ is:
 ```json
 {
   "active_provider": "llama_cpp",
-  "language": "Portuguese",
+  "language": "English",
   "compaction_keep_recent_turns": 8,
   "providers": {
     "llama_cpp": {
@@ -729,10 +789,13 @@ Writes use a temporary file, flush and `fsync`, then atomically replace the dest
 or old config shapes fail explicitly; the loader does not accumulate legacy compatibility layers.
 The active provider must have all required secret fields before it can be selected.
 
-The setup modal's **Motor de IA** section calls `GET /config` and `PUT /config`:
+The setup modal's **AI engine** section calls `GET /config` and `PUT /config`:
 
 - `GET /config` removes every declared secret and returns only `api_key_configured: true/false`;
 - leaving the key field blank during `PUT /config` preserves the existing server-side key;
+- the interface language selector owns the response language: `en` persists `English`, while
+  `pt-BR` persists `Brazilian Portuguese`; queued frontend writes prevent rapid switches from
+  being saved out of order;
 - the frontend never writes provider configuration to localStorage;
 - `/config` is network-only in the service worker and cannot be satisfied from the PWA cache;
 - raw LLM logs contain provider and host diagnostics but never authorization headers or keys.
@@ -831,6 +894,11 @@ Start the development server:
 This runs `uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8889`. Configuration lives
 in `.data/config.json` (gitignored); edit it through the gear menu or directly while the server is
 stopped. Presets (character and scene starting points) live under `.data/presets/`.
+
+For a containerized installation, run `./start_docker.sh` on Linux or use the Docker Desktop
+command from [Docker](#-docker). For the current mobile build, use the
+[Latest Debug APK](https://github.com/al4xdev/alex-tavern/releases/tag/latest); it is an
+experimental development artifact, not a stable Android release.
 
 <place_8:gif of ./start.sh booting and a fresh session being created from a preset>
 

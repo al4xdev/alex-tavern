@@ -1,6 +1,14 @@
 import { api } from './api.js';
 import { RuntimeConfig } from './runtime-config.js';
 import { Setup } from './setup.js';
+import {
+    bindTranslation,
+    getLocale,
+    onLocaleChange,
+    setLocale,
+    t,
+    translateDocument,
+} from './i18n.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    app.js — game view: dynamic rendering, turns, debug drawer, toasts.
@@ -53,10 +61,13 @@ const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const actionPopup   = document.getElementById('action-popup');
 const stopBtn       = document.getElementById('stop-btn');
 const sessionsOverlay = document.getElementById('sessions-overlay');
-const sessionsBody  = document.getElementById('sessions-body');
 const sessionList   = document.getElementById('session-list');
 const sessionsCloseBtn = document.getElementById('sessions-close-btn');
 const sessionsNewBtn  = document.getElementById('sessions-new-btn');
+const interfaceLanguage = document.getElementById('interface-language');
+
+let lastSessionList = null;
+let lastDebugEntries = null;
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 function toast(message, type = 'info', ms = 4000) {
@@ -109,13 +120,13 @@ function timeAgo(iso) {
     if (!iso) return '';
     const diff = Date.now() - new Date(iso).getTime();
     const sec = Math.floor(diff / 1000);
-    if (sec < 60) return 'agora';
+    if (sec < 60) return t('sessions.now');
     const min = Math.floor(sec / 60);
-    if (min < 60) return `há ${min}m`;
+    if (min < 60) return t('sessions.minutesAgo', { count: min });
     const hrs = Math.floor(min / 60);
-    if (hrs < 24) return `há ${hrs}h`;
+    if (hrs < 24) return t('sessions.hoursAgo', { count: hrs });
     const days = Math.floor(hrs / 24);
-    if (days < 30) return `há ${days}d`;
+    if (days < 30) return t('sessions.daysAgo', { count: days });
     return iso.slice(0, 10);
 }
 
@@ -125,7 +136,7 @@ async function openSessionsModal() {
         const list = await api.listSessions();
         renderSessionList(list);
     } catch (err) {
-        toast(`Erro ao listar sessões: ${err.message}`, 'error');
+        toast(t('sessions.listError', { error: err.message }), 'error');
     }
 }
 
@@ -134,11 +145,12 @@ function closeSessionsModal() {
 }
 
 function renderSessionList(sessions) {
+    lastSessionList = sessions;
     sessionList.innerHTML = '';
     if (!sessions || sessions.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'session-empty';
-        empty.textContent = 'Nenhuma sessão ainda. Crie uma nova!';
+        bindTranslation(empty, 'sessions.emptyCreate');
         sessionList.appendChild(empty);
         return;
     }
@@ -148,7 +160,7 @@ function renderSessionList(sessions) {
         if (s.session_id === state.sessionId) card.classList.add('active');
 
         const sceneText = s.scene_location || '';
-        const turnText = s.turn_count > 0 ? `${s.turn_count} turnos` : '0 turnos';
+        const turnText = t('sessions.turns', { count: s.turn_count || 0 });
         const dateText = timeAgo(s.created_at);
         const extra = [turnText, dateText].filter(Boolean).join(' · ');
 
@@ -193,12 +205,14 @@ function renderSessionList(sessions) {
         const forkBtn = document.createElement('button');
         forkBtn.className = 'session-action-btn';
         forkBtn.dataset.action = 'fork';
-        forkBtn.title = 'Fork (copiar)';
+        bindTranslation(forkBtn, 'sessions.fork', {}, 'title');
+        bindTranslation(forkBtn, 'sessions.fork', {}, 'ariaLabel');
         forkBtn.textContent = '🔀';
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'session-action-btn danger';
         deleteBtn.dataset.action = 'delete';
-        deleteBtn.title = 'Apagar';
+        bindTranslation(deleteBtn, 'common.delete', {}, 'title');
+        bindTranslation(deleteBtn, 'common.delete', {}, 'ariaLabel');
         deleteBtn.textContent = '🗑️';
         actions.append(forkBtn, deleteBtn);
         card.appendChild(actions);
@@ -224,22 +238,22 @@ function renderSessionList(sessions) {
             card.classList.remove('show-actions');
             try {
                 const result = await api.forkSession(s.session_id);
-                toast(`Fork criado: ${result.session_id}`, 'success', 3000);
+                toast(t('sessions.forked', { id: result.session_id }), 'success', 3000);
                 // Refresh list
                 const list = await api.listSessions();
                 renderSessionList(list);
             } catch (err) {
-                toast(`Erro no fork: ${err.message}`, 'error');
+                toast(t('sessions.forkError', { error: err.message }), 'error');
             }
         });
         deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             card.classList.remove('show-actions');
-            if (!confirm(`Apagar sessão ${s.session_id}?`)) return;
+            if (!confirm(t('sessions.deleteConfirm', { id: s.session_id }))) return;
             try {
                 await api.deleteSession(s.session_id);
                 card.remove();
-                toast('Sessão apagada', 'info', 2500);
+                toast(t('sessions.deleted'), 'info', 2500);
                 if (s.session_id === state.sessionId) {
                     // Current session was deleted — reset UI
                     state.sessionId = null;
@@ -250,7 +264,7 @@ function renderSessionList(sessions) {
                     renderScene({});
                 }
             } catch (err) {
-                toast(`Erro ao apagar: ${err.message}`, 'error');
+                toast(t('sessions.deleteError', { error: err.message }), 'error');
             }
         });
 
@@ -301,7 +315,9 @@ async function loadSession(sessionId) {
     try {
         const gameState = await api.getState(sessionId);
         clearSuggestions();
-        debugContent.innerHTML = '<p class="debug-placeholder">Clique em "🔄 Log" ou "Preview do prompt".</p>';
+        lastDebugEntries = null;
+        debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
+        translateDocument(debugContent);
 
         state.sessionId = sessionId;
         state.lastInputs = null;
@@ -316,13 +332,13 @@ async function loadSession(sessionId) {
         inputThought.disabled = false;
         inputAction.disabled = false;
         sendBtn.disabled = false;
-        inputAction.placeholder = `🎬 Ação (você é ${controlledName()})`;
+        bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
         inputSpeech.focus();
 
         closeSessionsModal();
-        toast(`Sessão ${sessionId} carregada`, 'success', 2500);
+        toast(t('sessions.loaded', { id: sessionId }), 'success', 2500);
     } catch (err) {
-        toast(`Erro ao carregar sessão: ${err.message}`, 'error');
+        toast(t('sessions.loadError', { error: err.message }), 'error');
     }
 }
 
@@ -332,7 +348,7 @@ async function undoLastTurn() {
     setLoading(true);
     try {
         const data = await api.undo(state.sessionId);
-        if (!data.undone) { toast('Nada a desfazer', 'info', 2500); setLoading(false); return; }
+        if (!data.undone) { toast(t('turn.noneToUndo'), 'info', 2500); setLoading(false); return; }
 
         // Re-render from the authoritative history returned by the backend,
         // instead of guessing how many DOM bubbles the undone step had — a
@@ -345,9 +361,9 @@ async function undoLastTurn() {
         state.lastTurnFailed = false;
         state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
         updateActionPopup();
-        toast('Turno desfeito', 'success', 2000);
+        toast(t('turn.undone'), 'success', 2000);
     } catch (err) {
-        toast(`Erro ao desfazer: ${err.message}`, 'error');
+        toast(t('turn.undoError', { error: err.message }), 'error');
     } finally {
         setLoading(false);
     }
@@ -366,7 +382,7 @@ function retryTurn() {
 
 function controlledName() {
     const c = state.characters[state.controlledId];
-    return (c && c.mind && c.mind.name) || 'Você';
+    return (c && c.mind && c.mind.name) || t('input.you');
 }
 
 function colorFor(cid) {
@@ -377,7 +393,7 @@ function colorFor(cid) {
 /* Resolve display info for any speaker id — fully dynamic, no hardcoding. */
 function speakerInfo(speaker) {
     if (speaker === 'Narrator') {
-        return { label: 'Narrador', color: null, initial: '🎭', cls: 'msg-narrator' };
+        return { label: t('input.narrator'), color: null, initial: '🎭', cls: 'msg-narrator' };
     }
     if (speaker === 'Player') {
         const cid = state.controlledId;
@@ -480,11 +496,7 @@ function messageSegments(content, contentType) {
     }
     if (contentType === 'thought') return [{ type: 'thought', text: content }];
 
-    // Compatibility for sessions created before thought became a typed record.
-    return content.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part) => {
-        const thought = part.startsWith('**') && part.endsWith('**');
-        return { type: thought ? 'thought' : contentType, text: thought ? part.slice(2, -2) : part };
-    });
+    return [{ type: contentType, text: content }];
 }
 
 function addMessage(speaker, content, contentType, { animate = false } = {}) {
@@ -506,7 +518,11 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
         if (info.color) avatar.style.color = info.color;
         header.appendChild(avatar);
     }
-    header.appendChild(document.createTextNode(info.label));
+    if (speaker === 'Narrator') {
+        header.appendChild(bindTranslation(document.createElement('span'), 'input.narrator'));
+    } else {
+        header.appendChild(document.createTextNode(info.label));
+    }
     msg.appendChild(header);
 
     const body = document.createElement('div');
@@ -543,7 +559,7 @@ function buildPlayerEcho(speech, thought, action) {
     return { speech: speech || null, thought: thought || null, action: action || null };
 }
 
-/* ── Sugestão de jogada ("sugira pra mim") ─────────────────────────────── */
+/* ── Move suggestions ─────────────────────────────────────────────────── */
 function clearSuggestions() {
     optionsPanel.innerHTML = '';
     optionsPanel.classList.remove('active');
@@ -564,7 +580,8 @@ function renderSuggestions(suggestions) {
 
         const label = document.createElement('span');
         label.className = 'opt-label';
-        label.textContent = s.speech || '(sem fala)';
+        if (s.speech) label.textContent = s.speech;
+        else bindTranslation(label, 'suggestion.fallback', { number: i + 1 });
         btn.appendChild(label);
 
         if (s.action) {
@@ -592,15 +609,15 @@ async function suggestForMe() {
     try {
         const data = await api.suggest(state.sessionId);
         renderSuggestions(data.suggestions);
-        toast('Sugestões prontas — escolha uma', 'success', 2500);
+        toast(t('suggestion.ready'), 'success', 2500);
     } catch (err) {
-        toast(`Erro ao sugerir: ${err.message}`, 'error');
+        toast(t('suggestion.error', { error: err.message }), 'error');
     } finally {
         setLoading(false);
     }
 }
 
-/* ── Compactar sessão ─────────────────────────────────────────────────── */
+/* ── Session compaction ───────────────────────────────────────────────── */
 // NOTE: the progress fill below is a MOCKED estimate, not real backend
 // progress — measuring actual LLM generation progress would require
 // streaming (SSE), which is more than this personal MVP needs right now.
@@ -633,7 +650,10 @@ async function compactSession() {
         compactProgress.style.width = '100%';
         if (data.compacted) {
             toast(
-                `Compactado: ${data.evicted_turns} registros resumidos, ${data.kept_turns} mantidos`,
+                t('compaction.done', {
+                    evicted: data.evicted_turns,
+                    kept: data.kept_turns,
+                }),
                 'success',
                 3500
             );
@@ -643,11 +663,11 @@ async function compactSession() {
             state.canUndo = !!(gameState.history && gameState.history.length > 0);
             updateActionPopup();
         } else {
-            toast(data.reason || 'Nada para compactar ainda', 'info', 2500);
+            toast(data.reason || t('compaction.none'), 'info', 2500);
         }
     } catch (err) {
         done = true;
-        toast(`Erro ao compactar: ${err.message}`, 'error');
+        toast(t('compaction.error', { error: err.message }), 'error');
     } finally {
         setTimeout(() => {
             actionCompactBtn.classList.remove('busy');
@@ -663,10 +683,7 @@ async function compactSession() {
 async function restoreCompaction() {
     if (!state.sessionId) return;
     hideActionPopup();
-    const confirmed = confirm(
-        'Undo the last compaction? This only works if no new turns have been played since — ' +
-        'otherwise the operation will be refused and nothing changes.'
-    );
+    const confirmed = confirm(t('compaction.restoreConfirm'));
     if (!confirmed) return;
 
     setLoading(true);
@@ -674,7 +691,7 @@ async function restoreCompaction() {
         const data = await api.restoreCompaction(state.sessionId);
         if (data.restored) {
             toast(
-                `Compactação desfeita — histórico restaurado (${data.history_length} registros)`,
+                t('compaction.restored', { count: data.history_length }),
                 'success',
                 3500
             );
@@ -684,10 +701,10 @@ async function restoreCompaction() {
             state.canUndo = !!(gameState.history && gameState.history.length > 0);
             updateActionPopup();
         } else {
-            toast(data.reason || 'Não foi possível desfazer a compactação', 'info', 3500);
+            toast(data.reason || t('compaction.restoreUnavailable'), 'info', 3500);
         }
     } catch (err) {
-        toast(`Erro ao desfazer compactação: ${err.message}`, 'error');
+        toast(t('compaction.restoreError', { error: err.message }), 'error');
     } finally {
         setLoading(false);
     }
@@ -703,15 +720,15 @@ function messagesToText(messages) {
 function makeCopyBtn(getText) {
     const btn = document.createElement('button');
     btn.className = 'copy-btn';
-    btn.textContent = 'Copiar';
+    bindTranslation(btn, 'debug.copy');
     btn.addEventListener('click', async () => {
         try {
             await navigator.clipboard.writeText(getText());
-            btn.textContent = '✓ Copiado';
+            btn.textContent = `✓ ${t('debug.copied')}`;
             btn.classList.add('copied');
-            setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 1500);
+            setTimeout(() => { bindTranslation(btn, 'debug.copy'); btn.classList.remove('copied'); }, 1500);
         } catch {
-            toast('Não foi possível copiar', 'error');
+            toast(t('debug.copyError'), 'error');
         }
     });
     return btn;
@@ -749,21 +766,26 @@ function renderDebugBlock(title, messages, raw) {
     return block;
 }
 
-/* Log bruto e sequencial de TODAS as chamadas LLM da sessão (GET /debug_log) —
-   substitui o antigo debug embutido na resposta do turno. Uma entrada por
-   chamada real (inclui retries), na ordem em que aconteceram. */
+/* Raw sequential log of all LLM calls for the session. */
 function renderRawLog(entries) {
+    lastDebugEntries = entries;
     debugContent.innerHTML = '';
     if (!entries || entries.length === 0) {
         debugContent.innerHTML =
-            '<p class="debug-placeholder">Nenhuma chamada LLM registrada ainda nesta sessão.</p>';
+            '<p class="debug-placeholder" data-i18n="debug.noCalls"></p>';
+        translateDocument(debugContent);
         return;
     }
     entries.forEach((e) => {
         const metrics = e.duration_ms != null
-            ? ` · tentativa ${e.attempt_number || 1} · ${e.duration_ms} ms`
+            ? t('debug.logMetrics', { attempt: e.attempt_number || 1, duration: e.duration_ms })
             : '';
-        const title = `Turno ${e.turn_number} · ${e.agent}${e.error ? ' · ERRO' : ''}${metrics}`;
+        const title = t('debug.logTitle', {
+            turn: e.turn_number,
+            agent: e.agent,
+            error: e.error ? t('debug.logErrorSuffix') : '',
+            metrics,
+        });
         const messages = (e.request && e.request.messages) || [];
         let raw;
         if (e.agent === 'turn_input') {
@@ -786,30 +808,32 @@ async function refreshDebugLog() {
         const entries = await api.getDebugLog(state.sessionId);
         renderRawLog(entries);
     } catch (err) {
-        toast(`Erro ao carregar log: ${err.message}`, 'error');
+        toast(t('debug.logError', { error: err.message }), 'error');
     }
 }
 
 async function previewPrompt() {
-    if (!state.sessionId) { toast('Inicie uma sessão primeiro', 'error'); return; }
+    if (!state.sessionId) { toast(t('debug.startFirst'), 'error'); return; }
     try {
         const speech = inputSpeech.value.trim();
         const thought = inputThought.value.trim();
         const action = inputAction.value.trim();
         const data = await api.previewPrompt(state.sessionId, { speech, thought, action });
         debugContent.innerHTML = '';
+        lastDebugEntries = null;
         debugContent.appendChild(
-            renderDebugBlock('Preview — Narrador', data.narrator_messages, null));
-        toast('Prompt do Narrador montado (sem chamar o LLM)', 'success', 2500);
+            renderDebugBlock(t('debug.previewNarrator'), data.narrator_messages, null));
+        toast(t('debug.previewReady'), 'success', 2500);
     } catch (err) {
-        toast(`Erro no preview: ${err.message}`, 'error');
+        toast(t('debug.previewError', { error: err.message }), 'error');
     }
 }
 
 function populateForceSpeakerOptions() {
     if (!forceSpeakerSelect) return;
     const current = forceSpeakerSelect.value;
-    forceSpeakerSelect.innerHTML = '<option value="">🎲 Automático</option>';
+    forceSpeakerSelect.innerHTML = '<option value="" data-i18n="action.automatic"></option>';
+    translateDocument(forceSpeakerSelect);
     for (const cid of state.order) {
         const ch = state.characters[cid];
         if (!ch) continue;
@@ -820,7 +844,7 @@ function populateForceSpeakerOptions() {
     }
     const narratorOpt = document.createElement('option');
     narratorOpt.value = 'Narrator';
-    narratorOpt.textContent = '🎭 Narrador';
+    narratorOpt.textContent = `🎭 ${t('input.narrator')}`;
     forceSpeakerSelect.appendChild(narratorOpt);
     if ([...forceSpeakerSelect.options].some((o) => o.value === current)) {
         forceSpeakerSelect.value = current;
@@ -843,10 +867,12 @@ async function startSession(cfg) {
     chatLog.appendChild(emptyState);
     emptyState.style.display = 'flex';
     clearSuggestions();
+    lastDebugEntries = null;
     sceneTags.innerHTML = '';
     sceneLocation.textContent = '';
     debugContent.innerHTML =
-        '<p class="debug-placeholder">Clique em "🔄 Log" ou "Preview do prompt".</p>';
+        '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
+    translateDocument(debugContent);
 
     setLoading(true);
     try {
@@ -862,11 +888,11 @@ async function startSession(cfg) {
         inputThought.disabled = false;
         inputAction.disabled = false;
         sendBtn.disabled = false;
-        inputAction.placeholder = `🎬 Ação (você é ${controlledName()})`;
+        bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
         inputSpeech.focus();
-        toast(`Aventura iniciada como ${controlledName()}`, 'success', 2500);
+        toast(t('turn.started', { name: controlledName() }), 'success', 2500);
     } catch (err) {
-        toast(`Erro ao iniciar sessão: ${err.message}`, 'error');
+        toast(t('turn.startError', { error: err.message }), 'error');
         emptyState.style.display = 'flex';
     } finally {
         setLoading(false);
@@ -880,7 +906,7 @@ async function sendTurn(isRetry = false) {
     const action = inputAction.value.trim();
     const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
     if (!speech && !thought && !action) {
-        toast('Escreva uma fala, pensamento ou ação', 'info', 2500);
+        toast(t('action.inputRequired'), 'info', 2500);
         return;
     }
 
@@ -934,12 +960,12 @@ async function sendTurn(isRetry = false) {
     } catch (err) {
         if (err.name === 'AbortError') {
             // User pressed stop — don't treat as failure, keep inputs
-            toast('Turno cancelado', 'info', 2500);
+            toast(t('turn.stopped'), 'info', 2500);
             state.lastTurnFailed = false;
         } else {
             state.lastTurnFailed = true;
             // Keep inputs in fields so user can edit and retry
-            toast(`Falha no turno: ${err.message}. O LLM está rodando?`, 'error', 6000);
+            toast(t('turn.failed', { error: err.message }), 'error', 6000);
         }
         updateActionPopup();
     } finally {
@@ -1024,6 +1050,20 @@ sessionsOverlay.addEventListener('click', (e) => {
 settingsBtn.addEventListener('click', () => Setup.open());
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => Setup.open());
 
+if (interfaceLanguage) {
+    interfaceLanguage.value = getLocale();
+    interfaceLanguage.addEventListener('change', () => setLocale(interfaceLanguage.value));
+    onLocaleChange((locale) => {
+        interfaceLanguage.value = locale;
+        if (lastSessionList) renderSessionList(lastSessionList);
+        if (lastDebugEntries) renderRawLog(lastDebugEntries);
+        if (state.sessionId) {
+            bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
+            populateForceSpeakerOptions();
+        }
+    });
+}
+
 function setDebug(on) {
     state.debug = on;
     debugToggle.checked = on;
@@ -1054,7 +1094,7 @@ if (installBtn) {
 }
 window.addEventListener('appinstalled', () => {
     if (installBtn) installBtn.hidden = true;
-    toast('App instalado 🎉', 'success', 2500);
+    toast(t('pwa.installed'), 'success', 2500);
 });
 
 if ('serviceWorker' in navigator) {
@@ -1070,4 +1110,4 @@ Setup.init({
     onOpen: () => RuntimeConfig.refresh(),
     notify: toast,
 });
-openSessionsModal(); // show sessions list on first load (empty state offers "Nova sessão")
+openSessionsModal(); // show the sessions list on first load
