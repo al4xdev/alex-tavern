@@ -143,6 +143,7 @@ async function skipTurn() {
             action: '',
             skip: true,
             narrator_hint: state.narratorHint || undefined,
+            force_speaker: state.forceSpeaker || undefined,
         }, ac.signal);
 
         if (state.debug) refreshDebugLog();

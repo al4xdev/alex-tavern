@@ -177,7 +177,7 @@ class Runner:
 
             effective_force_speaker = (
                 force_speaker
-                if (speech or action or narrator_hint.strip() or skip)
+                if force_speaker
                 and (force_speaker in game.characters or force_speaker == "Narrator")
                 else None
             )
