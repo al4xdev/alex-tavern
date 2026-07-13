@@ -3,27 +3,26 @@ import { createProviderAdapter, standardGenerationFields } from './base.js';
 export const deepSeekAdapter = createProviderAdapter({
     id: 'deepseek',
     label: 'DeepSeek V4 Flash',
-    description: 'Cloud · sem reasoning',
+    descriptionKey: 'provider.cloudDescription',
     badge: 'CLOUD',
     orbitClass: 'provider-orbit-cloud',
-    statusText: 'CLOUD ATIVO',
     statusClass: 'cloud',
     forcedSettings: { thinking_enabled: false },
     notice: {
         icon: '◌',
-        text: 'Reasoning desativado. O backend envia thinking.type = disabled em toda chamada.',
+        textKey: 'provider.reasoningDisabled',
     },
     fields: [
         {
             key: 'api_key',
-            label: 'Chave da API',
+            labelKey: 'provider.apiKey',
             type: 'password',
             autocomplete: 'new-password',
-            placeholder: 'Cole uma nova chave ou deixe em branco para manter',
+            placeholderKey: 'provider.newKey',
             secret: true,
         },
-        { key: 'api_base', label: 'Base da API', type: 'url' },
-        { key: 'model', label: 'Modelo' },
+        { key: 'api_base', labelKey: 'provider.apiBase', type: 'url' },
+        { key: 'model', labelKey: 'provider.model' },
         ...standardGenerationFields().map((field) => ({ ...field, layout: 'numbers' })),
     ],
 });

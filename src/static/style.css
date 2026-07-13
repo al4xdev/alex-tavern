@@ -270,6 +270,14 @@ select.text-input { cursor: pointer; }
 .section-head { display: flex; align-items: center; justify-content: space-between; }
 .section-title { font-size: 0.92rem; font-weight: 700; color: var(--text-1); }
 
+.app-preferences-section {
+    border-color: rgba(108, 156, 255, 0.28);
+    background: rgba(108, 156, 255, 0.06);
+}
+
+.app-preferences-section .section-head { align-items: end; }
+.language-preference { min-width: 190px; }
+
 /* AI engine — server-owned config, visually separated from adventure presets */
 .ai-engine-section {
     position: relative;
@@ -1135,6 +1143,8 @@ select.text-input { cursor: pointer; }
     .modal-head { padding-top: max(18px, env(safe-area-inset-top)); }
     .modal-body { padding-bottom: 24px; }
     .modal-foot { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+    .app-preferences-section .section-head { align-items: stretch; flex-direction: column; gap: 12px; }
+    .language-preference { min-width: 0; }
 
     /* Options stack full-width for easy tapping */
     .options-panel { flex-direction: column; }

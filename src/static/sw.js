@@ -5,12 +5,13 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v4';
+const CACHE = 'rpt-shell-v5';
 const SHELL = [
     '/',
     '/index.html',
     '/style.css',
     '/api.js',
+    '/i18n.js',
     '/runtime-config.js',
     '/adapters/base.js',
     '/adapters/llama-cpp.js',

@@ -2,6 +2,7 @@
 
 import { api } from './api.js';
 import { providerAdapterMap, providerAdapters } from './adapters/index.js';
+import { bindTranslation, getLlmLanguage, onLocaleChange, t } from './i18n.js';
 
 export const RuntimeConfig = (() => {
     const switchEl = document.getElementById('provider-switch');
@@ -9,16 +10,27 @@ export const RuntimeConfig = (() => {
     const statusEl = document.getElementById('engine-status');
     const errorEl = document.getElementById('runtime-config-error');
     const saveBtn = document.getElementById('runtime-config-save-btn');
-    const languageEl = document.getElementById('runtime-language');
     const compactTurnsEl = document.getElementById('runtime-compact-turns');
 
     let selectedProvider = '';
     let notify = () => {};
     let rendered = false;
+    let configMutation = Promise.resolve();
 
-    function setError(message = '') {
-        errorEl.textContent = message;
-        errorEl.classList.toggle('active', Boolean(message));
+    function enqueueConfigMutation(operation) {
+        const pending = configMutation.then(operation);
+        configMutation = pending.catch(() => {});
+        return pending;
+    }
+
+    function setError(key = '', params = {}) {
+        if (key) bindTranslation(errorEl, key, params);
+        else {
+            errorEl.textContent = '';
+            delete errorEl.dataset.i18n;
+            delete errorEl.dataset.i18nParams;
+        }
+        errorEl.classList.toggle('active', Boolean(key));
     }
 
     function renderAdapters() {
@@ -32,10 +44,10 @@ export const RuntimeConfig = (() => {
 
     function chooseProvider(name) {
         const selected = providerAdapterMap.get(name);
-        if (!selected) throw new Error(`Adapter de frontend ausente para ${name}`);
+        if (!selected) throw new Error(t('engine.missingAdapter', { name }));
         selectedProvider = name;
         providerAdapters.forEach((adapter) => adapter.setActive(adapter.id === name));
-        statusEl.textContent = selected.statusText;
+        statusEl.textContent = selected.statusText();
         statusEl.className = `engine-status ${selected.statusClass}`.trim();
     }
 
@@ -44,10 +56,12 @@ export const RuntimeConfig = (() => {
         const frontendProviders = [...providerAdapterMap.keys()].sort();
         if (JSON.stringify(backendProviders) !== JSON.stringify(frontendProviders)) {
             throw new Error(
-                `Adapters divergentes: backend=${backendProviders.join(',')} frontend=${frontendProviders.join(',')}`,
+                t('engine.adapterMismatch', {
+                    backend: backendProviders.join(','),
+                    frontend: frontendProviders.join(','),
+                }),
             );
         }
-        languageEl.value = config.language || '';
         compactTurnsEl.value = config.compaction_keep_recent_turns;
         providerAdapters.forEach((adapter) => adapter.populate(config.providers[adapter.id]));
         chooseProvider(config.active_provider);
@@ -57,7 +71,7 @@ export const RuntimeConfig = (() => {
     function collect() {
         return {
             active_provider: selectedProvider,
-            language: languageEl.value.trim(),
+            language: getLlmLanguage(),
             compaction_keep_recent_turns: Number.parseInt(compactTurnsEl.value, 10),
             providers: Object.fromEntries(
                 providerAdapters.map((adapter) => [adapter.id, adapter.read()]),
@@ -67,25 +81,38 @@ export const RuntimeConfig = (() => {
 
     async function refresh() {
         saveBtn.disabled = true;
-        statusEl.textContent = 'CARREGANDO';
+        bindTranslation(statusEl, 'common.loading');
         try {
-            populate(await api.getConfig());
+            const config = await api.getConfig();
+            populate(config);
+            if (config.language !== getLlmLanguage()) queueLanguageSync();
         } catch (error) {
-            setError(`Não foi possível carregar o motor: ${error.message}`);
-            statusEl.textContent = 'INDISPONÍVEL';
+            setError('engine.loadError', { error: error.message });
+            bindTranslation(statusEl, 'common.unavailable');
         } finally {
             saveBtn.disabled = false;
         }
+    }
+
+    function queueLanguageSync() {
+        return enqueueConfigMutation(async () => {
+            const config = await api.getConfig();
+            const language = getLlmLanguage();
+            if (config.language === language) return;
+            await api.saveConfig({ ...config, language });
+        }).catch((error) => {
+            setError('engine.languageSyncError', { error: error.message });
+        });
     }
 
     async function save() {
         saveBtn.disabled = true;
         setError();
         try {
-            populate(await api.saveConfig(collect()));
-            notify('Motor de IA atualizado', 'success', 2500);
+            populate(await enqueueConfigMutation(() => api.saveConfig(collect())));
+            notify(t('engine.updated'), 'success', 2500);
         } catch (error) {
-            setError(`Não foi possível salvar: ${error.message}`);
+            setError('engine.saveError', { error: error.message });
         } finally {
             saveBtn.disabled = false;
         }
@@ -95,6 +122,10 @@ export const RuntimeConfig = (() => {
         notify = options.notify || notify;
         renderAdapters();
         saveBtn.addEventListener('click', save);
+        onLocaleChange(() => {
+            if (selectedProvider) chooseProvider(selectedProvider);
+            queueLanguageSync();
+        });
         refresh();
     }
 

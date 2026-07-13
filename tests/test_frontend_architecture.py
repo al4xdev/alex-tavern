@@ -22,6 +22,10 @@ def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
     assert 'id="input-speech"' in html
     assert 'id="input-thought"' in html
     assert 'id="input-action"' in html
+    assert 'id="interface-language"' in html
+    assert '<option value="en">English</option>' in html
+    assert '<option value="pt-BR">Português (Brasil)</option>' in html
+    assert 'id="runtime-language"' not in html
 
 
 def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -> None:
@@ -30,10 +34,23 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     runtime_source = (STATIC / "runtime-config.js").read_text(encoding="utf-8")
     assert "import { api } from './api.js';" in app_source
     assert "import { Setup } from './setup.js';" in app_source
+    assert "from './i18n.js';" in app_source
     assert "export const Setup" in setup_source
     assert "export const RuntimeConfig" in runtime_source
+    assert "language: getLlmLanguage()" in runtime_source
+    assert "queueLanguageSync();" in runtime_source
     assert "typeof RuntimeConfig" not in setup_source
     assert "typeof toast" not in setup_source
+
+
+def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
+    i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
+    service_worker = (STATIC / "sw.js").read_text(encoding="utf-8")
+
+    assert "rpt_interface_locale_v1" in i18n_source
+    assert "const DEFAULT_LOCALE = 'en';" in i18n_source
+    assert "'/i18n.js'" in service_worker
+    assert "rpt-shell-v5" in service_worker
 
 
 def test_frontend_adapter_registry_loads_both_provider_modules() -> None:

@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { bindTranslation, onLocaleChange, t, translateDocument } from './i18n.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    setup.js — the setup/lobby overlay: characters, scene, narrator
@@ -35,21 +36,22 @@ export const Setup = (() => {
     let hasSession = false; // whether the close (✕) button is allowed
 
     /* ── Row builders ─────────────────────────────────────────────────── */
-    function makeKvRow(listEl, key = '', val = '', keyPh = 'chave', valPh = 'valor') {
+    function makeKvRow(listEl, key = '', val = '') {
         const row = document.createElement('div');
         row.className = 'kv-row';
         const k = document.createElement('input');
         k.className = 'text-input kv-key';
-        k.placeholder = keyPh;
+        bindTranslation(k, 'setup.keyPlaceholder', {}, 'placeholder');
         k.value = key;
         const v = document.createElement('input');
         v.className = 'text-input kv-val';
-        v.placeholder = valPh;
+        bindTranslation(v, 'setup.valuePlaceholder', {}, 'placeholder');
         v.value = val;
         const rm = document.createElement('button');
         rm.className = 'kv-remove';
         rm.type = 'button';
         rm.textContent = '✕';
+        bindTranslation(rm, 'common.remove', {}, 'ariaLabel');
         rm.addEventListener('click', () => row.remove());
         row.append(k, v, rm);
         listEl.appendChild(row);
@@ -61,12 +63,13 @@ export const Setup = (() => {
         row.className = 'knowledge-row';
         const input = document.createElement('input');
         input.className = 'text-input knowledge-val';
-        input.placeholder = 'Um fato que o personagem conhece';
+        bindTranslation(input, 'character.knowledgePlaceholder', {}, 'placeholder');
         input.value = val;
         const rm = document.createElement('button');
         rm.className = 'kv-remove';
         rm.type = 'button';
         rm.textContent = '✕';
+        bindTranslation(rm, 'common.remove', {}, 'ariaLabel');
         rm.addEventListener('click', () => row.remove());
         row.append(input, rm);
         listEl.appendChild(row);
@@ -75,6 +78,7 @@ export const Setup = (() => {
 
     function makeCharCard(data = {}) {
         const frag = cardTpl.content.cloneNode(true);
+        translateDocument(frag);
         const card = frag.querySelector('.char-card');
         const mind = data.mind || {};
         const body = data.body || {};
@@ -203,30 +207,33 @@ export const Setup = (() => {
             const data = await api.getDefaults(name);
             populate(data.preset);
         } catch (err) {
-            showError(`Não foi possível carregar o preset padrão: ${err.message}`);
+            showError('presets.defaultLoadError', { error: err.message });
         }
     }
 
     /* ── Validation ───────────────────────────────────────────────────── */
-    function showError(msg) {
-        errorEl.textContent = msg;
+    function showError(key, params = {}) {
+        bindTranslation(errorEl, key, params);
         errorEl.classList.add('active');
     }
     function clearError() {
         errorEl.classList.remove('active');
+        errorEl.textContent = '';
+        delete errorEl.dataset.i18n;
+        delete errorEl.dataset.i18nParams;
     }
 
     function validate(cfg) {
         const ids = Object.keys(cfg.characters);
-        if (ids.length === 0) return 'Adicione ao menos um personagem.';
+        if (ids.length === 0) return { key: 'validation.addCharacter' };
         for (const cid of ids) {
             const c = cfg.characters[cid];
-            if (!c.mind.name) return `Personagem ${cid} precisa de um nome.`;
+            if (!c.mind.name) return { key: 'validation.characterName', params: { id: cid } };
             if (!c.mind.personality)
-                return `Personagem ${c.mind.name || cid} precisa de uma personalidade.`;
+                return { key: 'validation.personality', params: { name: c.mind.name || cid } };
         }
-        if (!cfg.scene.location) return 'A cena precisa de um local.';
-        if (!cfg.controlled_character_id) return 'Escolha qual personagem você controla.';
+        if (!cfg.scene.location) return { key: 'validation.location' };
+        if (!cfg.controlled_character_id) return { key: 'validation.controlled' };
         return null;
     }
 
@@ -254,7 +261,7 @@ export const Setup = (() => {
             defaultPresets = defData.presets;
             userPresets = await api.listPresets();
         } catch (err) {
-            showError(`Erro ao atualizar presets: ${err.message}`);
+            showError('presets.refreshError', { error: err.message });
         }
 
         presetSelect.innerHTML = '';
@@ -262,7 +269,7 @@ export const Setup = (() => {
         defaultPresets.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = `builtin:${name}`;
-            opt.textContent = `${name} (padrão)`;
+            opt.textContent = `${name} (${t('presets.builtinSuffix')})`;
             presetSelect.appendChild(opt);
         });
 
@@ -286,7 +293,7 @@ export const Setup = (() => {
         if (val.startsWith('builtin:')) {
             const name = val.replace(/^builtin:/, '');
             await loadBuiltinPreset(name);
-            notify(`Preset padrão "${name}" carregado`);
+            notify(t('presets.defaultLoaded', { name }));
             return;
         }
         const name = val.replace(/^user:/, '');
@@ -294,26 +301,26 @@ export const Setup = (() => {
             const cfg = await api.getPreset(name);
             populate(cfg);
             clearError();
-            notify(`Preset "${name}" carregado`);
+            notify(t('presets.loaded', { name }));
         } catch (err) {
-            showError(`Erro ao carregar preset do servidor: ${err.message}`);
+            showError('presets.serverLoadError', { error: err.message });
         }
     }
 
     async function saveCurrentPreset() {
         const name = presetNameEl.value.trim();
-        if (!name) { showError('Dê um nome ao preset antes de salvar.'); return; }
+        if (!name) { showError('presets.nameRequired'); return; }
         const cfg = collect();
         const problem = validate(cfg);
-        if (problem) { showError(problem); return; }
+        if (problem) { showError(problem.key, problem.params); return; }
         try {
             await api.savePreset(name, cfg);
             presetNameEl.value = '';
             await refreshPresetSelect(`user:${name}`);
             clearError();
-            notify(`Preset "${name}" salvo`);
+            notify(t('presets.saved', { name }));
         } catch (err) {
-            showError(`Erro ao salvar preset: ${err.message}`);
+            showError('presets.saveError', { error: err.message });
         }
     }
 
@@ -324,9 +331,9 @@ export const Setup = (() => {
         try {
             await api.deletePreset(name);
             await refreshPresetSelect();
-            notify(`Preset "${name}" apagado`);
+            notify(t('presets.deleted', { name }));
         } catch (err) {
-            showError(`Erro ao apagar preset: ${err.message}`);
+            showError('presets.deleteError', { error: err.message });
         }
     }
 
@@ -346,7 +353,7 @@ export const Setup = (() => {
         clearError();
         const cfg = collect();
         const problem = validate(cfg);
-        if (problem) { showError(problem); return; }
+        if (problem) { showError(problem.key, problem.params); return; }
         save(cfg);
         hasSession = true;
         close();
@@ -372,6 +379,13 @@ export const Setup = (() => {
         presetDelBtn.addEventListener('click', deleteSelectedPreset);
         presetSelect.addEventListener('change', () => {
             presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
+        });
+        onLocaleChange(() => {
+            [...presetSelect.options].forEach((option) => {
+                if (!option.value.startsWith('builtin:')) return;
+                const name = option.value.replace(/^builtin:/, '');
+                option.textContent = `${name} (${t('presets.builtinSuffix')})`;
+            });
         });
         refreshPresetSelect();
 

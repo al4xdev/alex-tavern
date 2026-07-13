@@ -1,7 +1,7 @@
 {
   "name": "Alex Tavern",
   "short_name": "Alex Tavern",
-  "description": "Roleplay multi-agente: Narrador + personagens, configurável pela UI.",
+  "description": "Multi-agent roleplay: Narrator + characters, configurable in the UI.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

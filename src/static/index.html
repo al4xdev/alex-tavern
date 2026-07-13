@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <!-- WARNING (Antigravity AI): Paths in this file were converted from absolute (leading /) to relative to support Android WebView (file://) offline loading -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Alex Tavern</title>
-    <meta name="description" content="Roleplay multi-agente: Narrador + personagens, configurável pela UI.">
+    <meta name="description" content="Multi-agent roleplay: Narrator + characters, configurable in the UI."
+        data-i18n-content="app.description">
     <meta name="theme-color" content="#0f0f16">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -25,104 +26,117 @@
                 <div class="modal-title-wrap">
                     <span class="modal-glyph">🎭</span>
                     <div>
-                        <h2 id="setup-title">Configurar aventura</h2>
-                        <p class="modal-sub">Monte a cena, os personagens e o tom do mundo</p>
+                        <h2 id="setup-title" data-i18n="setup.title">Configure adventure</h2>
+                        <p class="modal-sub" data-i18n="setup.subtitle">Build the scene, characters, and tone of the world</p>
                     </div>
                 </div>
-                <button class="icon-btn" id="setup-close-btn" title="Fechar" aria-label="Fechar">✕</button>
+                <button class="icon-btn" id="setup-close-btn" title="Close" aria-label="Close"
+                    data-i18n-title="common.close" data-i18n-aria-label="common.close">✕</button>
             </div>
 
             <div class="modal-body">
+                <section class="section app-preferences-section" aria-labelledby="app-preferences-title">
+                    <div class="section-head">
+                        <div>
+                            <h3 class="section-title" id="app-preferences-title" data-i18n="preferences.title">🌐 Application preferences</h3>
+                            <p class="field-hint" data-i18n="preferences.hint">Changes only application controls and messages, not story language.</p>
+                        </div>
+                        <div class="field-group language-preference">
+                            <label class="field-label" for="interface-language" data-i18n="preferences.language">Interface language</label>
+                            <select class="text-input" id="interface-language">
+                                <option value="en">English</option>
+                                <option value="pt-BR">Português (Brasil)</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Runtime / provider configuration (persisted only in .data/config.json) -->
                 <section class="section ai-engine-section" aria-labelledby="ai-engine-title">
                     <div class="section-head ai-engine-head">
                         <div>
-                            <h3 class="section-title" id="ai-engine-title">⚡ Motor de IA</h3>
-                            <p class="field-hint">Escolha onde a história é processada. Salvo no servidor, nunca no navegador.</p>
+                            <h3 class="section-title" id="ai-engine-title" data-i18n="engine.title">⚡ AI engine</h3>
+                            <p class="field-hint" data-i18n="engine.hint">Choose where the story is processed. Saved on the server, never in the browser.</p>
                         </div>
-                        <span class="engine-status" id="engine-status">Carregando…</span>
+                        <span class="engine-status" id="engine-status" data-i18n="common.loading">LOADING</span>
                     </div>
 
-                    <div class="provider-switch" id="provider-switch" role="radiogroup" aria-label="Provedor de inteligência artificial"></div>
+                    <div class="provider-switch" id="provider-switch" role="radiogroup" aria-label="Artificial intelligence provider"
+                        data-i18n-aria-label="engine.providerAria"></div>
 
-                    <div class="grid-2">
-                        <div class="field-group">
-                            <label class="field-label" for="runtime-language">Idioma das respostas</label>
-                            <input class="text-input" id="runtime-language" type="text" autocomplete="off">
-                        </div>
-                        <div class="field-group">
-                            <label class="field-label" for="runtime-compact-turns">Turnos recentes após compactar</label>
-                            <input class="text-input" id="runtime-compact-turns" type="number" min="1" inputmode="numeric">
-                        </div>
+                    <div class="field-group">
+                        <label class="field-label" for="runtime-compact-turns" data-i18n="engine.compactTurns">Recent turns kept after compaction</label>
+                        <input class="text-input" id="runtime-compact-turns" type="number" min="1" inputmode="numeric">
                     </div>
 
                     <div id="provider-panels"></div>
 
                     <div class="runtime-config-actions">
                         <p class="runtime-config-error" id="runtime-config-error" role="alert"></p>
-                        <button class="btn btn-mini" id="runtime-config-save-btn" type="button">Salvar motor</button>
+                        <button class="btn btn-mini" id="runtime-config-save-btn" type="button" data-i18n="engine.save">Save engine</button>
                     </div>
                 </section>
 
                 <!-- Presets -->
                 <div class="section" id="presets-section">
-                    <h3 class="section-title">💾 Presets</h3>
+                    <h3 class="section-title" data-i18n="presets.title">💾 Presets</h3>
                     <div class="preset-row">
-                        <select class="text-input" id="preset-select" aria-label="Preset salvo"></select>
-                        <button class="btn btn-mini" id="preset-load-btn" type="button">Carregar</button>
+                        <select class="text-input" id="preset-select" aria-label="Saved preset" data-i18n-aria-label="presets.savedAria"></select>
+                        <button class="btn btn-mini" id="preset-load-btn" type="button" data-i18n="presets.load">Load</button>
                         <button class="icon-btn" id="preset-delete-btn" type="button"
-                            title="Apagar preset" aria-label="Apagar preset">🗑️</button>
+                            title="Delete preset" aria-label="Delete preset" data-i18n-title="presets.delete" data-i18n-aria-label="presets.delete">🗑️</button>
                     </div>
                     <div class="preset-row">
                         <input type="text" class="text-input" id="preset-name"
-                            placeholder="Nome do novo preset (ex: Campanha pirata)">
-                        <button class="btn btn-mini" id="preset-save-btn" type="button">Salvar atual</button>
+                            placeholder="New preset name (e.g. Pirate campaign)" data-i18n-placeholder="presets.namePlaceholder">
+                        <button class="btn btn-mini" id="preset-save-btn" type="button" data-i18n="presets.saveCurrent">Save current</button>
                     </div>
                 </div>
 
                 <!-- Narrator directives -->
                 <div class="field-group">
-                    <label class="field-label" for="setup-directives">Diretrizes do Narrador</label>
-                    <p class="field-hint">Mundo, tom, regras extras que o Narrador sempre respeita.</p>
+                    <label class="field-label" for="setup-directives" data-i18n="setup.directives">Narrator directives</label>
+                    <p class="field-hint" data-i18n="setup.directivesHint">World, tone, and extra rules the Narrator must always respect.</p>
                     <textarea class="text-area" id="setup-directives" rows="3"
-                        placeholder="Ex: Fantasia sombria. Magia é rara e temida. Mantenha o tom tenso."></textarea>
+                        placeholder="E.g. Dark fantasy. Magic is rare and feared. Keep the tone tense."
+                        data-i18n-placeholder="setup.directivesPlaceholder"></textarea>
                 </div>
 
                 <!-- Scene -->
                 <div class="section">
-                    <h3 class="section-title">🗺️ Cena</h3>
+                    <h3 class="section-title" data-i18n="setup.scene">🗺️ Scene</h3>
                     <div class="grid-2">
                         <div class="field-group">
-                            <label class="field-label" for="setup-scene-location">Local</label>
+                            <label class="field-label" for="setup-scene-location" data-i18n="setup.location">Location</label>
                             <input type="text" class="text-input" id="setup-scene-location"
-                                placeholder="Taverna do Velho Mork">
+                                placeholder="Old Mork’s Tavern" data-i18n-placeholder="setup.locationPlaceholder">
                         </div>
                         <div class="field-group">
-                            <label class="field-label" for="setup-scene-time">Momento do dia</label>
+                            <label class="field-label" for="setup-scene-time" data-i18n="setup.time">Time of day</label>
                             <input type="text" class="text-input" id="setup-scene-time"
-                                placeholder="noite">
+                                placeholder="night" data-i18n-placeholder="setup.timePlaceholder">
                         </div>
                     </div>
                     <div class="field-group">
-                        <label class="field-label">Fatos físicos</label>
-                        <p class="field-hint">Detalhes do ambiente (chave / valor).</p>
+                        <label class="field-label" data-i18n="setup.physicalFacts">Physical facts</label>
+                        <p class="field-hint" data-i18n="setup.physicalFactsHint">Environment details (key / value).</p>
                         <div id="scene-facts-list" class="kv-list"></div>
-                        <button class="btn btn-mini" id="add-fact-btn" type="button">+ Fato</button>
+                        <button class="btn btn-mini" id="add-fact-btn" type="button" data-i18n="setup.addFact">+ Fact</button>
                     </div>
                 </div>
 
                 <!-- Characters -->
                 <div class="section">
                     <div class="section-head">
-                        <h3 class="section-title">👥 Personagens</h3>
-                        <button class="btn btn-mini" id="add-char-btn" type="button">+ Personagem</button>
+                        <h3 class="section-title" data-i18n="setup.characters">👥 Characters</h3>
+                        <button class="btn btn-mini" id="add-char-btn" type="button" data-i18n="setup.addCharacter">+ Character</button>
                     </div>
                     <div id="chars-list" class="chars-list"></div>
                 </div>
 
                 <!-- Controlled -->
                 <div class="field-group">
-                    <label class="field-label" for="setup-controlled">Quem você controla?</label>
+                    <label class="field-label" for="setup-controlled" data-i18n="setup.controlled">Who do you control?</label>
                     <select class="text-input" id="setup-controlled"></select>
                 </div>
 
@@ -131,7 +145,7 @@
 
             <div class="modal-foot">
                 <button class="btn btn-primary btn-lg" id="start-btn" type="button">
-                    Começar aventura →
+                    <span data-i18n="setup.start">Start adventure →</span>
                 </button>
             </div>
         </div>
@@ -144,19 +158,20 @@
                 <div class="modal-title-wrap">
                     <span class="modal-glyph">📋</span>
                     <div>
-                        <h2 id="sessions-title">Sessões</h2>
-                        <p class="modal-sub">Selecione, fork ou apague suas aventuras</p>
+                        <h2 id="sessions-title" data-i18n="sessions.title">Sessions</h2>
+                        <p class="modal-sub" data-i18n="sessions.subtitle">Select, fork, or delete your adventures</p>
                     </div>
                 </div>
-                <button class="icon-btn" id="sessions-close-btn" title="Fechar" aria-label="Fechar sessões">✕</button>
+                <button class="icon-btn" id="sessions-close-btn" title="Close" aria-label="Close sessions"
+                    data-i18n-title="common.close" data-i18n-aria-label="sessions.close">✕</button>
             </div>
             <div class="modal-body" id="sessions-body">
                 <div class="session-list" id="session-list">
-                    <p class="session-empty">Nenhuma sessão ainda.</p>
+                    <p class="session-empty" data-i18n="sessions.empty">No sessions yet.</p>
                 </div>
             </div>
             <div class="modal-foot">
-                <button class="btn btn-primary btn-lg" id="sessions-new-btn" type="button">➕ Nova sessão</button>
+                <button class="btn btn-primary btn-lg" id="sessions-new-btn" type="button" data-i18n="sessions.new">➕ New session</button>
             </div>
         </div>
     </div>
@@ -166,32 +181,32 @@
         <div class="char-card">
             <div class="char-card-head">
                 <span class="char-id-badge"></span>
-                <input type="text" class="text-input char-name" placeholder="Nome do personagem">
-                <button class="icon-btn char-remove" title="Remover" aria-label="Remover personagem">🗑️</button>
+                <input type="text" class="text-input char-name" placeholder="Character name" data-i18n-placeholder="character.namePlaceholder">
+                <button class="icon-btn char-remove" title="Remove" aria-label="Remove" data-i18n-title="common.remove" data-i18n-aria-label="common.remove">🗑️</button>
             </div>
             <div class="char-card-body">
                 <div class="field-group">
-                    <label class="field-label">Personalidade</label>
-                    <textarea class="text-area char-personality" rows="3" placeholder="Descrição da personalidade do personagem"></textarea>
+                    <label class="field-label" data-i18n="character.personality">Personality</label>
+                    <textarea class="text-area char-personality" rows="3" placeholder="Description of the character’s personality" data-i18n-placeholder="character.personalityPlaceholder"></textarea>
                 </div>
                 <div class="grid-2">
                     <div class="field-group">
-                        <label class="field-label">Humor atual</label>
-                        <input type="text" class="text-input char-mood" placeholder="cauteloso">
+                        <label class="field-label" data-i18n="character.mood">Current mood</label>
+                        <input type="text" class="text-input char-mood" placeholder="cautious" data-i18n-placeholder="character.moodPlaceholder">
                     </div>
                     <div class="field-group">
-                        <label class="field-label">Roupa</label>
-                        <input type="text" class="text-input char-outfit" placeholder="Armadura de couro">
+                        <label class="field-label" data-i18n="character.outfit">Outfit</label>
+                        <input type="text" class="text-input char-outfit" placeholder="Leather armor" data-i18n-placeholder="character.outfitPlaceholder">
                     </div>
                 </div>
                 <div class="field-group">
-                    <label class="field-label">Aparência física</label>
-                    <input type="text" class="text-input char-physical" placeholder="Alto, cicatriz no queixo">
+                    <label class="field-label" data-i18n="character.physical">Physical appearance</label>
+                    <input type="text" class="text-input char-physical" placeholder="Tall, scar on the chin" data-i18n-placeholder="character.physicalPlaceholder">
                 </div>
                 <div class="field-group">
-                    <label class="field-label">Conhecimento</label>
+                    <label class="field-label" data-i18n="character.knowledge">Knowledge</label>
                     <div class="knowledge-list"></div>
-                    <button class="btn btn-mini char-add-knowledge" type="button">+ Fato conhecido</button>
+                    <button class="btn btn-mini char-add-knowledge" type="button" data-i18n="character.addKnowledge">+ Known fact</button>
                 </div>
             </div>
         </div>
@@ -202,14 +217,14 @@
         <header class="header">
             <h1 class="brand"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
             <div class="header-actions">
-                <button class="btn btn-primary" id="install-btn" type="button" hidden>⬇ Instalar</button>
-                <label class="toggle" title="Modo debug">
+                <button class="btn btn-primary" id="install-btn" type="button" hidden data-i18n="header.install">⬇ Install</button>
+                <label class="toggle" title="Debug mode" data-i18n-title="header.debugMode">
                     <input type="checkbox" id="debug-toggle">
                     <span class="toggle-track"><span class="toggle-thumb"></span></span>
                     <span class="toggle-label">Debug</span>
                 </label>
-                <button class="icon-btn" id="settings-btn" title="Configurar" aria-label="Configurar">⚙️</button>
-                <button class="icon-btn" id="sessions-btn" title="Sessões" aria-label="Gerenciar sessões">📋</button>
+                <button class="icon-btn" id="settings-btn" title="Configure" aria-label="Configure" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙️</button>
+                <button class="icon-btn" id="sessions-btn" title="Sessions" aria-label="Manage sessions" data-i18n-title="sessions.title" data-i18n-aria-label="sessions.manage">📋</button>
             </div>
         </header>
 
@@ -222,8 +237,8 @@
             <div class="chat-log" id="chat-log">
                 <div class="empty-state" id="empty-state">
                     <div class="icon">🎭</div>
-                    <p>Configure sua aventura para começar</p>
-                    <button class="btn btn-primary" id="empty-config-btn" type="button">Abrir configuração</button>
+                    <p data-i18n="empty.prompt">Configure your adventure to begin</p>
+                    <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="empty.open">Open configuration</button>
                 </div>
             </div>
 
@@ -232,13 +247,13 @@
                 <div class="debug-head">
                     <h3>🔍 Debug</h3>
                     <div class="debug-head-actions">
-                        <button class="btn btn-mini" id="debug-refresh-btn" type="button">🔄 Log</button>
-                        <button class="btn btn-mini" id="preview-prompt-btn" type="button">Preview do prompt</button>
-                        <button class="icon-btn debug-close-btn" id="debug-close-btn" type="button" title="Fechar" aria-label="Fechar debug">✕</button>
+                        <button class="btn btn-mini" id="debug-refresh-btn" type="button" data-i18n="debug.refresh">🔄 Log</button>
+                        <button class="btn btn-mini" id="preview-prompt-btn" type="button" data-i18n="debug.preview">Prompt preview</button>
+                        <button class="icon-btn debug-close-btn" id="debug-close-btn" type="button" title="Close" aria-label="Close debug" data-i18n-title="common.close" data-i18n-aria-label="debug.close">✕</button>
                     </div>
                 </div>
                 <div class="debug-content" id="debug-content">
-                    <p class="debug-placeholder">Clique em "🔄 Log" pra ver o histórico bruto de chamadas ao LLM desta sessão, ou "Preview do prompt" pra montar sem chamar o LLM.</p>
+                    <p class="debug-placeholder" data-i18n="debug.instructions">Click “🔄 Log” to see this session’s raw LLM call history, or “Prompt preview” to build it without calling the LLM.</p>
                 </div>
             </aside>
         </div>
@@ -249,8 +264,8 @@
                 <div class="spinner-dot"></div>
                 <div class="spinner-dot"></div>
             </div>
-            <span class="spinner-label">Processando...</span>
-            <button class="stop-btn" id="stop-btn" type="button" title="Parar" aria-label="Parar processamento">⏹</button>
+            <span class="spinner-label" data-i18n="loading.processing">Processing...</span>
+            <button class="stop-btn" id="stop-btn" type="button" title="Stop" aria-label="Stop processing" data-i18n-title="loading.stop" data-i18n-aria-label="loading.stopAria">⏹</button>
         </div>
 
         <div class="options-panel" id="options-panel"></div>
@@ -258,33 +273,33 @@
         <div class="input-area" id="input-area">
             <div class="input-row">
                 <input type="text" class="input-field" id="input-speech"
-                    placeholder="💬 Fala..." disabled>
+                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" disabled>
             </div>
             <div class="input-row">
                 <input type="text" class="input-field" id="input-thought"
-                    placeholder="💭 Pensamento privado..." disabled>
+                    placeholder="💭 Private thought..." data-i18n-placeholder="input.thought" disabled>
             </div>
             <div class="input-row">
                 <input type="text" class="input-field" id="input-action"
-                    placeholder="🎬 Ação..." disabled>
+                    placeholder="🎬 Action..." data-i18n-placeholder="input.action" disabled>
                 <div class="send-actions">
                     <div class="action-popup" id="action-popup">
                         <select class="force-speaker-select" id="force-speaker-select"
-                            title="Forçar quem age a seguir" aria-label="Forçar falante">
-                            <option value="">🎲 Automático</option>
+                            title="Force who acts next" aria-label="Force speaker" data-i18n-title="action.forceTitle" data-i18n-aria-label="action.forceAria">
+                            <option value="" data-i18n="action.automatic">🎲 Automatic</option>
                         </select>
-                        <button class="icon-btn action-btn" id="action-suggest-btn" title="Sugestão de jogada" aria-label="Sugerir jogada">💡</button>
+                        <button class="icon-btn action-btn" id="action-suggest-btn" title="Move suggestion" aria-label="Suggest a move" data-i18n-title="action.suggestTitle" data-i18n-aria-label="action.suggestAria">💡</button>
                         <button class="icon-btn action-btn action-compact-btn" id="action-compact-btn"
-                            title="Compactar sessão (resume turnos antigos)" aria-label="Compactar histórico da sessão">
+                            title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
                             <span class="compact-progress" id="compact-progress"></span>
                             <span class="compact-icon">🗜️</span>
                         </button>
                         <button class="icon-btn action-btn" id="action-restore-compaction-btn"
-                            title="Desfazer última compactação (só se seguro)" aria-label="Desfazer última compactação">🧯</button>
-                        <button class="icon-btn action-btn" id="action-undo-btn" title="Desfazer turno" aria-label="Desfazer último turno">↩</button>
-                        <button class="icon-btn action-btn" id="action-retry-btn" title="Tentar de novo" aria-label="Reenviar turno">↻</button>
+                            title="Undo last compaction (only when safe)" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
+                        <button class="icon-btn action-btn" id="action-undo-btn" title="Undo turn" aria-label="Undo last turn" data-i18n-title="action.undoTitle" data-i18n-aria-label="action.undoAria">↩</button>
+                        <button class="icon-btn action-btn" id="action-retry-btn" title="Try again" aria-label="Resend turn" data-i18n-title="action.retryTitle" data-i18n-aria-label="action.retryAria">↻</button>
                     </div>
-                    <button class="send-btn" id="send-btn" disabled>Enviar</button>
+                    <button class="send-btn" id="send-btn" disabled data-i18n="input.send">Send</button>
                 </div>
             </div>
         </div>
