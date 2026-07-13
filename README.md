@@ -1,6 +1,8 @@
-# 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Engine
+<p align="center">
+  <img src="docs/images/logo.jpg" alt="Alex Tavern Logo" width="450">
+</p>
 
-![Alex Tavern Banner](docs/images/banner.jpg)
+# 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Engine
 
 Alex Tavern is a multi-agent roleplay engine built around a blind Narrator: the game-master model
 never knows which character is controlled by a human. The Narrator owns physical reality and
