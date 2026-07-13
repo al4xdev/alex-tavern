@@ -105,7 +105,7 @@ function setLoading(on) {
 
 function scrollToBottom(forceBottom = false) {
     if (!forceBottom && window.innerWidth <= 760 && inputArea.classList.contains('collapsed')) {
-        chatLog.scrollTo({ top: chatLog.scrollHeight - chatLog.clientHeight - 15, behavior: 'smooth' });
+        chatLog.scrollTo({ top: chatLog.scrollHeight - chatLog.clientHeight - 15, behavior: 'auto' });
     } else {
         chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
     }
@@ -142,6 +142,14 @@ async function skipTurn() {
     clearSuggestions();
     state.lastTurnFailed = false;
     updateActionPopup();
+
+    if (window.innerWidth <= 760) {
+        inputArea.classList.add('collapsed');
+        const activeEl = document.activeElement;
+        if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
+            activeEl.blur();
+        }
+    }
 
     const ac = new AbortController();
     state.abortController = ac;
