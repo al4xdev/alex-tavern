@@ -41,6 +41,7 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     assert "queueLanguageSync();" in runtime_source
     assert "typeof RuntimeConfig" not in setup_source
     assert "typeof toast" not in setup_source
+    assert "input: e.input," in app_source
 
 
 def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:

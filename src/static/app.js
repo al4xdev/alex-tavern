@@ -273,7 +273,7 @@ function renderSessionList(sessions) {
 }
 
 /* Clears the chat log and re-renders it from the authoritative backend
-   history — merges the Player's speech+action of a turn into one bubble
+   history — merges the Player's speech, thought, and action of a turn into one bubble
    (same as the live echo in sendTurn). Used on session load AND after undo,
    so the DOM never has to guess how many bubbles a turn produced. */
 function renderHistory(history) {
@@ -553,7 +553,7 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
     if (shouldType) revealTypewriter(msg, units);
 }
 
-/* Combines the player's speech + action into the single echo bubble text
+/* Combines the player's speech, thought, and action into the single echo bubble text
    (used both for the live echo in sendTurn and for replaying history). */
 function buildPlayerEcho(speech, thought, action) {
     return { speech: speech || null, thought: thought || null, action: action || null };
