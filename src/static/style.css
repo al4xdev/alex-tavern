@@ -987,6 +987,23 @@ select.text-input { cursor: pointer; }
     font-size: 0.9rem;
     text-align: left;
     transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+    position: relative;
+    overflow: hidden;
+}
+.input-expand-label {
+    display: inline-block;
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.input-expand-action-left,
+.input-expand-action-right {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+    white-space: nowrap;
 }
 .input-expand-btn:hover {
     background: rgba(56, 56, 78, 0.9);
