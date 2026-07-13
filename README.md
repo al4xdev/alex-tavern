@@ -27,6 +27,16 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > Releases as the **Latest Debug APK**. Despite living on the Releases page, the APK is a rough
 > debug build for active development, not a production-ready mobile release.
 
+> [!WARNING]
+> **Upcoming Plugin Refactoring:** While complex features, wild interactions, battle systems, or even simple mechanics like rolling dice are fully possible, it is highly recommended to wait for a planned refactoring of the plugin system before writing them. The goal is to secure a very stable and solid core engine capable of reliably supporting extensions.
+> 
+> The future architecture will support three plugin types:
+> 1. **Trigger:** Responds to events (e.g., a command slash bar, similar to the RAG features mentioned in this documentation).
+> 2. **Background:** Asynchronous background tasks.
+> 3. **Hybrid:** A mix of both trigger and background behaviors.
+> 
+> This separation keeps the engine solid and reliable, while allowing plugins to introduce the wild dynamics users desire. A curated public plugin repository is also envisioned for safety. Following this, the project focus will be to shift towards polling and reduce asynchronous complexity.
+
 <place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
 ---
