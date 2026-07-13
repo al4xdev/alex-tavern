@@ -130,6 +130,7 @@ class Runner:
         thought: str = "",
         action: str = "",
         force_speaker: str | None = None,
+        narrator_hint: str = "",
     ) -> dict:
         """Processes a Player's turn.
 
@@ -160,8 +161,8 @@ class Runner:
             Dict with: narration, character_response, next_speaker,
             scene_update, turn_number.
         """
-        if not any(value.strip() for value in (speech, thought, action)):
-            raise ValueError("A turn needs speech, thought, or action")
+        if not any(value.strip() for value in (speech, thought, action, narrator_hint)):
+            raise ValueError("A turn needs speech, thought, action, or narrator_hint")
         async with _get_lock(session_id):
             game = load_game(session_id)
             if game is None:
@@ -209,7 +210,9 @@ class Runner:
                 }
 
             # Call Narrator
-            narrator_raw = await self._call_narrator(game, step, effective_force_speaker)
+            narrator_raw = await self._call_narrator(
+                game, step, effective_force_speaker, narrator_hint
+            )
 
             # Advance the turn
             narration = narrator_raw["narration"]
@@ -430,7 +433,11 @@ class Runner:
     # ── Private Methods ───────────────────────────────────────────────────
 
     async def _call_narrator(
-        self, game: GameState, turn_number: int, forced_speaker: str | None = None
+        self,
+        game: GameState,
+        turn_number: int,
+        forced_speaker: str | None = None,
+        narrator_hint: str = "",
     ) -> dict:
         """Calls Narrator agent (blind) with full context. Returns result."""
         return await narrate(
@@ -445,6 +452,7 @@ class Runner:
             turn_number=turn_number,
             story_summary=game.story_summary,
             forced_speaker=forced_speaker,
+            narrator_hint=narrator_hint,
         )
 
     async def _call_character(

@@ -1168,6 +1168,15 @@ select.text-input { cursor: pointer; }
     .provider-switch { grid-template-columns: 1fr; }
 }
 
+/* ── Narrator hint popup ──────────────────────────────────────────────── */
+.hint-modal {
+    max-width: 440px;
+}
+#hint-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {

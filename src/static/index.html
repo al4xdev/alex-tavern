@@ -289,6 +289,7 @@
                             <option value="" data-i18n="action.automatic">🎲 Automatic</option>
                         </select>
                         <button class="icon-btn action-btn" id="action-suggest-btn" title="Move suggestion" aria-label="Suggest a move" data-i18n-title="action.suggestTitle" data-i18n-aria-label="action.suggestAria">💡</button>
+                        <button class="icon-btn action-btn" id="action-hint-btn" title="Narrator event hint" aria-label="Suggest an event for the Narrator" data-i18n-title="action.hintTitle" data-i18n-aria-label="action.hintAria">📜</button>
                         <button class="icon-btn action-btn action-compact-btn" id="action-compact-btn"
                             title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
                             <span class="compact-progress" id="compact-progress"></span>
@@ -301,6 +302,23 @@
                     </div>
                     <button class="send-btn" id="send-btn" disabled data-i18n="input.send">Send</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Narrator hint popup -->
+    <div class="overlay" id="hint-overlay">
+        <div class="modal hint-modal" id="hint-modal" role="dialog" aria-modal="true" aria-labelledby="hint-title">
+            <div class="modal-head">
+                <h3 id="hint-title">📜 Narrator event</h3>
+                <button class="icon-btn" id="hint-close-btn" title="Close" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="field-hint">Describe what happens next. The Narrator will incorporate this into the narration.</p>
+                <textarea class="text-area" id="hint-textarea" rows="3" placeholder="A seagull steals Tony's drink..."></textarea>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-primary" id="hint-send-btn" type="button">Send with next turn ➤</button>
             </div>
         </div>
     </div>
