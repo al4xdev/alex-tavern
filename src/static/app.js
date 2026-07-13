@@ -103,8 +103,12 @@ function setLoading(on) {
     spinner.classList.toggle('active', on);
 }
 
-function scrollToBottom() {
-    chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
+function scrollToBottom(forceBottom = false) {
+    if (!forceBottom && window.innerWidth <= 760 && inputArea.classList.contains('collapsed')) {
+        chatLog.scrollTo({ top: chatLog.scrollHeight - chatLog.clientHeight - 15, behavior: 'smooth' });
+    } else {
+        chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
+    }
 }
 
 /* ── Action popup (undo / retry / force-speaker / suggest) ────────────── */
@@ -1037,6 +1041,15 @@ async function sendTurn(isRetry = false) {
     // Save inputs for potential retry
     state.lastInputs = { speech, thought, action, forceSpeaker, narratorHint: state.narratorHint };
 
+    if (window.innerWidth <= 760) {
+        inputArea.classList.add('collapsed');
+        // Blur inputs to close the mobile keyboard
+        const activeEl = document.activeElement;
+        if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
+            activeEl.blur();
+        }
+    }
+
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
     if (!isRetry) {
         addMessage('Player', buildPlayerEcho(speech, thought, action), 'response');
@@ -1180,7 +1193,7 @@ inputThought.addEventListener('keydown', (e) => {
 
 if (inputExpandBtn) {
     inputExpandBtn.addEventListener('click', () => {
-        scrollToBottom();
+        scrollToBottom(true);
     });
 }
 
