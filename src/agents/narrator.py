@@ -61,7 +61,11 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
     return prompt
 
 
-def build_narrator_json_schema(character_ids: list[str], forced_speaker: str | None = None) -> dict:
+def build_narrator_json_schema(
+    character_ids: list[str],
+    forced_speaker: str | None = None,
+    exclude_speaker: str | None = None,
+) -> dict:
     """Builds the structural JSON schema for the Narrator's response.
 
     Used with ``response_format: {"type": "json_schema", ...}`` — LLM output
@@ -69,7 +73,10 @@ def build_narrator_json_schema(character_ids: list[str], forced_speaker: str | N
     "no markdown, no code fences".
     """
     all_speakers = [*character_ids, "Narrator"]
-    speakers = [forced_speaker] if forced_speaker in all_speakers else all_speakers
+    if forced_speaker in all_speakers:
+        speakers = [forced_speaker]
+    else:
+        speakers = [s for s in all_speakers if s != exclude_speaker]
     return {
         "name": "narrator_turn",
         "schema": {
@@ -240,6 +247,7 @@ async def narrate(
     story_summary: str = "",
     forced_speaker: str | None = None,
     narrator_hint: str = "",
+    exclude_speaker: str | None = None,
 ) -> dict:
     """Builds the Narrator prompt, calls the LLM, and returns a validated dict.
 
@@ -282,7 +290,11 @@ async def narrate(
         language=config.get("language", ""),
         max_tokens=max_tokens_narrator,
         timeout=resolve_llm_timeout(config),
-        json_schema=build_narrator_json_schema(list(characters), forced_speaker),
+        json_schema=build_narrator_json_schema(
+            list(characters),
+            forced_speaker=forced_speaker,
+            exclude_speaker=exclude_speaker,
+        ),
         session_id=session_id,
         turn_number=turn_number,
         agent="narrator",

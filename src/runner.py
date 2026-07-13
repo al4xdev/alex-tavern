@@ -448,6 +448,11 @@ class Runner:
         narrator_hint: str = "",
     ) -> dict:
         """Calls Narrator agent (blind) with full context. Returns result."""
+        exclude_speaker = None
+        # If player just spoke actively, exclude them from next_speaker
+        if any(rec.turn_number == turn_number and rec.speaker == "Player" for rec in game.history):
+            exclude_speaker = game.player.controlled_character_id
+
         return await narrate(
             client=self.client,
             scene=game.scene,
@@ -461,6 +466,7 @@ class Runner:
             story_summary=game.story_summary,
             forced_speaker=forced_speaker,
             narrator_hint=narrator_hint,
+            exclude_speaker=exclude_speaker,
         )
 
     async def _call_character(
