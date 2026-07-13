@@ -909,15 +909,31 @@ async function refreshDebugLog() {
 async function previewPrompt() {
     if (!state.sessionId) { toast(t('debug.startFirst'), 'error'); return; }
     try {
-        const speech = inputSpeech.value.trim();
-        const thought = inputThought.value.trim();
-        const action = inputAction.value.trim();
-        const data = await api.previewPrompt(state.sessionId, { speech, thought, action });
+        const entries = await api.getDebugLog(state.sessionId);
         debugContent.innerHTML = '';
-        lastDebugEntries = null;
-        debugContent.appendChild(
-            renderDebugBlock(t('debug.previewNarrator'), data.narrator_messages, null));
-        toast(t('debug.previewReady'), 'success', 2500);
+        lastDebugEntries = entries;
+        // Find the last narrator call from the JSONL log
+        const lastNarrator = [...(entries || [])].reverse().find(
+            (e) => e.agent === 'narrator' && e.request && e.request.messages
+        );
+        if (lastNarrator) {
+            const messages = lastNarrator.request.messages;
+            const raw = lastNarrator.response;
+            const title = t('debug.logTitle', {
+                turn: lastNarrator.turn_number,
+                agent: 'narrator',
+                error: '',
+                metrics: lastNarrator.duration_ms != null
+                    ? t('debug.logMetrics', { attempt: lastNarrator.attempt_number || 1, duration: lastNarrator.duration_ms })
+                    : '',
+            });
+            debugContent.appendChild(renderDebugBlock(title, messages, raw));
+            toast(t('debug.previewReady'), 'success', 2500);
+        } else {
+            debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.noCalls"></p>';
+            translateDocument(debugContent);
+            toast(t('debug.previewError', { error: 'No narrator call found' }), 'info', 2500);
+        }
     } catch (err) {
         toast(t('debug.previewError', { error: err.message }), 'error');
     }

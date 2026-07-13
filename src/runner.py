@@ -14,7 +14,7 @@ import httpx
 
 from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
-from src.agents.narrator import build_narrator_messages, narrate
+from src.agents.narrator import narrate
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.summarizer import summarize
 from src.llm.debug_log import log_compact, log_restore_compaction, log_turn_input, log_undo
@@ -478,69 +478,6 @@ class Runner:
             turn_number=turn_number,
             notes=game.character_notes.get(character_id, ""),
         )
-
-    async def preview_narrator_prompt(
-        self, session_id: str, speech: str = "", thought: str = "", action: str = ""
-    ) -> list[dict]:
-        """Assembles and returns the Narrator's messages for the current state.
-
-        Does NOT call the LLM or persist anything — useful for inspecting the
-        exact prompt offline. If ``speech``/``action`` are provided, simulates the
-        turn as the last entry in HISTORY (without saving), exactly as it
-        would happen in reality.
-
-        Returns:
-            List of messages (system + user), or empty list if the session
-            does not exist.
-        """
-        async with _get_lock(session_id):
-            game = load_game(session_id)
-            if game is None:
-                return []
-
-            history = list(game.history)
-            next_turn = (history[-1].turn_number + 1) if history else 1
-            if speech:
-                history.append(
-                    TurnRecord(
-                        turn_number=next_turn,
-                        speaker="Player",
-                        content=speech,
-                        content_type="speech",
-                        scene_snapshot=game.scene,
-                    )
-                )
-            if thought:
-                history.append(
-                    TurnRecord(
-                        turn_number=next_turn,
-                        speaker="Player",
-                        content=thought,
-                        content_type="thought",
-                        scene_snapshot=game.scene,
-                    )
-                )
-            if action:
-                history.append(
-                    TurnRecord(
-                        turn_number=next_turn,
-                        speaker="Player",
-                        content=action,
-                        content_type="action",
-                        scene_snapshot=game.scene,
-                    )
-                )
-
-            return build_narrator_messages(
-                scene=game.scene,
-                characters=game.characters,
-                player_controlled_id=game.player.controlled_character_id,
-                history=history,
-                narrator_directives=game.narrator_directives,
-                context_max=self.config.get("context_max"),
-                max_tokens_narrator=self.config.get("max_tokens_narrator", 2048),
-                story_summary=game.story_summary,
-            )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
         """Applies reserved Scene fields and physical-fact deltas.

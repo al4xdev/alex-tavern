@@ -63,14 +63,6 @@ export const api = {
         return apiFetch(`/session/${sessionId}/state`);
     },
 
-    previewPrompt(sessionId, payload) {
-        return apiFetch(`/session/${sessionId}/preview_prompt`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-    },
-
     undo(sessionId) {
         return apiFetch(`/session/${sessionId}/undo`, { method: 'POST' });
     },
