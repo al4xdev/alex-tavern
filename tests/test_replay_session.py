@@ -73,6 +73,10 @@ def test_turn_input_markers_recover_exact_payload_without_state() -> None:
         ("Speak", "", "", None),
         ("", "", "Move", "C2"),
     ]
+    # Old-format markers (no narrator_hint/skip) get safe defaults
+    for turn in turns:
+        assert turn.narrator_hint == ""
+        assert turn.skip is False
 
 
 def test_turn_input_markers_recover_thought() -> None:
@@ -87,6 +91,41 @@ def test_turn_input_markers_recover_thought() -> None:
     turns = build_recorded_turns_from_turn_inputs(records)
     assert len(turns) == 1
     assert turns[0].thought == "Plan"
+
+
+def test_turn_input_markers_recover_narrator_hint_and_skip() -> None:
+    """New-format markers with narrator_hint and skip preserve their values."""
+    records = [
+        {
+            "turn_number": 1,
+            "agent": "turn_input",
+            "input": {
+                "speech": "",
+                "thought": "",
+                "action": "",
+                "force_speaker": None,
+                "narrator_hint": "Storm approaches.",
+                "skip": False,
+            },
+        },
+        {
+            "turn_number": 2,
+            "agent": "turn_input",
+            "input": {
+                "speech": "",
+                "thought": "",
+                "action": "",
+                "force_speaker": None,
+                "narrator_hint": "",
+                "skip": True,
+            },
+        },
+    ]
+    turns = build_recorded_turns_from_turn_inputs(records)
+    assert turns[0].narrator_hint == "Storm approaches."
+    assert turns[0].skip is False
+    assert turns[1].narrator_hint == ""
+    assert turns[1].skip is True
 
 
 def test_current_fixture_is_machine_readable_and_replayable() -> None:

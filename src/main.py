@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.config import (
     ConfigValidationError,
@@ -121,6 +121,8 @@ class StartSessionResponse(BaseModel):
 
 
 class PlayerTurnRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     speech: str = ""
     thought: str = ""
     action: str = ""
@@ -131,6 +133,8 @@ class PlayerTurnRequest(BaseModel):
     @model_validator(mode="after")
     def require_content(self) -> PlayerTurnRequest:
         if self.skip:
+            if self.speech.strip() or self.thought.strip() or self.action.strip():
+                raise ValueError("skip=True cannot be combined with speech, thought, or action")
             return self
         if not any(
             value.strip() for value in (self.speech, self.thought, self.action, self.narrator_hint)

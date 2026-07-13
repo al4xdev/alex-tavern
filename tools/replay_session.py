@@ -26,6 +26,8 @@ class RecordedTurn:
     thought: str
     action: str
     force_speaker: str | None
+    narrator_hint: str = ""
+    skip: bool = False
 
 
 def load_json_object(path: Path) -> dict[str, Any]:
@@ -102,11 +104,15 @@ def build_recorded_turns_from_turn_inputs(
         thought = input_payload.get("thought")
         action = input_payload.get("action")
         force_speaker = input_payload.get("force_speaker")
+        narrator_hint = input_payload.get("narrator_hint", "")
+        skip = input_payload.get("skip", False)
         if (
             not isinstance(speech, str)
             or not isinstance(thought, str)
             or not isinstance(action, str)
             or (force_speaker is not None and not isinstance(force_speaker, str))
+            or not isinstance(narrator_hint, str)
+            or not isinstance(skip, bool)
         ):
             raise ReplaySessionError(f"Malformed input payload for turn {turn_number}")
         turns.append(
@@ -116,6 +122,8 @@ def build_recorded_turns_from_turn_inputs(
                 thought=thought,
                 action=action,
                 force_speaker=force_speaker,
+                narrator_hint=narrator_hint,
+                skip=skip,
             )
         )
         seen_turns.add(turn_number)
@@ -242,6 +250,8 @@ async def replay_and_compare(
                     "thought": turn.thought,
                     "action": turn.action,
                     "force_speaker": turn.force_speaker,
+                    "narrator_hint": turn.narrator_hint,
+                    "skip": turn.skip,
                 },
             )
             if (

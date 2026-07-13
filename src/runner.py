@@ -177,7 +177,7 @@ class Runner:
 
             effective_force_speaker = (
                 force_speaker
-                if (speech or action or skip)
+                if (speech or action or narrator_hint.strip() or skip)
                 and (force_speaker in game.characters or force_speaker == "Narrator")
                 else None
             )
@@ -204,9 +204,10 @@ class Runner:
                     self._append_history(game, "Player", action, "action", step)
 
                 # A private thought has no observable event for the Narrator to
-                # resolve. Persist it as a complete step without replaying the
+                # resolve — unless there's also a narrator_hint providing external
+                # context. Persist it as a complete step without replaying the
                 # previous public event or inventing a reaction to hidden content.
-                if thought and not speech and not action:
+                if thought and not speech and not action and not narrator_hint.strip():
                     save_game(game)
                     return {
                         "narration": None,
