@@ -1015,7 +1015,7 @@ async function sendTurn(isRetry = false) {
     const thought = inputThought.value.trim();
     const action = inputAction.value.trim();
     const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
-    if (!speech && !thought && !action) {
+    if (!speech && !thought && !action && !state.narratorHint) {
         toast(t('action.inputRequired'), 'info', 2500);
         return;
     }

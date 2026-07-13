@@ -56,9 +56,7 @@ class LlamaCppAdapter:
         prompt_tokens = nonnegative_int(usage.get("prompt_tokens"))
         miss_tokens = (
             prompt_tokens - hit_tokens
-            if prompt_tokens is not None
-            and hit_tokens is not None
-            and prompt_tokens >= hit_tokens
+            if prompt_tokens is not None and hit_tokens is not None and prompt_tokens >= hit_tokens
             else None
         )
         return ParsedResponse(

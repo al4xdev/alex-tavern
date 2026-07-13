@@ -101,8 +101,6 @@ def test_current_fixture_is_machine_readable_and_replayable() -> None:
     assert successful_outputs(records)[-1]["agent"] == "summarizer"
 
 
-
-
 def test_turn_input_markers_are_required() -> None:
     with pytest.raises(ReplaySessionError, match="no turn_input"):
         build_recorded_turns_from_turn_inputs(
