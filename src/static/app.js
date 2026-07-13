@@ -79,6 +79,17 @@ const hintTextarea  = document.getElementById('hint-textarea');
 const hintSendBtn   = document.getElementById('hint-send-btn');
 const hintCloseBtn  = document.getElementById('hint-close-btn');
 
+const brandHeader   = document.getElementById('brand-header');
+const tipBanner     = document.getElementById('tip-banner');
+const tipText       = document.getElementById('tip-text');
+const tipCloseBtn   = document.getElementById('tip-close-btn');
+const helpDrawer    = document.getElementById('help-drawer');
+const helpCloseBtn  = document.getElementById('help-close-btn');
+const helpMenuView  = document.getElementById('help-menu-view');
+const helpArticleView = document.getElementById('help-article-view');
+const helpBackBtn   = document.getElementById('help-back-btn');
+const helpArticleContent = document.getElementById('help-article-content');
+
 let lastSessionList = null;
 let lastDebugEntries = null;
 
@@ -425,6 +436,7 @@ async function loadSession(sessionId) {
 
         closeSessionsModal();
         toast(t('sessions.loaded', { id: sessionId }), 'success', 2500);
+        showTipBanner();
     } catch (err) {
         toast(t('sessions.loadError', { error: err.message }), 'error');
     }
@@ -1054,6 +1066,7 @@ async function startSession(cfg) {
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
         if (window.innerWidth > 760) inputSpeech.focus();
         toast(t('turn.started', { name: controlledName() }), 'success', 2500);
+        showTipBanner();
     } catch (err) {
         toast(t('turn.startError', { error: err.message }), 'error');
         emptyState.style.display = 'flex';
@@ -1479,6 +1492,146 @@ if (debugCloseBtn) debugCloseBtn.addEventListener('click', () => setDebug(false)
 if (debugRefreshBtn) debugRefreshBtn.addEventListener('click', refreshDebugLog);
 
 previewBtn.addEventListener('click', previewPrompt);
+
+/* ── Help & Guides ────────────────────────────────────────────────────── */
+function setHelp(on) {
+    helpDrawer.classList.toggle('active', on);
+    if (on) {
+        setDebug(false);
+        showHelpMenu();
+    }
+}
+
+function showHelpMenu() {
+    helpMenuView.classList.add('active');
+    helpMenuView.classList.remove('active-left');
+    helpArticleView.classList.remove('active');
+}
+
+async function showHelpArticle(topic) {
+    helpMenuView.classList.add('active-left');
+    helpArticleView.classList.add('active');
+    helpArticleContent.innerHTML = '<p class="debug-placeholder">Loading guide...</p>';
+    
+    try {
+        const res = await fetch(`help/${topic}.md`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const mdText = await res.text();
+        helpArticleContent.innerHTML = parseMarkdown(mdText);
+    } catch (err) {
+        helpArticleContent.innerHTML = `<p class="debug-placeholder" style="color: var(--accent);">Failed to load guide: ${err.message}</p>`;
+    }
+}
+
+function parseMarkdown(text) {
+    const lines = text.split('\n');
+    let inList = false;
+    const result = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('- ')) {
+            if (!inList) {
+                result.push('<ul>');
+                inList = true;
+            }
+            const content = parseInlineMarkdown(trimmed.substring(2));
+            result.push(`<li>${content}</li>`);
+        } else {
+            if (inList) {
+                result.push('</ul>');
+                inList = false;
+            }
+            
+            if (trimmed.startsWith('### ')) {
+                result.push(`<h3>${parseInlineMarkdown(trimmed.substring(4))}</h3>`);
+            } else if (trimmed.startsWith('## ')) {
+                result.push(`<h2>${parseInlineMarkdown(trimmed.substring(3))}</h2>`);
+            } else if (trimmed.startsWith('# ')) {
+                result.push(`<h1>${parseInlineMarkdown(trimmed.substring(2))}</h1>`);
+            } else if (trimmed.length > 0) {
+                result.push(`<p>${parseInlineMarkdown(line)}</p>`);
+            }
+        }
+    }
+    
+    if (inList) {
+        result.push('</ul>');
+    }
+    
+    return result.join('\n');
+}
+
+function parseInlineMarkdown(text) {
+    return text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+}
+
+async function showTipBanner() {
+    try {
+        const res = await fetch('help/warning.json');
+        if (!res.ok) throw new Error();
+        const warnings = await res.json();
+        if (!warnings || warnings.length === 0) return;
+        const tip = warnings[Math.floor(Math.random() * warnings.length)];
+        
+        tipText.setAttribute('data-i18n', tip.text_key);
+        tipText.textContent = t(tip.text_key);
+        
+        tipBanner.dataset.helpPath = tip.help_path;
+        tipBanner.style.display = 'flex';
+    } catch {
+        tipBanner.style.display = 'none';
+    }
+}
+
+// Brand toggle listeners
+if (brandHeader) {
+    brandHeader.addEventListener('click', () => setHelp(!helpDrawer.classList.contains('active')));
+    brandHeader.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setHelp(!helpDrawer.classList.contains('active'));
+        }
+    });
+}
+
+if (helpCloseBtn) {
+    helpCloseBtn.addEventListener('click', () => setHelp(false));
+}
+
+document.querySelectorAll('.help-menu-list li').forEach(li => {
+    li.addEventListener('click', () => {
+        const topic = li.dataset.helpTopic;
+        showHelpArticle(topic);
+    });
+});
+
+if (helpBackBtn) {
+    helpBackBtn.addEventListener('click', showHelpMenu);
+}
+
+// Tip banner events
+if (tipBanner) {
+    tipBanner.addEventListener('click', (e) => {
+        if (e.target.closest('#tip-close-btn')) return;
+        const path = tipBanner.dataset.helpPath;
+        if (path) {
+            setHelp(true);
+            showHelpArticle(path);
+        }
+    });
+}
+
+if (tipCloseBtn) {
+    tipCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        tipBanner.style.display = 'none';
+    });
+}
 
 // Scene panel expand/collapse gestures
 let sceneStartY = null;

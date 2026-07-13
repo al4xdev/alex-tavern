@@ -224,13 +224,19 @@
     <!-- ══════════════════ Game view ══════════════════ -->
     <div class="app" id="app">
         <header class="header">
-            <h1 class="brand"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
+            <h1 class="brand" id="brand-header" tabindex="0" role="button" aria-label="Open help"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="install-btn" type="button" hidden data-i18n="header.install">⬇ Install</button>
                 <button class="icon-btn" id="settings-btn" title="Configure" aria-label="Configure" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙️</button>
                 <button class="icon-btn" id="sessions-btn" title="Sessions" aria-label="Manage sessions" data-i18n-title="sessions.title" data-i18n-aria-label="sessions.manage">📋</button>
             </div>
         </header>
+
+        <!-- Tip banner -->
+        <div class="tip-banner" id="tip-banner" style="display: none;">
+            <span class="tip-text" id="tip-text"></span>
+            <button class="tip-close-btn" id="tip-close-btn" aria-label="Dismiss tip">✕</button>
+        </div>
 
         <div class="scene-panel" id="scene-panel">
             <span class="scene-location" id="scene-location"></span>
@@ -258,6 +264,30 @@
                 </div>
                 <div class="debug-content" id="debug-content">
                     <p class="debug-placeholder" data-i18n="debug.instructions">Click “🔄 Log” to see this session’s raw LLM call history, or “Prompt preview” to build it without calling the LLM.</p>
+                </div>
+            </aside>
+
+            <!-- Help drawer -->
+            <aside class="help-drawer" id="help-drawer">
+                <div class="help-head">
+                    <h3 data-i18n="help.title">Help & Guides</h3>
+                    <button class="icon-btn help-close-btn" id="help-close-btn" type="button" title="Close" aria-label="Close help">✕</button>
+                </div>
+                <div class="help-container">
+                    <!-- Menu View -->
+                    <div class="help-view help-menu-view active" id="help-menu-view">
+                        <ul class="help-menu-list">
+                            <li data-help-topic="roleplay" data-i18n="help.menu.roleplay">🎭 Roleplay & Rules</li>
+                            <li data-help-topic="compaction" data-i18n="help.menu.compaction">🗜️ History Compaction</li>
+                            <li data-help-topic="settings" data-i18n="help.menu.settings">⚡ AI Engine & Settings</li>
+                            <li data-help-topic="commands" data-i18n="help.menu.commands">💬 Shortcuts & Features</li>
+                        </ul>
+                    </div>
+                    <!-- Article View -->
+                    <div class="help-view help-article-view" id="help-article-view">
+                        <button class="btn btn-mini help-back-btn" id="help-back-btn" data-i18n="help.back">← Back</button>
+                        <div class="help-article-content" id="help-article-content"></div>
+                    </div>
                 </div>
             </aside>
         </div>
