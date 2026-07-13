@@ -1,6 +1,6 @@
 # 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Engine
 
-<place_1:banner screenshot or gif of the app running a scene, chat bubbles for Narrator/Character, undo and force-speaker buttons visible>
+![Alex Tavern Banner](docs/images/banner.jpg)
 
 Alex Tavern is a multi-agent roleplay engine built around a blind Narrator: the game-master model
 never knows which character is controlled by a human. The Narrator owns physical reality and
