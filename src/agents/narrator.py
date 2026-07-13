@@ -326,12 +326,15 @@ async def narrate(
     return result
 
 
-def _build_suggest_system_prompt(target_id: str, narrator_directives: str = "") -> str:
+def _build_suggest_system_prompt(
+    target_id: str, character_name: str, narrator_directives: str = ""
+) -> str:
     prompt = (
         "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
-        f"Suggest 3 plausible next moves for {target_id}, given their personality, mood,\n"
-        "knowledge and the current scene/history. Each suggestion is a distinct, in-\n"
-        "character option; vary tone/approach across the 3.\n"
+        f"Suggest 3 plausible next moves for {character_name} (ID: {target_id}), and ONLY\n"
+        f"for {character_name} — do NOT suggest moves for any other character. Base each\n"
+        "suggestion on their personality, mood, knowledge and the current scene/history.\n"
+        "Each suggestion is a distinct, in-character option; vary tone/approach across the 3.\n"
         "\n"
         'Return an object with a "suggestions" array of exactly 3 items, each with\n'
         '"speech" (what they say, or empty string) and "action" (what they physically\n'
@@ -396,10 +399,11 @@ async def suggest(
         List of ``{"speech", "action"}``.
     """
     max_tokens_narrator = config.get("max_tokens_narrator", 2048)
+    character_name = characters[target_id].mind.name if target_id in characters else target_id
     messages = [
         {
             "role": "system",
-            "content": _build_suggest_system_prompt(target_id, narrator_directives),
+            "content": _build_suggest_system_prompt(target_id, character_name, narrator_directives),
         },
         {
             "role": "user",
