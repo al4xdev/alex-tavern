@@ -721,17 +721,6 @@ select.text-input { cursor: pointer; }
     gap: 10px;
     padding: 8px 4px;
     min-width: 0;
-    overflow-anchor: none;
-}
-.chat-log > * {
-    overflow-anchor: none;
-}
-.chat-log::after {
-    content: "";
-    display: block;
-    height: 20px;
-    flex-shrink: 0;
-    overflow-anchor: auto;
 }
 
 /* Message bubbles */
@@ -1249,17 +1238,6 @@ select.text-input { cursor: pointer; }
     .chat-log {
         padding: 8px 4px;
         min-width: 0;
-        overflow-anchor: none; /* Disable default anchor */
-    }
-    .chat-log > * {
-        overflow-anchor: none;
-    }
-    .chat-log::after {
-        content: "";
-        display: block;
-        height: 20px;
-        flex-shrink: 0;
-        overflow-anchor: auto; /* Anchor to the bottom spacer */
     }
 
     /* Setup modal becomes a full-screen sheet */
@@ -1291,49 +1269,37 @@ select.text-input { cursor: pointer; }
     .debug-close-btn { display: inline-flex; }
     .debug-pre { max-height: none; }
     
-    --material-ease: cubic-bezier(0.2, 0, 0, 1);
-    
-    .input-area {
-        position: relative;
-        overflow: visible;
-        border-radius: var(--radius-sm);
-        transition: max-height 0.45s var(--material-ease), margin 0.45s var(--material-ease);
-    }
+    .input-area { overflow: visible; }
     .input-fields-container {
         max-height: 500px;
         opacity: 1;
-        transform: translateY(0) scale(1);
-        transition: max-height 0.45s var(--material-ease), 
-                    opacity 0.3s 0.15s ease,
-                    transform 0.45s var(--material-ease);
+        transition: max-height 1s cubic-bezier(0.32, 0.72, 0, 1), opacity 1s cubic-bezier(0.32, 0.72, 0, 1), margin 1s cubic-bezier(0.32, 0.72, 0, 1);
     }
     .input-expand-btn {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 2;
+        display: block;
+        max-height: 0;
         opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
+        overflow: hidden;
         pointer-events: none;
-        transform: translateY(-10px) scale(0.95);
-        transition: opacity 0.2s ease, transform 0.45s var(--material-ease);
+        transition: all 1s cubic-bezier(0.32, 0.72, 0, 1);
     }
     
     .input-area.collapsed .input-fields-container {
         max-height: 0;
         opacity: 0;
+        margin-top: -8px;
         pointer-events: none;
-        transform: translateY(10px) scale(0.95);
-        transition: max-height 0.45s var(--material-ease), 
-                    opacity 0.2s ease,
-                    transform 0.45s var(--material-ease);
     }
     .input-area.collapsed .input-expand-btn {
-        position: relative;
+        max-height: 60px;
         opacity: 1;
-        transform: translateY(0) scale(1);
+        padding-top: 12px;
+        padding-bottom: 12px;
+        border-width: 1px;
         pointer-events: auto;
-        transition: opacity 0.3s 0.15s ease, transform 0.45s var(--material-ease);
     }
 }
 
