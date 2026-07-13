@@ -374,7 +374,7 @@ class Runner:
             if game is None:
                 return {"error": f"Session {session_id} not found"}
 
-            keep_recent = self.config.get("compaction_keep_recent_turns", 8)
+            keep_recent = self.config.get("compaction_keep_recent_turns", 200)
             turn_numbers = list(dict.fromkeys(rec.turn_number for rec in game.history))
             if len(turn_numbers) <= keep_recent:
                 return {

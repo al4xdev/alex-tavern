@@ -19,7 +19,7 @@ _config_lock = threading.RLock()
 DEFAULT_CONFIG: dict[str, Any] = {
     "active_provider": "llama_cpp",
     "language": "Portuguese",
-    "compaction_keep_recent_turns": 8,
+    "compaction_keep_recent_turns": 200,
     "providers": {
         name: deepcopy(adapter.config_defaults) for name, adapter in provider_adapters().items()
     },

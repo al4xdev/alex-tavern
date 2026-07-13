@@ -420,7 +420,7 @@ as durable structured state, while manual compaction condenses old narrative pro
 story summary and isolated per-character notes. No layer is recomputed on every prompt;
 compaction is a discrete state transition:
 
-1. Read `compaction_keep_recent_turns` (8 by default) and count distinct `turn_number` values,
+1. Read `compaction_keep_recent_turns` (200 by default) and count distinct `turn_number` values,
    not individual history records. If the session has at most that many turns, return without
    creating a backup or calling the model.
 2. Copy the current session bytes to the next `{session_id}.kb_N.json` before changing the live
@@ -776,7 +776,7 @@ is:
 {
   "active_provider": "llama_cpp",
   "language": "English",
-  "compaction_keep_recent_turns": 8,
+  "compaction_keep_recent_turns": 200,
   "providers": {
     "llama_cpp": {
       "api_base": "http://localhost:8888/v1",
