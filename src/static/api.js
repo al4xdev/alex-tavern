@@ -114,4 +114,8 @@ export const api = {
     deletePreset(name) {
         return apiFetch(`/presets/${name}`, { method: 'DELETE' });
     },
+
+    getVersion() {
+        return apiFetch('/version');
+    },
 };

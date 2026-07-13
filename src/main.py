@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated, Any
 
 import httpx
@@ -474,6 +475,56 @@ async def delete_session_endpoint(session_id: str) -> dict:
     if not await delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return {"deleted": True}
+
+
+def get_git_commit() -> str:
+    """Reads the current git commit hash directly from the .git folder."""
+    repo_root = Path(__file__).resolve().parent.parent
+    git_dir = repo_root / ".git"
+    version_file = repo_root / "version.txt"
+
+    if not git_dir.exists() or not git_dir.is_dir():
+        if version_file.exists():
+            try:
+                return version_file.read_text(encoding="utf-8").strip()
+            except Exception:
+                pass
+        return "unknown"
+
+    head_file = git_dir / "HEAD"
+    if not head_file.exists():
+        return "unknown"
+
+    try:
+        head_content = head_file.read_text(encoding="utf-8").strip()
+        if head_content.startswith("ref:"):
+            ref_path = head_content[4:].strip()
+            ref_file = git_dir / ref_path
+            if ref_file.exists():
+                return ref_file.read_text(encoding="utf-8").strip()
+
+            # Fallback to packed-refs if ref file doesn't exist
+            packed_refs_file = git_dir / "packed-refs"
+            if packed_refs_file.exists():
+                with open(packed_refs_file, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#"):
+                            continue
+                        parts = line.split(None, 1)
+                        if len(parts) == 2 and parts[1] == ref_path:
+                            return parts[0]
+            return "unknown"
+        else:
+            return head_content
+    except Exception:
+        return "unknown"
+
+
+@app.get("/version")
+def get_version() -> dict:
+    """Returns the current backend git commit hash."""
+    return {"commit": get_git_commit()}
 
 
 @app.get("/health")

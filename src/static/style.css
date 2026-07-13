@@ -1245,6 +1245,34 @@ select.text-input { cursor: pointer; }
 .toast.error::before { content: "⚠️ "; }
 .toast.success { border-color: rgba(64, 224, 160, 0.5); }
 .toast.leaving { animation: toastOut 0.3s var(--ease) forwards; }
+.toast.version-warning-toast {
+    border-color: rgba(255, 180, 84, 0.5);
+    background: var(--surface-solid);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.toast.version-warning-toast a {
+    color: var(--accent);
+    text-decoration: underline;
+    font-weight: 500;
+}
+.toast.version-warning-toast a:hover {
+    color: var(--accent-2);
+}
+.toast-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: color var(--dur) var(--ease);
+}
+.toast-close-btn:hover {
+    color: var(--text-1);
+}
+
 
 /* ══════════════════ Animations ══════════════════ */
 @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
