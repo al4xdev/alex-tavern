@@ -2412,6 +2412,20 @@ class TestHttpBoundary:
         assert captured.get("forced_speaker") == "C2"
         assert captured.get("narrator_hint") == "Lyra enters."
 
+    @pytest.mark.asyncio
+    async def test_version_endpoint(self) -> None:
+        """GET /version retorna a informação do commit hash do git."""
+        from src.main import app
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as http:
+            resp = await http.get("/version")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert "commit" in data
+            assert isinstance(data["commit"], str)
+
 
 class TestDynamicConfigAndPresets:
     """Testes para o novo sistema de configuração dinâmica e presets no servidor."""

@@ -1695,4 +1695,55 @@ Setup.init({
     onOpen: () => RuntimeConfig.refresh(),
     notify: toast,
 });
-openSessionsModal(); // show the sessions list on first load
+// openSessionsModal(); // show the sessions list on first load
+
+/* ── Version Check ────────────────────────────────────────────────────── */
+async function checkVersionSync() {
+    try {
+        const localData = await api.getVersion();
+        const localCommit = localData?.commit;
+        if (!localCommit || localCommit === 'unknown') return;
+
+        const remoteRes = await fetch('https://api.github.com/repos/al4xdev/alex-tavern/commits/master');
+        if (!remoteRes.ok) return;
+
+        const remoteData = await remoteRes.json();
+        const remoteCommit = remoteData?.sha;
+
+        if (remoteCommit && localCommit !== remoteCommit) {
+            showVersionWarningToast();
+        }
+    } catch (e) {
+        console.warn('Failed to perform version check:', e);
+    }
+}
+
+function showVersionWarningToast() {
+    const wrap = document.getElementById('toast-wrap');
+    if (!wrap) return;
+
+    const el = document.createElement('div');
+    el.className = 'toast version-warning-toast';
+
+    const textSpan = document.createElement('span');
+    const isPt = (localStorage.getItem('language') || 'en') === 'pt-BR';
+    if (isPt) {
+        textSpan.innerHTML = `⚠️ <strong>Nova versão disponível!</strong> O código local está desalinhado com o <a href="https://github.com/al4xdev/alex-tavern" target="_blank">GitHub</a>.`;
+    } else {
+        textSpan.innerHTML = `⚠️ <strong>Update available!</strong> Your local code is out of sync with <a href="https://github.com/al4xdev/alex-tavern" target="_blank">GitHub</a>.`;
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.className = 'toast-close-btn';
+    closeBtn.addEventListener('click', () => {
+        el.classList.add('leaving');
+        el.addEventListener('animationend', () => el.remove());
+    });
+
+    el.appendChild(textSpan);
+    el.appendChild(closeBtn);
+    wrap.appendChild(el);
+}
+
+checkVersionSync();

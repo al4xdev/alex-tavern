@@ -28,7 +28,7 @@ const SHELL = [
 ];
 
 // Backend routes must never be served from cache.
-const API_PREFIXES = ['/session', '/sessions', '/defaults', '/presets', '/config', '/health'];
+const API_PREFIXES = ['/session', '/sessions', '/defaults', '/presets', '/config', '/health', '/version'];
 
 function isApi(pathname) {
     return API_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
