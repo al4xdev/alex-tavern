@@ -34,6 +34,7 @@ const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4f
 const chatLog       = document.getElementById('chat-log');
 const sceneLocation = document.getElementById('scene-location');
 const sceneTags     = document.getElementById('scene-tags');
+const scenePanel    = document.getElementById('scene-panel');
 const optionsPanel  = document.getElementById('options-panel');
 const inputArea     = document.getElementById('input-area');
 const inputExpandBtn= document.getElementById('input-expand-btn');
@@ -530,6 +531,16 @@ function renderScene(scene, changedKeys = []) {
         tag.textContent = `${key}: ${val}`;
         sceneTags.appendChild(tag);
     }
+    
+    // Evaluate if tags wrap to multiple lines to show the chevron
+    requestAnimationFrame(() => {
+        if (scenePanel.scrollHeight > 50) {
+            scenePanel.classList.add('has-multiple-lines');
+        } else {
+            scenePanel.classList.remove('has-multiple-lines');
+            scenePanel.classList.remove('expanded');
+        }
+    });
 }
 
 /* ── Render message ───────────────────────────────────────────────────── */
@@ -907,28 +918,34 @@ function renderRawLog(entries) {
         return;
     }
     entries.forEach((e) => {
-        const metrics = e.duration_ms != null
-            ? t('debug.logMetrics', { attempt: e.attempt_number || 1, duration: e.duration_ms })
-            : '';
-        const title = t('debug.logTitle', {
-            turn: e.turn_number,
-            agent: e.agent,
-            error: e.error ? t('debug.logErrorSuffix') : '',
-            metrics,
-        });
-        const messages = (e.request && e.request.messages) || [];
-        let raw;
-        if (e.agent === 'turn_input') {
-            raw = `[TURN INPUT]\n${JSON.stringify({
-                input: e.input,
-                effective_force_speaker: e.effective_force_speaker,
-            }, null, 2)}`;
-        } else if (e.error) {
-            raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
-        } else {
-            raw = e.response;
+        try {
+            const metrics = e.duration_ms != null
+                ? t('debug.logMetrics', { attempt: e.attempt_number || 1, duration: e.duration_ms })
+                : '';
+            const title = t('debug.logTitle', {
+                turn: e.turn_number,
+                agent: e.agent,
+                error: e.error ? t('debug.logErrorSuffix') : '',
+                metrics,
+            });
+            const messages = (e.request && e.request.messages) || [];
+            let raw;
+            if (e.agent === 'turn_input') {
+                raw = `[TURN INPUT]\n${JSON.stringify({
+                    input: e.input,
+                    effective_force_speaker: e.effective_force_speaker,
+                }, null, 2)}`;
+            } else if (e.error) {
+                raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
+            } else if (e.agent === 'compact' || e.agent === 'restore' || e.agent === 'undo') {
+                raw = `[${e.agent.toUpperCase()}]\n${JSON.stringify(e.details || {}, null, 2)}`;
+            } else {
+                raw = typeof e.response === 'string' ? e.response : JSON.stringify(e.response, null, 2);
+            }
+            debugContent.appendChild(renderDebugBlock(title, messages, raw));
+        } catch (err) {
+            debugContent.appendChild(renderDebugBlock('Error rendering entry', [], String(err.stack || err)));
         }
-        debugContent.appendChild(renderDebugBlock(title, messages, raw));
     });
 }
 
@@ -1396,6 +1413,29 @@ if (debugCloseBtn) debugCloseBtn.addEventListener('click', () => setDebug(false)
 if (debugRefreshBtn) debugRefreshBtn.addEventListener('click', refreshDebugLog);
 
 previewBtn.addEventListener('click', previewPrompt);
+
+// Scene panel expand/collapse gestures
+let sceneStartY = null;
+scenePanel.addEventListener('touchstart', (e) => {
+    sceneStartY = e.touches[0].clientY;
+}, { passive: true });
+scenePanel.addEventListener('touchmove', (e) => {
+    if (sceneStartY === null || !scenePanel.classList.contains('has-multiple-lines')) return;
+    const diff = e.touches[0].clientY - sceneStartY;
+    if (diff > 15) {
+        scenePanel.classList.add('expanded');
+    } else if (diff < -15) {
+        scenePanel.classList.remove('expanded');
+    }
+}, { passive: true });
+scenePanel.addEventListener('touchend', () => {
+    sceneStartY = null;
+});
+scenePanel.addEventListener('click', () => {
+    if (scenePanel.classList.contains('has-multiple-lines')) {
+        scenePanel.classList.toggle('expanded');
+    }
+});
 
 /* ── PWA: install prompt + service worker ─────────────────────────────── */
 let deferredPrompt = null;

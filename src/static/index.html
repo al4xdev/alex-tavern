@@ -41,12 +41,21 @@
                             <h3 class="section-title" id="app-preferences-title" data-i18n="preferences.title">🌐 Application preferences</h3>
                             <p class="field-hint" data-i18n="preferences.hint">Changes only application controls and messages, not story language.</p>
                         </div>
-                        <div class="field-group language-preference">
-                            <label class="field-label" for="interface-language" data-i18n="preferences.language">Interface language</label>
-                            <select class="text-input" id="interface-language">
-                                <option value="en">English</option>
-                                <option value="pt-BR">Português (Brasil)</option>
-                            </select>
+                        <div style="display: flex; gap: 20px;">
+                            <div class="field-group language-preference">
+                                <label class="field-label" for="interface-language" data-i18n="preferences.language">Interface language</label>
+                                <select class="text-input" id="interface-language">
+                                    <option value="en">English</option>
+                                    <option value="pt-BR">Português (Brasil)</option>
+                                </select>
+                            </div>
+                            <div class="field-group">
+                                <label class="field-label" data-i18n="header.debugMode">Debug</label>
+                                <label class="toggle" style="margin-top: 8px;">
+                                    <input type="checkbox" id="debug-toggle">
+                                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -218,11 +227,6 @@
             <h1 class="brand"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="install-btn" type="button" hidden data-i18n="header.install">⬇ Install</button>
-                <label class="toggle" title="Debug mode" data-i18n-title="header.debugMode">
-                    <input type="checkbox" id="debug-toggle">
-                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    <span class="toggle-label">Debug</span>
-                </label>
                 <button class="icon-btn" id="settings-btn" title="Configure" aria-label="Configure" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙️</button>
                 <button class="icon-btn" id="sessions-btn" title="Sessions" aria-label="Manage sessions" data-i18n-title="sessions.title" data-i18n-aria-label="sessions.manage">📋</button>
             </div>
