@@ -1513,8 +1513,13 @@ async function showHelpArticle(topic) {
     helpArticleView.classList.add('active');
     helpArticleContent.innerHTML = '<p class="debug-placeholder">Loading guide...</p>';
     
+    const locale = getLocale() || 'en';
     try {
-        const res = await fetch(`help/${topic}.md`);
+        let res = await fetch(`help/${locale}/${topic}.md`);
+        if (!res.ok) {
+            // Fallback to English if the localized version fails
+            res = await fetch(`help/en/${topic}.md`);
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const mdText = await res.text();
         helpArticleContent.innerHTML = parseMarkdown(mdText);
