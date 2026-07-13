@@ -1042,13 +1042,20 @@ if (sessionsBtn) sessionsBtn.addEventListener('click', openSessionsModal);
 if (sessionsCloseBtn) sessionsCloseBtn.addEventListener('click', closeSessionsModal);
 if (sessionsNewBtn) sessionsNewBtn.addEventListener('click', () => {
     closeSessionsModal();
+    Setup.setHasSession(Boolean(state.sessionId));
     Setup.open();
 });
 sessionsOverlay.addEventListener('click', (e) => {
     if (e.target === sessionsOverlay) closeSessionsModal();
 });
-settingsBtn.addEventListener('click', () => Setup.open());
-if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => Setup.open());
+settingsBtn.addEventListener('click', () => {
+    Setup.setHasSession(Boolean(state.sessionId));
+    Setup.open();
+});
+if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
+    Setup.setHasSession(Boolean(state.sessionId));
+    Setup.open();
+});
 
 if (interfaceLanguage) {
     interfaceLanguage.value = getLocale();

@@ -6,4 +6,5 @@ __pycache__/
 *.egg-info/
 dist/
 .data/
+.deepcode/
 unsloth_compiled_cache/

@@ -395,5 +395,9 @@ export const Setup = (() => {
         else populate({ characters: {}, scene: {} });
     }
 
-    return { init, open, close };
+    function setHasSession(val) {
+        hasSession = Boolean(val);
+    }
+
+    return { init, open, close, setHasSession };
 })();

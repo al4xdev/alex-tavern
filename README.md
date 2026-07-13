@@ -280,6 +280,13 @@ The pause behavior and prompt redaction are covered by integration tests and can
 the per-session debug log. The internal `"Player"` marker is translated before any LLM prompt is
 assembled.
 
+> [!TIP]
+> **Developer Testimony: Why this beats SillyTavern-style frontends**
+> 
+> "In traditional roleplay frontends (like SillyTavern), the system explicitly alerts the LLM about the distinction between the 'User/Player' and the 'Character'. This often causes the model to break character or 'cater' directly to the player's meta-presence, disrupting immersion.
+> 
+> In Alex Tavern, because the LLMs are completely blind to the presence of a 'User' (every human input is translated into their character's name at the prompt boundary), the engine treats the player's character as just another natural actor in the physical world. For example, if you write a physical action trying to force another character to do something, the Narrator maintains strict physical consistency and mediates/restricts it just as it would for any NPC. This physical boundary reinforcement is what makes the engine feel so immersive. To actually override the world, the operator must use application-level controls (like 'God-Mode' GM overrides) rather than breaking character inside the narrative."
+
 <place_3:screenshot of the debug/observability panel with the raw LLM call log open, showing narrator + character calls for one turn>
 
 ---
