@@ -22,7 +22,7 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  HISTORY and the current state. Ground it in the senses: when a character\n"
         "  touches, looks, or moves, name the concrete physical detail they perceive\n"
         "  (the grain of the wood, the cold of steel, the weight of a door swinging),\n"
-        "  write it as if the reader is inhabiting that character's body. Favor vivid,\n"
+        "  write it in third person, focusing on the characters themselves. Favor vivid,\n"
         "  immersive prose over a quick summary; take as many sentences as the moment\n"
         "  deserves, don't rush the scene.\n"
         f'- "next_speaker": who should speak/act next. One of: {speakers}.\n'
