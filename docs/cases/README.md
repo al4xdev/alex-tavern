@@ -1,9 +1,9 @@
 # Engineering case studies
 
 This directory preserves completed investigations, implementation plans, validation reports, and
-task closures from Alex Tavern's development. They are published as engineering evidence: each
+case studies from Alex Tavern's development. They are published as engineering evidence: each
 case records the problem as it was understood at the time, the decisions taken, and what was
-actually verified. Active planning and unfinished scratch work remain private under `.plan/`.
+actually verified. Active planning and tasks are tracked in the [`.plan/`](../../.plan/) directory.
 
 Historical plans may describe intermediate architecture that a later closure report supersedes.
 Use each case's final report or closed-task record as its outcome, and the current README/source as
@@ -40,8 +40,9 @@ the product contract.
 
 ## Closed tasks
 
-- [`03-docker-validation.md`](./03-docker-validation.md): clean Docker build,
+- [`03-docker-validation.md`](../../.plan/closed/03-docker-validation.md): clean Docker build,
   non-root runtime, and writable mounted-data validation.
-- [`08-debug-mcp-server.md`](./08-debug-mcp-server.md): MCP debugging and deterministic replay.
-- [`11-deepseek-provider-adapters.md`](./11-deepseek-provider-adapters.md): server-owned
+- [`08-debug-mcp-server.md`](../../.plan/closed/08-debug-mcp-server.md): MCP debugging and deterministic replay.
+- [`11-deepseek-provider-adapters.md`](../../.plan/closed/11-deepseek-provider-adapters.md): server-owned
   multi-provider adapters and DeepSeek V4 Flash.
+- [`09-prompt-caching.md`](../../.plan/closed/09-prompt-caching.md): provider-native prompt caching.
