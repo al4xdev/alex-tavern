@@ -503,9 +503,13 @@ select.text-input { cursor: pointer; }
     padding: 3px;
     z-index: 10;
 }
-.session-card:hover .session-actions,
 .session-card.show-actions .session-actions {
     display: flex;
+}
+@media (hover: hover) {
+    .session-card:hover .session-actions {
+        display: flex;
+    }
 }
 .session-action-btn {
     width: 30px;
@@ -997,11 +1001,17 @@ select.text-input { cursor: pointer; }
     transition: opacity 0.15s var(--ease), transform 0.15s var(--ease);
     z-index: 50;
 }
-.action-popup.visible,
-.send-actions:hover .action-popup {
+.action-popup.visible {
     opacity: 1;
     pointer-events: auto;
     transform: translateY(0);
+}
+@media (hover: hover) {
+    .send-actions:hover .action-popup {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
 }
 /* Ponte invisível que cobre o gap de 8px entre o botão e o popup, para o
    :hover não se perder ao mover o mouse até o popup (senão ele some antes

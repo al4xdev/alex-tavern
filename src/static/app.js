@@ -289,8 +289,10 @@ function renderSessionList(sessions) {
         card.addEventListener('pointerdown', () => {
             longTimer = setTimeout(() => card.classList.add('show-actions'), 600);
         });
-        card.addEventListener('pointerup', () => { clearTimeout(longTimer); longTimer = null; });
-        card.addEventListener('pointerleave', () => { clearTimeout(longTimer); longTimer = null; });
+        const clearLongTimer = () => { clearTimeout(longTimer); longTimer = null; };
+        card.addEventListener('pointerup', clearLongTimer);
+        card.addEventListener('pointerleave', clearLongTimer);
+        card.addEventListener('pointercancel', clearLongTimer);
         card.addEventListener('contextmenu', (e) => { e.preventDefault(); card.classList.toggle('show-actions'); });
 
         // Action buttons
