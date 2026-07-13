@@ -1078,7 +1078,6 @@ async function sendTurn(isRetry = false) {
         inputThought.value = '';
         inputAction.value = '';
         state.narratorHint = '';
-        if (forceSpeakerSelect) forceSpeakerSelect.value = '';
         if (window.innerWidth > 760) inputSpeech.focus();
         state.lastTurnFailed = false;
         state.canUndo = true;
