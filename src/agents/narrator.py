@@ -31,7 +31,8 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "    (e.g., an environmental event), or when no reaction is needed yet.\n"
         '- "context_for_character": a string with filtered information for the next\n'
         "  speaker. Include only what THAT character would perceive. If next_speaker\n"
-        "  is Narrator, use empty string.\n"
+        "  is Narrator, use empty string. If an UPCOMING EVENT was provided,\n"
+        "  include it here when the next speaker would witness it.\n"
         '- "scene_update": object with changes to the current scene (e.g.,\n'
         '  {"location": "Old Watchtower", "door": "open"}). "location" and\n'
         '  "time_of_day" are reserved Scene fields. Every other key is a physical\n'
@@ -111,6 +112,7 @@ def _build_user_prompt(
     max_tokens_narrator: int = 2048,
     story_summary: str = "",
     forced_speaker: str | None = None,
+    narrator_hint: str = "",
 ) -> str:
     """Builds the user prompt with scene, characters, and history.
 
@@ -167,6 +169,11 @@ def _build_user_prompt(
         lines.append(f"  ID={cid} | Mood: {character.mind.current_mood}")
     lines.append("")
 
+    if narrator_hint.strip():
+        lines.append("UPCOMING EVENT (incorporate this into your narration):")
+        lines.append(f"  {narrator_hint.strip()}")
+        lines.append("")
+
     if forced_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
         lines.append(f"  next_speaker is fixed as {forced_speaker}.")
@@ -192,6 +199,7 @@ def build_narrator_messages(
     max_tokens_narrator: int = 2048,
     story_summary: str = "",
     forced_speaker: str | None = None,
+    narrator_hint: str = "",
 ) -> list[dict]:
     """Assembles the Narrator messages (system + user) — pure, without calling the LLM.
 
@@ -213,6 +221,7 @@ def build_narrator_messages(
                 max_tokens_narrator=max_tokens_narrator,
                 story_summary=story_summary,
                 forced_speaker=forced_speaker,
+                narrator_hint=narrator_hint,
             ),
         },
     ]
@@ -230,6 +239,7 @@ async def narrate(
     turn_number: int = 0,
     story_summary: str = "",
     forced_speaker: str | None = None,
+    narrator_hint: str = "",
 ) -> dict:
     """Builds the Narrator prompt, calls the LLM, and returns a validated dict.
 
@@ -262,6 +272,7 @@ async def narrate(
         max_tokens_narrator=max_tokens_narrator,
         story_summary=story_summary,
         forced_speaker=forced_speaker,
+        narrator_hint=narrator_hint,
     )
 
     result = await chat_completion_json(

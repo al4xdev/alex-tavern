@@ -25,6 +25,7 @@ const state = {
     lastTurnFailed: false,  // true when last sendTurn errored
     canUndo: false,         // true when there's a turn to undo
     abortController: null,  // AbortController for current turn
+    narratorHint: '',       // pending narrator event hint for next turn
 };
 
 const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
@@ -54,6 +55,7 @@ const debugRefreshBtn = document.getElementById('debug-refresh-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
+const actionHintBtn = document.getElementById('action-hint-btn');
 const actionCompactBtn = document.getElementById('action-compact-btn');
 const compactProgress = document.getElementById('compact-progress');
 const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
@@ -65,6 +67,11 @@ const sessionList   = document.getElementById('session-list');
 const sessionsCloseBtn = document.getElementById('sessions-close-btn');
 const sessionsNewBtn  = document.getElementById('sessions-new-btn');
 const interfaceLanguage = document.getElementById('interface-language');
+
+const hintOverlay   = document.getElementById('hint-overlay');
+const hintTextarea  = document.getElementById('hint-textarea');
+const hintSendBtn   = document.getElementById('hint-send-btn');
+const hintCloseBtn  = document.getElementById('hint-close-btn');
 
 let lastSessionList = null;
 let lastDebugEntries = null;
@@ -102,6 +109,7 @@ function updateActionPopup() {
     const hasSession = !!state.sessionId;
     if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
+    if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
     if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
     if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.style.display = hasSession ? '' : 'none';
     // Hide the popup entirely when there's nothing to show — prevents
@@ -377,6 +385,7 @@ function retryTurn() {
     inputThought.value = state.lastInputs.thought || '';
     inputAction.value = state.lastInputs.action || '';
     if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
+    state.narratorHint = state.lastInputs.narratorHint || '';
     sendTurn(true);
 }
 
@@ -614,6 +623,27 @@ async function suggestForMe() {
         toast(t('suggestion.error', { error: err.message }), 'error');
     } finally {
         setLoading(false);
+    }
+}
+
+/* ── Narrator hint popup ──────────────────────────────────────────────── */
+function openHintPopup() {
+    hideActionPopup();
+    hintOverlay.classList.add('active');
+    hintTextarea.value = state.narratorHint || '';
+    hintTextarea.focus();
+}
+
+function closeHintPopup() {
+    hintOverlay.classList.remove('active');
+}
+
+function sendHint() {
+    const text = hintTextarea.value.trim();
+    state.narratorHint = text;
+    closeHintPopup();
+    if (text) {
+        toast('📜 Event hint queued for next turn.', 'info', 2500);
     }
 }
 
@@ -911,7 +941,7 @@ async function sendTurn(isRetry = false) {
     }
 
     // Save inputs for potential retry
-    state.lastInputs = { speech, thought, action, forceSpeaker };
+    state.lastInputs = { speech, thought, action, forceSpeaker, narratorHint: state.narratorHint };
 
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
     if (!isRetry) {
@@ -933,6 +963,7 @@ async function sendTurn(isRetry = false) {
             thought: thought || '',
             action: action || '',
             force_speaker: forceSpeaker || undefined,
+            narrator_hint: state.narratorHint || undefined,
         }, ac.signal);
 
         if (state.debug) refreshDebugLog();
@@ -952,6 +983,7 @@ async function sendTurn(isRetry = false) {
         inputSpeech.value = '';
         inputThought.value = '';
         inputAction.value = '';
+        state.narratorHint = '';
         if (forceSpeakerSelect) forceSpeakerSelect.value = '';
         inputSpeech.focus();
         state.lastTurnFailed = false;
@@ -1019,8 +1051,16 @@ document.addEventListener('click', (e) => {
 if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
 if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
+if (actionHintBtn) actionHintBtn.addEventListener('click', openHintPopup);
 if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
 if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.addEventListener('click', restoreCompaction);
+
+// Hint popup events
+if (hintCloseBtn) hintCloseBtn.addEventListener('click', closeHintPopup);
+if (hintSendBtn) hintSendBtn.addEventListener('click', sendHint);
+if (hintOverlay) hintOverlay.addEventListener('click', (e) => {
+    if (e.target === hintOverlay) closeHintPopup();
+});
 
 // Stop button — abort current turn
 if (stopBtn) stopBtn.addEventListener('click', () => {

@@ -637,7 +637,7 @@ class TestRunnerLogic:
         sid = self.runner.start_session()
         captured: dict[str, object] = {}
 
-        async def fake_narrator(game, turn_number, forced_speaker=None):  # noqa: ANN001, ANN202
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint=""):  # noqa: ANN001, ANN202
             captured["forced_speaker"] = forced_speaker
             return {
                 "narration": "The room stills.",
@@ -866,7 +866,7 @@ class TestCompactSession:
 
         captured: dict[str, str] = {}
 
-        async def fake_narrator(game, turn_number, forced_speaker=None):  # noqa: ANN001, ANN202
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint=""):  # noqa: ANN001, ANN202
             captured["summary"] = game.story_summary
             return {
                 "narration": "The gate hums.",
@@ -1674,6 +1674,32 @@ class TestEdgeCases:
             history=[],
         )
         assert "STORY SO FAR" not in prompt
+
+    def test_narrator_prompt_includes_hint(self) -> None:
+        """narrator_hint populates an UPCOMING EVENT section."""
+        from src.agents.narrator import _build_user_prompt
+
+        prompt = _build_user_prompt(
+            scene=DEFAULT_SCENE,
+            characters=DEFAULT_CHARACTERS,
+            player_controlled_id="C1",
+            history=[],
+            narrator_hint="A storm approaches from the east.",
+        )
+        assert "UPCOMING EVENT" in prompt
+        assert "A storm approaches from the east." in prompt
+
+    def test_narrator_prompt_omits_hint_when_empty(self) -> None:
+        """Empty narrator_hint does not pollute the prompt."""
+        from src.agents.narrator import _build_user_prompt
+
+        prompt = _build_user_prompt(
+            scene=DEFAULT_SCENE,
+            characters=DEFAULT_CHARACTERS,
+            player_controlled_id="C1",
+            history=[],
+        )
+        assert "UPCOMING EVENT" not in prompt
 
     def test_narrator_prompt_orders_stable_prefix_before_changing_state(self) -> None:
         from src.agents.narrator import _build_user_prompt
