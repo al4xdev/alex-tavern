@@ -1245,7 +1245,15 @@ inputArea.addEventListener('touchstart', (e) => {
     isSwipingX = false;
     isSwipingY = false;
     inputFieldsContainer.style.transition = 'none';
-    if (inputExpandBtn) inputExpandBtn.style.transition = 'none';
+    if (inputExpandBtn) {
+        inputExpandBtn.style.transition = 'none';
+        const labelEl = inputExpandBtn.querySelector('.input-expand-label');
+        const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
+        const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
+        if (labelEl) labelEl.style.transition = 'none';
+        if (actionLeftEl) actionLeftEl.style.transition = 'none';
+        if (actionRightEl) actionRightEl.style.transition = 'none';
+    }
 }, { passive: true });
 
 inputArea.addEventListener('touchmove', (e) => {
@@ -1268,7 +1276,38 @@ inputArea.addEventListener('touchmove', (e) => {
         const moveX = diffX * dampen;
         
         inputFieldsContainer.style.transform = `translateX(${moveX}px)`;
-        if (inputExpandBtn) inputExpandBtn.style.transform = `translateX(${moveX}px)`;
+        if (inputExpandBtn) {
+            inputExpandBtn.style.transform = `translateX(${moveX}px)`;
+            
+            // Crossfade label and action based on swipe distance
+            const progress = Math.min(1, Math.abs(diffX) / (threshold * 0.6));
+            const labelEl = inputExpandBtn.querySelector('.input-expand-label');
+            const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
+            const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
+            
+            if (labelEl) {
+                labelEl.style.opacity = 1 - progress;
+            }
+            if (diffX > 0) {
+                // Swiping Right -> Undo
+                if (actionRightEl) {
+                    actionRightEl.style.opacity = progress;
+                    actionRightEl.style.transform = `translateY(-50%) translateX(${15 * (1 - progress)}px)`;
+                }
+                if (actionLeftEl) {
+                    actionLeftEl.style.opacity = 0;
+                }
+            } else {
+                // Swiping Left -> Suggestion/Hint
+                if (actionLeftEl) {
+                    actionLeftEl.style.opacity = progress;
+                    actionLeftEl.style.transform = `translateY(-50%) translateX(${-15 * (1 - progress)}px)`;
+                }
+                if (actionRightEl) {
+                    actionRightEl.style.opacity = 0;
+                }
+            }
+        }
 
         // Liquid gradient effect on the stationary parent
         const percent = Math.min(100, (Math.abs(diffX) / threshold) * 100);
@@ -1288,7 +1327,26 @@ inputArea.addEventListener('touchend', (e) => {
     const diffY = e.changedTouches[0].clientY - touchStartY;
 
     inputFieldsContainer.style.transition = 'transform 0.3s ease';
-    if (inputExpandBtn) inputExpandBtn.style.transition = 'transform 0.3s ease';
+    if (inputExpandBtn) {
+        inputExpandBtn.style.transition = 'transform 0.3s ease';
+        const labelEl = inputExpandBtn.querySelector('.input-expand-label');
+        const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
+        const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
+        if (labelEl) {
+            labelEl.style.transition = 'opacity 0.3s ease';
+            labelEl.style.opacity = '';
+        }
+        if (actionLeftEl) {
+            actionLeftEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            actionLeftEl.style.opacity = '';
+            actionLeftEl.style.transform = '';
+        }
+        if (actionRightEl) {
+            actionRightEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            actionRightEl.style.opacity = '';
+            actionRightEl.style.transform = '';
+        }
+    }
     inputArea.style.transition = 'background 0.3s ease';
     
     inputFieldsContainer.style.transform = '';
@@ -1297,7 +1355,15 @@ inputArea.addEventListener('touchend', (e) => {
     
     setTimeout(() => { 
         inputFieldsContainer.style.transition = ''; 
-        if (inputExpandBtn) inputExpandBtn.style.transition = '';
+        if (inputExpandBtn) {
+            inputExpandBtn.style.transition = '';
+            const labelEl = inputExpandBtn.querySelector('.input-expand-label');
+            const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
+            const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
+            if (labelEl) labelEl.style.transition = '';
+            if (actionLeftEl) actionLeftEl.style.transition = '';
+            if (actionRightEl) actionRightEl.style.transition = '';
+        }
         inputArea.style.transition = '';
     }, 300);
 
