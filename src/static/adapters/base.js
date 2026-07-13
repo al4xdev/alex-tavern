@@ -102,15 +102,17 @@ export function createProviderAdapter(definition) {
         if (numericFields.length) {
             const grid = makeElement('div', 'provider-number-grid');
             numericFields.forEach((field) => {
-                const label = bindTranslation(makeElement('label'), field.labelKey);
+                const label = makeElement('label');
+                const textSpan = bindTranslation(makeElement('span'), field.labelKey);
                 const input = makeElement('input', 'text-input');
                 input.id = inputId(definition.id, field.key);
+                label.htmlFor = input.id;
                 input.dataset.providerField = field.key;
                 input.type = 'number';
                 input.min = String(field.min ?? 1);
                 if (field.step !== undefined) input.step = String(field.step);
                 input.inputMode = field.step ? 'decimal' : 'numeric';
-                label.appendChild(input);
+                label.append(textSpan, input);
                 grid.appendChild(label);
             });
             panel.appendChild(grid);
