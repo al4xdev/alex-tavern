@@ -99,7 +99,7 @@ def build_recorded_turns_from_turn_inputs(
         if turn_number in seen_turns:
             raise ReplaySessionError(f"Duplicate turn_input marker for turn {turn_number}")
         speech = input_payload.get("speech")
-        thought = input_payload.get("thought", "")
+        thought = input_payload.get("thought")
         action = input_payload.get("action")
         force_speaker = input_payload.get("force_speaker")
         if (

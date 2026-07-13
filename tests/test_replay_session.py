@@ -17,7 +17,6 @@ from tools.replay_session import (
 )
 
 CURRENT_FIXTURE = Path(__file__).parent / "fixtures" / "current_replay.debug.jsonl"
-LEGACY_FIXTURE = Path(__file__).parent / "fixtures" / "legacy_replay.debug.jsonl"
 
 
 def _source_state() -> dict:
@@ -56,14 +55,14 @@ def test_turn_input_markers_recover_exact_payload_without_state() -> None:
         {
             "turn_number": 1,
             "agent": "turn_input",
-            "input": {"speech": "Speak", "action": "", "force_speaker": None},
+            "input": {"speech": "Speak", "thought": "", "action": "", "force_speaker": None},
             "effective_force_speaker": None,
         },
         {"turn_number": 1, "agent": "narrator", "response": "{}"},
         {
             "turn_number": 2,
             "agent": "turn_input",
-            "input": {"speech": "", "action": "Move", "force_speaker": "C2"},
+            "input": {"speech": "", "thought": "", "action": "Move", "force_speaker": "C2"},
             "effective_force_speaker": "C2",
         },
     ]
@@ -102,16 +101,6 @@ def test_current_fixture_is_machine_readable_and_replayable() -> None:
     assert successful_outputs(records)[-1]["agent"] == "summarizer"
 
 
-def test_legacy_fixture_is_machine_readable_and_replayable() -> None:
-    records = load_debug_records(LEGACY_FIXTURE)
-    turns = build_recorded_turns_from_turn_inputs(records)
-
-    assert len(turns) == 9
-    assert [turn.turn_number for turn in turns] == list(range(1, 10))
-    assert all(turn.force_speaker == "Narrator" for turn in turns)
-    assert all(turn.thought == "" for turn in turns)
-    assert len(successful_outputs(records)) == 10
-    assert successful_outputs(records)[-1]["agent"] == "summarizer"
 
 
 def test_turn_input_markers_are_required() -> None:
@@ -125,7 +114,7 @@ def test_turn_input_markers_reject_duplicate_turns() -> None:
     marker = {
         "turn_number": 1,
         "agent": "turn_input",
-        "input": {"speech": "Speak", "action": "Act", "force_speaker": None},
+        "input": {"speech": "Speak", "thought": "", "action": "Act", "force_speaker": None},
     }
 
     with pytest.raises(ReplaySessionError, match="Duplicate"):
