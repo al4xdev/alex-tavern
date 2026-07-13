@@ -30,7 +30,7 @@ the product contract.
 
 ## Prompt caching
 
-- [`../09-prompt-caching.md`](../09-prompt-caching.md): versioned positive and
+- [`09-prompt-caching.md`](./09-prompt-caching.md): versioned positive and
   negative cache proof for DeepSeek and llama.cpp, including raw usage counters and limitations.
 
 ## Test architecture
@@ -40,10 +40,8 @@ the product contract.
 
 ## Closed tasks
 
-- [`tasks/03-docker-validation.md`](./tasks/03-docker-validation.md): clean Docker build,
+- [`03-docker-validation.md`](./03-docker-validation.md): clean Docker build,
   non-root runtime, and writable mounted-data validation.
-- [`tasks/08-debug-mcp-server.md`](./tasks/08-debug-mcp-server.md): MCP debugging and deterministic replay.
-- [`tasks/09-prompt-caching.md`](./tasks/09-prompt-caching.md): provider-native prefix caching,
-  JSONL observability, reproducible probes, and live two-provider proof.
-- [`tasks/11-deepseek-provider-adapters.md`](./tasks/11-deepseek-provider-adapters.md): server-owned
+- [`08-debug-mcp-server.md`](./08-debug-mcp-server.md): MCP debugging and deterministic replay.
+- [`11-deepseek-provider-adapters.md`](./11-deepseek-provider-adapters.md): server-owned
   multi-provider adapters and DeepSeek V4 Flash.
