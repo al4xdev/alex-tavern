@@ -8,6 +8,11 @@ Este arquivo é o contrato de trabalho para qualquer agente que modificar o repo
 descreve a arquitetura e as decisões vigentes. História, auditorias e implementações concluídas
 ficam em `.plan/closed/`; trabalho ainda aberto fica em `.plan/tasks/`.
 
+> [!IMPORTANT]
+> **Regra Básica de Execução para Agentes:**
+> Antes de criar qualquer código ou feature nova, você **deve sempre consultar a pasta `.plan/tasks/`** para verificar se já existe uma especificação ou planejamento em andamento, evitando retrabalho e mantendo a consistência arquitetural.
+> Dê prioridade e preferência para implementar ou alinhar suas alterações com as tasks que começam com a letra **`S`** (ex: `S01-plugin-system.md`). O prefixo **`S`** indica uma **Supertask**, que planeja uma mudança estrutural e de grande impacto na base de código.
+
 ## 1. Visão atual
 
 O projeto está deixando a fase experimental e consolidando uma arquitetura pequena, explícita e

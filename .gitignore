@@ -1,4 +1,3 @@
-.plan/
 __pycache__/
 *.pyc
 .venv/

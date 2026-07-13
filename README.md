@@ -1134,8 +1134,12 @@ available without changing the turn pipeline.
 Completed investigations are published under [`docs/cases/`](docs/cases/README.md), including the
 original finding, implementation plan, final validation, and task closure where applicable. These
 are development records rather than a second product specification: later closure reports and the
-current source supersede intermediate assumptions. Active tasks, scratch reports, and unfinished
-planning remain private under the ignored `.plan/` directory.
+current source supersede intermediate assumptions.
+
+> [!IMPORTANT]
+> **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](file:///home/alex/git/my/roleplay/.plan/) directory.
+> - **Always consult [`.plan/tasks/`](file:///home/alex/git/my/roleplay/.plan/tasks/) and [`AGENTS.md`](file:///home/alex/git/my/roleplay/AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
+> - **Prioritize tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes (e.g., [S01-plugin-system.md](file:///home/alex/git/my/roleplay/.plan/tasks/S01-plugin-system.md)). Always align your implementation with the designs laid out in these Supertasks.
 
 ---
 
