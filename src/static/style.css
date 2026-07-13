@@ -54,6 +54,7 @@
 
 html, body {
     height: 100%;
+    overflow: hidden;
     font-family: var(--font);
     color: var(--text-1);
     line-height: 1.55;

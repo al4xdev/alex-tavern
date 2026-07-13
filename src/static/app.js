@@ -724,16 +724,26 @@ function openHintPopup() {
     hintTextarea.focus();
 }
 
+let autoSkipOnHintClose = false;
+
 function closeHintPopup() {
     hintOverlay.classList.remove('active');
+    autoSkipOnHintClose = false; // Reset if closed via X or click outside
 }
 
 function sendHint() {
     const text = hintTextarea.value.trim();
     state.narratorHint = text;
-    closeHintPopup();
+    
+    const shouldSkip = autoSkipOnHintClose;
+    closeHintPopup(); // This resets the flag, so we checked it first
+
     if (text) {
         toast('📜 Event hint queued for next turn.', 'info', 2500);
+    }
+    
+    if (shouldSkip && state.sessionId) {
+        skipTurn();
     }
 }
 
@@ -1205,27 +1215,103 @@ if (inputExpandBtn) {
     });
 }
 
-// Swipe gestures for input area
+let touchStartX = 0;
 let touchStartY = 0;
+let isSwipingX = false;
+let isSwipingY = false;
+const inputFieldsContainer = document.getElementById('input-fields-container');
+
 inputArea.addEventListener('touchstart', (e) => {
+    if (window.innerWidth > 760) return;
+    touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
+    isSwipingX = false;
+    isSwipingY = false;
+    inputFieldsContainer.style.transition = 'none';
+    if (inputExpandBtn) inputExpandBtn.style.transition = 'none';
 }, { passive: true });
 
-inputArea.addEventListener('touchend', (e) => {
-    if (window.innerWidth > 760) return;
-    const touchEndY = e.changedTouches[0].clientY;
-    const deltaY = touchEndY - touchStartY;
-    
-    if (deltaY > 30) {
-        const activeEl = document.activeElement;
-        if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
-            activeEl.blur();
+inputArea.addEventListener('touchmove', (e) => {
+    if (window.innerWidth > 760 || !touchStartX || !touchStartY) return;
+    const diffX = e.touches[0].clientX - touchStartX;
+    const diffY = e.touches[0].clientY - touchStartY;
+
+    if (!isSwipingX && !isSwipingY) {
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+            isSwipingX = true;
+        } else if (Math.abs(diffY) > 10) {
+            isSwipingY = true;
         }
-        inputArea.classList.add('collapsed');
-    } else if (deltaY < -30) {
-        inputArea.classList.remove('collapsed');
     }
-}, { passive: true });
+
+    if (isSwipingX) {
+        e.preventDefault();
+        const threshold = window.innerWidth * 0.5;
+        const dampen = 0.4;
+        const moveX = diffX * dampen;
+        
+        inputFieldsContainer.style.transform = `translateX(${moveX}px)`;
+        if (inputExpandBtn) inputExpandBtn.style.transform = `translateX(${moveX}px)`;
+
+        // Liquid gradient effect on the stationary parent
+        const percent = Math.min(100, (Math.abs(diffX) / threshold) * 100);
+        if (diffX > 0) {
+            // Swiping Right -> Undo (Blue)
+            inputArea.style.background = `linear-gradient(to right, rgba(0, 150, 255, 0.4) ${percent}%, transparent ${percent + 20}%)`;
+        } else {
+            // Swiping Left -> Suggestion (Orange)
+            inputArea.style.background = `linear-gradient(to left, rgba(255, 150, 0, 0.4) ${percent}%, transparent ${percent + 20}%)`;
+        }
+    }
+}, { passive: false });
+
+inputArea.addEventListener('touchend', (e) => {
+    if (window.innerWidth > 760 || !touchStartX || !touchStartY) return;
+    const diffX = e.changedTouches[0].clientX - touchStartX;
+    const diffY = e.changedTouches[0].clientY - touchStartY;
+
+    inputFieldsContainer.style.transition = 'transform 0.3s ease';
+    if (inputExpandBtn) inputExpandBtn.style.transition = 'transform 0.3s ease';
+    inputArea.style.transition = 'background 0.3s ease';
+    
+    inputFieldsContainer.style.transform = '';
+    if (inputExpandBtn) inputExpandBtn.style.transform = '';
+    inputArea.style.background = '';
+    
+    setTimeout(() => { 
+        inputFieldsContainer.style.transition = ''; 
+        if (inputExpandBtn) inputExpandBtn.style.transition = '';
+        inputArea.style.transition = '';
+    }, 300);
+
+    if (isSwipingX) {
+        const threshold = window.innerWidth * 0.5;
+        if (diffX > threshold) {
+            if (state.canUndo) undoLastTurn();
+            else toast('Nothing to undo', 'info', 2000);
+        } else if (diffX < -threshold) {
+            if (state.sessionId) {
+                autoSkipOnHintClose = true;
+                openHintPopup();
+            }
+        }
+    } else if (isSwipingY || (!isSwipingX && Math.abs(diffY) > 30)) {
+        if (diffY > 30) {
+            const activeEl = document.activeElement;
+            if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
+                activeEl.blur();
+            }
+            inputArea.classList.add('collapsed');
+        } else if (diffY < -30) {
+            inputArea.classList.remove('collapsed');
+        }
+    }
+    
+    touchStartX = 0;
+    touchStartY = 0;
+    isSwipingX = false;
+    isSwipingY = false;
+});
 
 // Push messages up when the input area expands (chatLog shrinks)
 let prevChatLogHeight = chatLog.clientHeight;
