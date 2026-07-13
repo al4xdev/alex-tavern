@@ -147,12 +147,6 @@ class PlayerTurnResponse(BaseModel):
     error: str | None = None
 
 
-class PreviewPromptRequest(BaseModel):
-    speech: str = ""
-    thought: str = ""
-    action: str = ""
-
-
 class SuggestResponse(BaseModel):
     suggestions: list[dict] | None = None
     error: str | None = None
@@ -445,17 +439,6 @@ def delete_preset_endpoint(name: str) -> dict:
     if not success:
         raise HTTPException(status_code=404, detail=f"Preset '{name}' not found.")
     return {"deleted": True}
-
-
-@app.post("/session/{session_id}/preview_prompt")
-async def preview_prompt(session_id: str, body: PreviewPromptRequest) -> dict:
-    """Returns the Narrator messages for the current state — without calling the LLM."""
-    messages = await _runtime().runner.preview_narrator_prompt(
-        session_id, speech=body.speech, thought=body.thought, action=body.action
-    )
-    if not messages:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return {"narrator_messages": messages}
 
 
 @app.get("/sessions")

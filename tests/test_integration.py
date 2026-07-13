@@ -1345,28 +1345,7 @@ class TestCustomSessionAndDebug:
             "thought": None,
         }
 
-    @pytest.mark.asyncio
-    async def test_preview_narrator_prompt(self) -> None:
-        """preview_narrator_prompt monta messages corretos sem tocar no LLM."""
-        sid = self._start_custom()
-        messages = await self.runner.preview_narrator_prompt(sid, speech="olá", action="acena")
-        assert len(messages) == 2
-        assert messages[0]["role"] == "system"
-        # IDs dinâmicos + diretivas no system prompt
-        assert "C1, C2, C3, Narrator" in messages[0]["content"]
-        assert "Player" not in messages[0]["content"]
-        assert "horror gótico" in messages[0]["content"]
-        # jogada do humano aparece no HISTORY, renderizada com o nome do
-        # personagem controlado (C2 = Bron) — nunca como "Player".
-        assert "olá" in messages[1]["content"]
-        assert "acena" in messages[1]["content"]
-        assert "Bron" in messages[1]["content"]
-        assert "Player" not in messages[1]["content"]
 
-    @pytest.mark.asyncio
-    async def test_preview_narrator_prompt_missing_session(self) -> None:
-        """preview de sessão inexistente retorna lista vazia."""
-        assert await self.runner.preview_narrator_prompt("naoexiste") == []
 
 
 # ═══════════════════════════════════════════════════════════════════════════
