@@ -131,6 +131,7 @@ class Runner:
         action: str = "",
         force_speaker: str | None = None,
         narrator_hint: str = "",
+        skip: bool = False,
     ) -> dict:
         """Processes a Player's turn.
 
@@ -161,8 +162,11 @@ class Runner:
             Dict with: narration, character_response, next_speaker,
             scene_update, turn_number.
         """
-        if not any(value.strip() for value in (speech, thought, action, narrator_hint)):
-            raise ValueError("A turn needs speech, thought, action, or narrator_hint")
+        if (
+            not skip
+            and not any(value.strip() for value in (speech, thought, action, narrator_hint))
+        ):
+            raise ValueError("A turn needs speech, thought, action, narrator_hint, or skip")
         async with _get_lock(session_id):
             game = load_game(session_id)
             if game is None:
@@ -174,7 +178,7 @@ class Runner:
 
             effective_force_speaker = (
                 force_speaker
-                if (speech or action)
+                if (speech or action or skip)
                 and (force_speaker in game.characters or force_speaker == "Narrator")
                 else None
             )
@@ -189,25 +193,27 @@ class Runner:
             )
 
             # Persist the turn BEFORE calling the Narrator (blind).
-            if speech:
-                self._append_history(game, "Player", speech, "speech", step)
-            if thought:
-                self._append_history(game, "Player", thought, "thought", step)
-            if action:
-                self._append_history(game, "Player", action, "action", step)
+            # Skip: no player input to persist — Narrator reacts to current state alone.
+            if not skip:
+                if speech:
+                    self._append_history(game, "Player", speech, "speech", step)
+                if thought:
+                    self._append_history(game, "Player", thought, "thought", step)
+                if action:
+                    self._append_history(game, "Player", action, "action", step)
 
-            # A private thought has no observable event for the Narrator to
-            # resolve. Persist it as a complete step without replaying the
-            # previous public event or inventing a reaction to hidden content.
-            if thought and not speech and not action:
-                save_game(game)
-                return {
-                    "narration": None,
-                    "character_response": None,
-                    "next_speaker": game.player.controlled_character_id,
-                    "scene_update": None,
-                    "turn_number": step,
-                }
+                # A private thought has no observable event for the Narrator to
+                # resolve. Persist it as a complete step without replaying the
+                # previous public event or inventing a reaction to hidden content.
+                if thought and not speech and not action:
+                    save_game(game)
+                    return {
+                        "narration": None,
+                        "character_response": None,
+                        "next_speaker": game.player.controlled_character_id,
+                        "scene_update": None,
+                        "turn_number": step,
+                    }
 
             # Call Narrator
             narrator_raw = await self._call_narrator(

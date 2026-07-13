@@ -54,6 +54,7 @@ const debugCloseBtn = document.getElementById('debug-close-btn');
 const debugRefreshBtn = document.getElementById('debug-refresh-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
+const actionSkipBtn = document.getElementById('action-skip-btn');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
 const actionHintBtn = document.getElementById('action-hint-btn');
 const actionCompactBtn = document.getElementById('action-compact-btn');
@@ -107,6 +108,7 @@ function updateActionPopup() {
     if (actionUndoBtn) actionUndoBtn.style.display = state.canUndo ? '' : 'none';
     if (actionRetryBtn) actionRetryBtn.style.display = state.lastTurnFailed ? '' : 'none';
     const hasSession = !!state.sessionId;
+    if (actionSkipBtn) actionSkipBtn.style.display = hasSession ? '' : 'none';
     if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
@@ -121,6 +123,57 @@ function updateActionPopup() {
 
 function hideActionPopup() {
     if (actionPopup) actionPopup.classList.remove('visible');
+}
+
+async function skipTurn() {
+    if (!state.sessionId) return;
+    hideActionPopup();
+    setLoading(true);
+    clearSuggestions();
+    state.lastTurnFailed = false;
+    updateActionPopup();
+
+    const ac = new AbortController();
+    state.abortController = ac;
+
+    try {
+        const data = await api.turn(state.sessionId, {
+            speech: '',
+            thought: '',
+            action: '',
+            skip: true,
+            narrator_hint: state.narratorHint || undefined,
+        }, ac.signal);
+
+        if (state.debug) refreshDebugLog();
+        if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
+        if (data.character_response) {
+            addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+        }
+        if (data.scene_update) {
+            try {
+                const gameState = await api.getState(state.sessionId);
+                renderScene(gameState.scene, Object.keys(data.scene_update));
+            } catch { /* non-critical */ }
+        }
+
+        state.narratorHint = '';
+        state.lastTurnFailed = false;
+        state.canUndo = true;
+        updateActionPopup();
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            toast(t('turn.stopped'), 'info', 2500);
+            state.lastTurnFailed = false;
+        } else {
+            state.lastTurnFailed = true;
+            toast(t('turn.failed', { error: err.message }), 'error', 6000);
+        }
+        updateActionPopup();
+    } finally {
+        state.abortController = null;
+        setLoading(false);
+    }
 }
 
 /* ── Session manager ──────────────────────────────────────────────────── */
@@ -369,6 +422,17 @@ async function undoLastTurn() {
         state.lastTurnFailed = false;
         state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
         updateActionPopup();
+
+        // Restore last player inputs so they can edit and resend
+        if (state.lastInputs) {
+            inputSpeech.value = state.lastInputs.speech || '';
+            inputThought.value = state.lastInputs.thought || '';
+            inputAction.value = state.lastInputs.action || '';
+            if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
+            state.narratorHint = state.lastInputs.narratorHint || '';
+            inputSpeech.focus();
+        }
+
         toast(t('turn.undone'), 'success', 2000);
     } catch (err) {
         toast(t('turn.undoError', { error: err.message }), 'error');
@@ -1050,6 +1114,7 @@ document.addEventListener('click', (e) => {
 // Undo / retry button clicks
 if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
+if (actionSkipBtn) actionSkipBtn.addEventListener('click', skipTurn);
 if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
 if (actionHintBtn) actionHintBtn.addEventListener('click', openHintPopup);
 if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
