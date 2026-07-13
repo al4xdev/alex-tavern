@@ -24,9 +24,9 @@ class DeepSeekAdapter:
         "model": "deepseek-v4-flash",
         "thinking_enabled": False,
         "context_max": 524288,
-        "max_tokens_narrator": 2048,
-        "max_tokens_character": 1024,
-        "summarizer_max_tokens": 1024,
+        "max_tokens_narrator": 4096,
+        "max_tokens_character": 2048,
+        "summarizer_max_tokens": 2048,
         "llm_timeout_seconds": 60.0,
     }
     secret_fields: tuple[str, ...] = ("api_key",)
