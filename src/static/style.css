@@ -1261,6 +1261,157 @@ select.text-input { cursor: pointer; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes toastOut { to { opacity: 0; transform: translateY(-16px); } }
 
+/* Brand Header Trigger */
+.brand {
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    border-radius: var(--radius-sm);
+    transition: transform var(--dur) var(--ease);
+}
+.brand:hover {
+    transform: scale(1.02);
+}
+.brand:focus-visible {
+    box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* Tip banner */
+.tip-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px dashed rgba(245, 158, 11, 0.25);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+    animation: msgIn var(--dur) var(--ease) forwards;
+}
+.tip-banner:hover {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+.tip-text {
+    flex: 1;
+    line-height: 1.4;
+}
+.tip-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-3);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0 0 0 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.tip-close-btn:hover {
+    color: var(--text-1);
+}
+
+/* Help drawer structure (sliding like debug-drawer) */
+.help-drawer {
+    display: none;
+    width: 0;
+    flex-shrink: 0;
+    flex-direction: column;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    opacity: 0;
+    transition: width var(--dur) var(--ease), opacity var(--dur) var(--ease);
+}
+.help-drawer.active {
+    display: flex;
+    width: 340px;
+    opacity: 1;
+}
+.help-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--glass-border);
+}
+.help-head h3 { font-size: 0.9rem; font-weight: 700; }
+.help-close-btn { width: 30px; height: 30px; font-size: 0.85rem; display: flex; align-items: center; justify-content: center; }
+.help-container {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+}
+.help-view {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease);
+    opacity: 0;
+    transform: translateX(100%);
+    pointer-events: none;
+}
+.help-view.active {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+.help-menu-view.active-left {
+    opacity: 0;
+    transform: translateX(-100%);
+}
+
+/* Menu formatting */
+.help-menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.help-menu-list li {
+    padding: 10px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.88rem;
+    transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.help-menu-list li:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--accent);
+}
+
+/* Article styling inside help drawer */
+.help-back-btn {
+    align-self: flex-start;
+    margin-bottom: 14px;
+}
+.help-article-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.help-article-content h1 { font-size: 1.15rem; margin-bottom: 6px; font-weight: 700; color: var(--accent-2); }
+.help-article-content h2 { font-size: 0.95rem; margin-top: 10px; margin-bottom: 4px; font-weight: 600; color: var(--text-1); }
+.help-article-content p { font-size: 0.84rem; line-height: 1.45; color: var(--text-2); margin-bottom: 6px; }
+.help-article-content ul { padding-left: 18px; margin-bottom: 6px; font-size: 0.84rem; color: var(--text-2); display: flex; flex-direction: column; gap: 4px; }
+.help-article-content li { line-height: 1.4; }
+.help-article-content strong { color: var(--text-1); font-weight: 600; }
+
 /* ══════════════════ Responsive / mobile ══════════════════ */
 @media (max-width: 760px) {
     .grid-2 { grid-template-columns: 1fr; }
@@ -1306,9 +1457,9 @@ select.text-input { cursor: pointer; }
     .options-panel { flex-direction: column; }
     .option-btn { width: 100%; }
 
-    /* Debug drawer as a full-screen sheet with its own close button */
+    /* Debug & Help drawers as full-screen sheets with close buttons */
     .stage { position: relative; }
-    .debug-drawer.active {
+    .debug-drawer.active, .help-drawer.active {
         position: fixed; inset: 0; width: auto; z-index: 95;
         border-radius: 0;
         padding-top: env(safe-area-inset-top);

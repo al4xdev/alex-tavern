@@ -1,0 +1,17 @@
+[
+  {
+    "id": "roleplay_tips",
+    "text_key": "help.warning.roleplay",
+    "help_path": "roleplay"
+  },
+  {
+    "id": "compaction_tips",
+    "text_key": "help.warning.compaction",
+    "help_path": "compaction"
+  },
+  {
+    "id": "settings_tips",
+    "text_key": "help.warning.settings",
+    "help_path": "settings"
+  }
+]
