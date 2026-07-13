@@ -19,7 +19,7 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > 3,968 of 4,031 prompt tokens in the controlled repeated-prefix probe; llama.cpp reused 5,456
 > of 5,457. Alex Tavern records the provider's real hit/miss counters in the session JSONL.
 > See [Verified prompt caching](#-verified-prompt-caching) and the
-> [Task 09 evidence](docs/09-prompt-caching.md).
+> [Task 09 evidence](docs/cases/09-prompt-caching.md).
 
 > [!NOTE]
 > **Docker and Android builds are available.** The current container image is published as
@@ -183,7 +183,7 @@ uv run python -m tools.prompt_cache_probe --provider llama_cpp
 Each command exits successfully only when an identical repeat has a non-zero hit and the changed
 early prefix has a smaller hit. The output contains no API key. Full environment, hashes, calls,
 timings, limitations, and raw usage objects are preserved in
-[the Task 09 evidence](docs/09-prompt-caching.md).
+[the Task 09 evidence](docs/cases/09-prompt-caching.md).
 
 Scene or mood updates, a different forced-speaker constraint, history trimming, and manual
 compaction can change an early portion of a prompt. The providers naturally reuse the unchanged
