@@ -54,10 +54,11 @@ Call count and response kind must remain aligned with the fixture.
 - The raw `response` field is sufficient to replay model content, including structured Narrator
   JSON and plain Character dialogue.
 - Exact API replay uses the `turn_input` marker written before the first LLM call of every turn.
-  It contains player `speech`, `action`, requested `force_speaker`, and the validated effective
+  It contains player `speech`, `thought`, `action`, requested `force_speaker`, and the validated effective
   override.
 - The maintained `tests/fixtures/current_replay.debug.jsonl` fixture exercises the current format
-  with nine turns and one summarizer output. Logs without `turn_input` are rejected deliberately;
+  with nine turns and one summarizer output. The `tests/fixtures/legacy_replay.debug.jsonl` fixture
+  exercises the legacy format where `thought` is absent. Logs without `turn_input` are rejected deliberately;
   no prompt/HISTORY inference or legacy compatibility layer is maintained.
 - The driver should be able to start a preset session, submit the fixture turns sequentially,
   inspect state after each turn, trigger compaction, and report mismatches without a browser.
@@ -67,7 +68,7 @@ Call count and response kind must remain aligned with the fixture.
 - Enumerate Roleplay API routes.
 - List sessions and inspect a live session state.
 - Start or fork a session.
-- Submit a turn with speech, action, and optional forced speaker.
+- Submit a turn with speech, thought, action, and optional forced speaker.
 - Request suggestions.
 - Undo/retry a turn where supported by the HTTP API.
 - Trigger and restore compaction.

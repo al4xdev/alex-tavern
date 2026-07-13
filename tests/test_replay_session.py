@@ -17,6 +17,7 @@ from tools.replay_session import (
 )
 
 CURRENT_FIXTURE = Path(__file__).parent / "fixtures" / "current_replay.debug.jsonl"
+LEGACY_FIXTURE = Path(__file__).parent / "fixtures" / "legacy_replay.debug.jsonl"
 
 
 def _source_state() -> dict:
@@ -75,6 +76,20 @@ def test_turn_input_markers_recover_exact_payload_without_state() -> None:
     ]
 
 
+def test_turn_input_markers_recover_thought() -> None:
+    records = [
+        {
+            "turn_number": 1,
+            "agent": "turn_input",
+            "input": {"speech": "Speak", "thought": "Plan", "action": "Act", "force_speaker": None},
+            "effective_force_speaker": None,
+        }
+    ]
+    turns = build_recorded_turns_from_turn_inputs(records)
+    assert len(turns) == 1
+    assert turns[0].thought == "Plan"
+
+
 def test_current_fixture_is_machine_readable_and_replayable() -> None:
     records = load_debug_records(CURRENT_FIXTURE)
     turns = build_recorded_turns_from_turn_inputs(records)
@@ -82,6 +97,19 @@ def test_current_fixture_is_machine_readable_and_replayable() -> None:
     assert len(turns) == 9
     assert [turn.turn_number for turn in turns] == list(range(1, 10))
     assert all(turn.force_speaker == "Narrator" for turn in turns)
+    assert turns[0].thought == "Thinking about step one."
+    assert len(successful_outputs(records)) == 10
+    assert successful_outputs(records)[-1]["agent"] == "summarizer"
+
+
+def test_legacy_fixture_is_machine_readable_and_replayable() -> None:
+    records = load_debug_records(LEGACY_FIXTURE)
+    turns = build_recorded_turns_from_turn_inputs(records)
+
+    assert len(turns) == 9
+    assert [turn.turn_number for turn in turns] == list(range(1, 10))
+    assert all(turn.force_speaker == "Narrator" for turn in turns)
+    assert all(turn.thought == "" for turn in turns)
     assert len(successful_outputs(records)) == 10
     assert successful_outputs(records)[-1]["agent"] == "summarizer"
 

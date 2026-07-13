@@ -135,7 +135,7 @@ class Runner:
 
         Flow:
         1. load_game + lock
-        2. Persists the human's action/speech in the history (marked "Player" internally,
+        2. Persists the human's speech/thought/action in the history (marked "Player" internally,
            but never rendered this way in prompts — turns into the last entry of
            HISTORY read by the blind Narrator)
         3. Calls Narrator
@@ -576,7 +576,7 @@ class Runner:
         """Creates a TurnRecord with deepcopy of the Scene/moods and adds it to history.
 
         ```turn_number`` is explicit — all records of the same turn
-        (human speech/action, narration, Character speech) share the
+        (human speech/thought/action, narration, Character speech) share the
         same number and the same snapshot, a pre-requisite for undo to revert
         the entire step (scene and moods).
         """

@@ -172,11 +172,12 @@ repository `.data` directory or one of its children.
 
 ## Replay fixture status
 
-The checked-in [`current_replay.debug.jsonl`](../tests/fixtures/current_replay.debug.jsonl) fixture
-contains nine Narrator-only turns plus one legacy summarizer response. Its `turn_input` records
-predate the explicit `thought` field, which the parser safely defaults to an empty string.
+Two checked-in fixtures are maintained:
 
-Before structured Character thoughts and partitioned world/private compaction, this tape was
+1. [`current_replay.debug.jsonl`](../tests/fixtures/current_replay.debug.jsonl): A three-field replay fixture containing nine Narrator-only turns plus one legacy summarizer response, with explicit `thought` fields (including non-empty thoughts) in the `turn_input` markers.
+2. [`legacy_replay.debug.jsonl`](../tests/fixtures/legacy_replay.debug.jsonl): A legacy two-field replay fixture that predates the explicit `thought` field, where the parser safely defaults missing `thought` values to `""`.
+
+Before structured Character thoughts and partitioned world/private compaction, the legacy tape was
 verified end to end with the real Roleplay HTTP application and `replay_llm.py`:
 
 - nine exact inputs submitted through the real API;
@@ -188,7 +189,7 @@ verified end to end with the real Roleplay HTTP application and `replay_llm.py`:
 - final result reported `matches: true`.
 
 Those numbers are historical evidence, not a current end-to-end guarantee: current compaction can
-consume one public summary response plus multiple private-memory responses. The fixture remains a
+consume one public summary response plus multiple private-memory responses. The fixtures remain a
 parser, cursor, and backward-compatible input regression; record a new live tape before using it
 to validate exact current compaction outputs.
 
