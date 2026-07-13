@@ -365,15 +365,15 @@
     <div class="overlay" id="hint-overlay">
         <div class="modal hint-modal" id="hint-modal" role="dialog" aria-modal="true" aria-labelledby="hint-title">
             <div class="modal-head">
-                <h3 id="hint-title">📜 Narrator event</h3>
-                <button class="icon-btn" id="hint-close-btn" title="Close" aria-label="Close">✕</button>
+                <h3 id="hint-title" data-i18n="hint.title">📜 Narrator event</h3>
+                <button class="icon-btn" id="hint-close-btn" data-i18n-title="hint.closeTitle" data-i18n-aria-label="hint.closeAria" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
-                <p class="field-hint">Describe what happens next. The Narrator will incorporate this into the narration.</p>
-                <textarea class="text-area" id="hint-textarea" rows="3" placeholder="A seagull steals Tony's drink..."></textarea>
+                <p class="field-hint" data-i18n="hint.description">Describe what happens next. The Narrator will incorporate this into the narration.</p>
+                <textarea class="text-area" id="hint-textarea" rows="3" data-i18n-placeholder="hint.placeholder" placeholder="A seagull steals Tony's drink..."></textarea>
             </div>
             <div class="modal-foot">
-                <button class="btn btn-primary" id="hint-send-btn" type="button">Send with next turn ➤</button>
+                <button class="btn btn-primary" id="hint-send-btn" type="button" data-i18n="hint.send">Send with next turn ➤</button>
             </div>
         </div>
     </div>

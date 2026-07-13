@@ -762,7 +762,7 @@ function sendHint() {
     closeHintPopup(); // This resets the flag, so we checked it first
 
     if (text) {
-        toast('📜 Event hint queued for next turn.', 'info', 2500);
+        toast(t('hint.queued'), 'info', 2500);
     }
     
     if (shouldSkip && state.sessionId) {
