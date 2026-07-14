@@ -78,6 +78,23 @@ class CompactionStackEntry:
     committed_revision: int
 
 
+@dataclass(frozen=True)
+class PresenceEditEntry:
+    """Reference to one durable, undoable out-of-band admin presence edit.
+
+    Only the human presence control (outside any turn) pushes here — Narrator-driven
+    presence changes happen inside a turn and are already covered by that turn's
+    ``TurnRecord.scene_snapshot``, so ``undo_turn`` reverts them on its own.
+    """
+
+    edit_id: str
+    created_at: str
+    origin: str  # "human" in schema_version 1
+    before: list[str]
+    after: list[str]
+    committed_revision: int
+
+
 @dataclass
 class GameState:
     """Persists between turns in the session JSON."""
@@ -97,6 +114,7 @@ class GameState:
     compaction_stack: list[CompactionStackEntry] = field(default_factory=list)
     # Character -> native preset identity. Avatar bytes remain outside session state.
     character_preset_ids: dict[str, str] = field(default_factory=dict)
+    presence_edit_stack: list[PresenceEditEntry] = field(default_factory=list)
 
 
 def trim_history_by_tokens(
@@ -141,6 +159,45 @@ def speaker_label(speaker: str, characters: dict[str, Character], controlled_id:
         if controlled is not None:
             return controlled.mind.name
     return speaker
+
+
+def default_present_characters(characters: dict[str, Character]) -> list[str]:
+    """Canonical "everyone present" list, used only to fill an absent value."""
+    return [*characters, "Player"]
+
+
+def validate_present_characters(
+    present: list[str],
+    characters: dict[str, Character],
+    controlled_id: str,
+) -> list[str]:
+    """Validates a ``Scene.present_characters`` candidate against the canonical contract.
+
+    Rejects invalid input outright (unknown ID, duplicate, out-of-order IDs, missing
+    or misplaced ``"Player"`` sentinel, absent controlled character) instead of
+    filtering or completing it silently. Returns the list unchanged when valid.
+    """
+    if not present:
+        raise ValueError("present_characters cannot be empty.")
+    if present.count("Player") != 1 or present[-1] != "Player":
+        raise ValueError('present_characters must end with exactly one "Player" marker.')
+
+    character_ids = list(present[:-1])
+    if len(set(character_ids)) != len(character_ids):
+        raise ValueError("present_characters contains duplicate character IDs.")
+
+    unknown = [cid for cid in character_ids if cid not in characters]
+    if unknown:
+        raise ValueError(f"present_characters references unknown character IDs: {unknown}")
+
+    canonical_order = [cid for cid in characters if cid in character_ids]
+    if character_ids != canonical_order:
+        raise ValueError("present_characters must preserve the canonical order of characters.")
+
+    if controlled_id not in character_ids:
+        raise ValueError("The controlled character must always be present.")
+
+    return list(present)
 
 
 def game_state_to_dict(game: GameState) -> dict[str, Any]:
@@ -226,6 +283,17 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         )
         for item in data["compaction_stack"]
     ]
+    presence_edit_stack = [
+        PresenceEditEntry(
+            edit_id=item["edit_id"],
+            created_at=item["created_at"],
+            origin=item["origin"],
+            before=list(item["before"]),
+            after=list(item["after"]),
+            committed_revision=item["committed_revision"],
+        )
+        for item in data["presence_edit_stack"]
+    ]
 
     return GameState(
         session_id=data["session_id"],
@@ -241,4 +309,5 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         plugin_state=copy.deepcopy(data["plugin_state"]),
         compaction_stack=compaction_stack,
         character_preset_ids=dict(data["character_preset_ids"]),
+        presence_edit_stack=presence_edit_stack,
     )

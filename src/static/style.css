@@ -420,6 +420,24 @@ html, body {
 }
 .plugin-version-row code { color: #a99bdd; font-size: 0.67rem; }
 .plugin-version-row > span { color: var(--text-3); font-size: 0.67rem; }
+
+/* Generic plugin-config UI — same density as the rest of the Plugins tab */
+.plugin-settings {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--glass-border);
+    display: grid;
+    gap: 8px;
+}
+.plugin-settings h5 {
+    margin: 0;
+    color: var(--text-3);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.plugin-setting-toggle { gap: 9px; }
+.plugin-setting-copy { font-size: 0.78rem; color: var(--text-2); }
 .plugin-version-row.active > span { color: #82dfba; }
 .plugin-version-row > div { display: flex; gap: 6px; }
 .btn-danger-ghost { color: #ff8b9b; border-color: rgba(255, 92, 114, 0.24); }
@@ -1007,8 +1025,25 @@ select.text-input { cursor: pointer; }
     background: var(--accent-grad);
     color: #fff;
 }
-.char-card-head .char-name { flex: 1; }
+.char-card-head .char-name { flex: 1; min-width: 0; }
 .char-remove:hover { color: var(--danger); }
+
+/* Generic mount point for a card-head plugin control (e.g. a presence toggle).
+   Reuses the shared .toggle component; stays compact so badge/name/remove keep
+   their layout when no plugin is active (this class then simply has no match).
+   Padding + matching negative margin grow the tap target well past the visual
+   38×21 track (the .toggle-label text also hides at very small widths, so the
+   target must not depend on it either) without shifting surrounding layout. */
+.char-presence-toggle {
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 12px 6px;
+    margin: -12px -6px;
+}
+.char-presence-toggle .toggle-label {
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
 .char-card-body {
     padding: 14px;
     display: flex;
@@ -1161,6 +1196,48 @@ select.text-input { cursor: pointer; }
     transition: background 0.4s var(--ease), color 0.4s var(--ease);
     animation: tagIn var(--dur) var(--ease);
 }
+/* Mount point for a plugin-owned session tool (e.g. the mid-session presence
+   control). No CSS here targets [data-plugin-slot] directly — an inactive
+   plugin leaves the slot empty and it takes up no visual space. */
+.presence-panel { min-width: 0; }
+.presence-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 0.75rem;
+    cursor: pointer;
+    min-height: 32px;
+}
+.presence-trigger:hover { color: var(--text-1); }
+.presence-body {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--glass-border);
+    background: var(--surface);
+    display: grid;
+    gap: 10px;
+    min-width: 0;
+}
+.presence-list { display: grid; gap: 6px; min-width: 0; }
+.presence-row { gap: 8px; padding: 10px 0; margin: -6px 0; min-width: 0; }
+.presence-row .toggle-label {
+    font-size: 0.8rem;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.presence-actions { display: flex; justify-content: flex-end; }
+.presence-status { margin: 0; font-size: 0.72rem; color: var(--text-3); min-height: 1em; }
+.presence-status.error { color: var(--danger); }
+
 .scene-tag.flash {
     animation: flashTag 1.1s var(--ease);
 }
@@ -2074,6 +2151,12 @@ select.text-input { cursor: pointer; }
 
     /* Header: allow graceful wrap, compact controls */
     .header { flex-wrap: wrap; gap: 8px 10px; padding: 4px 2px 12px; }
+
+    /* Char-card head: intentional wrap keeps badge/toggle/remove on one row and
+       gives the name input its own full-width row instead of squeezing everyone
+       into one line (no horizontal scroll, name stays a usable width). */
+    .char-card-head { flex-wrap: wrap; row-gap: 6px; }
+    .char-card-head .char-name { flex: 1 1 100%; order: 1; }
     .brand { font-size: 1.02rem; }
     #new-session-btn { padding: 8px 12px; font-size: 0.8rem; }
     .install-btn, #install-btn { padding: 8px 12px; font-size: 0.8rem; }
@@ -2161,6 +2244,17 @@ select.text-input { cursor: pointer; }
 /* Very small phones — drop non-essential text to keep one row usable */
 @media (max-width: 400px) {
     .toggle-label { display: none; }
+    /* Unlike other toggles, this label IS the identifying information (which
+       character the row controls), not decoration — hiding it would leave an
+       unlabeled switch with no other context on screen. */
+    .presence-row .toggle-label {
+        display: inline;
+        font-size: 0.72rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 55vw;
+    }
     .brand { font-size: 0.95rem; }
     .provider-switch { grid-template-columns: 1fr; }
 }

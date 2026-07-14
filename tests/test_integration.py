@@ -182,6 +182,99 @@ class TestModels:
         expected = "Old Mork's Tavern — main hall, dim lighting"
         assert snap.location == expected
 
+    def test_game_state_round_trip_with_presence_edit_stack(self) -> None:
+        """presence_edit_stack sobrevive ao round-trip como CompactionStackEntry."""
+        from src.models import PresenceEditEntry
+
+        original = _make_test_game()
+        original.presence_edit_stack.append(
+            PresenceEditEntry(
+                edit_id="e0000001",
+                created_at="2026-01-01T00:00:00+00:00",
+                origin="human",
+                before=["C1", "C2", "Player"],
+                after=["C1", "Player"],
+                committed_revision=1,
+            )
+        )
+        data = game_state_to_dict(original)
+        restored = dict_to_game_state(data)
+        assert len(restored.presence_edit_stack) == 1
+        entry = restored.presence_edit_stack[0]
+        assert entry.edit_id == "e0000001"
+        assert entry.before == ["C1", "C2", "Player"]
+        assert entry.after == ["C1", "Player"]
+        assert entry.committed_revision == 1
+
+
+class TestPresenceContract:
+    """validate_present_characters / default_present_characters — src/models.py."""
+
+    def test_default_present_characters_includes_everyone_and_player(self) -> None:
+        from src.models import default_present_characters
+
+        assert default_present_characters(DEFAULT_CHARACTERS) == ["C1", "C2", "Player"]
+
+    def test_validate_accepts_a_well_formed_list(self) -> None:
+        from src.models import validate_present_characters
+
+        result = validate_present_characters(["C1", "C2", "Player"], DEFAULT_CHARACTERS, "C1")
+        assert result == ["C1", "C2", "Player"]
+
+    def test_validate_accepts_a_partial_list_when_controlled_stays_present(self) -> None:
+        from src.models import validate_present_characters
+
+        result = validate_present_characters(["C1", "Player"], DEFAULT_CHARACTERS, "C1")
+        assert result == ["C1", "Player"]
+
+    def test_validate_rejects_empty_list(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="empty"):
+            validate_present_characters([], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_missing_player_marker(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="Player"):
+            validate_present_characters(["C1", "C2"], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_player_marker_not_at_the_end(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="Player"):
+            validate_present_characters(["Player", "C1", "C2"], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_duplicate_player_marker(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="Player"):
+            validate_present_characters(["C1", "C2", "Player", "Player"], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_duplicate_character_id(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="duplicate"):
+            validate_present_characters(["C1", "C1", "Player"], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_unknown_character_id(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="unknown"):
+            validate_present_characters(["C1", "C9", "Player"], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_out_of_order_ids(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="canonical order"):
+            validate_present_characters(["C2", "C1", "Player"], DEFAULT_CHARACTERS, "C1")
+
+    def test_validate_rejects_absent_controlled_character(self) -> None:
+        from src.models import validate_present_characters
+
+        with pytest.raises(ValueError, match="controlled character"):
+            validate_present_characters(["C2", "Player"], DEFAULT_CHARACTERS, "C1")
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes Unitários — Sessions (Persistência)
@@ -521,6 +614,38 @@ class TestRunnerLogic:
         assert restored.scene == original_scene
 
     @pytest.mark.asyncio
+    async def test_undo_turn_restores_presence_changed_within_that_turn(self) -> None:
+        """A narrator.result-style in-turn presence change is reverted by undo_turn.
+
+        Unlike the admin presence_edit_stack, a Narrator-driven change is applied
+        directly to the same-turn draft and captured by the ordinary scene_snapshot —
+        undo_turn reverts it without any presence-specific code.
+        """
+        sid = self.runner.start_session()
+        async with _get_lock(sid):
+            game = load_game(sid)
+            assert game is not None
+            original_present = list(game.scene.present_characters)
+            runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+            runner._append_history(game, "Player", "oi", "speech", 1)
+            runner._append_history(game, "Narrator", "C2 slips away.", "narration", 1)
+            # Applied after the turn's history records, mirroring where narrator.result
+            # runs in player_turn (after scene_update/mood_updates, before commit).
+            game.scene.present_characters = ["C1", "Player"]
+            save_game(game)
+
+        persisted = load_game(sid)
+        assert persisted is not None
+        assert persisted.scene.present_characters == ["C1", "Player"]
+
+        result = await self.runner.undo_turn(sid)
+        assert result["undone"] is True
+
+        restored = load_game(sid)
+        assert restored is not None
+        assert restored.scene.present_characters == original_present
+
+    @pytest.mark.asyncio
     async def test_undo_nothing(self) -> None:
         """Undo em sessão sem histórico retorna undone=False."""
         sid = self.runner.start_session()
@@ -628,13 +753,257 @@ class TestRunnerLogic:
         assert captured["story_summary"] == "Resumo de teste."
 
     @pytest.mark.asyncio
+    async def test_call_narrator_forwards_plugin_extensions_to_narrate(self, monkeypatch) -> None:  # noqa: ANN001
+        """_call_narrator threads narrator.context/schema results into narrate()."""
+        from src import runner as runner_mod
+
+        captured: dict = {}
+
+        async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
+            captured.update(kwargs)
+            return {"narration": "ok", "next_speaker": "Narrator", "context_for_character": ""}
+
+        monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
+
+        game = _make_test_game()
+        runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
+        await runner._call_narrator(
+            game,
+            1,
+            extra_context=["PRESENCE: C2 stepped out."],
+            extra_schema_properties={"presence_update": {"type": "object"}},
+            extra_schema_required=["presence_update"],
+        )
+        assert captured["extra_context"] == ["PRESENCE: C2 stepped out."]
+        assert captured["extra_schema_properties"] == {"presence_update": {"type": "object"}}
+        assert captured["extra_schema_required"] == ["presence_update"]
+
+    @pytest.mark.asyncio
+    async def test_player_turn_collects_narrator_context_and_schema_hooks(  # noqa: ANN001
+        self, monkeypatch
+    ) -> None:
+        """narrator.context/narrator.schema filters registered by a plugin reach _call_narrator."""
+        from src.plugins.runtime import PluginRuntime
+
+        plugins = PluginRuntime()
+
+        def add_context(lines, _context):  # noqa: ANN001, ANN202
+            lines.append("PRESENCE: C2 is elsewhere.")
+            return lines
+
+        def extend_schema(schema, _context):  # noqa: ANN001, ANN202
+            schema["properties"]["presence_update"] = {
+                "type": "object",
+                "properties": {"present_character_ids": {"type": "array"}},
+                "required": ["present_character_ids"],
+                "additionalProperties": False,
+            }
+            schema["required"].append("presence_update")
+            return schema
+
+        plugins.hooks.register("dev.test.presence", "narrator.context", "filter", add_context)
+        plugins.hooks.register("dev.test.presence", "narrator.schema", "filter", extend_schema)
+
+        runner = Runner(self.client, {}, plugins=plugins)
+        sid = runner.start_session()
+        captured: dict = {}
+
+        async def fake_call_narrator(
+            game,
+            turn_number,
+            forced_speaker=None,
+            narrator_hint="",  # noqa: ANN001
+            extra_context=None,
+            extra_schema_properties=None,
+            extra_schema_required=None,  # noqa: ANN001
+        ):
+            captured["extra_context"] = extra_context
+            captured["extra_schema_properties"] = extra_schema_properties
+            captured["extra_schema_required"] = extra_schema_required
+            return {
+                "narration": "ok",
+                "next_speaker": "Narrator",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
+        await runner.player_turn(sid, speech="Oi.")
+
+        assert captured["extra_context"] == ["PRESENCE: C2 is elsewhere."]
+        assert "presence_update" in captured["extra_schema_properties"]
+        assert "presence_update" in captured["extra_schema_required"]
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_narrator_result_hook_applies_plugin_change_to_same_turn_draft(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        """narrator.result validates+applies its own key to the draft, same turn, under lock."""
+        from src.plugins.runtime import PluginRuntime
+
+        plugins = PluginRuntime()
+
+        def apply_presence(game, context):  # noqa: ANN001, ANN202
+            proposal = context["narrator_output"].get("presence_update")
+            if proposal:
+                game.scene.present_characters = [*proposal["present_character_ids"], "Player"]
+            return game
+
+        plugins.hooks.register("dev.test.presence", "narrator.result", "filter", apply_presence)
+
+        runner = Runner(self.client, {}, plugins=plugins)
+        sid = runner.start_session(
+            {
+                "characters": DEFAULT_CHARACTERS.copy(),
+                "controlled_character_id": "C1",
+            }
+        )
+
+        async def fake_call_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return {
+                "narration": "C2 leaves the room.",
+                "next_speaker": "Narrator",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+                "presence_update": {"present_character_ids": ["C1"]},
+            }
+
+        monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
+        await runner.player_turn(sid, speech="Oi.")
+
+        game = await runner.get_state(sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "Player"]
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_narrator_result_hook_can_discard_an_invalid_proposal_without_aborting_turn(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        """A plugin rejecting its own proposal returns the draft unchanged; turn still commits."""
+        from src.plugins.runtime import PluginRuntime
+
+        plugins = PluginRuntime()
+
+        def reject_removing_controlled(game, context):  # noqa: ANN001, ANN202
+            proposal = context["narrator_output"].get("presence_update")
+            controlled = game.player.controlled_character_id
+            if proposal and controlled not in proposal["present_character_ids"]:
+                return game  # discarded — controlled character can never be removed
+            if proposal:
+                game.scene.present_characters = [*proposal["present_character_ids"], "Player"]
+            return game
+
+        plugins.hooks.register(
+            "dev.test.presence", "narrator.result", "filter", reject_removing_controlled
+        )
+
+        runner = Runner(self.client, {}, plugins=plugins)
+        sid = runner.start_session(
+            {
+                "characters": DEFAULT_CHARACTERS.copy(),
+                "controlled_character_id": "C1",
+            }
+        )
+
+        async def fake_call_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return {
+                "narration": "The room empties.",
+                "next_speaker": "Narrator",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+                "presence_update": {"present_character_ids": ["C2"]},  # drops controlled C1
+            }
+
+        monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
+        result = await runner.player_turn(sid, speech="Oi.")
+
+        assert result["narration"] == "The room empties."
+        game = await runner.get_state(sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "Player"]  # unchanged
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_absent_next_speaker_never_receives_a_character_call(self, monkeypatch) -> None:  # noqa: ANN001
+        """The Narrator routing to an absent character must not trigger a Character call."""
+        sid = self.runner.start_session(
+            {
+                "characters": DEFAULT_CHARACTERS.copy(),
+                "controlled_character_id": "C1",
+                "scene": Scene(
+                    location="Taverna",
+                    time_of_day="noite",
+                    present_characters=["C1", "Player"],  # C2 absent
+                    physical_facts={},
+                ),
+            }
+        )
+
+        async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return {
+                "narration": "Silence.",
+                "next_speaker": "C2",  # hallucinated/absent — must be gated
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        async def forbidden_character(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            raise AssertionError("An absent character must never receive a Character call")
+
+        monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(self.runner, "_call_character", forbidden_character)
+
+        result = await self.runner.player_turn(sid, speech="Oi.")
+        assert result["character_response"] is None
+        delete_session(sid)
+
+    @pytest.mark.asyncio
+    async def test_force_speaker_on_an_absent_character_falls_back_to_narrator_choice(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        """force_speaker naming an absent (but existing) character is ignored, not honored."""
+        sid = self.runner.start_session(
+            {
+                "characters": DEFAULT_CHARACTERS.copy(),
+                "controlled_character_id": "C1",
+                "scene": Scene(
+                    location="Taverna",
+                    time_of_day="noite",
+                    present_characters=["C1", "Player"],  # C2 absent
+                    physical_facts={},
+                ),
+            }
+        )
+
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN202
+            assert forced_speaker is None  # C2 is absent, so the force is dropped
+            return {
+                "narration": "ok",
+                "next_speaker": "Narrator",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
+        result = await self.runner.player_turn(sid, speech="Oi.", force_speaker="C2")
+        assert result["next_speaker"] == "Narrator"
+        delete_session(sid)
+
+    @pytest.mark.asyncio
     async def test_force_speaker_is_known_before_character_context_is_built(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
         sid = self.runner.start_session()
         captured: dict[str, object] = {}
 
-        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint=""):  # noqa: ANN001, ANN202
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["forced_speaker"] = forced_speaker
             return {
                 "narration": "The room stills.",
@@ -868,7 +1237,7 @@ class TestCompactSession:
 
         captured: dict[str, str] = {}
 
-        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint=""):  # noqa: ANN001, ANN202
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["summary"] = game.story_summary
             return {
                 "narration": "The gate hums.",
@@ -1065,6 +1434,159 @@ class TestRestoreCompaction:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Testes — Mutação administrativa de presença (sem turno, sem LLM)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestPresenceAdmin:
+    """Runner.set_presence / undo_last_presence_edit — LIFO, revision, divergência."""
+
+    def setup_method(self) -> None:
+        self.sid = generate_session_id()
+        self.client = httpx.AsyncClient(base_url="http://localhost:8888")
+        self.runner = Runner(self.client, {})
+        save_game(_make_test_game(self.sid))
+
+    def teardown_method(self) -> None:
+        delete_session(self.sid)
+
+    @pytest.mark.asyncio
+    async def test_set_presence_applies_and_pushes_stack_entry(self) -> None:
+        result = await self.runner.set_presence(self.sid, ["C1", "Player"], expected_revision=0)
+        assert result["changed"] is True
+        assert result["present_characters"] == ["C1", "Player"]
+        assert result["revision"] == 1
+        game = load_game(self.sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "Player"]
+        assert len(game.presence_edit_stack) == 1
+        entry = game.presence_edit_stack[0]
+        assert entry.origin == "human"
+        assert entry.before == ["C1", "C2", "Player"]
+        assert entry.after == ["C1", "Player"]
+        assert entry.committed_revision == 1
+
+    @pytest.mark.asyncio
+    async def test_set_presence_rejects_stale_revision(self) -> None:
+        from src.runner import PresenceRevisionConflictError
+
+        with pytest.raises(PresenceRevisionConflictError):
+            await self.runner.set_presence(self.sid, ["C1", "Player"], expected_revision=5)
+        game = load_game(self.sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "Player"]
+        assert game.revision == 0
+
+    @pytest.mark.asyncio
+    async def test_set_presence_rejects_removing_controlled_character(self) -> None:
+        with pytest.raises(ValueError, match="controlled character"):
+            await self.runner.set_presence(self.sid, ["C2", "Player"], expected_revision=0)
+        game = load_game(self.sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "Player"]
+
+    @pytest.mark.asyncio
+    async def test_set_presence_rejects_unknown_character_id(self) -> None:
+        with pytest.raises(ValueError, match="unknown"):
+            await self.runner.set_presence(self.sid, ["C1", "C9", "Player"], expected_revision=0)
+
+    @pytest.mark.asyncio
+    async def test_undo_last_presence_edit_restores_previous_list(self) -> None:
+        await self.runner.set_presence(self.sid, ["C1", "Player"], expected_revision=0)
+        result = await self.runner.undo_last_presence_edit(self.sid)
+        assert result["restored"] is True
+        assert result["present_characters"] == ["C1", "C2", "Player"]
+        assert result["remaining_undo_depth"] == 0
+        game = load_game(self.sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "Player"]
+        assert game.presence_edit_stack == []
+
+    @pytest.mark.asyncio
+    async def test_undo_with_empty_stack_is_a_no_op(self) -> None:
+        result = await self.runner.undo_last_presence_edit(self.sid)
+        assert result["restored"] is False
+        assert "No presence edit" in result["reason"]
+        game = load_game(self.sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "Player"]
+
+    @pytest.mark.asyncio
+    async def test_undo_is_strictly_lifo_across_two_edits(self) -> None:
+        await self.runner.set_presence(self.sid, ["C1", "Player"], expected_revision=0)
+        await self.runner.set_presence(self.sid, ["C1", "C2", "Player"], expected_revision=1)
+
+        first_undo = await self.runner.undo_last_presence_edit(self.sid)
+        assert first_undo["restored"] is True
+        assert first_undo["present_characters"] == ["C1", "Player"]
+        assert first_undo["remaining_undo_depth"] == 1
+
+        second_undo = await self.runner.undo_last_presence_edit(self.sid)
+        assert second_undo["restored"] is True
+        assert second_undo["present_characters"] == ["C1", "C2", "Player"]
+        assert second_undo["remaining_undo_depth"] == 0
+
+    @pytest.mark.asyncio
+    async def test_undo_rejects_when_presence_diverged_since(self) -> None:
+        """A later change (e.g. a Narrator presence_update) must never be silently overwritten."""
+        await self.runner.set_presence(self.sid, ["C1", "Player"], expected_revision=0)
+
+        # Simulates a later, independent change to presence (e.g. applied by the
+        # Narrator's narrator.result hook during a subsequent turn) that never
+        # touched presence_edit_stack.
+        game = load_game(self.sid)
+        assert game is not None
+        game.scene.present_characters = ["C1", "C2", "Player"]
+        game.revision += 1
+        save_game(game)
+
+        result = await self.runner.undo_last_presence_edit(self.sid)
+        assert result["restored"] is False
+        assert "changed again" in result["reason"]
+        game_after = load_game(self.sid)
+        assert game_after is not None
+        assert game_after.scene.present_characters == ["C1", "C2", "Player"]
+        assert len(game_after.presence_edit_stack) == 1  # not popped
+
+    @pytest.mark.asyncio
+    async def test_set_presence_missing_session_returns_error(self) -> None:
+        result = await self.runner.set_presence(
+            "nonexistent", ["C1", "Player"], expected_revision=0
+        )
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_undo_missing_session_returns_error(self) -> None:
+        result = await self.runner.undo_last_presence_edit("nonexistent")
+        assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_set_presence_concurrent_with_turn_is_rejected_not_overwritten(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        """A turn committed between the client's read and its presence edit must win."""
+        from src.runner import PresenceRevisionConflictError
+
+        async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return {
+                "narration": "A door creaks open.",
+                "next_speaker": "Narrator",
+                "context_for_character": "",
+                "scene_update": None,
+                "mood_updates": None,
+            }
+
+        monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
+        # Client "read" revision 0, then a turn commits concurrently (revision -> 1).
+        await self.runner.player_turn(self.sid, speech="Oi.")
+        with pytest.raises(PresenceRevisionConflictError):
+            await self.runner.set_presence(self.sid, ["C1", "Player"], expected_revision=0)
+        game = load_game(self.sid)
+        assert game is not None
+        assert game.scene.present_characters == ["C1", "C2", "Player"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Testes — Config customizada + Debug (LLM mockado)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1189,7 +1711,12 @@ class TestCustomSessionAndDebug:
         chars = {"C3": _custom_char("Caius")}
         result = await narrator_mod.narrate(
             client=self.client,
-            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
+            scene=Scene(
+                location="x",
+                time_of_day="y",
+                present_characters=["C3", "Player"],
+                physical_facts={},
+            ),
             characters=chars,
             player_controlled_id="C3",
             history=[],
@@ -1212,7 +1739,12 @@ class TestCustomSessionAndDebug:
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
-            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
+            scene=Scene(
+                location="x",
+                time_of_day="y",
+                present_characters=["C1", "Player"],
+                physical_facts={},
+            ),
             characters={"C1": _custom_char("Solo")},
             player_controlled_id="C1",
             history=[],
@@ -1238,7 +1770,12 @@ class TestCustomSessionAndDebug:
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
-            scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
+            scene=Scene(
+                location="x",
+                time_of_day="y",
+                present_characters=["C1", "C2", "Player"],
+                physical_facts={},
+            ),
             characters={"C1": _custom_char("One"), "C2": _custom_char("Two")},
             player_controlled_id="C1",
             history=[],
@@ -1877,7 +2414,8 @@ class TestEdgeCases:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
@@ -1910,7 +2448,8 @@ class TestEdgeCases:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
@@ -2020,7 +2559,8 @@ class TestHttpBoundary:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
@@ -2071,7 +2611,8 @@ class TestHttpBoundary:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["called"] = True
             return {
@@ -2119,7 +2660,8 @@ class TestHttpBoundary:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
@@ -2257,7 +2799,8 @@ class TestHttpBoundary:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
@@ -2307,7 +2850,8 @@ class TestHttpBoundary:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
@@ -2360,7 +2904,8 @@ class TestHttpBoundary:
             game,
             turn_number,
             forced_speaker=None,
-            narrator_hint="",  # noqa: ANN001, ANN202
+            narrator_hint="",
+            **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["forced_speaker"] = forced_speaker
             captured["narrator_hint"] = narrator_hint

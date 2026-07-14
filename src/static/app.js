@@ -504,8 +504,9 @@ async function undoLastTurn() {
         // step can produce fewer than 3 (e.g. no character response), and
         // removing a fixed count desyncs the DOM from the real state.
         if (data.state) {
-            renderHistory(data.state.history);
-            ingestState(data.state);
+            const gameState = await PluginRuntime.runHook('session.state', data.state, { state });
+            renderHistory(gameState.history);
+            ingestState(gameState);
         }
         state.lastTurnFailed = false;
         state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
@@ -918,7 +919,8 @@ async function compactSession() {
                 'success',
                 3500
             );
-            const gameState = await api.getState(state.sessionId);
+            let gameState = await api.getState(state.sessionId);
+            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
             ingestState(gameState);
             renderHistory(gameState.history);
             state.canUndo = !!(gameState.history && gameState.history.length > 0);
@@ -961,7 +963,8 @@ async function restoreCompaction() {
                 'success',
                 3500
             );
-            const gameState = await api.getState(state.sessionId);
+            let gameState = await api.getState(state.sessionId);
+            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
             ingestState(gameState);
             renderHistory(gameState.history);
             state.canUndo = !!(gameState.history && gameState.history.length > 0);
@@ -1187,15 +1190,16 @@ async function startSession(cfg) {
     setLoading(true);
     try {
         const data = await api.startSession(cfg);
+        const gameState = await PluginRuntime.runHook('session.state', data.state, { state });
         state.sessionId = data.session_id;
         state.lastInputs = null;
         state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = false;
         updateActionPopup();
-        ingestState(data.state);
-        await hydrateAvatarUrls(data.state);
-        renderHistory(data.state.history);
+        ingestState(gameState);
+        await hydrateAvatarUrls(gameState);
+        renderHistory(gameState.history);
         inputSpeech.disabled = false;
         inputThought.disabled = false;
         inputAction.disabled = false;
@@ -1216,7 +1220,8 @@ async function reconcileAutomaticCompaction(data) {
     const result = data?.automatic_compaction;
     if (!result) return false;
     if (result.compacted) {
-        const gameState = await api.getState(state.sessionId);
+        let gameState = await api.getState(state.sessionId);
+        gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         ingestState(gameState);
         renderHistory(gameState.history);
         toast(
@@ -1323,7 +1328,8 @@ async function sendTurn(isRetry = false) {
         updateActionPopup();
     } catch (err) {
         try {
-            const gameState = await api.getState(state.sessionId);
+            let gameState = await api.getState(state.sessionId);
+            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
             ingestState(gameState);
             renderHistory(gameState.history);
         } catch { /* best-effort reconciliation after an ambiguous turn failure */ }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import httpx
 
@@ -65,12 +66,19 @@ def build_narrator_json_schema(
     character_ids: list[str],
     forced_speaker: str | None = None,
     exclude_speaker: str | None = None,
+    extra_properties: dict[str, Any] | None = None,
+    extra_required: list[str] | None = None,
 ) -> dict:
     """Builds the structural JSON schema for the Narrator's response.
 
     Used with ``response_format: {"type": "json_schema", ...}`` — LLM output
     is grammar-constrained and does not rely on textual prompts like
     "no markdown, no code fences".
+
+    ``extra_properties``/``extra_required`` let a plugin extend the schema with its
+    own optional output key (the ``narrator.schema`` hook) without a provider- or
+    plugin-specific branch here — the property's own JSON Schema fragment (e.g. its
+    ``description``) carries whatever the model needs to understand it.
     """
     all_speakers = [*character_ids, "Narrator"]
     if forced_speaker in all_speakers:
@@ -97,6 +105,7 @@ def build_narrator_json_schema(
                     "type": ["object", "null"],
                     "additionalProperties": {"type": "string"},
                 },
+                **(extra_properties or {}),
             },
             "required": [
                 "narration",
@@ -104,6 +113,7 @@ def build_narrator_json_schema(
                 "context_for_character",
                 "scene_update",
                 "mood_updates",
+                *(extra_required or []),
             ],
             "additionalProperties": False,
         },
@@ -120,24 +130,39 @@ def _build_user_prompt(
     story_summary: str = "",
     forced_speaker: str | None = None,
     narrator_hint: str = "",
+    extra_context: list[str] | None = None,
 ) -> str:
     """Builds the user prompt with scene, characters, and history.
 
     No separate input block: the last action/speech (from anyone,
     including the controlled character) is already at the end of HISTORY.
+
+    ``extra_context`` holds read-only lines contributed by plugins (the
+    ``narrator.context`` hook) — always rendered, independent of provider.
     """
     lines: list[str] = []
+    present_ids = [cid for cid in characters if cid in scene.present_characters]
+    absent_ids = [cid for cid in characters if cid not in present_ids]
 
     # Rarely changing character identity comes first so provider prefix caches can
     # retain it even when the scene, mood, or routing changes.
     lines.append("CHARACTERS PRESENT:")
-    for cid in characters:
+    for cid in present_ids:
         ch = characters[cid]
         lines.append(f"  ID={cid} | NAME={ch.mind.name}")
         lines.append(f"    Personality: {ch.mind.personality}")
         lines.append(f"    Appearance: {ch.body.physical_description}")
         lines.append(f"    Outfit: {ch.body.outfit}")
     lines.append("")
+
+    # Absent characters keep only a minimal, deterministic identity — full profiles
+    # (personality, appearance, knowledge) would leak detail the Narrator has no
+    # scene reason to know while they are elsewhere.
+    if absent_ids:
+        lines.append("CHARACTERS ELSEWHERE (not in the current scene):")
+        for cid in absent_ids:
+            lines.append(f"  ID={cid} | NAME={characters[cid].mind.name}")
+        lines.append("")
 
     # Summary of already compacted turns (see runner.compact_session) — world
     # context, only the Narrator sees this.
@@ -172,13 +197,19 @@ def _build_user_prompt(
     lines.append("")
 
     lines.append("CURRENT MOODS:")
-    for cid, character in characters.items():
-        lines.append(f"  ID={cid} | Mood: {character.mind.current_mood}")
+    for cid in present_ids:
+        lines.append(f"  ID={cid} | Mood: {characters[cid].mind.current_mood}")
     lines.append("")
 
     if narrator_hint.strip():
         lines.append("UPCOMING EVENT (incorporate this into your narration):")
         lines.append(f"  {narrator_hint.strip()}")
+        lines.append("")
+
+    if extra_context:
+        lines.append("PLUGIN CONTEXT:")
+        for line in extra_context:
+            lines.append(f"  {line}")
         lines.append("")
 
     if forced_speaker is not None:
@@ -207,15 +238,17 @@ def build_narrator_messages(
     story_summary: str = "",
     forced_speaker: str | None = None,
     narrator_hint: str = "",
+    extra_context: list[str] | None = None,
 ) -> list[dict]:
     """Assembles the Narrator messages (system + user) — pure, without calling the LLM.
 
     Reused by both ``narrate`` and the offline prompt preview.
     """
+    present_ids = [cid for cid in characters if cid in scene.present_characters]
     return [
         {
             "role": "system",
-            "content": _build_system_prompt(list(characters), narrator_directives),
+            "content": _build_system_prompt(present_ids, narrator_directives),
         },
         {
             "role": "user",
@@ -229,6 +262,7 @@ def build_narrator_messages(
                 story_summary=story_summary,
                 forced_speaker=forced_speaker,
                 narrator_hint=narrator_hint,
+                extra_context=extra_context,
             ),
         },
     ]
@@ -248,6 +282,9 @@ async def narrate(
     forced_speaker: str | None = None,
     narrator_hint: str = "",
     exclude_speaker: str | None = None,
+    extra_context: list[str] | None = None,
+    extra_schema_properties: dict[str, Any] | None = None,
+    extra_schema_required: list[str] | None = None,
 ) -> dict:
     """Builds the Narrator prompt, calls the LLM, and returns a validated dict.
 
@@ -262,14 +299,21 @@ async def narrate(
     ``session_id``/``turn_number`` only exist for the raw LLM call log
     (see ``src/llm/client.py``) — they do not affect the prompt.
 
+    ``extra_context``/``extra_schema_properties``/``extra_schema_required`` are the
+    ``narrator.context``/``narrator.schema`` hook results, collected by the caller
+    across every registered plugin. Any resulting extra key in the returned dict is
+    left untouched here — validating and applying it is the owning plugin's job via
+    the ``narrator.result`` hook.
+
     Returns:
         Dict with keys: narration, next_speaker, context_for_character,
-        scene_update, mood_updates.
+        scene_update, mood_updates, plus any plugin-contributed keys.
 
     Raises:
         ValueError: If the returned JSON is missing required fields.
     """
     max_tokens_narrator = config.get("max_tokens_narrator", 2048)
+    present_ids = [cid for cid in characters if cid in scene.present_characters]
     messages = build_narrator_messages(
         scene=scene,
         characters=characters,
@@ -281,6 +325,7 @@ async def narrate(
         story_summary=story_summary,
         forced_speaker=forced_speaker,
         narrator_hint=narrator_hint,
+        extra_context=extra_context,
     )
 
     result = await chat_completion_json(
@@ -291,9 +336,11 @@ async def narrate(
         max_tokens=max_tokens_narrator,
         timeout=resolve_llm_timeout(config),
         json_schema=build_narrator_json_schema(
-            list(characters),
+            present_ids,
             forced_speaker=forced_speaker,
             exclude_speaker=exclude_speaker,
+            extra_properties=extra_schema_properties,
+            extra_required=extra_schema_required,
         ),
         session_id=session_id,
         turn_number=turn_number,
@@ -310,8 +357,9 @@ async def narrate(
             f"Recebido: {json.dumps(result, ensure_ascii=False)[:300]}"
         )
 
-    # Validate next_speaker — valid speakers derived dynamically from IDs
-    valid_speakers = set(characters) | {"Narrator"}
+    # Validate next_speaker — only present characters (plus Narrator) are valid;
+    # an absent character can never be routed to, whether hallucinated or forced.
+    valid_speakers = set(present_ids) | {"Narrator"}
     if forced_speaker in valid_speakers:
         result["next_speaker"] = forced_speaker
         if forced_speaker == "Narrator":

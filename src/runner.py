@@ -38,6 +38,8 @@ from src.llm.debug_log import (
     log_compact,
     log_compaction_status,
     log_effective_turn_input,
+    log_presence_change,
+    log_presence_undo,
     log_restore_compaction,
     log_turn_input,
     log_undo,
@@ -47,8 +49,11 @@ from src.models import (
     CompactionStackEntry,
     GameState,
     Player,
+    PresenceEditEntry,
     TurnRecord,
+    default_present_characters,
     dict_to_turn_record,
+    validate_present_characters,
 )
 from src.store.sessions import (
     _get_lock,
@@ -62,6 +67,10 @@ from src.store.sessions import (
 
 if TYPE_CHECKING:
     from src.plugins.runtime import PluginRuntime
+
+
+class PresenceRevisionConflictError(ValueError):
+    """Raised by ``Runner.set_presence`` when the caller's revision is stale."""
 
 
 class Runner:
@@ -133,17 +142,22 @@ class Runner:
             from src.models import Scene
 
             sdata = scenario_data["scene"]
+            # The scenario's own present_characters only means anything paired with
+            # its own characters. When the caller supplied custom characters but no
+            # scene, borrowing this scene's location/time/facts is fine, but its
+            # present_characters would reference IDs foreign to the caller's set —
+            # leave it absent so the block below materializes the correct default.
+            borrowed_present_characters = (
+                list(sdata.get("present_characters", [])) if "characters" not in cfg else []
+            )
             scene = Scene(
                 location=sdata["location"],
                 time_of_day=sdata["time_of_day"],
-                present_characters=list(sdata.get("present_characters", [])),
+                present_characters=borrowed_present_characters,
                 physical_facts=dict(sdata.get("physical_facts", {})),
             )
         else:
             raise ValueError("No default scene available.")
-
-        # Do not trust the client: present_characters is derived from the characters.
-        scene.present_characters = [*characters, "Player"]
 
         # controlled_character_id must exist; otherwise, use the first character.
         controlled_id: str = cfg.get("controlled_character_id") or ""
@@ -151,6 +165,16 @@ class Runner:
             controlled_id = next(iter(characters))
 
         player = Player(controlled_character_id=controlled_id)
+
+        # present_characters is scene state, not derived registration state. An absent
+        # value defaults to "everyone present"; a supplied value is validated, never
+        # silently corrected.
+        if scene.present_characters:
+            scene.present_characters = validate_present_characters(
+                scene.present_characters, characters, controlled_id
+            )
+        else:
+            scene.present_characters = default_present_characters(characters)
 
         character_preset_ids = dict(cfg.get("character_preset_ids", {}))
         if set(character_preset_ids) - set(characters):
@@ -351,10 +375,12 @@ class Runner:
                 narrator_hint = str(turn_input["narrator_hint"])
                 skip = bool(turn_input["skip"])
 
+            force_speaker_present = (
+                force_speaker in game.characters and force_speaker in game.scene.present_characters
+            )
             effective_force_speaker = (
                 force_speaker
-                if force_speaker
-                and (force_speaker in game.characters or force_speaker == "Narrator")
+                if force_speaker and (force_speaker_present or force_speaker == "Narrator")
                 else None
             )
             transformed_fields = [
@@ -506,10 +532,33 @@ class Runner:
                         "automatic_compaction": automatic_compaction,
                     }
 
-            # Call Narrator
+            # Call Narrator — extra_context/extra_schema let plugins add read-only
+            # prompt lines and an optional output key (narrator.context/narrator.schema)
+            # without a provider- or plugin-specific branch here.
+            extra_context: list[str] = []
+            extra_schema_properties: dict[str, Any] = {}
+            extra_schema_required: list[str] = []
+            if self.plugins is not None:
+                extra_context = await self.plugins.hooks.filter(
+                    "narrator.context", [], {"game": game, "turn_number": step, "runner": self}
+                )
+                schema_extension = await self.plugins.hooks.filter(
+                    "narrator.schema",
+                    {"properties": {}, "required": []},
+                    {"game": game, "turn_number": step, "runner": self},
+                )
+                extra_schema_properties = dict(schema_extension.get("properties", {}))
+                extra_schema_required = list(schema_extension.get("required", []))
+
             if self.plugins is None:
                 narrator_raw = await self._call_narrator(
-                    game, step, effective_force_speaker, narrator_hint
+                    game,
+                    step,
+                    effective_force_speaker,
+                    narrator_hint,
+                    extra_context=extra_context,
+                    extra_schema_properties=extra_schema_properties,
+                    extra_schema_required=extra_schema_required,
                 )
             else:
                 narrator_game = game
@@ -517,7 +566,13 @@ class Runner:
                 narrator_raw = await self.plugins.hooks.call_wrapped(
                     "narrator.call",
                     lambda: self._call_narrator(
-                        narrator_game, step, effective_force_speaker, narrator_hint
+                        narrator_game,
+                        step,
+                        effective_force_speaker,
+                        narrator_hint,
+                        extra_context=extra_context,
+                        extra_schema_properties=extra_schema_properties,
+                        extra_schema_required=extra_schema_required,
                     ),
                     {"game": narrator_game, "turn_number": step, "runner": self},
                 )
@@ -539,7 +594,11 @@ class Runner:
             # The Narrator is blind and can route to the controlled character —
             # in this case, the runner does NOT generate their speech; pauses and returns
             # control to the human (the UI decides what to do with next_speaker).
-            if speaker in game.characters and speaker != controlled:
+            if (
+                speaker in game.characters
+                and speaker in game.scene.present_characters
+                and speaker != controlled
+            ):
                 ctx = narrator_raw.get("context_for_character", "")
                 if self.plugins is None:
                     character_response = await self._call_character(game, speaker, ctx, step)
@@ -587,6 +646,16 @@ class Runner:
                 self._update_moods(game, mood_updates)
 
             if self.plugins is not None:
+                # Each plugin validates and applies its own narrator.schema property (if
+                # present in narrator_raw) to this same-turn draft. A plugin that finds
+                # its own proposal invalid returns the draft unchanged instead of raising —
+                # raising here would trip the shared crash policy and disable the plugin,
+                # which is reserved for genuine bugs, not routine LLM validation failures.
+                game = await self.plugins.hooks.filter(
+                    "narrator.result",
+                    game,
+                    {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
+                )
                 game = await self.plugins.hooks.filter(
                     "turn.before_commit", game, {"kind": "turn", "runner": self}
                 )
@@ -1057,6 +1126,108 @@ class Runner:
                 )
             return result
 
+    async def set_presence(
+        self, session_id: str, present_characters: list[str], expected_revision: int
+    ) -> dict:
+        """Administrative, out-of-band presence edit — no turn, no LLM call, no history.
+
+        Guards against overwriting a concurrent turn/edit via ``expected_revision``
+        (the client's whole view of the session). The previous list is pushed onto
+        ``presence_edit_stack`` so ``undo_last_presence_edit`` can revert it later.
+        """
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return {"error": f"Session {session_id} not found"}
+            if game.revision != expected_revision:
+                raise PresenceRevisionConflictError(
+                    "Session was modified concurrently; reload and retry with the current revision."
+                )
+            validated = validate_present_characters(
+                present_characters, game.characters, game.player.controlled_character_id
+            )
+            before = list(game.scene.present_characters)
+            changed_ids = sorted(set(before) ^ set(validated))
+            entry = PresenceEditEntry(
+                edit_id=uuid4().hex[:8],
+                created_at=datetime.now(UTC).isoformat(),
+                origin="human",
+                before=before,
+                after=validated,
+                committed_revision=game.revision + 1,
+            )
+            game.scene.present_characters = validated
+            game.presence_edit_stack.append(entry)
+            game.revision += 1
+            save_game(game)
+            log_presence_change(
+                session_id,
+                origin=entry.origin,
+                changed_ids=changed_ids,
+                revision=game.revision,
+                edit_id=entry.edit_id,
+            )
+            return {
+                "changed": True,
+                "present_characters": validated,
+                "revision": game.revision,
+                "edit_id": entry.edit_id,
+            }
+
+    async def undo_last_presence_edit(self, session_id: str) -> dict:
+        """Undo the newest out-of-band admin presence edit — strictly LIFO.
+
+        Only ever touches ``presence_edit_stack[-1]``. Before restoring, compares
+        the CURRENT presence against that entry's recorded ``after`` — the same
+        content-divergence check ``restore_last_compaction`` uses (not a revision
+        comparison), so a later Narrator ``presence_update`` or another admin edit is
+        never silently overwritten; the restore is rejected explicitly instead.
+        """
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return {"error": f"Session {session_id} not found"}
+            if not game.presence_edit_stack:
+                reason = "No presence edit found."
+                log_presence_undo(session_id, False, reason)
+                return {"restored": False, "reason": reason, "remaining_undo_depth": 0}
+
+            entry = game.presence_edit_stack[-1]
+            if list(game.scene.present_characters) != entry.after:
+                reason = (
+                    "Presence changed again since this edit; undo would overwrite a later change."
+                )
+                log_presence_undo(session_id, False, reason)
+                return {
+                    "restored": False,
+                    "reason": reason,
+                    "remaining_undo_depth": len(game.presence_edit_stack),
+                }
+
+            try:
+                restored = validate_present_characters(
+                    entry.before, game.characters, game.player.controlled_character_id
+                )
+            except ValueError as error:
+                log_presence_undo(session_id, False, str(error))
+                return {
+                    "restored": False,
+                    "reason": str(error),
+                    "remaining_undo_depth": len(game.presence_edit_stack),
+                }
+
+            game.scene.present_characters = restored
+            game.presence_edit_stack.pop()
+            game.revision += 1
+            save_game(game)
+            log_presence_undo(session_id, True, "")
+            return {
+                "restored": True,
+                "present_characters": restored,
+                "revision": game.revision,
+                "remaining_undo_depth": len(game.presence_edit_stack),
+            }
+
     # ── Private Methods ───────────────────────────────────────────────────
 
     async def _call_narrator(
@@ -1065,6 +1236,9 @@ class Runner:
         turn_number: int,
         forced_speaker: str | None = None,
         narrator_hint: str = "",
+        extra_context: list[str] | None = None,
+        extra_schema_properties: dict[str, Any] | None = None,
+        extra_schema_required: list[str] | None = None,
     ) -> dict:
         """Calls Narrator agent (blind) with full context. Returns result."""
         # The player initiated this turn (actively or by skipping/passing), so exclude them
@@ -1085,6 +1259,9 @@ class Runner:
             forced_speaker=forced_speaker,
             narrator_hint=narrator_hint,
             exclude_speaker=exclude_speaker,
+            extra_context=extra_context,
+            extra_schema_properties=extra_schema_properties,
+            extra_schema_required=extra_schema_required,
         )
 
     async def _call_character(

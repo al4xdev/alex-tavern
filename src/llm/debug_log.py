@@ -316,3 +316,33 @@ def log_restore_compaction(session_id: str, restored: bool, reason: str) -> None
             "reason": reason,
         },
     )
+
+
+def log_presence_change(
+    session_id: str, *, origin: str, changed_ids: list[str], revision: int, edit_id: str
+) -> None:
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "agent": "presence_change",
+            "origin": origin,
+            "changed_ids": changed_ids,
+            "revision": revision,
+            "edit_id": edit_id,
+        },
+    )
+
+
+def log_presence_undo(session_id: str, restored: bool, reason: str) -> None:
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "agent": "presence_undo",
+            "restored": restored,
+            "reason": reason,
+        },
+    )

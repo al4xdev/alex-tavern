@@ -28,7 +28,7 @@ from src.config import (
 from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR
 from src.plugins.runtime import PluginRuntime
-from src.runner import Runner
+from src.runner import PresenceRevisionConflictError, Runner
 from src.store.sessions import delete_session, fork_session, list_sessions
 
 MAX_READ_LIMIT = 1000
@@ -153,6 +153,13 @@ class PlayerTurnRequest(BaseModel):
         ):
             raise ValueError("A turn needs speech, thought, action, or narrator_hint")
         return self
+
+
+class PresenceUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    present_characters: list[str]
+    expected_revision: int = Field(ge=0)
 
 
 class CommandFileInput(BaseModel):
@@ -288,7 +295,7 @@ async def start_session(req: StartSessionRequest) -> dict:
         scene = Scene(
             location=req.scene.location,
             time_of_day=req.scene.time_of_day,
-            present_characters=[],  # recomputed by the runner
+            present_characters=list(req.scene.present_characters),
             physical_facts=dict(req.scene.physical_facts),
         )
     elif "scene" in scenario_data:
@@ -498,6 +505,31 @@ def get_debug_log(
 async def undo_turn(session_id: str) -> dict:
     """Undoes the last turn of the session."""
     result = await _runtime().runner.undo_turn(session_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@app.post("/session/{session_id}/presence")
+async def set_presence(session_id: str, body: PresenceUpdateRequest) -> dict:
+    """Administrative presence edit — no turn, no LLM call, no history entry."""
+    try:
+        result = await _runtime().runner.set_presence(
+            session_id, body.present_characters, body.expected_revision
+        )
+    except PresenceRevisionConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@app.post("/session/{session_id}/presence/undo")
+async def undo_presence(session_id: str) -> dict:
+    """Undo the newest out-of-band admin presence edit (strictly LIFO)."""
+    result = await _runtime().runner.undo_last_presence_edit(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result

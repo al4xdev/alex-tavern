@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { bindTranslation, onLocaleChange, t, translateDocument } from './i18n.js';
+import { PluginRuntime } from './plugin-runtime.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    setup.js — the setup/lobby overlay: characters, scene, narrator
@@ -135,7 +136,7 @@ export const Setup = (() => {
         return { base64: btoa(binary), preview: URL.createObjectURL(blob) };
     }
 
-    function makeCharCard(data = {}, preset = {}) {
+    async function makeCharCard(data = {}, preset = {}) {
         const frag = cardTpl.content.cloneNode(true);
         translateDocument(frag);
         const card = frag.querySelector('.char-card');
@@ -176,6 +177,11 @@ export const Setup = (() => {
         });
         card.querySelector('.char-save-preset').addEventListener('click', () => saveCardPreset(card));
 
+        // Mount point in the card header (badge/name/remove already live there) for a
+        // plugin-owned control, e.g. the "Na cena" presence toggle. A handler must
+        // mutate and return the same card.
+        await PluginRuntime.runHook('setup.charCardHead', card, {});
+
         charsListEl.appendChild(card);
         reindexCards();
         return card;
@@ -208,10 +214,11 @@ export const Setup = (() => {
     }
 
     /* ── Collect / populate ───────────────────────────────────────────── */
-    function collect() {
+    async function collect() {
         const characters = {};
         const character_preset_ids = {};
-        [...charsListEl.querySelectorAll('.char-card')].forEach((card) => {
+        const cards = [...charsListEl.querySelectorAll('.char-card')];
+        cards.forEach((card) => {
             const cid = card.dataset.cid;
             characters[cid] = characterFromCard(card);
             if (card.dataset.presetName) character_preset_ids[cid] = card.dataset.presetName;
@@ -224,6 +231,13 @@ export const Setup = (() => {
             if (k) physical_facts[k] = v;
         });
 
+        // Default: everyone present. A plugin (e.g. dynamic character presence) can
+        // return a different list by reading its own per-card toggle state off `cards`.
+        const defaultPresent = [...Object.keys(characters), 'Player'];
+        const present_characters = await PluginRuntime.runHook(
+            'setup.presentCharacters', defaultPresent, { cards, characters },
+        );
+
         return {
             controlled_character_id: controlledEl.value,
             narrator_directives: directivesEl.value.trim(),
@@ -232,13 +246,13 @@ export const Setup = (() => {
             scene: {
                 location: sceneLocEl.value.trim(),
                 time_of_day: sceneTimeEl.value.trim(),
-                present_characters: [...Object.keys(characters), 'Player'],
+                present_characters,
                 physical_facts,
             },
         };
     }
 
-    function populate(cfg) {
+    async function populate(cfg) {
         directivesEl.value = cfg.narrator_directives || '';
         sceneLocEl.value   = (cfg.scene && cfg.scene.location) || '';
         sceneTimeEl.value  = (cfg.scene && cfg.scene.time_of_day) || '';
@@ -253,17 +267,23 @@ export const Setup = (() => {
         const chars = cfg.characters || {};
         const ids = Object.keys(chars);
         const presetIds = cfg.character_preset_ids || {};
-        if (ids.length) ids.forEach((cid) => {
-            const card = makeCharCard(chars[cid], { preset_name: presetIds[cid] || '' });
-            if (presetIds[cid]) hydrateCardPreset(card, presetIds[cid]);
-        });
-        else makeCharCard({});
+        if (ids.length) {
+            for (const cid of ids) {
+                const card = await makeCharCard(chars[cid], { preset_name: presetIds[cid] || '' });
+                if (presetIds[cid]) hydrateCardPreset(card, presetIds[cid]);
+            }
+        } else await makeCharCard({});
 
         reindexCards();
         if (cfg.controlled_character_id &&
             [...controlledEl.options].some((o) => o.value === cfg.controlled_character_id)) {
             controlledEl.value = cfg.controlled_character_id;
         }
+
+        // Lets a plugin restore its own per-card toggle state from the persisted list.
+        const cards = [...charsListEl.querySelectorAll('.char-card')];
+        const presentCharacters = (cfg.scene && cfg.scene.present_characters) || null;
+        await PluginRuntime.runHook('setup.restorePresence', presentCharacters, { cards });
     }
 
     async function hydrateCardPreset(card, name) {
@@ -304,7 +324,7 @@ export const Setup = (() => {
         if (!presetSelect.value) return;
         try {
             const preset = await api.getPreset(presetSelect.value);
-            const card = makeCharCard(preset.character, preset);
+            const card = await makeCharCard(preset.character, preset);
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (error) {
             notify(t('presets.loadError', { error: error.message }), 'error');
@@ -363,7 +383,7 @@ export const Setup = (() => {
 
     async function openPresetDraft(character, presetName, avatarFile = null) {
         open();
-        const card = makeCharCard(character, { preset_name: presetName });
+        const card = await makeCharCard(character, { preset_name: presetName });
         if (avatarFile) {
             try {
                 const processed = await processAvatar(avatarFile);
@@ -379,7 +399,7 @@ export const Setup = (() => {
     async function loadBuiltinScenario(name = '') {
         try {
             const data = await api.getBuiltinScenario(name);
-            populate(data.scenario);
+            await populate(data.scenario);
         } catch (err) {
             showError('scenarios.defaultLoadError', { error: err.message });
         }
@@ -408,6 +428,11 @@ export const Setup = (() => {
         }
         if (!cfg.scene.location) return { key: 'validation.location' };
         if (!cfg.controlled_character_id) return { key: 'validation.controlled' };
+        // Generic, not plugin-specific: present_characters defaults to "everyone" when
+        // no plugin overrides it, so this is always trivially satisfied in that case.
+        if (!cfg.scene.present_characters.includes(cfg.controlled_character_id)) {
+            return { key: 'validation.controlledMustBePresent' };
+        }
         return null;
     }
 
@@ -473,7 +498,7 @@ export const Setup = (() => {
         const name = val.replace(/^user:/, '');
         try {
             const cfg = await api.getScenario(name);
-            populate(cfg);
+            await populate(cfg);
             clearError();
             notify(t('scenarios.loaded', { name }));
         } catch (err) {
@@ -484,7 +509,7 @@ export const Setup = (() => {
     async function saveCurrentScenario() {
         const name = scenarioNameEl.value.trim();
         if (!name) { showError('scenarios.nameRequired'); return; }
-        const cfg = collect();
+        const cfg = await collect();
         const problem = validate(cfg);
         if (problem) { showError(problem.key, problem.params); return; }
         try {
@@ -531,9 +556,9 @@ export const Setup = (() => {
     }
 
     /* ── Wiring ───────────────────────────────────────────────────────── */
-    function handleStart() {
+    async function handleStart() {
         clearError();
-        const cfg = collect();
+        const cfg = await collect();
         const problem = validate(cfg);
         if (problem) { showError(problem.key, problem.params); return; }
         save(cfg);
@@ -547,7 +572,7 @@ export const Setup = (() => {
         notifyCb = opts.notify || notifyCb;
 
         addFactBtn.addEventListener('click', () => makeKvRow(factsListEl, '', ''));
-        addCharBtn.addEventListener('click', () => makeCharCard({}));
+        addCharBtn.addEventListener('click', () => { makeCharCard({}); });
         startBtn.addEventListener('click', handleStart);
         closeBtn.addEventListener('click', close);
         overlay.addEventListener('click', (e) => {

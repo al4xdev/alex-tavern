@@ -174,6 +174,21 @@ export const api = {
         return apiFetch(`/session/${sessionId}/restore_compaction`, { method: 'POST' });
     },
 
+    setPresence(sessionId, presentCharacters, expectedRevision) {
+        return apiFetch(`/session/${sessionId}/presence`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                present_characters: presentCharacters,
+                expected_revision: expectedRevision,
+            }),
+        });
+    },
+
+    undoPresence(sessionId) {
+        return apiFetch(`/session/${sessionId}/presence/undo`, { method: 'POST' });
+    },
+
     getDebugLog(sessionId) {
         return apiFetch(`/session/${sessionId}/debug_log`);
     },
@@ -284,6 +299,18 @@ export const api = {
 
     getPluginEvents() {
         return apiFetch('/plugins/events');
+    },
+
+    getPluginConfig(pluginId) {
+        return apiFetch(`/plugins/${encodeURIComponent(pluginId)}/config`);
+    },
+
+    putPluginConfig(pluginId, config) {
+        return apiFetch(`/plugins/${encodeURIComponent(pluginId)}/config`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config),
+        });
     },
 
     listExperiences() {

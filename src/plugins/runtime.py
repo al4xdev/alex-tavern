@@ -16,8 +16,33 @@ from src.plugins.commands import CommandRegistry
 from src.plugins.hooks import HookRegistry
 from src.plugins.journal import emit
 from src.plugins.manifest import PluginManifest, load_manifest, satisfies_version
-from src.plugins.sdk import PluginContext
+from src.plugins.sdk import PluginConfig, PluginContext
 from src.plugins.store import active_pointers
+
+_SETTINGS_FIELD_TYPES = {"boolean"}
+
+
+def _validated_settings_fields(plugin_id: str, descriptor: Any) -> list[dict[str, Any]]:
+    """Enforces the ``settings`` contribution shape declared in ``contracts.SETTINGS``.
+
+    A malformed descriptor fails the plugin's boot explicitly instead of producing
+    a broken or silently-skipped config form.
+    """
+    if not isinstance(descriptor, dict) or not isinstance(descriptor.get("fields"), list):
+        raise ValueError(f"{plugin_id}: settings contribution must be an object with 'fields'")
+    fields: list[dict[str, Any]] = []
+    for field in descriptor["fields"]:
+        if not isinstance(field, dict):
+            raise ValueError(f"{plugin_id}: settings field must be an object")
+        missing = [key for key in ("key", "type", "label", "default") if key not in field]
+        if missing:
+            raise ValueError(f"{plugin_id}: settings field missing {missing}")
+        if field["type"] not in _SETTINGS_FIELD_TYPES:
+            raise ValueError(f"{plugin_id}: unsupported settings field type '{field['type']}'")
+        if not isinstance(field["label"], dict) or not field["label"].get("en"):
+            raise ValueError(f"{plugin_id}: settings field label needs at least an 'en' locale")
+        fields.append(field)
+    return fields
 
 
 @dataclass(slots=True)
@@ -137,6 +162,7 @@ class PluginRuntime:
                 if not callable(setup):
                     raise TypeError("Backend entrypoint must export setup(context)")
                 setup(PluginContext(manifest, self.hooks, self, default_before))
+                self._materialize_settings_defaults(manifest.plugin_id)
             self.loaded[manifest.plugin_id] = LoadedPlugin(manifest, package, module)
             emit(
                 "loaded",
@@ -146,6 +172,32 @@ class PluginRuntime:
             )
         except BaseException as error:
             self.disable_for_boot(manifest.plugin_id, f"load: {error}")
+
+    def _materialize_settings_defaults(self, plugin_id: str) -> None:
+        """Writes each declared field's default into config the first time it's missing.
+
+        Runs once per boot, right after ``setup(context)`` registers the plugin's
+        "settings" contribution — the generic config-UI contract (no per-plugin
+        branch anywhere in core or the frontend).
+        """
+        descriptors = [
+            item["value"]
+            for item in self.hooks.contributions("settings")
+            if item["plugin_id"] == plugin_id
+        ]
+        if not descriptors:
+            return
+        config = PluginConfig(plugin_id)
+        current = config.read()
+        changed = False
+        for descriptor in descriptors:
+            for field in _validated_settings_fields(plugin_id, descriptor):
+                key = field["key"]
+                if key not in current:
+                    current[key] = field["default"]
+                    changed = True
+        if changed:
+            config.write(current)
 
     def public_status(self) -> dict[str, Any]:
         return {

@@ -1,7 +1,7 @@
 /* Experience-first plugin management UI. */
 
 import { api } from './api.js';
-import { t } from './i18n.js';
+import { t, getLocale } from './i18n.js';
 
 export const PluginCenter = (() => {
     const overlay = document.getElementById('plugins-overlay');
@@ -352,7 +352,56 @@ export const PluginCenter = (() => {
         return row;
     }
 
-    function pluginCard(plugin) {
+    /* ── Generic plugin-config UI (contracts.SETTINGS) ───────────────────
+     * Renders whatever a plugin declares via context.contribute('settings', ...);
+     * no plugin-ID branch here or anywhere else in this file. */
+    function pluginSettingField(pluginId, field, config) {
+        const row = document.createElement('label');
+        row.className = 'toggle plugin-setting-toggle';
+        const inputId = `plugin-setting-${pluginId}-${field.key}`;
+        row.setAttribute('for', inputId);
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.id = inputId;
+        input.checked = Boolean(field.key in config ? config[field.key] : field.default);
+        const track = document.createElement('span');
+        track.className = 'toggle-track';
+        const thumb = document.createElement('span');
+        thumb.className = 'toggle-thumb';
+        track.append(thumb);
+        const copy = document.createElement('span');
+        copy.className = 'plugin-setting-copy';
+        const locale = getLocale();
+        copy.textContent = field.label[locale] || field.label.en;
+        row.append(input, track, copy);
+        input.addEventListener('change', async () => {
+            const next = { ...config, [field.key]: input.checked };
+            input.disabled = true;
+            try {
+                await api.putPluginConfig(pluginId, next);
+                config[field.key] = input.checked;
+            } catch (error) {
+                input.checked = !input.checked;
+                notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
+            } finally {
+                input.disabled = false;
+            }
+        });
+        return row;
+    }
+
+    function pluginSettingsForm(pluginId, descriptor, config) {
+        const booleanFields = descriptor.fields.filter((field) => field.type === 'boolean');
+        if (!booleanFields.length) return null;
+        const form = document.createElement('div');
+        form.className = 'plugin-settings';
+        const heading = document.createElement('h5');
+        heading.textContent = t('plugins.settingsTitle');
+        form.append(heading, ...booleanFields.map((field) => pluginSettingField(pluginId, field, config)));
+        return form;
+    }
+
+    function pluginCard(plugin, settingsDescriptors = new Map(), settingsConfigs = new Map()) {
         const primary = plugin.active || plugin.cached_versions[0];
         const manifest = primary.manifest;
         const hasUpdate = plugin.state === 'update_available';
@@ -438,6 +487,14 @@ export const PluginCenter = (() => {
         rows.append(...plugin.cached_versions.map((item) => cachedVersionRow(plugin, item)));
         details.append(summary, rows);
         card.append(details);
+        if (plugin.active && settingsDescriptors.has(plugin.plugin_id)) {
+            const form = pluginSettingsForm(
+                plugin.plugin_id,
+                settingsDescriptors.get(plugin.plugin_id),
+                settingsConfigs.get(plugin.plugin_id) || {},
+            );
+            if (form) card.append(form);
+        }
         return card;
     }
 
@@ -496,7 +553,21 @@ export const PluginCenter = (() => {
         } else empty(catalogStack, 'plugins.noNewCatalog');
         const installed = status.plugins.filter((plugin) => plugin.cached_versions.length);
         if (installed.length) {
-            pluginStack.replaceChildren(...installed.map(pluginCard));
+            const settingsDescriptors = new Map();
+            (status.contributions.settings || []).forEach((item) => {
+                if (!settingsDescriptors.has(item.plugin_id)) {
+                    settingsDescriptors.set(item.plugin_id, item.value);
+                }
+            });
+            const activeWithSettings = installed.filter((plugin) => (
+                plugin.active && settingsDescriptors.has(plugin.plugin_id)
+            ));
+            const settingsConfigs = new Map(await Promise.all(activeWithSettings.map(async (plugin) => (
+                [plugin.plugin_id, await api.getPluginConfig(plugin.plugin_id)]
+            ))));
+            pluginStack.replaceChildren(...installed.map((plugin) => (
+                pluginCard(plugin, settingsDescriptors, settingsConfigs)
+            )));
         } else empty(pluginStack, 'plugins.noPlugins');
         const updates = installed.filter((plugin) => plugin.state === 'update_available').length;
         updateCount.hidden = updates === 0;

@@ -1,6 +1,7 @@
 # Task 13: Presença dinâmica de personagens
 
-**Status:** Aberta — definição de produto atualizada; implementação pendente
+**Status:** Fechada — implementada em duas fases (core + plugin curado), verificada
+end-to-end (backend real + navegador), quality gates completos em ambos os repositórios.
 **Formato de entrega:** Plugin híbrido curado (`dev.alex-tavern.dynamic-character-presence`)
 **Solicitado pelo usuário:** controle manual simples de quem participa da cena, com controle opcional pelo Narrador
 

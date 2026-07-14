@@ -282,3 +282,53 @@ if (!duplicateTerminal) process.exit(4);
         capture_output=True,
         text=True,
     )
+
+
+def test_setup_exposes_generic_presence_hooks_for_plugins() -> None:
+    """setup.js calls plugin-agnostic hooks; no plugin-ID branch anywhere in core."""
+    source = (STATIC / "setup.js").read_text(encoding="utf-8")
+
+    assert "import { PluginRuntime } from './plugin-runtime.js';" in source
+    assert "runHook('setup.charCardHead'" in source
+    assert "'setup.presentCharacters'" in source
+    assert "'setup.restorePresence'" in source
+    # The mount hook runs before the card joins the DOM, so a plugin's toggle is
+    # part of the same insertion (no flash of an unstyled/incomplete header).
+    assert source.index("setup.charCardHead") < source.index("charsListEl.appendChild(card)")
+    # Generic: gated on scene.present_characters, true even with no plugin active.
+    assert "cfg.scene.present_characters.includes(cfg.controlled_character_id)" in source
+    assert "dev." not in source and "alex-tavern" not in source
+
+
+def test_session_view_exposes_a_generic_plugin_tools_slot() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    assert 'data-plugin-slot="session.tools"' in html
+    # Sits with the always-present scene chrome, not inside a conditional template.
+    assert html.index('id="scene-panel"') < html.index('data-plugin-slot="session.tools"')
+
+
+def test_api_exposes_generic_presence_endpoints() -> None:
+    source = (STATIC / "api.js").read_text(encoding="utf-8")
+    assert "setPresence(sessionId, presentCharacters, expectedRevision)" in source
+    assert "/session/${sessionId}/presence" in source
+    assert "undoPresence(sessionId)" in source
+    assert "/session/${sessionId}/presence/undo" in source
+
+
+def test_char_card_presence_toggle_styling_is_generic_and_inert_when_unused() -> None:
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+    assert ".char-presence-toggle" in styles
+    assert ".presence-panel" in styles
+    # Reuses the shared toggle component rather than inventing a new control.
+    assert ".char-presence-toggle .toggle-label" in styles
+
+
+def test_i18n_declares_presence_toggle_and_validation_strings() -> None:
+    source = (STATIC / "i18n.js").read_text(encoding="utf-8")
+    for key in (
+        "'character.inScene'",
+        "'validation.controlledMustBePresent'",
+        "'presence.panelTitle'",
+        "'presence.undoButton'",
+    ):
+        assert source.count(key) == 2, f"{key} must be declared in both en and pt-BR catalogs"

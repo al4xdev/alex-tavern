@@ -33,6 +33,36 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
         "commit": "before",
         "description": "Replace, surround, or bypass the complete Narrator call.",
     },
+    "narrator.context": {
+        "kind": "filter",
+        "value": "list[str] of extra prompt lines",
+        "context": ["game", "turn_number", "runner"],
+        "commit": "before",
+        "description": "Append read-only context lines to the Narrator's user prompt.",
+    },
+    "narrator.schema": {
+        "kind": "filter",
+        "value": "{'properties': dict, 'required': list[str]}",
+        "context": ["game", "turn_number", "runner"],
+        "commit": "before",
+        "description": (
+            "Extend the Narrator's JSON schema with an optional, plugin-owned property. "
+            "Provider-independent — the property's own JSON Schema carries its semantics "
+            "(e.g. a 'description'); pair it with narrator.context for prose guidance."
+        ),
+    },
+    "narrator.result": {
+        "kind": "filter",
+        "value": "GameState (same-turn draft)",
+        "context": ["narrator_output", "turn_number", "runner"],
+        "commit": "before",
+        "description": (
+            "Validate and apply one plugin's own narrator.schema property to the turn draft. "
+            "A plugin that finds its proposal invalid must return the draft unchanged (and may "
+            "journal why) instead of raising — raising trips the shared crash policy and disables "
+            "the plugin, which is reserved for genuine bugs, not routine LLM validation failures."
+        ),
+    },
     "character.call": {
         "kind": "wrapper",
         "value": "async Character operation",
@@ -163,6 +193,21 @@ SERVICES = {
     }
 }
 
+SETTINGS = {
+    "registration": "context.contribute('settings', descriptor)",
+    "storage": "context.config.read()/.write() — one JSON object per plugin",
+    "descriptor": {
+        "required": ["fields"],
+        "field": {
+            "required": ["key", "type", "label", "default"],
+            "types": ["boolean"],
+            "locales": ["en", "pt-BR"],
+        },
+    },
+    "defaults": "Materialized into the plugin's stored config the first time it activates.",
+    "renderer": "Generic — the frontend renders any declared descriptor; no per-plugin branch.",
+}
+
 COMMANDS = {
     "registration": "context.command(descriptor, handler)",
     "scope": "session-bound utility; cannot mutate GameState in schema_version 1",
@@ -185,6 +230,7 @@ def exported_contract() -> dict[str, Any]:
         "hooks": HOOK_CONTRACTS,
         "contribution_slots": CONTRIBUTION_SLOTS,
         "services": SERVICES,
+        "settings": SETTINGS,
         "commands": COMMANDS,
         "permissions": PERMISSIONS,
         "crash_policy": {
