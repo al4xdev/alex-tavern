@@ -132,8 +132,11 @@ export const PluginCenter = (() => {
     }
 
     async function refresh() {
-        const [experiences, status, events, catalog] = await Promise.all([
-            api.listExperiences(), api.getPlugins(), api.getPluginEvents(), api.getPluginCatalog(),
+        // Catalog synchronization also materializes curated Experiences. Await it
+        // before listing them so a fresh install is complete on its first open.
+        const catalog = await api.getPluginCatalog();
+        const [experiences, status, events] = await Promise.all([
+            api.listExperiences(), api.getPlugins(), api.getPluginEvents(),
         ]);
         if (experiences.length) experienceGrid.replaceChildren(...experiences.map(experienceCard));
         else empty(experienceGrid, 'plugins.noExperiences');

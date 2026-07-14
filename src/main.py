@@ -573,11 +573,15 @@ async def upload_plugin(request: Request) -> dict[str, Any]:
 
 
 @app.get("/plugins/catalog")
-def get_plugin_catalog() -> dict[str, Any]:
+def get_plugin_catalog(refresh: bool = False) -> dict[str, Any]:
+    from src.plugins.hub import HubSyncError, ensure_hub_synced
     from src.plugins.store import PluginInstallError, curated_catalog
 
     try:
+        ensure_hub_synced(force=refresh)
         return curated_catalog()
+    except HubSyncError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     except (PluginInstallError, json.JSONDecodeError, OSError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 

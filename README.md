@@ -84,7 +84,10 @@ Reference packages live in `plugins/examples`. Authoring commands are available 
 `uv run python -m tools.plugin_author`; the separate curated-hub scaffold at
 `../alex-tavern-plugins` includes source, deterministic artifacts, an animated Experience preview,
 documentation, and a stdio MCP with contract, scaffold, validate, test, pack, and trace tools. It
-never performs Git or publication operations. Sync a published hub snapshot with:
+never performs Git or publication operations. Opening the Plugin Center automatically downloads a
+validated GitHub snapshot when the local cache is missing or older than five minutes. Downloads are
+bounded, reject unsafe archive paths, verify every artifact SHA-256, publish atomically, and fall
+back to the last valid snapshot while offline. To force the same synchronization from the CLI:
 
 ```fish
 uv run python tools/plugin_hub.py sync --repository https://github.com/al4xdev/alex-tavern-plugins.git
