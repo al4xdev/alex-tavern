@@ -237,9 +237,7 @@ def uninstall(plugin_id: str, version: str, sha256: str) -> dict[str, Any]:
             None,
         )
         deactivated = bool(
-            pointer
-            and pointer.get("version") == version
-            and pointer.get("sha256") == sha256
+            pointer and pointer.get("version") == version and pointer.get("sha256") == sha256
         )
         if deactivated:
             activation_path(plugin_id).unlink(missing_ok=True)

@@ -13,6 +13,8 @@ from typing import Any
 
 import httpx
 
+from src.config import llm_request_options
+from src.llm.client import chat_completion_json, resolve_llm_timeout
 from src.paths import PLUGIN_CONFIG_DIR
 from src.plugins.hooks import Handler, HookKind, HookRegistry
 from src.plugins.journal import emit
@@ -68,6 +70,65 @@ class PluginHttp:
             return await client.request(method, url, **kwargs)
 
 
+class PluginModel:
+    """Provider-neutral structured model calls with core-owned secrets and logging."""
+
+    def __init__(self, plugin_id: str) -> None:
+        self.plugin_id = plugin_id
+
+    async def call_json(
+        self,
+        hook_context: dict[str, Any],
+        *,
+        messages: list[dict[str, Any]],
+        json_schema: dict[str, Any],
+        max_tokens: int = 1024,
+        use_configured_language: bool = True,
+    ) -> dict[str, Any]:
+        if not isinstance(hook_context, dict):
+            raise TypeError("hook_context must be an object")
+        runner = hook_context.get("runner")
+        game = hook_context.get("game")
+        turn_number = hook_context.get("turn_number")
+        if runner is None or game is None:
+            raise ValueError("model.call_json requires runner and game in hook_context")
+        if isinstance(turn_number, bool) or not isinstance(turn_number, int) or turn_number <= 0:
+            raise ValueError("model.call_json requires a positive turn_number in hook_context")
+        session_id = getattr(game, "session_id", None)
+        if not isinstance(session_id, str) or not session_id:
+            raise ValueError("model.call_json requires a session-bound GameState")
+        if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or max_tokens <= 0:
+            raise ValueError("max_tokens must be a positive integer")
+        if not isinstance(messages, list) or not messages:
+            raise ValueError("messages must be a non-empty array")
+        if not isinstance(json_schema, dict) or not isinstance(json_schema.get("schema"), dict):
+            raise ValueError("json_schema must contain a schema object")
+
+        config = runner.config
+        emit(
+            "permission_access",
+            self.plugin_id,
+            permission="model.call",
+            session_id=session_id,
+            turn_number=turn_number,
+            max_tokens=max_tokens,
+            schema=json_schema.get("name", ""),
+        )
+        return await chat_completion_json(
+            client=runner.client,
+            messages=messages,
+            model=config.get("model", ""),
+            language=config.get("language", "") if use_configured_language else "",
+            max_tokens=max_tokens,
+            json_schema=json_schema,
+            timeout=resolve_llm_timeout(config),
+            session_id=session_id,
+            turn_number=turn_number,
+            agent=f"plugin:{self.plugin_id}",
+            **llm_request_options(config),
+        )
+
+
 @dataclass(slots=True)
 class UnsafeAccess:
     """Explicit escape hatch: trusted plugins may reach and replace arbitrary objects."""
@@ -98,6 +159,7 @@ class PluginContext:
         self.plugin_id = manifest.plugin_id
         self.config = PluginConfig(self.plugin_id)
         self.http = PluginHttp(self.plugin_id)
+        self.model = PluginModel(self.plugin_id)
         self.unsafe = UnsafeAccess(self.plugin_id, runtime)
         self._hooks = hooks
         self._default_before = default_before

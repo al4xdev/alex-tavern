@@ -106,3 +106,15 @@ def test_frontend_adapter_registry_loads_both_provider_modules() -> None:
         capture_output=True,
         text=True,
     )
+
+
+def test_transformed_player_input_updates_live_and_persisted_bubbles() -> None:
+    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
+    i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
+
+    assert "data.effective_input" in app_source
+    assert "data.transformed_fields" in app_source
+    assert "record.input_transformed === true" in app_source
+    assert "'input.adjusted'" in app_source
+    assert "Adjusted by plugin" in i18n_source
+    assert "Ajustado por plugin" in i18n_source

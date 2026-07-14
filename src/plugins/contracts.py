@@ -43,7 +43,7 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
     "turn.input": {
         "kind": "filter",
         "value": "dict",
-        "context": ["game", "runner"],
+        "context": ["game", "turn_number", "runner"],
         "commit": "before",
         "description": "Rewrite speech, thought, action, routing, hint, or skip.",
     },
@@ -131,11 +131,30 @@ PERMISSIONS = {
     "config.read": "Read the plugin-owned configuration object",
     "config.write": "Replace the plugin-owned configuration object",
     "network": "Perform outbound HTTP requests",
+    "model.call": "Call the active provider through the structured core model gateway",
     "session.state.write": "Mutate GameState and namespaced plugin_state",
     "provider.replace": "Register or replace an LLM provider adapter",
     "unsafe": "Reach or replace arbitrary runtime objects",
     "frontend.dom.mount": "Mount UI into a named frontend slot",
     "frontend.provider.register": "Register a browser-side provider adapter",
+}
+
+SERVICES = {
+    "model.call_json": {
+        "kind": "async structured model call",
+        "arguments": [
+            "hook_context",
+            "messages",
+            "json_schema",
+            "max_tokens",
+            "use_configured_language",
+        ],
+        "requires_context": ["game", "turn_number", "runner"],
+        "provider": "active provider through the shared client and ProviderAdapter",
+        "agent": "plugin:<plugin_id>",
+        "secrets": "never exposed to the plugin",
+        "validation": "JSON Schema plus local validation and shared retries",
+    }
 }
 
 
@@ -144,6 +163,7 @@ def exported_contract() -> dict[str, Any]:
         "schema_version": 1,
         "hooks": HOOK_CONTRACTS,
         "contribution_slots": CONTRIBUTION_SLOTS,
+        "services": SERVICES,
         "permissions": PERMISSIONS,
         "crash_policy": {
             "before_commit": "discard plugin draft, disable plugin for boot, continue clean",

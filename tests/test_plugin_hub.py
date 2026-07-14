@@ -65,9 +65,7 @@ def _build_hub_archive(root: Path, *, valid_hash: bool = True) -> Path:
                 "sha256": artifact_hash if valid_hash else "0" * 64,
             }
         ],
-        "experiences": [
-            {"manifest": "experiences/sample.json", "image": "assets/sample.gif"}
-        ],
+        "experiences": [{"manifest": "experiences/sample.json", "image": "assets/sample.gif"}],
     }
     (source / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
 
@@ -172,9 +170,7 @@ def test_concurrent_syncs_are_serialized(
     _use_archive(monkeypatch, archive)
 
     with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(
-            pool.map(lambda _: hub.sync_hub("https://example.test/hub.zip"), range(2))
-        )
+        results = list(pool.map(lambda _: hub.sync_hub("https://example.test/hub.zip"), range(2)))
 
     assert [result["plugins"] for result in results] == [1, 1]
     assert store.curated_catalog()["plugins"][0]["id"] == "dev.test.sample"

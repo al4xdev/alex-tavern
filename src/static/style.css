@@ -989,6 +989,17 @@ select.text-input { cursor: pointer; }
 }
 .msg-content { font-size: 0.92rem; white-space: pre-wrap; word-break: break-word; }
 .msg-content .thought { font-style: italic; opacity: 0.72; }
+.msg-transform-badge {
+    margin-left: auto;
+    padding: 1px 6px;
+    border: 1px solid rgba(124, 108, 255, 0.35);
+    border-radius: 999px;
+    color: var(--text-3);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0;
+}
+.msg-transformed { border-color: rgba(124, 108, 255, 0.48); }
 
 /* Debug drawer */
 .debug-drawer {

@@ -8,7 +8,7 @@ import threading
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
@@ -158,12 +158,20 @@ class CharacterResponse(BaseModel):
     thought: str | None = None
 
 
+class EffectiveTurnInput(BaseModel):
+    speech: str
+    thought: str
+    action: str
+
+
 class PlayerTurnResponse(BaseModel):
     narration: str | None = None
     character_response: CharacterResponse | None = None
     next_speaker: str | None = None
     scene_update: dict | None = None
     turn_number: int | None = None
+    effective_input: EffectiveTurnInput | None = None
+    transformed_fields: list[Literal["speech", "thought", "action"]] = Field(default_factory=list)
     error: str | None = None
 
 

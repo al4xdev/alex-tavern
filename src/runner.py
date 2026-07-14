@@ -18,7 +18,13 @@ from src.agents.character import act as character_act
 from src.agents.narrator import narrate
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.summarizer import summarize
-from src.llm.debug_log import log_compact, log_restore_compaction, log_turn_input, log_undo
+from src.llm.debug_log import (
+    log_compact,
+    log_effective_turn_input,
+    log_restore_compaction,
+    log_turn_input,
+    log_undo,
+)
 from src.models import (
     GameState,
     Player,
@@ -198,9 +204,25 @@ class Runner:
                 "narrator_hint": narrator_hint,
                 "skip": skip,
             }
+            original_input = copy.deepcopy(turn_input)
+
+            # All records and model calls from this step share one number.
+            step = (game.history[-1].turn_number + 1) if game.history else 1
+            log_turn_input(
+                session_id=session_id,
+                turn_number=step,
+                speech=speech,
+                thought=thought,
+                action=action,
+                requested_force_speaker=force_speaker,
+                narrator_hint=narrator_hint,
+                skip=skip,
+            )
             if self.plugins is not None:
                 turn_input = await self.plugins.hooks.filter(
-                    "turn.input", turn_input, {"game": game, "runner": self}
+                    "turn.input",
+                    turn_input,
+                    {"game": game, "turn_number": step, "runner": self},
                 )
                 speech = str(turn_input["speech"])
                 thought = str(turn_input["thought"])
@@ -210,37 +232,43 @@ class Runner:
                 narrator_hint = str(turn_input["narrator_hint"])
                 skip = bool(turn_input["skip"])
 
-            # All records from this turn share the same turn_number
-            # (pre-requisite for undo to revert the entire step).
-            step = (game.history[-1].turn_number + 1) if game.history else 1
-
             effective_force_speaker = (
                 force_speaker
                 if force_speaker
                 and (force_speaker in game.characters or force_speaker == "Narrator")
                 else None
             )
-            log_turn_input(
-                session_id=session_id,
-                turn_number=step,
-                speech=speech,
-                thought=thought,
-                action=action,
-                requested_force_speaker=force_speaker,
+            transformed_fields = [
+                field
+                for field in ("speech", "thought", "action")
+                if turn_input[field] != original_input[field]
+            ]
+            log_effective_turn_input(
+                session_id,
+                step,
+                turn_input,
                 effective_force_speaker=effective_force_speaker,
-                narrator_hint=narrator_hint,
-                skip=skip,
+                transformed_fields=transformed_fields,
             )
+            effective_input = {
+                field: str(turn_input[field]) for field in ("speech", "thought", "action")
+            }
 
             # Persist the turn BEFORE calling the Narrator (blind).
             # Skip: no player input to persist — Narrator reacts to current state alone.
             if not skip:
                 if speech:
-                    self._append_history(game, "Player", speech, "speech", step)
+                    self._append_history(
+                        game, "Player", speech, "speech", step, "speech" in transformed_fields
+                    )
                 if thought:
-                    self._append_history(game, "Player", thought, "thought", step)
+                    self._append_history(
+                        game, "Player", thought, "thought", step, "thought" in transformed_fields
+                    )
                 if action:
-                    self._append_history(game, "Player", action, "action", step)
+                    self._append_history(
+                        game, "Player", action, "action", step, "action" in transformed_fields
+                    )
 
                 # A private thought has no observable event for the Narrator to
                 # resolve — unless there's also a narrator_hint providing external
@@ -263,6 +291,8 @@ class Runner:
                         "next_speaker": game.player.controlled_character_id,
                         "scene_update": None,
                         "turn_number": step,
+                        "effective_input": effective_input,
+                        "transformed_fields": transformed_fields,
                     }
 
             # Call Narrator
@@ -360,6 +390,8 @@ class Runner:
                 "next_speaker": speaker,
                 "scene_update": scene_up,
                 "turn_number": step,
+                "effective_input": effective_input,
+                "transformed_fields": transformed_fields,
             }
 
     async def get_state(self, session_id: str) -> GameState | None:
@@ -663,6 +695,7 @@ class Runner:
         content: str,
         content_type: str,
         turn_number: int,
+        input_transformed: bool = False,
     ) -> None:
         """Creates a TurnRecord with deepcopy of the Scene/moods and adds it to history.
 
@@ -677,6 +710,7 @@ class Runner:
             content=content,
             content_type=content_type,
             scene_snapshot=copy.deepcopy(game.scene),
+            input_transformed=input_transformed,
             mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
             plugin_state_snapshot=copy.deepcopy(game.plugin_state),
         )

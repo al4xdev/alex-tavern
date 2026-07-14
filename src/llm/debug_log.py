@@ -61,7 +61,6 @@ def log_turn_input(
     thought: str,
     action: str,
     requested_force_speaker: str | None,
-    effective_force_speaker: str | None,
     narrator_hint: str = "",
     skip: bool = False,
 ) -> None:
@@ -81,7 +80,28 @@ def log_turn_input(
                 "narrator_hint": narrator_hint,
                 "skip": skip,
             },
+        },
+    )
+
+
+def log_effective_turn_input(
+    session_id: str,
+    turn_number: int,
+    value: dict[str, Any],
+    effective_force_speaker: str | None,
+    transformed_fields: list[str],
+) -> None:
+    """Append the post-plugin input that becomes authoritative history."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "turn_input_effective",
+            "input": value,
             "effective_force_speaker": effective_force_speaker,
+            "transformed_fields": transformed_fields,
         },
     )
 
