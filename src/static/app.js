@@ -28,6 +28,7 @@ const state = {
     canUndo: false,         // true when there's a turn to undo
     abortController: null,  // AbortController for current turn
     narratorHint: '',       // pending narrator event hint for next turn
+    lastEchoMessage: null,  // optimistic player bubble updated with effective input
 };
 
 const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
@@ -383,7 +384,9 @@ function renderHistory(history) {
     let responseBuffer = null;
     const flushResponseBuffer = () => {
         if (!responseBuffer) return;
-        addMessage(responseBuffer.speaker, responseBuffer, 'response');
+        addMessage(responseBuffer.speaker, responseBuffer, 'response', {
+            transformed: responseBuffer.transformed,
+        });
         responseBuffer = null;
     };
     for (const record of (history || [])) {
@@ -399,9 +402,11 @@ function renderHistory(history) {
                     speech: null,
                     thought: null,
                     action: null,
+                    transformed: false,
                 };
             }
             responseBuffer[record.content_type] = record.content;
+            responseBuffer.transformed ||= record.input_transformed === true;
             continue;
         }
         flushResponseBuffer();
@@ -421,6 +426,7 @@ async function loadSession(sessionId) {
 
         state.sessionId = sessionId;
         state.lastInputs = null;
+        state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = gameState.history && gameState.history.length > 0;
         updateActionPopup();
@@ -627,7 +633,7 @@ function messageSegments(content, contentType) {
     return [{ type: contentType, text: content }];
 }
 
-function addMessage(speaker, content, contentType, { animate = false } = {}) {
+function addMessage(speaker, content, contentType, { animate = false, transformed = false } = {}) {
     const info = speakerInfo(speaker);
 
     const msg = document.createElement('div');
@@ -652,6 +658,13 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
         header.appendChild(document.createTextNode(info.label));
     }
     msg.appendChild(header);
+
+    if (transformed) {
+        const badge = bindTranslation(document.createElement('span'), 'input.adjusted');
+        badge.className = 'msg-transform-badge';
+        header.appendChild(badge);
+        msg.classList.add('msg-transformed');
+    }
 
     const body = document.createElement('div');
     body.className = 'msg-content';
@@ -679,6 +692,19 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
     scrollToBottom();
 
     if (shouldType) revealTypewriter(msg, units);
+    return msg;
+}
+
+function updatePlayerEcho(message, effectiveInput, transformed) {
+    if (!message || !effectiveInput) return;
+    const replacement = addMessage(
+        'Player',
+        buildPlayerEcho(effectiveInput.speech, effectiveInput.thought, effectiveInput.action),
+        'response',
+        { transformed },
+    );
+    message.replaceWith(replacement);
+    state.lastEchoMessage = replacement;
 }
 
 /* Combines the player's speech, thought, and action into the single echo bubble text
@@ -951,7 +977,12 @@ function renderRawLog(entries) {
             if (e.agent === 'turn_input') {
                 raw = `[TURN INPUT]\n${JSON.stringify({
                     input: e.input,
+                }, null, 2)}`;
+            } else if (e.agent === 'turn_input_effective') {
+                raw = `[EFFECTIVE TURN INPUT]\n${JSON.stringify({
+                    input: e.input,
                     effective_force_speaker: e.effective_force_speaker,
+                    transformed_fields: e.transformed_fields,
                 }, null, 2)}`;
             } else if (e.error) {
                 raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
@@ -1060,6 +1091,7 @@ async function startSession(cfg) {
         const data = await api.startSession(cfg);
         state.sessionId = data.session_id;
         state.lastInputs = null;
+        state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = false;
         updateActionPopup();
@@ -1106,7 +1138,9 @@ async function sendTurn(isRetry = false) {
 
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
     if (!isRetry) {
-        addMessage('Player', buildPlayerEcho(speech, thought, action), 'response');
+        state.lastEchoMessage = addMessage(
+            'Player', buildPlayerEcho(speech, thought, action), 'response'
+        );
     }
 
     setLoading(true);
@@ -1129,6 +1163,12 @@ async function sendTurn(isRetry = false) {
         payload = await PluginRuntime.runHook('turn.input', payload, { state });
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
+
+        updatePlayerEcho(
+            state.lastEchoMessage,
+            data.effective_input,
+            Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
+        );
 
         if (state.debug) refreshDebugLog();
 

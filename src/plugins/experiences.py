@@ -127,10 +127,7 @@ def activate_experience(experience_id: str) -> dict[str, Any]:
         for item in experience.plugins:
             available = any(
                 cached_item["manifest"]["plugin_id"] == item.plugin_id
-                and (
-                    item.version is None
-                    or cached_item["manifest"]["version"] == item.version
-                )
+                and (item.version is None or cached_item["manifest"]["version"] == item.version)
                 for cached_item in cached
             )
             if available:

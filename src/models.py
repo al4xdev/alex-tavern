@@ -60,6 +60,7 @@ class TurnRecord:
     content: str
     content_type: str  # "speech", "thought", "narration", "action"
     scene_snapshot: Scene  # deepcopy of the scene in that turn
+    input_transformed: bool = False
     mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
     plugin_state_snapshot: dict[str, Any] = field(default_factory=dict)
 
@@ -193,6 +194,7 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
                 content=h["content"],
                 content_type=h["content_type"],
                 scene_snapshot=scene_snap,
+                input_transformed=h["input_transformed"],
                 mood_snapshot=dict(h["mood_snapshot"]),
                 plugin_state_snapshot=copy.deepcopy(h["plugin_state_snapshot"]),
             )

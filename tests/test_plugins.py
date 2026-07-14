@@ -9,6 +9,7 @@ import tomllib
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -18,6 +19,7 @@ from src.plugins.experiences import activate_experience, save_experience
 from src.plugins.hooks import HookOrderError, HookRegistry
 from src.plugins.manifest import ManifestError, load_manifest, satisfies_version
 from src.plugins.runtime import PluginRuntime
+from src.plugins.sdk import PluginModel
 from src.plugins.store import (
     PluginInstallError,
     activate,
@@ -28,7 +30,7 @@ from src.plugins.store import (
     uninstall,
 )
 from src.runner import Runner
-from src.store.sessions import load_game
+from src.store.sessions import delete_session, load_game, session_debug_path
 from tools.plugin_author import pack_plugin, scaffold_plugin
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
@@ -103,17 +105,17 @@ def test_dependency_version_constraints_are_semantic() -> None:
 
 
 def test_zip_install_activation_and_backend_boot(tmp_path: Path) -> None:
-    package = _pack(EXAMPLES / "grammar_tools", tmp_path / "grammar.zip")
+    package = _pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip")
     installed = install_zip(package)
-    assert installed["manifest"]["plugin_id"] == "dev.alex-tavern.grammar-tools"
+    assert installed["manifest"]["plugin_id"] == "dev.alex-tavern.turn-counter"
     assert len(installed_plugins()) == 1
-    pointer = activate("dev.alex-tavern.grammar-tools")
+    pointer = activate("dev.alex-tavern.turn-counter")
     assert pointer["sha256"] == installed["sha256"]
     assert active_pointers() == [pointer]
 
     runtime = PluginRuntime()
     runtime.boot()
-    assert "dev.alex-tavern.grammar-tools" in runtime.loaded
+    assert "dev.alex-tavern.turn-counter" in runtime.loaded
     assert runtime.disabled_for_boot == {}
 
 
@@ -152,7 +154,7 @@ def test_curated_install_requires_the_catalog_hash() -> None:
 
 
 def test_experience_switches_the_physical_active_set(tmp_path: Path) -> None:
-    for folder in ("grammar_tools", "crash_test"):
+    for folder in ("turn_counter", "crash_test"):
         install_zip(_pack(EXAMPLES / folder, tmp_path / f"{folder}.zip"))
     activate("dev.alex-tavern.crash-test")
     experience = {
@@ -163,24 +165,24 @@ def test_experience_switches_the_physical_active_set(tmp_path: Path) -> None:
         "image": "preview.gif",
         "plugins": [
             {
-                "id": "dev.alex-tavern.grammar-tools",
+                "id": "dev.alex-tavern.turn-counter",
                 "version": "1.0.0",
-                "config": {"replacements": {"--": ","}},
+                "config": {"label": "clean"},
             }
         ],
     }
     save_experience(experience)
     result = activate_experience("clean-writing")
     assert result["restart"] is True
-    assert [item["plugin_id"] for item in active_pointers()] == ["dev.alex-tavern.grammar-tools"]
-    config_path = PLUGINS_DIR / "config" / "dev.alex-tavern.grammar-tools.json"
-    assert json.loads(config_path.read_text(encoding="utf-8"))["replacements"] == {"--": ","}
+    assert [item["plugin_id"] for item in active_pointers()] == ["dev.alex-tavern.turn-counter"]
+    config_path = PLUGINS_DIR / "config" / "dev.alex-tavern.turn-counter.json"
+    assert json.loads(config_path.read_text(encoding="utf-8"))["label"] == "clean"
 
 
 def test_experience_installs_missing_curated_dependency(tmp_path: Path) -> None:
     artifacts = PLUGIN_HUB_DIR / "artifacts"
     artifacts.mkdir(parents=True)
-    artifact = _pack(EXAMPLES / "grammar_tools", artifacts / "grammar.zip")
+    artifact = _pack(EXAMPLES / "turn_counter", artifacts / "counter.zip")
     sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
     (PLUGIN_HUB_DIR / "catalog.json").write_text(
         json.dumps(
@@ -188,9 +190,9 @@ def test_experience_installs_missing_curated_dependency(tmp_path: Path) -> None:
                 "schema_version": 1,
                 "plugins": [
                     {
-                        "id": "dev.alex-tavern.grammar-tools",
+                        "id": "dev.alex-tavern.turn-counter",
                         "version": "1.0.0",
-                        "artifact": "artifacts/grammar.zip",
+                        "artifact": "artifacts/counter.zip",
                         "sha256": sha256,
                     }
                 ],
@@ -208,7 +210,7 @@ def test_experience_installs_missing_curated_dependency(tmp_path: Path) -> None:
             "image": "",
             "plugins": [
                 {
-                    "id": "dev.alex-tavern.grammar-tools",
+                    "id": "dev.alex-tavern.turn-counter",
                     "version": "1.0.0",
                     "config": {},
                 }
@@ -219,19 +221,19 @@ def test_experience_installs_missing_curated_dependency(tmp_path: Path) -> None:
     result = activate_experience("auto-install")
 
     assert [item["manifest"]["plugin_id"] for item in result["installed"]] == [
-        "dev.alex-tavern.grammar-tools"
+        "dev.alex-tavern.turn-counter"
     ]
     assert [pointer["plugin_id"] for pointer in active_pointers()] == [
-        "dev.alex-tavern.grammar-tools"
+        "dev.alex-tavern.turn-counter"
     ]
 
 
 def test_uninstall_removes_cache_and_matching_activation(tmp_path: Path) -> None:
-    installed = install_zip(_pack(EXAMPLES / "grammar_tools", tmp_path / "grammar.zip"))
-    activate("dev.alex-tavern.grammar-tools")
+    installed = install_zip(_pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip"))
+    activate("dev.alex-tavern.turn-counter")
 
     result = uninstall(
-        "dev.alex-tavern.grammar-tools",
+        "dev.alex-tavern.turn-counter",
         installed["manifest"]["version"],
         installed["sha256"],
     )
@@ -241,16 +243,16 @@ def test_uninstall_removes_cache_and_matching_activation(tmp_path: Path) -> None
     assert active_pointers() == []
     with pytest.raises(PluginInstallError, match="not found"):
         uninstall(
-            "dev.alex-tavern.grammar-tools",
+            "dev.alex-tavern.turn-counter",
             installed["manifest"]["version"],
             installed["sha256"],
         )
 
 
 def test_concurrent_uninstall_leaves_one_clean_result(tmp_path: Path) -> None:
-    installed = install_zip(_pack(EXAMPLES / "grammar_tools", tmp_path / "grammar.zip"))
+    installed = install_zip(_pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip"))
     selection = (
-        "dev.alex-tavern.grammar-tools",
+        "dev.alex-tavern.turn-counter",
         installed["manifest"]["version"],
         installed["sha256"],
     )
@@ -302,3 +304,98 @@ def test_agent_authoring_scaffold_and_pack_are_reproducible(tmp_path: Path) -> N
     first = pack_plugin(package, tmp_path / "first.zip")
     second = pack_plugin(package, tmp_path / "second.zip")
     assert first["sha256"] == second["sha256"]
+
+
+@pytest.mark.asyncio
+async def test_plugin_model_call_json_uses_shared_provider_and_logs_metadata() -> None:
+    observed: dict[str, object] = {}
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        observed["url"] = str(request.url)
+        observed["authorization"] = request.headers.get("Authorization")
+        observed["payload"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"text":"corrigido"}'}}],
+                "usage": {"prompt_tokens": 12, "completion_tokens": 4},
+            },
+        )
+
+    config = {
+        "provider": "deepseek",
+        "api_base": "https://provider.invalid",
+        "api_key": "private-key",
+        "model": "model-name",
+        "language": "Portuguese",
+        "thinking_enabled": False,
+        "llm_timeout_seconds": 3,
+    }
+    session_id = "pluginmodel"
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        runner = Runner(client, config)
+        result = await PluginModel("dev.test.structured").call_json(
+            {
+                "runner": runner,
+                "game": SimpleNamespace(session_id=session_id),
+                "turn_number": 7,
+            },
+            messages=[{"role": "user", "content": "corrija"}],
+            json_schema={
+                "name": "plugin_result",
+                "schema": {
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                    "additionalProperties": False,
+                },
+            },
+            max_tokens=64,
+            use_configured_language=False,
+        )
+
+    assert result == {"text": "corrigido"}
+    assert observed["url"] == "https://provider.invalid/chat/completions"
+    assert observed["authorization"] == "Bearer private-key"
+    payload = observed["payload"]
+    assert isinstance(payload, dict)
+    assert payload["response_format"] == {"type": "json_object"}
+    entries = json.loads(session_debug_path(session_id).read_text(encoding="utf-8"))
+    assert entries["agent"] == "plugin:dev.test.structured"
+    assert entries["turn_number"] == 7
+    assert "private-key" not in json.dumps(entries)
+    await delete_session(session_id)
+
+
+@pytest.mark.asyncio
+async def test_turn_input_filter_records_raw_and_effective_values() -> None:
+    runtime = PluginRuntime()
+
+    async def correct(value, context):  # noqa: ANN001, ANN202
+        assert context["turn_number"] == 1
+        value["thought"] = "Eu estou aqui."
+        return value
+
+    runtime.hooks.register("dev.test.correct", "turn.input", "filter", correct)
+    async with httpx.AsyncClient() as client:
+        runner = Runner(client, {}, runtime)
+        session_id = runner.start_session()
+        result = await runner.player_turn(session_id, thought="eu esta aqui")
+
+    assert result["effective_input"]["thought"] == "Eu estou aqui."
+    assert result["transformed_fields"] == ["thought"]
+    game = load_game(session_id)
+    assert game is not None
+    assert game.history[-1].content == "Eu estou aqui."
+    assert game.history[-1].input_transformed is True
+    records = [
+        json.loads(line)
+        for line in session_debug_path(session_id).read_text(encoding="utf-8").splitlines()
+    ]
+    assert [record["agent"] for record in records] == [
+        "turn_input",
+        "turn_input_effective",
+    ]
+    assert records[0]["input"]["thought"] == "eu esta aqui"
+    assert records[1]["input"]["thought"] == "Eu estou aqui."
+    await delete_session(session_id)

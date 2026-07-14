@@ -651,9 +651,9 @@ class TestRunnerLogic:
         }
 
         debug_path = session_debug_path(sid)
-        marker = json.loads(debug_path.read_text(encoding="utf-8").splitlines()[0])
-        assert marker["agent"] == "turn_input"
-        assert marker["input"] == {
+        markers = [json.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines()]
+        assert markers[0]["agent"] == "turn_input"
+        assert markers[0]["input"] == {
             "speech": "Answer me.",
             "thought": "",
             "action": "",
@@ -661,7 +661,8 @@ class TestRunnerLogic:
             "narrator_hint": "",
             "skip": False,
         }
-        assert marker["effective_force_speaker"] == "C2"
+        assert markers[1]["agent"] == "turn_input_effective"
+        assert markers[1]["effective_force_speaker"] == "C2"
         delete_session(sid)
 
     @pytest.mark.asyncio
@@ -1316,15 +1317,18 @@ class TestCustomSessionAndDebug:
         entries = [
             json_module.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines()
         ]
-        assert len(entries) == 3  # payload do turno, Narrador e Personagem
+        assert len(entries) == 4  # input bruto, input efetivo, Narrador e Personagem
         assert entries[0]["session_id"] == sid
         assert entries[0]["turn_number"] == 1
         assert entries[0]["agent"] == "turn_input"
         assert entries[0]["input"]["speech"] == "oi"
-        assert entries[1]["agent"] == "narrator"
-        assert entries[1]["response"] is not None
-        assert entries[2]["agent"] == "character:Solo"
-        assert json_module.loads(entries[2]["response"]) == {
+        assert entries[1]["agent"] == "turn_input_effective"
+        assert entries[1]["input"]["speech"] == "oi"
+        assert entries[1]["transformed_fields"] == []
+        assert entries[2]["agent"] == "narrator"
+        assert entries[2]["response"] is not None
+        assert entries[3]["agent"] == "character:Solo"
+        assert json_module.loads(entries[3]["response"]) == {
             "speech": "Estou pronto.",
             "thought": None,
         }

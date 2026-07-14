@@ -11,7 +11,7 @@ ficam em `.plan/closed/`; trabalho ainda aberto fica em `.plan/tasks/`.
 > [!IMPORTANT]
 > **Regra Básica de Execução para Agentes:**
 > Antes de criar qualquer código ou feature nova, você **deve sempre consultar a pasta `.plan/tasks/`** para verificar se já existe uma especificação ou planejamento em andamento, evitando retrabalho e mantendo a consistência arquitetural.
-> Dê prioridade e preferência para implementar ou alinhar suas alterações com as tasks que começam com a letra **`S`** (ex: `S01-plugin-system.md`). O prefixo **`S`** indica uma **Supertask**, que planeja uma mudança estrutural e de grande impacto na base de código.
+> Dê prioridade e preferência para implementar ou alinhar suas alterações com as tasks abertas que começam com a letra **`S`**. O prefixo **`S`** indica uma **Supertask**, que planeja uma mudança estrutural e de grande impacto na base de código. Supertasks concluídas, como `S01-plugin-system.md`, ficam em `.plan/closed/`.
 
 ## 1. Visão atual
 
@@ -179,8 +179,8 @@ o snapshot de runtime em source:
    mas não materializa os blobs de `artifacts/` ou `assets/`. Não substitua esse fluxo por clone
    completo apenas para ler documentação ou criar source.
 3. Dentro do hub, leia `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`, `docs/hooks.md` e
-   `docs/mcp.md` antes de selecionar hooks. O contrato exportado pelo core atual vence qualquer
-   exemplo antigo.
+   `docs/mcp.md` antes de selecionar hooks. Para plugins com chamadas LLM, leia também
+   `docs/model-calls.md`. O contrato exportado pelo core atual vence qualquer exemplo antigo.
 4. Configure o MCP do hub com o hub como diretório de trabalho e o checkout principal como
    `--core-root`. Em um terminal fish, a forma equivalente é:
 

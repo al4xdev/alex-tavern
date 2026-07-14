@@ -1,11 +1,11 @@
 schema_version = 1
-id = "dev.alex-tavern.grammar-tools"
-name = "Grammar Tools"
+id = "dev.alex-tavern.turn-counter"
+name = "Turn Counter"
 version = "1.0.0"
-description = "Demonstrates deterministic output filters and per-plugin configuration."
+description = "Minimal stateful filter used by core lifecycle tests."
 license = "MIT"
 authors = ["Alex Tavern"]
-permissions = ["config.read", "session.state.write"]
+permissions = ["session.state.write"]
 dependencies = []
 
 [entrypoints]

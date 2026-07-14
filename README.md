@@ -80,6 +80,12 @@ drafts; a crash discards that plugin's draft, disables it for the boot, and cont
 post-commit crash is recorded and never replays durable work. `context.unsafe` deliberately gives
 trusted plugins an escape hatch to reach or replace arbitrary runtime objects.
 
+Model-backed plugins use the provider-neutral `context.model.call_json` SDK. It requires JSON
+Schema, uses the active provider and shared HTTP client, keeps API keys inside the server, and logs
+every attempt as `plugin:<plugin_id>` with the current session and turn. The curated **Clean
+Writing** Experience uses this gateway to correct grammar in speech, private thought, and action
+before authoritative history, while preserving language, meaning, and character voice.
+
 Reference packages live in `plugins/examples`. Authoring commands are available through
 `uv run python -m tools.plugin_author`; the separate curated-hub scaffold at
 `../alex-tavern-plugins` includes source, deterministic artifacts, an animated Experience preview,
@@ -399,12 +405,14 @@ Alex Tavern exposes two complementary inspection layers:
    `.data/sessions/{session_id}/debug.jsonl`. Each line is one chronological event, suitable for
    command-line inspection, deterministic replay, MCP tools, or analysis by a connected agent.
 
-The JSONL records the exact turn input before the first model call, followed by every real LLM
-attempt, raw provider token usage, normalized prompt-cache hit/miss counts, and state-operation
-markers such as undo, compaction, and restore. A redacted two-line example looks like this:
+The JSONL records the exact raw turn input before the first model call, the post-plugin effective
+input, every real LLM attempt, raw provider token usage, normalized prompt-cache hit/miss counts,
+and state-operation markers such as undo, compaction, and restore. A redacted example looks like
+this:
 
 ```jsonl
-{"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2"},"effective_force_speaker":"C2"}
+{"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como esta, Lyra?","thought":"Ela parece preocupado.","action":"Observo o rosto dela.","force_speaker":"C2","narrator_hint":"","skip":false}}
+{"ts":"2026-07-12T22:02:01Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input_effective","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2","narrator_hint":"","skip":false},"effective_force_speaker":"C2","transformed_fields":["speech","thought"]}
 {"ts":"2026-07-12T22:02:03Z","session_id":"a1b2c3d4","turn_number":12,"agent":"character:Lyra","provider":"deepseek","model":"deepseek-v4-flash","request":{"messages":[{"role":"system","content":"[full system prompt]"},{"role":"user","content":"[full filtered context]"}],"max_tokens":1024,"response_format":{"type":"json_object"},"provider_options":{"api_base":"https://api.deepseek.com","thinking_enabled":false}},"response":"{\"speech\":\"Estou bem.\",\"thought\":\"Ele parece preocupado.\"}","usage":{"prompt_tokens":604,"completion_tokens":18,"total_tokens":622,"prompt_cache_hit_tokens":512,"prompt_cache_miss_tokens":92},"prompt_cache":{"hit_tokens":512,"miss_tokens":92},"error":null,"error_type":null,"duration_ms":2650.4,"attempt_number":1,"prompt_chars":2418,"prompt_estimated_tokens":604}
 ```
 
@@ -1065,10 +1073,10 @@ Connection failures, timeouts, non-success HTTP responses, and invalid JSON beco
 
 ### Deterministic replay without llama.cpp
 
-Every current-format turn writes a `turn_input` marker before its first LLM request. It records
-the exact speech, private thought, action, requested force-speaker value, and validated effective
-override. That
-marker makes a session reproducible without guessing from prompt text.
+Every current-format turn writes a raw `turn_input` marker before its first LLM request and a
+`turn_input_effective` marker after transactional input filters. Replay resubmits the raw payload,
+then consumes any recorded plugin model output before Narrator and Character responses. This makes
+the complete transformation reproducible without guessing from prompt text.
 
 Start the fake OpenAI-compatible endpoint with a current debug log:
 
@@ -1165,7 +1173,7 @@ current source supersede intermediate assumptions.
 > [!IMPORTANT]
 > **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](file:///home/alex/git/my/roleplay/.plan/) directory.
 > - **Always consult [`.plan/tasks/`](file:///home/alex/git/my/roleplay/.plan/tasks/) and [`AGENTS.md`](file:///home/alex/git/my/roleplay/AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
-> - **Prioritize tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes (e.g., [S01-plugin-system.md](file:///home/alex/git/my/roleplay/.plan/tasks/S01-plugin-system.md)). Always align your implementation with the designs laid out in these Supertasks.
+> - **Prioritize open tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes. Completed Supertasks are historical records under [`.plan/closed/`](file:///home/alex/git/my/roleplay/.plan/closed/), including [S01-plugin-system.md](file:///home/alex/git/my/roleplay/.plan/closed/S01-plugin-system.md); current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
 
 ---
 
