@@ -157,6 +157,55 @@ O SDK e os contratos machine-readable vivem em `src/plugins/`. Exemplos e CLI de
 `plugins/examples/` e `tools/plugin_author.py`. O hub curado/MCP é um repositório separado; o MCP
 não possui ferramentas Git ou publicação.
 
+### Workspace do hub para agentes
+
+Quando uma tarefa envolver criar, revisar, testar ou publicar um plugin curado, o agente que está
+no repositório principal deve trabalhar com os dois repositórios, sem copiar o SDK nem transformar
+o snapshot de runtime em source:
+
+1. Use `src/plugins/`, `src/static/plugin-runtime.js` e `tools/plugin_author.py` deste checkout como
+   fonte de verdade do core e dos pontos de extensão.
+2. Procure primeiro o checkout irmão `../alex-tavern-plugins`. Se ele não existir, solicite a
+   autorização Git exigida pelo ambiente e crie um clone parcial:
+
+   ```fish
+   git clone --filter=blob:none --sparse \
+     git@github.com:al4xdev/alex-tavern-plugins.git \
+     ../alex-tavern-plugins
+   git -C ../alex-tavern-plugins sparse-checkout set docs plugins experiences
+   ```
+
+   O modo sparse inclui os arquivos da raiz, o MCP, as ferramentas e as três pastas declaradas,
+   mas não materializa os blobs de `artifacts/` ou `assets/`. Não substitua esse fluxo por clone
+   completo apenas para ler documentação ou criar source.
+3. Dentro do hub, leia `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`, `docs/hooks.md` e
+   `docs/mcp.md` antes de selecionar hooks. O contrato exportado pelo core atual vence qualquer
+   exemplo antigo.
+4. Configure o MCP do hub com o hub como diretório de trabalho e o checkout principal como
+   `--core-root`. Em um terminal fish, a forma equivalente é:
+
+   ```fish
+   set core_root (pwd)
+   cd ../alex-tavern-plugins
+   uv sync
+   uv run python mcp_server.py --core-root "$core_root"
+   ```
+
+   Use as tools MCP `plugin_contract`, `plugin_scaffold`, `plugin_validate`, `plugin_test`,
+   `plugin_pack` e `plugin_trace`; não replique manualmente contratos que já são exportados pelo
+   SDK.
+5. Fonte de plugin pertence a `../alex-tavern-plugins/plugins/`. Para revisar ou regenerar mídia e
+   pacotes publicados, peça autorização para expandir o sparse checkout antes de tocar esses
+   caminhos:
+
+   ```fish
+   git -C ../alex-tavern-plugins sparse-checkout add artifacts assets
+   ```
+
+6. Nunca edite `.data/plugins/hub`: ele é um snapshot efêmero, validado e substituível usado pelo
+   aplicativo. Não faça `pull`, commit, push, mudança de remoto ou publicação no repositório irmão
+   sem autorização Git explícita e específica.
+
 ### Providers
 
 Adapters built-in ficam em `src/llm/adapters/`; providers adicionais devem preferencialmente ser
@@ -258,7 +307,7 @@ Ferramentas em `tools/` ficam fora do runtime narrativo:
 - `mcp_server.py`: inspeção e mutações de debug via stdio;
 - `playtest_harness.py`: cenários repetíveis, fila e comparações A/B.
 - `plugin_author.py`: contract, scaffold, validate, test, pack e trace de plugins;
-- `plugin_hub.py`: clone limpo do hub curado e instalação por hash.
+- `plugin_hub.py`: sincronização HTTPS validada do hub curado e instalação por hash.
 
 Não adicionar compatibilidade com logs sem `turn_input`. Fixtures representam somente o contrato
 atual.
