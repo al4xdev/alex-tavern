@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from weakref import WeakValueDictionary
 
-from src.paths import SESSIONS_DIR
+from src.store.sessions import session_debug_path
 
 _locks: WeakValueDictionary[str, threading.Lock] = WeakValueDictionary()
 _locks_guard = threading.Lock()
@@ -28,9 +28,11 @@ def _append(session_id: str, entry: dict[str, Any]) -> None:
         return
     line = json.dumps(entry, ensure_ascii=False) + "\n"
     with _get_lock(session_id):
-        SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-        with (SESSIONS_DIR / f"{session_id}.debug.jsonl").open("a", encoding="utf-8") as handle:
+        path = session_debug_path(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
             handle.write(line)
+            handle.flush()
 
 
 def read_entries(session_id: str, limit: int) -> list[dict[str, Any]]:
@@ -38,7 +40,7 @@ def read_entries(session_id: str, limit: int) -> list[dict[str, Any]]:
     if limit <= 0:
         return []
     with _get_lock(session_id):
-        path = SESSIONS_DIR / f"{session_id}.debug.jsonl"
+        path = session_debug_path(session_id)
         if not path.exists():
             return []
         entries: list[dict[str, Any]] = []

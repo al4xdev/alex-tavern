@@ -50,9 +50,10 @@ def _required_string(value: object, label: str, *, allow_empty: bool = False) ->
 
 def validate_config(value: dict[str, Any]) -> dict[str, Any]:
     """Validate and return one canonical forward-only configuration object."""
+    current_provider_names = provider_names()
     active_provider = value.get("active_provider")
-    if active_provider not in PROVIDER_NAMES:
-        raise ConfigValidationError(f"active_provider must be one of {PROVIDER_NAMES}")
+    if active_provider not in current_provider_names:
+        raise ConfigValidationError(f"active_provider must be one of {current_provider_names}")
     providers = value.get("providers")
     if not isinstance(providers, dict):
         raise ConfigValidationError("providers must be an object")
@@ -65,9 +66,9 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         ),
         "providers": {},
     }
-    for name in PROVIDER_NAMES:
+    for name in current_provider_names:
         adapter = get_provider_adapter(name)
-        raw = providers.get(name)
+        raw = providers.get(name, adapter.config_defaults)
         if not isinstance(raw, dict):
             raise ConfigValidationError(f"providers.{name} must be an object")
         provider = {

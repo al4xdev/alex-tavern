@@ -1,0 +1,1 @@
+"""OpenRouter provider reference plugin."""

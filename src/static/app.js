@@ -1,5 +1,7 @@
 import { api } from './api.js';
 import { RuntimeConfig } from './runtime-config.js';
+import { PluginRuntime } from './plugin-runtime.js';
+import { PluginCenter } from './plugin-center.js';
 import { Setup } from './setup.js';
 import {
     bindTranslation,
@@ -167,14 +169,17 @@ async function skipTurn() {
     state.abortController = ac;
 
     try {
-        const data = await api.turn(state.sessionId, {
+        let payload = {
             speech: '',
             thought: '',
             action: '',
             skip: true,
             narrator_hint: state.narratorHint || undefined,
             force_speaker: state.forceSpeaker || undefined,
-        }, ac.signal);
+        };
+        payload = await PluginRuntime.runHook('turn.input', payload, { state });
+        let data = await api.turn(state.sessionId, payload, ac.signal);
+        data = await PluginRuntime.runHook('turn.output', data, { state });
 
         if (state.debug) refreshDebugLog();
         if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
@@ -407,7 +412,8 @@ function renderHistory(history) {
 
 async function loadSession(sessionId) {
     try {
-        const gameState = await api.getState(sessionId);
+        let gameState = await api.getState(sessionId);
+        gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
         lastDebugEntries = null;
         debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
@@ -1113,13 +1119,16 @@ async function sendTurn(isRetry = false) {
     state.abortController = ac;
 
     try {
-        const data = await api.turn(state.sessionId, {
+        let payload = {
             speech: speech || '',
             thought: thought || '',
             action: action || '',
             force_speaker: forceSpeaker || undefined,
             narrator_hint: state.narratorHint || undefined,
-        }, ac.signal);
+        };
+        payload = await PluginRuntime.runHook('turn.input', payload, { state });
+        let data = await api.turn(state.sessionId, payload, ac.signal);
+        data = await PluginRuntime.runHook('turn.output', data, { state });
 
         if (state.debug) refreshDebugLog();
 
@@ -1463,8 +1472,7 @@ settingsBtn.addEventListener('click', () => {
     Setup.open();
 });
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
-    Setup.setHasSession(Boolean(state.sessionId));
-    Setup.open();
+    openSessionsModal();
 });
 
 if (interfaceLanguage) {
@@ -1689,12 +1697,23 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── Init ─────────────────────────────────────────────────────────────── */
-RuntimeConfig.init({ notify: toast });
-Setup.init({
-    onStart: (cfg) => startSession(cfg),
-    onOpen: () => RuntimeConfig.refresh(),
-    notify: toast,
-});
+async function initializeApplication() {
+    try {
+        await PluginRuntime.boot();
+    } catch (error) {
+        console.warn('Plugin frontend boot failed:', error);
+    }
+    RuntimeConfig.init({ notify: toast });
+    PluginCenter.init({ notify: toast });
+    Setup.init({
+        onStart: (cfg) => startSession(cfg),
+        onOpen: () => RuntimeConfig.refresh(),
+        notify: toast,
+    });
+    await PluginRuntime.runHook('app.ready', null, { state, toast });
+}
+
+initializeApplication();
 // openSessionsModal(); // show the sessions list on first load
 
 /* ── Version Check ────────────────────────────────────────────────────── */

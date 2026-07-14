@@ -1,0 +1,1 @@
+"""Crash-containment reference plugin."""

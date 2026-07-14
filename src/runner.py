@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -32,13 +33,22 @@ from src.store.sessions import (
     save_game,
 )
 
+if TYPE_CHECKING:
+    from src.plugins.runtime import PluginRuntime
+
 
 class Runner:
     """Stateless orchestrator. Each method loads/saves its own state."""
 
-    def __init__(self, llm_client: httpx.AsyncClient, config: dict) -> None:
+    def __init__(
+        self,
+        llm_client: httpx.AsyncClient,
+        config: dict,
+        plugins: PluginRuntime | None = None,
+    ) -> None:
         self.client = llm_client
         self.config = config
+        self.plugins = plugins
 
     # ── Public Methods ────────────────────────────────────────────────────
 
@@ -58,16 +68,18 @@ class Runner:
         Raises:
             ValueError: If there is not at least one character.
         """
-        cfg = session_config or {}
+        cfg = copy.deepcopy(session_config or {})
+        if self.plugins is not None:
+            cfg = self.plugins.hooks.filter_sync("session.start", cfg, {"runner": self})
         session_id = generate_session_id()
-        preset_data: dict | None = None
+        scenario_data: dict | None = None
 
         if "characters" not in cfg or "scene" not in cfg:
-            from src.store.presets import list_defaults, load_default
+            from src.store.scenarios import list_builtin_scenarios, load_builtin_scenario
 
-            defaults = list_defaults()
+            defaults = list_builtin_scenarios()
             if defaults:
-                preset_data = load_default(defaults[0])
+                scenario_data = load_builtin_scenario(defaults[0])
 
         if "characters" in cfg:
             characters = cfg["characters"]
@@ -76,23 +88,24 @@ class Runner:
         else:
             from src.models import dict_to_character
 
-            if preset_data is None:
+            if scenario_data is None:
                 raise ValueError(
-                    "The session needs at least one character, and no default preset was found."
+                    "The session needs at least one character, and no default scenario was found."
                 )
-            if not preset_data or "characters" not in preset_data:
+            if not scenario_data or "characters" not in scenario_data:
                 raise ValueError(
-                    "The session needs at least one character, and the default preset is corrupted."
+                    "The session needs at least one character, and the default "
+                    "scenario is corrupted."
                 )
             characters = {
-                cid: dict_to_character(cdata) for cid, cdata in preset_data["characters"].items()
+                cid: dict_to_character(cdata) for cid, cdata in scenario_data["characters"].items()
             }
         if "scene" in cfg:
             scene = cfg["scene"]
-        elif preset_data and "scene" in preset_data:
+        elif scenario_data and "scene" in scenario_data:
             from src.models import Scene
 
-            sdata = preset_data["scene"]
+            sdata = scenario_data["scene"]
             scene = Scene(
                 location=sdata["location"],
                 time_of_day=sdata["time_of_day"],
@@ -120,7 +133,13 @@ class Runner:
             created_at=datetime.now(UTC).isoformat(),
             narrator_directives=cfg.get("narrator_directives", ""),
         )
+        if self.plugins is not None:
+            game = self.plugins.hooks.filter_sync(
+                "session.before_commit", game, {"kind": "start", "runner": self}
+            )
         save_game(game)
+        if self.plugins is not None:
+            self.plugins.hooks.action_sync("session.after_commit", {"game": game, "kind": "start"})
         return session_id
 
     async def player_turn(
@@ -171,6 +190,26 @@ class Runner:
             if game is None:
                 return {"error": f"Session {session_id} not found"}
 
+            turn_input: dict[str, Any] = {
+                "speech": speech,
+                "thought": thought,
+                "action": action,
+                "force_speaker": force_speaker,
+                "narrator_hint": narrator_hint,
+                "skip": skip,
+            }
+            if self.plugins is not None:
+                turn_input = await self.plugins.hooks.filter(
+                    "turn.input", turn_input, {"game": game, "runner": self}
+                )
+                speech = str(turn_input["speech"])
+                thought = str(turn_input["thought"])
+                action = str(turn_input["action"])
+                raw_force = turn_input["force_speaker"]
+                force_speaker = str(raw_force) if raw_force is not None else None
+                narrator_hint = str(turn_input["narrator_hint"])
+                skip = bool(turn_input["skip"])
+
             # All records from this turn share the same turn_number
             # (pre-requisite for undo to revert the entire step).
             step = (game.history[-1].turn_number + 1) if game.history else 1
@@ -208,7 +247,16 @@ class Runner:
                 # context. Persist it as a complete step without replaying the
                 # previous public event or inventing a reaction to hidden content.
                 if thought and not speech and not action and not narrator_hint.strip():
+                    if self.plugins is not None:
+                        game = await self.plugins.hooks.filter(
+                            "turn.before_commit", game, {"kind": "private_thought", "runner": self}
+                        )
+                    game.revision += 1
                     save_game(game)
+                    if self.plugins is not None:
+                        await self.plugins.hooks.action(
+                            "turn.after_commit", {"game": game, "kind": "private_thought"}
+                        )
                     return {
                         "narration": None,
                         "character_response": None,
@@ -218,9 +266,26 @@ class Runner:
                     }
 
             # Call Narrator
-            narrator_raw = await self._call_narrator(
-                game, step, effective_force_speaker, narrator_hint
-            )
+            if self.plugins is None:
+                narrator_raw = await self._call_narrator(
+                    game, step, effective_force_speaker, narrator_hint
+                )
+            else:
+                narrator_game = game
+                assert narrator_game is not None
+                narrator_raw = await self.plugins.hooks.call_wrapped(
+                    "narrator.call",
+                    lambda: self._call_narrator(
+                        narrator_game, step, effective_force_speaker, narrator_hint
+                    ),
+                    {"game": narrator_game, "turn_number": step, "runner": self},
+                )
+            if self.plugins is not None:
+                narrator_raw = await self.plugins.hooks.filter(
+                    "narrator.output",
+                    narrator_raw,
+                    {"game": game, "turn_number": step, "runner": self},
+                )
 
             # Advance the turn
             narration = narrator_raw["narration"]
@@ -235,7 +300,32 @@ class Runner:
             # control to the human (the UI decides what to do with next_speaker).
             if speaker in game.characters and speaker != controlled:
                 ctx = narrator_raw.get("context_for_character", "")
-                character_response = await self._call_character(game, speaker, ctx, step)
+                if self.plugins is None:
+                    character_response = await self._call_character(game, speaker, ctx, step)
+                else:
+                    character_game = game
+                    assert character_game is not None
+                    character_response = await self.plugins.hooks.call_wrapped(
+                        "character.call",
+                        lambda: self._call_character(character_game, speaker, ctx, step),
+                        {
+                            "game": character_game,
+                            "character_id": speaker,
+                            "turn_number": step,
+                            "runner": self,
+                        },
+                    )
+                if self.plugins is not None:
+                    character_response = await self.plugins.hooks.filter(
+                        "character.output",
+                        character_response,
+                        {
+                            "game": game,
+                            "character_id": speaker,
+                            "turn_number": step,
+                            "runner": self,
+                        },
+                    )
                 if character_response["thought"]:
                     self._append_history(
                         game, speaker, character_response["thought"], "thought", step
@@ -255,7 +345,14 @@ class Runner:
             if mood_updates:
                 self._update_moods(game, mood_updates)
 
+            if self.plugins is not None:
+                game = await self.plugins.hooks.filter(
+                    "turn.before_commit", game, {"kind": "turn", "runner": self}
+                )
+            game.revision += 1
             save_game(game)
+            if self.plugins is not None:
+                await self.plugins.hooks.action("turn.after_commit", {"game": game, "kind": "turn"})
 
             return {
                 "narration": narration,
@@ -317,8 +414,21 @@ class Runner:
             for cid, mood in restore.mood_snapshot.items():
                 if cid in game.characters:
                     game.characters[cid].mind.current_mood = mood
+            game.plugin_state = copy.deepcopy(restore.plugin_state_snapshot)
 
+            if self.plugins is not None:
+                game = await self.plugins.hooks.filter(
+                    "undo.before_commit",
+                    game,
+                    {"turn_number": last_turn_number, "removed": removed, "runner": self},
+                )
+            game.revision += 1
             save_game(game)
+            if self.plugins is not None:
+                await self.plugins.hooks.action(
+                    "undo.after_commit",
+                    {"game": game, "turn_number": last_turn_number, "removed": removed},
+                )
             log_undo(session_id, last_turn_number, removed)
             return {"undone": True, "state": game_state_to_dict(game)}
 
@@ -350,6 +460,12 @@ class Runner:
                 session_id=game.session_id,
                 turn_number=turn_number,
             )
+            if self.plugins is not None:
+                suggestions = await self.plugins.hooks.filter(
+                    "suggestions.output",
+                    suggestions,
+                    {"game": game, "target_id": target_id, "runner": self},
+                )
             return {"suggestions": suggestions}
 
     async def compact_session(self, session_id: str) -> dict:
@@ -407,7 +523,19 @@ class Runner:
             game.story_summary = new_summary
             game.history = kept
 
+            if self.plugins is not None:
+                game = await self.plugins.hooks.filter(
+                    "compaction.before_commit",
+                    game,
+                    {"cutoff": cutoff, "evicted": evicted, "runner": self},
+                )
+            game.revision += 1
             save_game(game)
+            if self.plugins is not None:
+                await self.plugins.hooks.action(
+                    "compaction.after_commit",
+                    {"game": game, "cutoff": cutoff, "evicted": len(evicted)},
+                )
             log_compact(session_id, cutoff, len(evicted), len(kept))
 
             return {
@@ -436,6 +564,11 @@ class Runner:
             log_restore_compaction(
                 session_id, result.get("restored", False), result.get("reason", "")
             )
+            if self.plugins is not None and result.get("restored"):
+                await self.plugins.hooks.action(
+                    "compaction.restore_after_commit",
+                    {"game": load_game(session_id), "result": result},
+                )
             return result
 
     # ── Private Methods ───────────────────────────────────────────────────
@@ -545,5 +678,6 @@ class Runner:
             content_type=content_type,
             scene_snapshot=copy.deepcopy(game.scene),
             mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
+            plugin_state_snapshot=copy.deepcopy(game.plugin_state),
         )
         game.history.append(record)
