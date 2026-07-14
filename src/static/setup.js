@@ -33,7 +33,7 @@ export const Setup = (() => {
     let onStartCb = null;
     let onOpenCb = null;
     let notifyCb = () => {};
-    let hasSession = false; // whether the close (✕) button is allowed
+    let returnFocusEl = null;
 
     /* ── Row builders ─────────────────────────────────────────────────── */
     function makeKvRow(listEl, key = '', val = '') {
@@ -340,12 +340,19 @@ export const Setup = (() => {
     /* ── Open / close ─────────────────────────────────────────────────── */
     function open() {
         clearError();
-        closeBtn.style.display = hasSession ? '' : 'none';
+        returnFocusEl = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
         overlay.classList.add('active');
+        closeBtn.focus({ preventScroll: true });
         if (onOpenCb) onOpenCb();
     }
     function close() {
         overlay.classList.remove('active');
+        if (returnFocusEl?.isConnected) {
+            returnFocusEl.focus({ preventScroll: true });
+        }
+        returnFocusEl = null;
     }
 
     /* ── Wiring ───────────────────────────────────────────────────────── */
@@ -355,7 +362,6 @@ export const Setup = (() => {
         const problem = validate(cfg);
         if (problem) { showError(problem.key, problem.params); return; }
         save(cfg);
-        hasSession = true;
         close();
         if (onStartCb) onStartCb(cfg);
     }
@@ -368,9 +374,14 @@ export const Setup = (() => {
         addFactBtn.addEventListener('click', () => makeKvRow(factsListEl, '', ''));
         addCharBtn.addEventListener('click', () => makeCharCard({}));
         startBtn.addEventListener('click', handleStart);
-        closeBtn.addEventListener('click', () => { if (hasSession) close(); });
+        closeBtn.addEventListener('click', close);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && hasSession) close();
+            if (e.target === overlay) close();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || !overlay.classList.contains('active')) return;
+            event.preventDefault();
+            close();
         });
 
         // Scenarios
@@ -395,9 +406,5 @@ export const Setup = (() => {
         else populate({ characters: {}, scene: {} });
     }
 
-    function setHasSession(val) {
-        hasSession = Boolean(val);
-    }
-
-    return { init, open, close, setHasSession };
+    return { init, open, close };
 })();

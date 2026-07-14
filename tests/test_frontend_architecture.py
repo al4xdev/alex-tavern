@@ -51,7 +51,21 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v6" in service_worker
+    assert "rpt-shell-v7" in service_worker
+
+
+def test_setup_modal_is_always_dismissible() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    setup_source = (STATIC / "setup.js").read_text(encoding="utf-8")
+    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="setup-close-btn" type="button"' in html
+    assert "closeBtn.addEventListener('click', close);" in setup_source
+    assert "if (e.target === overlay) close();" in setup_source
+    assert "event.key !== 'Escape'" in setup_source
+    assert "closeBtn.style.display" not in setup_source
+    assert "hasSession" not in setup_source
+    assert "Setup.setHasSession" not in app_source
 
 
 def test_frontend_adapter_registry_loads_both_provider_modules() -> None:
