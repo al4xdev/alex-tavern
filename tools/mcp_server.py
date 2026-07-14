@@ -166,7 +166,7 @@ class DebugApiClient:
     async def start_session(
         self,
         *,
-        preset_name: str | None = None,
+        scenario_name: str | None = None,
         controlled_character_id: str | None = None,
         characters: dict[str, Any] | None = None,
         scene: dict[str, Any] | None = None,
@@ -175,7 +175,7 @@ class DebugApiClient:
         payload = {
             key: value
             for key, value in {
-                "preset_name": preset_name,
+                "scenario_name": scenario_name,
                 "controlled_character_id": controlled_character_id,
                 "characters": characters,
                 "scene": scene,
@@ -312,15 +312,15 @@ def create_mcp_server(
 
     @server.tool(annotations=MUTATING)
     async def mutate_start_session(
-        preset_name: str | None = None,
+        scenario_name: str | None = None,
         controlled_character_id: str | None = None,
         characters: dict[str, Any] | None = None,
         scene: dict[str, Any] | None = None,
         narrator_directives: str | None = None,
     ) -> dict[str, Any]:
-        """Create a session from a preset or explicit character and scene data."""
+        """Create a session from a scenario or explicit character and scene data."""
         return await debug_api.start_session(
-            preset_name=preset_name,
+            scenario_name=scenario_name,
             controlled_character_id=controlled_character_id,
             characters=characters,
             scene=scene,

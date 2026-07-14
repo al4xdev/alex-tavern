@@ -46,5 +46,5 @@ USER appuser
 # Define the entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# Command to run uvicorn
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8889"]
+# Run the supervisor so Experience/plugin switches replace the Python child.
+CMD ["python", "-m", "src.supervisor", "--host", "0.0.0.0", "--port", "8889"]

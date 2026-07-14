@@ -10,6 +10,7 @@ from src.llm.adapters.registry import (
     get_provider_adapter,
     provider_adapters,
     provider_names,
+    register_provider_adapter,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "get_provider_adapter",
     "provider_adapters",
     "provider_names",
+    "register_provider_adapter",
 ]

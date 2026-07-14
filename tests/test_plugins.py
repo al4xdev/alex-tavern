@@ -1,0 +1,210 @@
+"""Plugin contract, package lifecycle, ordering, and crash-containment tests."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+import tomllib
+import zipfile
+from pathlib import Path
+
+import httpx
+import pytest
+
+from src.paths import EXPERIENCES_DIR, PLUGIN_HUB_DIR, PLUGINS_DIR
+from src.plugins.experiences import activate_experience, save_experience
+from src.plugins.hooks import HookOrderError, HookRegistry
+from src.plugins.manifest import ManifestError, load_manifest, satisfies_version
+from src.plugins.runtime import PluginRuntime
+from src.plugins.store import (
+    PluginInstallError,
+    activate,
+    active_pointers,
+    install_curated,
+    install_zip,
+    installed_plugins,
+)
+from src.runner import Runner
+from src.store.sessions import load_game
+from tools.plugin_author import pack_plugin, scaffold_plugin
+
+EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
+
+
+@pytest.fixture(autouse=True)
+def isolated_plugin_data() -> None:
+    for directory in (PLUGINS_DIR, EXPERIENCES_DIR):
+        if directory.exists():
+            shutil.rmtree(directory)
+    yield
+    for directory in (PLUGINS_DIR, EXPERIENCES_DIR):
+        if directory.exists():
+            shutil.rmtree(directory)
+
+
+def _pack(source: Path, destination: Path) -> Path:
+    with zipfile.ZipFile(destination, "w") as archive:
+        for path in source.rglob("*"):
+            if path.is_file():
+                archive.write(path, path.relative_to(source))
+    return destination
+
+
+def test_reference_manifest_is_strict_and_current() -> None:
+    manifest = load_manifest(EXAMPLES / "openrouter_provider")
+    assert manifest.plugin_id == "dev.alex-tavern.openrouter"
+    assert manifest.entrypoints.frontend == "frontend.js"
+    invalid = tomllib.loads(
+        (EXAMPLES / "openrouter_provider" / "plugin.toml").read_text(encoding="utf-8")
+    )
+    invalid["schema_version"] = 99
+    with pytest.raises(ManifestError, match="schema_version"):
+        from src.plugins.manifest import parse_manifest
+
+        parse_manifest(invalid)
+
+
+@pytest.mark.asyncio
+async def test_hook_order_and_failed_filter_draft_rollback() -> None:
+    failures: list[str] = []
+
+    async def failed(plugin_id: str, hook: str, error: BaseException) -> None:
+        failures.append(f"{plugin_id}:{hook}:{error}")
+
+    hooks = HookRegistry(failed)
+    hooks.register("later", "demo", "filter", lambda value, _: [*value, "later"], after=("first",))
+    hooks.register("first", "demo", "filter", lambda value, _: [*value, "first"])
+
+    def crash(value, context):  # noqa: ANN001, ANN202, ARG001
+        value.append("dirty")
+        raise RuntimeError("boom")
+
+    hooks.register("broken", "demo", "filter", crash, priority=100)
+    assert await hooks.filter("demo", [], {}) == ["first", "later"]
+    assert failures == ["broken:demo:boom"]
+
+
+def test_hook_cycle_is_rejected_at_registration() -> None:
+    hooks = HookRegistry()
+    hooks.register("one", "cycle", "action", lambda _: None, after=("two",))
+    with pytest.raises(HookOrderError, match="cycle"):
+        hooks.register("two", "cycle", "action", lambda _: None, after=("one",))
+
+
+def test_dependency_version_constraints_are_semantic() -> None:
+    assert satisfies_version("1.8.2", ">=1.2.0,<2.0.0")
+    assert satisfies_version("1.8.2", "^1.4.0")
+    assert not satisfies_version("2.0.0", "^1.4.0")
+    assert satisfies_version("1.8.9", "~1.8.0")
+    assert not satisfies_version("1.9.0", "~1.8.0")
+
+
+def test_zip_install_activation_and_backend_boot(tmp_path: Path) -> None:
+    package = _pack(EXAMPLES / "grammar_tools", tmp_path / "grammar.zip")
+    installed = install_zip(package)
+    assert installed["manifest"]["plugin_id"] == "dev.alex-tavern.grammar-tools"
+    assert len(installed_plugins()) == 1
+    pointer = activate("dev.alex-tavern.grammar-tools")
+    assert pointer["sha256"] == installed["sha256"]
+    assert active_pointers() == [pointer]
+
+    runtime = PluginRuntime()
+    runtime.boot()
+    assert "dev.alex-tavern.grammar-tools" in runtime.loaded
+    assert runtime.disabled_for_boot == {}
+
+
+def test_zip_rejects_path_traversal(tmp_path: Path) -> None:
+    malicious = tmp_path / "malicious.zip"
+    with zipfile.ZipFile(malicious, "w") as archive:
+        archive.writestr("../outside", "no")
+    with pytest.raises(PluginInstallError, match="Unsafe ZIP member"):
+        install_zip(malicious)
+
+
+def test_curated_install_requires_the_catalog_hash() -> None:
+    artifacts = PLUGIN_HUB_DIR / "artifacts"
+    artifacts.mkdir(parents=True)
+    artifact = _pack(EXAMPLES / "openrouter_provider", artifacts / "openrouter.zip")
+    sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    (PLUGIN_HUB_DIR / "catalog.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plugins": [
+                    {
+                        "id": "dev.alex-tavern.openrouter",
+                        "version": "1.0.0",
+                        "artifact": "artifacts/openrouter.zip",
+                        "sha256": sha256,
+                    }
+                ],
+                "experiences": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    installed = install_curated("dev.alex-tavern.openrouter", "1.0.0")
+    assert installed["sha256"] == sha256
+
+
+def test_experience_switches_the_physical_active_set(tmp_path: Path) -> None:
+    for folder in ("grammar_tools", "crash_test"):
+        install_zip(_pack(EXAMPLES / folder, tmp_path / f"{folder}.zip"))
+    activate("dev.alex-tavern.crash-test")
+    experience = {
+        "schema_version": 1,
+        "id": "clean-writing",
+        "name": "Clean writing",
+        "description": "Grammar filter only",
+        "image": "preview.gif",
+        "plugins": [
+            {
+                "id": "dev.alex-tavern.grammar-tools",
+                "version": "1.0.0",
+                "config": {"replacements": {"--": ","}},
+            }
+        ],
+    }
+    save_experience(experience)
+    result = activate_experience("clean-writing")
+    assert result["restart"] is True
+    assert [item["plugin_id"] for item in active_pointers()] == ["dev.alex-tavern.grammar-tools"]
+    config_path = PLUGINS_DIR / "config" / "dev.alex-tavern.grammar-tools.json"
+    assert json.loads(config_path.read_text(encoding="utf-8"))["replacements"] == {"--": ","}
+
+
+@pytest.mark.asyncio
+async def test_runner_discards_crashed_precommit_plugin_draft() -> None:
+    runtime = PluginRuntime()
+
+    def crash(game, context):  # noqa: ANN001, ANN202, ARG001
+        game.plugin_state["broken"] = {"dirty": True}
+        raise RuntimeError("precommit failure")
+
+    runtime.hooks.register("broken", "turn.before_commit", "filter", crash)
+    async with httpx.AsyncClient() as client:
+        runner = Runner(client, {}, runtime)
+        session_id = runner.start_session()
+        result = await runner.player_turn(session_id, thought="secret")
+    assert result["turn_number"] == 1
+    game = load_game(session_id)
+    assert game is not None
+    assert "broken" not in game.plugin_state
+    assert runtime.disabled_for_boot["broken"].startswith("turn.before_commit")
+
+
+def test_agent_authoring_scaffold_and_pack_are_reproducible(tmp_path: Path) -> None:
+    package = tmp_path / "authored"
+    scaffolded = scaffold_plugin(
+        package,
+        "dev.example.authored",
+        "Authored Example",
+        backend=True,
+        frontend=True,
+    )
+    assert scaffolded["valid"] is True
+    first = pack_plugin(package, tmp_path / "first.zip")
+    second = pack_plugin(package, tmp_path / "second.zip")
+    assert first["sha256"] == second["sha256"]

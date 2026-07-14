@@ -217,7 +217,7 @@ async def replay_and_compare(
     *,
     app_url: str,
     replay_url: str,
-    preset: str,
+    scenario: str,
     turns: list[RecordedTurn],
     source_records: list[dict[str, Any]],
     source_backup: dict[str, Any] | None = None,
@@ -233,7 +233,7 @@ async def replay_and_compare(
             app_client,
             "POST",
             "/session/start",
-            payload={"preset_name": preset, "controlled_character_id": "C1"},
+            payload={"scenario_name": scenario, "controlled_character_id": "C1"},
         )
         if not isinstance(started, dict) or not isinstance(started.get("session_id"), str):
             raise ReplaySessionError("Session start response did not contain a session id")
@@ -327,7 +327,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--source-final", type=Path, help="Optional expected final session JSON")
     parser.add_argument("--app-url", default="http://127.0.0.1:8889")
     parser.add_argument("--replay-url", default="http://127.0.0.1:8888")
-    parser.add_argument("--preset", default="thorn-lyra")
+    parser.add_argument("--scenario", default="thorn-lyra")
     return parser.parse_args()
 
 
@@ -339,7 +339,7 @@ async def _async_main() -> int:
     result = await replay_and_compare(
         app_url=args.app_url,
         replay_url=args.replay_url,
-        preset=args.preset,
+        scenario=args.scenario,
         turns=turns,
         source_records=source_records,
         source_backup=source_backup,

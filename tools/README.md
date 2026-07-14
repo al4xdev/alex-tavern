@@ -18,7 +18,7 @@ The selected provider must already be reachable. Settings and the DeepSeek key c
 `.data/config.json`; credentials are neither printed nor logged. The command exits with status 0
 only when a repeat reports non-zero cached tokens and the negative control reports fewer hits.
 Its secret-free JSON result is printed to stdout, and complete calls remain in
-`.data/sessions/cache-probe-<provider>-<nonce>.debug.jsonl`.
+`.data/sessions/cache-probe-<provider>-<nonce>/debug.jsonl`.
 
 See [`docs/09-prompt-caching.md`](../docs/09-prompt-caching.md) for the verified DeepSeek and
 llama.cpp runs, exact counters, server build, model, limitations, and inspection commands.
@@ -30,7 +30,7 @@ llama.cpp runs, exact counters, server build, model, limitations, and inspection
 Stop llama.cpp so port 8888 is free, then run:
 
 ```bash
-uv run python tools/replay_llm.py .data/sessions/<source-id>.debug.jsonl
+uv run python tools/replay_llm.py .data/sessions/<source-id>/debug.jsonl
 ```
 
 The server binds to `127.0.0.1:8888` by default and implements the
@@ -60,7 +60,7 @@ The application runs on port 8889 and should have `llm_host` set to
 ## 3. Recreate and compare the session
 
 ```bash
-uv run python tools/replay_session.py .data/sessions/<source-id>.debug.jsonl
+uv run python tools/replay_session.py .data/sessions/<source-id>/debug.jsonl
 ```
 
 The driver:
@@ -75,16 +75,16 @@ The driver:
 6. triggers compaction when the source contains a world/private summarizer output;
 7. compares successful `{turn_number, agent, response}` entries in exact order.
 
-It prints the new session id and preserves the new `.json`, `.debug.jsonl`, and compaction backup
-under `.data/sessions/` for inspection.
+It prints the new session id and preserves `state.json`, `debug.jsonl`, and compaction backups
+under `.data/sessions/<new-id>/` for inspection.
 
 When the original state files still exist, stricter state comparison can also be enabled:
 
 ```bash
 uv run python tools/replay_session.py \
-  .data/sessions/<source-id>.debug.jsonl \
-  --source-backup .data/sessions/<source-id>.kb_0.json \
-  --source-final .data/sessions/<source-id>.json
+  .data/sessions/<source-id>/debug.jsonl \
+  --source-backup .data/sessions/<source-id>/backups/state.0.json \
+  --source-final .data/sessions/<source-id>/state.json
 ```
 
 The driver intentionally requires the current `turn_input` format. It does not infer inputs or
@@ -132,7 +132,7 @@ A generic client registration from the repository root is:
 
 Read-only tools are prefixed with `inspect_`; state-changing tools are prefixed with `mutate_`.
 They enumerate live API routes, inspect sessions/history/state/raw logs, create and drive sessions,
-request suggestions, undo, compact/restore, and inspect/reset/seek replay state. Session and preset
+request suggestions, undo, compact/restore, and inspect/reset/seek replay state. Session and scenario
 deletion are intentionally not exposed. `inspect_debug_log` is local but sensitive: its bounded
 output can contain complete prompts, model responses, and user-authored roleplay content.
 
@@ -166,7 +166,7 @@ client disconnects.
 ## Test data isolation
 
 Pytest sets `ROLEPLAY_DATA_DIR` to a fresh temporary directory before importing application code.
-All session JSON, backups, raw logs, config, presets, and defaults created by tests stay under that
+All session JSON, backups, raw logs, config, and scenarios created by tests stay under that
 directory. A session-wide safety guard aborts collection if storage ever resolves to the real
 repository `.data` directory or one of its children.
 
@@ -242,7 +242,7 @@ uv run python tools/playtest_harness.py \
 ```
 
 Every invocation creates a fresh `/tmp/roleplay-playtest-suite-*` data directory, copies only the
-default presets, and refuses to use the repository's real `.data` directory or any descendant.
+default scenarios, and refuses to use the repository's real `.data` directory or any descendant.
 Use `--output-dir` to choose a new, nonexistent directory elsewhere. The real `.data` tree is
 never needed for a playtest run.
 

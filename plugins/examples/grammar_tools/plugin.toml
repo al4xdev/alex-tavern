@@ -1,0 +1,20 @@
+schema_version = 1
+id = "dev.alex-tavern.grammar-tools"
+name = "Grammar Tools"
+version = "1.0.0"
+description = "Demonstrates deterministic output filters and per-plugin configuration."
+license = "MIT"
+authors = ["Alex Tavern"]
+permissions = ["config.read", "session.state.write"]
+dependencies = []
+
+[entrypoints]
+backend = "backend.py"
+
+[order]
+priority = 10
+before = []
+after = []
+
+[python]
+dependencies = []

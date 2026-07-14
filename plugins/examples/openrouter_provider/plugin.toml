@@ -1,0 +1,21 @@
+schema_version = 1
+id = "dev.alex-tavern.openrouter"
+name = "OpenRouter Provider"
+version = "1.0.0"
+description = "Adds OpenRouter as a first-class LLM provider."
+license = "MIT"
+authors = ["Alex Tavern"]
+permissions = ["network", "config.read", "provider.replace"]
+dependencies = []
+
+[entrypoints]
+backend = "backend.py"
+frontend = "frontend.js"
+
+[order]
+priority = 100
+before = []
+after = []
+
+[python]
+dependencies = []

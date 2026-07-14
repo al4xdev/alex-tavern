@@ -7,12 +7,15 @@ import argparse
 import asyncio
 import hashlib
 import json
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.config import load_config
 from src.llm.client import chat_completion, resolve_llm_timeout
@@ -62,19 +65,19 @@ def summarize_probe(
             }
         )
 
-    repeated_hits = [
-        cache.get("hit_tokens")
+    repeated_hits: list[int] = [
+        hit_tokens
         for call in calls
         if str(call["phase"]).startswith("repeat-")
         and isinstance((cache := call.get("prompt_cache")), dict)
-        and isinstance(cache.get("hit_tokens"), int)
+        and isinstance((hit_tokens := cache.get("hit_tokens")), int)
     ]
-    negative_hits = [
-        cache.get("hit_tokens")
+    negative_hits: list[int] = [
+        hit_tokens
         for call in calls
         if call["phase"] == "negative"
         and isinstance((cache := call.get("prompt_cache")), dict)
-        and isinstance(cache.get("hit_tokens"), int)
+        and isinstance((hit_tokens := cache.get("hit_tokens")), int)
     ]
     best_repeated_hit = max(repeated_hits, default=0)
     negative_hit = max(negative_hits, default=0)

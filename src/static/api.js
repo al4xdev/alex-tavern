@@ -36,8 +36,8 @@ export const api = {
         });
     },
 
-    getDefaults(name = '') {
-        const url = name ? `/defaults?name=${encodeURIComponent(name)}` : '/defaults';
+    getBuiltinScenario(name = '') {
+        const url = name ? `/scenario-defaults?name=${encodeURIComponent(name)}` : '/scenario-defaults';
         return apiFetch(url);
     },
 
@@ -95,27 +95,84 @@ export const api = {
         return apiFetch(`/session/${sessionId}`, { method: 'DELETE' });
     },
 
-    listPresets() {
-        return apiFetch('/presets');
+    listScenarios() {
+        return apiFetch('/scenarios');
     },
 
-    getPreset(name) {
-        return apiFetch(`/presets/${name}`);
+    getScenario(name) {
+        return apiFetch(`/scenarios/${name}`);
     },
 
-    savePreset(name, cfg) {
-        return apiFetch(`/presets/${name}`, {
+    saveScenario(name, cfg) {
+        return apiFetch(`/scenarios/${name}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(cfg),
         });
     },
 
-    deletePreset(name) {
-        return apiFetch(`/presets/${name}`, { method: 'DELETE' });
+    deleteScenario(name) {
+        return apiFetch(`/scenarios/${name}`, { method: 'DELETE' });
     },
 
     getVersion() {
         return apiFetch('/version');
+    },
+
+    getPlugins() {
+        return apiFetch('/plugins');
+    },
+
+    getPluginCatalog() {
+        return apiFetch('/plugins/catalog');
+    },
+
+    installPlugin(zipPath) {
+        return apiFetch('/plugins/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zip_path: zipPath }),
+        });
+    },
+
+    installPluginFile(file) {
+        return apiFetch('/plugins/install-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/zip' },
+            body: file,
+        });
+    },
+
+    installCuratedPlugin(pluginId, version = null) {
+        const query = version ? `?version=${encodeURIComponent(version)}` : '';
+        return apiFetch(`/plugins/catalog/${encodeURIComponent(pluginId)}/install${query}`, {
+            method: 'POST',
+        });
+    },
+
+    activatePlugin(pluginId, selection = {}) {
+        return apiFetch(`/plugins/${encodeURIComponent(pluginId)}/activate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(selection),
+        });
+    },
+
+    deactivatePlugin(pluginId) {
+        return apiFetch(`/plugins/${encodeURIComponent(pluginId)}/deactivate`, { method: 'POST' });
+    },
+
+    getPluginEvents() {
+        return apiFetch('/plugins/events');
+    },
+
+    listExperiences() {
+        return apiFetch('/experiences');
+    },
+
+    activateExperience(experienceId) {
+        return apiFetch(`/experiences/${encodeURIComponent(experienceId)}/activate`, {
+            method: 'POST',
+        });
     },
 };

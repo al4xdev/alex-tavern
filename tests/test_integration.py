@@ -35,6 +35,10 @@ from src.store.sessions import (
     list_sessions,
     load_game,
     save_game,
+    session_backups_dir,
+    session_debug_path,
+    session_dir,
+    session_state_path,
 )
 from src.store.sessions import (
     delete_session as delete_session_async,
@@ -116,13 +120,11 @@ def _make_test_game(session_id: str | None = None) -> GameState:
 
 def delete_session(session_id: str) -> None:
     """Discard isolated test artifacts without exercising the async public operation."""
-    for path in (
-        SESSIONS_DIR / f"{session_id}.json",
-        SESSIONS_DIR / f"{session_id}.debug.jsonl",
-        *SESSIONS_DIR.glob(f"{session_id}.kb_*.json"),
-    ):
-        if path.exists():
-            path.unlink()
+    import shutil
+
+    directory = session_dir(session_id)
+    if directory.exists():
+        shutil.rmtree(directory)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -179,26 +181,6 @@ class TestModels:
         snap = restored.history[0].scene_snapshot
         expected = "Old Mork's Tavern — main hall, dim lighting"
         assert snap.location == expected
-
-    def test_legacy_history_migration_handles_empty_and_is_idempotent(self) -> None:
-        from src.models import migrate_legacy_history
-
-        assert migrate_legacy_history([]) == []
-        scene = deepcopy_scene(DEFAULT_SCENE)
-        legacy = [TurnRecord(1, "C2", "**Isso parece estranho.**\nEu concordo.", "speech", scene)]
-        migrated = migrate_legacy_history(legacy)
-        assert [(record.content_type, record.content) for record in migrated] == [
-            ("thought", "Isso parece estranho."),
-            ("speech", "Eu concordo."),
-        ]
-        assert migrate_legacy_history(migrated) == migrated
-
-    def test_legacy_history_migration_leaves_partial_markup_unchanged(self) -> None:
-        from src.models import migrate_legacy_history
-
-        scene = deepcopy_scene(DEFAULT_SCENE)
-        partial = [TurnRecord(1, "C2", "**pensamento incompleto", "speech", scene)]
-        assert migrate_legacy_history(partial) == partial
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -339,7 +321,7 @@ class TestSessions:
         """delete_session remove o arquivo."""
         g = _make_test_game(self.sid)
         save_game(g)
-        path = SESSIONS_DIR / f"{self.sid}.json"
+        path = session_state_path(self.sid)
         assert path.exists()
         assert await delete_session_async(self.sid) is True
         assert not path.exists()
@@ -367,8 +349,10 @@ class TestSessions:
     async def test_delete_waits_and_removes_all_session_artifacts(self) -> None:
         """Delete serializes with turns and removes state, log, and compaction backups."""
         save_game(_make_test_game(self.sid))
-        (SESSIONS_DIR / f"{self.sid}.debug.jsonl").write_text("{}\n", encoding="utf-8")
-        (SESSIONS_DIR / f"{self.sid}.kb_0.json").write_text("{}", encoding="utf-8")
+        session_debug_path(self.sid).write_text("{}\n", encoding="utf-8")
+        backups = session_backups_dir(self.sid)
+        backups.mkdir(parents=True)
+        (backups / "state.0.json").write_text("{}", encoding="utf-8")
         lock = _get_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(delete_session_async(self.sid))
@@ -376,7 +360,7 @@ class TestSessions:
         assert not task.done()
         lock.release()
         assert await task is True
-        assert not list(SESSIONS_DIR.glob(f"{self.sid}*"))
+        assert not session_dir(self.sid).exists()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -402,7 +386,7 @@ class TestRunnerLogic:
         sid = self.runner.start_session()
         assert isinstance(sid, str)
         assert len(sid) == 8
-        path = SESSIONS_DIR / f"{sid}.json"
+        path = session_state_path(sid)
         assert path.exists()
         data = json.loads(path.read_text(encoding="utf-8"))
         assert data["session_id"] == sid
@@ -666,7 +650,7 @@ class TestRunnerLogic:
             "context": "Context filtered for C2",
         }
 
-        debug_path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+        debug_path = session_debug_path(sid)
         marker = json.loads(debug_path.read_text(encoding="utf-8").splitlines()[0])
         assert marker["agent"] == "turn_input"
         assert marker["input"] == {
@@ -760,7 +744,7 @@ class TestCompactSession:
     def teardown_method(self) -> None:
         delete_session(self.sid)
         # Limpa eventuais backups kb_N.json criados pelo teste
-        for f in SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"):
+        for f in session_backups_dir(self.sid).glob("state.*.json"):
             f.unlink()
 
     def _seed_history(self, num_turns: int) -> None:
@@ -806,7 +790,7 @@ class TestCompactSession:
         result = await self.runner.compact_session(self.sid)
         assert result["compacted"] is False
 
-        assert list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json")) == []
+        assert list(session_backups_dir(self.sid).glob("state.*.json")) == []
         game = load_game(self.sid)
         assert game is not None
         assert len(game.history) == 10  # 5 passos * 2 registros, intocado
@@ -820,7 +804,7 @@ class TestCompactSession:
         self._mock_summarize(monkeypatch)
         self._seed_history(12)  # 12 passos, janela = 8 -> compacta os 4 mais antigos
 
-        pre_compaction_bytes = (SESSIONS_DIR / f"{self.sid}.json").read_bytes()
+        pre_compaction_bytes = (session_state_path(self.sid)).read_bytes()
 
         result = await self.runner.compact_session(self.sid)
         assert result["compacted"] is True
@@ -926,7 +910,7 @@ class TestRestoreCompaction:
 
     def teardown_method(self) -> None:
         delete_session(self.sid)
-        for f in SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"):
+        for f in session_backups_dir(self.sid).glob("state.*.json"):
             f.unlink()
 
     def _seed_history(self, num_turns: int) -> None:
@@ -965,7 +949,7 @@ class TestRestoreCompaction:
         """Nada mudou desde a compactação -> restaura, backup some, histórico volta."""
         self._mock_summarize(monkeypatch)
         self._seed_history(12)
-        pre_compaction_bytes = (SESSIONS_DIR / f"{self.sid}.json").read_bytes()
+        pre_compaction_bytes = (session_state_path(self.sid)).read_bytes()
 
         compact_result = await self.runner.compact_session(self.sid)
         assert compact_result["compacted"] is True
@@ -974,8 +958,10 @@ class TestRestoreCompaction:
         assert result["restored"] is True
         assert result["history_length"] == 12
 
-        assert (SESSIONS_DIR / f"{self.sid}.json").read_bytes() == pre_compaction_bytes
-        assert list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json")) == []  # backup consumido
+        restored_data = json.loads(session_state_path(self.sid).read_text(encoding="utf-8"))
+        original_data = json.loads(pre_compaction_bytes)
+        assert restored_data == {**original_data, "revision": original_data["revision"] + 2}
+        assert list(session_backups_dir(self.sid).glob("state.*.json")) == []  # backup consumido
 
     @pytest.mark.asyncio
     async def test_restore_refuses_when_new_turns_played_after_compaction(
@@ -1001,15 +987,15 @@ class TestRestoreCompaction:
             )
         )
         save_game(game)
-        pre_restore_bytes = (SESSIONS_DIR / f"{self.sid}.json").read_bytes()
+        pre_restore_bytes = (session_state_path(self.sid)).read_bytes()
 
         result = await self.runner.restore_last_compaction(self.sid)
         assert result["restored"] is False
         assert "more recent" in result["reason"]
 
         # Nada foi alterado: sessão idêntica, backup continua existindo
-        assert (SESSIONS_DIR / f"{self.sid}.json").read_bytes() == pre_restore_bytes
-        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1
+        assert (session_state_path(self.sid)).read_bytes() == pre_restore_bytes
+        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 1
 
     @pytest.mark.asyncio
     async def test_restore_no_backup_available(self) -> None:
@@ -1051,19 +1037,19 @@ class TestRestoreCompaction:
         self._append_turns(12)
         second_compact = await self.runner.compact_session(self.sid)
         assert second_compact["compacted"] is True  # evicta 13-24, mantém 25-32
-        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 2
+        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 2
 
         # Restaura a compactação mais recente (kb_1) -> turnos 13-32 voltam
         r1 = await self.runner.restore_last_compaction(self.sid)
         assert r1["restored"] is True
-        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1
+        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 1
 
         # Tentar ir além (kb_0, só conhece até o turno 20) é recusado: isso
         # apagaria os turnos 21-32 que r1 acabou de trazer de volta.
         r2 = await self.runner.restore_last_compaction(self.sid)
         assert r2["restored"] is False
         assert "more recent" in r2["reason"]
-        assert len(list(SESSIONS_DIR.glob(f"{self.sid}.kb_*.json"))) == 1  # kb_0 intacto
+        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 1  # kb_0 intacto
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1292,8 +1278,6 @@ class TestCustomSessionAndDebug:
         """
         import json as json_module
 
-        from src.store.sessions import SESSIONS_DIR
-
         async def mock_post(url, json, **kwargs):  # noqa: ANN001, A002, ARG001
             schema_name = json.get("response_format", {}).get("json_schema", {}).get("name")
             if schema_name == "narrator_turn":
@@ -1327,7 +1311,7 @@ class TestCustomSessionAndDebug:
         result = await self.runner.player_turn(sid, speech="oi")
         assert result["character_response"] == {"speech": "Estou pronto.", "thought": None}
 
-        debug_path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+        debug_path = session_debug_path(sid)
         assert debug_path.exists()
         entries = [
             json_module.loads(line) for line in debug_path.read_text(encoding="utf-8").splitlines()
@@ -2427,19 +2411,19 @@ class TestHttpBoundary:
             assert isinstance(data["commit"], str)
 
 
-class TestDynamicConfigAndPresets:
-    """Testes para o novo sistema de configuração dinâmica e presets no servidor."""
+class TestDynamicConfigAndScenarios:
+    """Testes para o novo sistema de configuração dinâmica e scenarios no servidor."""
 
     def setup_method(self) -> None:
-        from src.store.presets import PRESETS_DIR
+        from src.store.scenarios import SCENARIOS_DIR
 
-        PRESETS_DIR.mkdir(parents=True, exist_ok=True)
-        self.temp_preset_name = "temp_test_preset"
+        SCENARIOS_DIR.mkdir(parents=True, exist_ok=True)
+        self.temp_scenario_name = "temp_test_scenario"
 
     def teardown_method(self) -> None:
-        from src.store.presets import delete_preset
+        from src.store.scenarios import delete_scenario
 
-        delete_preset(self.temp_preset_name)
+        delete_scenario(self.temp_scenario_name)
 
     def test_config_load_creates_canonical_provider_defaults(self, tmp_path: Path) -> None:
         from src.config import load_config
@@ -2454,7 +2438,7 @@ class TestDynamicConfigAndPresets:
         assert path.exists()
 
     def test_session_request_accepts_only_canonical_nested_characters(self) -> None:
-        """The API has one preset/session character shape and no flat legacy branch."""
+        """The API has one scenario/session character shape and no flat legacy branch."""
         from pydantic import ValidationError
 
         from src.main import StartSessionRequest
@@ -2478,43 +2462,48 @@ class TestDynamicConfigAndPresets:
         with pytest.raises(ValidationError):
             StartSessionRequest(characters={"C1": {"name": "legacy-flat"}})
 
-    def test_presets_store_crud(self) -> None:
-        """Verifica as operações de CRUD diretamente no presets store."""
-        from src.store.presets import delete_preset, list_presets, load_preset, save_preset
+    def test_scenarios_store_crud(self) -> None:
+        """Verifica as operações de CRUD diretamente no scenarios store."""
+        from src.store.scenarios import (
+            delete_scenario,
+            list_scenarios,
+            load_scenario,
+            save_scenario,
+        )
 
-        preset_data = {"test_key": "test_value"}
-        save_preset(self.temp_preset_name, preset_data)
+        scenario_data = {"test_key": "test_value"}
+        save_scenario(self.temp_scenario_name, scenario_data)
 
-        presets = list_presets()
-        assert self.temp_preset_name in presets
+        scenarios = list_scenarios()
+        assert self.temp_scenario_name in scenarios
 
-        loaded = load_preset(self.temp_preset_name)
-        assert loaded == preset_data
+        loaded = load_scenario(self.temp_scenario_name)
+        assert loaded == scenario_data
 
-        success = delete_preset(self.temp_preset_name)
+        success = delete_scenario(self.temp_scenario_name)
         assert success is True
-        assert self.temp_preset_name not in list_presets()
+        assert self.temp_scenario_name not in list_scenarios()
 
     @pytest.mark.asyncio
-    async def test_concurrent_preset_writes_remain_complete(self) -> None:
+    async def test_concurrent_scenario_writes_remain_complete(self) -> None:
         """Per-name locking keeps concurrent atomic writes as complete JSON documents."""
-        from src.store.presets import load_user_preset, save_preset
+        from src.store.scenarios import load_user_scenario, save_scenario
 
         first = {"controlled_character_id": "C1", "characters": {"C1": {"version": 1}}}
         second = {"controlled_character_id": "C2", "characters": {"C2": {"version": 2}}}
         await asyncio.gather(
-            asyncio.to_thread(save_preset, self.temp_preset_name, first),
-            asyncio.to_thread(save_preset, self.temp_preset_name, second),
+            asyncio.to_thread(save_scenario, self.temp_scenario_name, first),
+            asyncio.to_thread(save_scenario, self.temp_scenario_name, second),
         )
-        assert load_user_preset(self.temp_preset_name) in (first, second)
+        assert load_user_scenario(self.temp_scenario_name) in (first, second)
 
-    def test_presets_defaults_fallback(self) -> None:
+    def test_scenarios_defaults_fallback(self) -> None:
         """Built-ins são assets imutáveis e usam o mesmo formato canônico."""
-        from src.store.presets import load_default, load_preset
+        from src.store.scenarios import load_builtin_scenario, load_scenario
 
-        loaded = load_default("thorn-lyra")
+        loaded = load_builtin_scenario("thorn-lyra")
         assert loaded is not None
-        assert loaded == load_preset("thorn-lyra")
+        assert loaded == load_scenario("thorn-lyra")
         assert loaded["controlled_character_id"] == "C1"
         assert set(loaded["characters"]["C1"]) == {"mind", "body"}
 
@@ -2677,7 +2666,7 @@ class TestLanguageConfiguration:
             )
 
             assert output == {"speech": "Wait, listen between doors 1-3.", "thought": None}
-            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            path = session_debug_path(sid)
             raw_entry = json.loads(path.read_text(encoding="utf-8"))
             assert json.loads(raw_entry["response"]) == {
                 "speech": "Wait — listen between doors 1–3.",
@@ -2720,7 +2709,7 @@ class TestLLMObservability:
                     agent="narrator",
                 )
 
-            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            path = session_debug_path(sid)
             entry = json.loads(path.read_text(encoding="utf-8"))
             assert entry["error"]
             assert entry["error_type"] == "ReadTimeout"
@@ -2776,7 +2765,7 @@ class TestLLMObservability:
             )
 
             assert result == {"result": "ok"}
-            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            path = session_debug_path(sid)
             entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             assert [entry["attempt_number"] for entry in entries] == [1, 2, 3]
             assert entries[0]["error_type"] == "HTTPStatusError"
@@ -2806,7 +2795,7 @@ class TestLLMObservability:
                 )
             )
 
-            path = SESSIONS_DIR / f"{sid}.debug.jsonl"
+            path = session_debug_path(sid)
             entries = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
             assert len(entries) == 20
             assert {entry["turn_number"] for entry in entries} == set(range(1, 21))

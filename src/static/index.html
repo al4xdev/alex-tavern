@@ -86,19 +86,19 @@
                     </div>
                 </section>
 
-                <!-- Presets -->
-                <div class="section" id="presets-section">
-                    <h3 class="section-title" data-i18n="presets.title">💾 Presets</h3>
-                    <div class="preset-row">
-                        <select class="text-input" id="preset-select" aria-label="Saved preset" data-i18n-aria-label="presets.savedAria"></select>
-                        <button class="btn btn-mini" id="preset-load-btn" type="button" data-i18n="presets.load">Load</button>
-                        <button class="icon-btn" id="preset-delete-btn" type="button"
-                            title="Delete preset" aria-label="Delete preset" data-i18n-title="presets.delete" data-i18n-aria-label="presets.delete">🗑️</button>
+                <!-- Scenarios -->
+                <div class="section" id="scenarios-section">
+                    <h3 class="section-title" data-i18n="scenarios.title">💾 Scenarios</h3>
+                    <div class="scenario-row">
+                        <select class="text-input" id="scenario-select" aria-label="Saved scenario" data-i18n-aria-label="scenarios.savedAria"></select>
+                        <button class="btn btn-mini" id="scenario-load-btn" type="button" data-i18n="scenarios.load">Load</button>
+                        <button class="icon-btn" id="scenario-delete-btn" type="button"
+                            title="Delete scenario" aria-label="Delete scenario" data-i18n-title="scenarios.delete" data-i18n-aria-label="scenarios.delete">🗑️</button>
                     </div>
-                    <div class="preset-row">
-                        <input type="text" class="text-input" id="preset-name"
-                            placeholder="New preset name (e.g. Pirate campaign)" data-i18n-placeholder="presets.namePlaceholder">
-                        <button class="btn btn-mini" id="preset-save-btn" type="button" data-i18n="presets.saveCurrent">Save current</button>
+                    <div class="scenario-row">
+                        <input type="text" class="text-input" id="scenario-name"
+                            placeholder="New scenario name (e.g. Pirate campaign)" data-i18n-placeholder="scenarios.namePlaceholder">
+                        <button class="btn btn-mini" id="scenario-save-btn" type="button" data-i18n="scenarios.saveCurrent">Save current</button>
                     </div>
                 </div>
 
@@ -221,12 +221,68 @@
         </div>
     </template>
 
+    <!-- ══════════════════ Plugin Center ══════════════════ -->
+    <div class="overlay" id="plugins-overlay">
+        <div class="modal plugin-center" role="dialog" aria-modal="true" aria-labelledby="plugins-title">
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <span class="modal-glyph">✦</span>
+                    <div>
+                        <h2 id="plugins-title" data-i18n="plugins.title">Plugin Center</h2>
+                        <p class="modal-sub" data-i18n="plugins.subtitle">Compose a new Tavern without changing its core</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="plugins-close-btn" data-i18n-title="common.close"
+                    data-i18n-aria-label="common.close">✕</button>
+            </div>
+            <div class="plugin-tabs" role="tablist">
+                <button class="plugin-tab active" data-plugin-tab="experiences" type="button"
+                    data-i18n="plugins.experiences">Experiences</button>
+                <button class="plugin-tab" data-plugin-tab="plugins" type="button"
+                    data-i18n="plugins.extensions">Plugins</button>
+                <button class="plugin-tab" data-plugin-tab="activity" type="button"
+                    data-i18n="plugins.activity">Activity</button>
+            </div>
+            <div class="modal-body plugin-center-body">
+                <section class="plugin-view active" data-plugin-view="experiences">
+                    <div class="experience-hero">
+                        <span class="experience-kicker" data-i18n="plugins.featured">CURATED COMPOSITIONS</span>
+                        <h3 data-i18n="plugins.experienceLead">Change the whole experience in one move.</h3>
+                        <p data-i18n="plugins.experienceHint">Each Experience activates an ordered, reviewed set of plugins and settings.</p>
+                    </div>
+                    <div class="experience-grid" id="experience-grid"></div>
+                </section>
+                <section class="plugin-view" data-plugin-view="plugins">
+                    <div class="plugin-install-row">
+                        <input class="text-input plugin-file-input" id="plugin-zip-path" type="file"
+                            accept=".zip,application/zip" aria-label="Plugin ZIP"
+                            data-i18n-aria-label="plugins.zipPath">
+                        <button class="btn btn-primary" id="plugin-install-btn" type="button"
+                            data-i18n="plugins.installZip">Install ZIP</button>
+                    </div>
+                    <p class="plugin-trust-note" data-i18n="plugins.trustNote">Plugins run with full application power. Curated means code-reviewed, not sandboxed.</p>
+                    <h3 class="plugin-list-title" data-i18n="plugins.available">Available from curated hub</h3>
+                    <div class="plugin-stack" id="plugin-catalog-stack"></div>
+                    <h3 class="plugin-list-title" data-i18n="plugins.installedTitle">Installed cache</h3>
+                    <div class="plugin-stack" id="plugin-stack"></div>
+                </section>
+                <section class="plugin-view" data-plugin-view="activity">
+                    <div class="plugin-activity" id="plugin-activity"></div>
+                </section>
+                <div data-plugin-slot="plugin-center.footer"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- ══════════════════ Game view ══════════════════ -->
     <div class="app" id="app">
         <header class="header">
             <h1 class="brand" id="brand-header" tabindex="0" role="button" aria-label="Open help"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="install-btn" type="button" hidden data-i18n="header.install">⬇ Install</button>
+                <button class="icon-btn plugin-center-trigger" id="plugins-btn" title="Plugin Center"
+                    aria-label="Plugin Center" data-i18n-title="plugins.title"
+                    data-i18n-aria-label="plugins.title">✦</button>
                 <button class="icon-btn" id="settings-btn" title="Configure" aria-label="Configure" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙️</button>
                 <button class="icon-btn" id="sessions-btn" title="Sessions" aria-label="Manage sessions" data-i18n-title="sessions.title" data-i18n-aria-label="sessions.manage">📋</button>
             </div>
@@ -248,7 +304,7 @@
                 <div class="empty-state" id="empty-state">
                     <div class="icon">🎭</div>
                     <p data-i18n="empty.prompt">Configure your adventure to begin</p>
-                    <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="empty.open">Open configuration</button>
+                    <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="sessions.manage">📋 Manage sessions</button>
                 </div>
             </div>
 

@@ -1,0 +1,20 @@
+schema_version = 1
+id = "dev.alex-tavern.crash-test"
+name = "Crash Fallback Test"
+version = "1.0.0"
+description = "Intentionally crashes before commit to verify draft rollback."
+license = "MIT"
+authors = ["Alex Tavern"]
+permissions = ["session.state.write"]
+dependencies = []
+
+[entrypoints]
+backend = "backend.py"
+
+[order]
+priority = 1000
+before = []
+after = []
+
+[python]
+dependencies = []

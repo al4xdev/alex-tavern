@@ -30,14 +30,10 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > debug build for active development, not a production-ready mobile release.
 
 > [!WARNING]
-> **Upcoming Plugin Refactoring:** While complex features, wild interactions, battle systems, or even simple mechanics like rolling dice are fully possible, it is highly recommended to wait for a planned refactoring of the plugin system before writing them. The goal is to secure a very stable and solid core engine capable of reliably supporting extensions.
-> 
-> The future architecture will support three plugin types:
-> 1. **Trigger:** Responds to events (e.g., a command slash bar, similar to the RAG features mentioned in this documentation).
-> 2. **Background:** Asynchronous background tasks.
-> 3. **Hybrid:** A mix of both trigger and background behaviors.
-> 
-> This separation keeps the engine solid and reliable, while allowing plugins to introduce the wild dynamics users desire. A curated public plugin repository is also envisioned for safety. Following this, the project focus will be to shift towards polling and reduce asynchronous complexity.
+> **Plugins are trusted code, not sandboxed extensions.** The Plugin Center can activate reviewed,
+> fixed-hash packages from the curated hub or install a third-party ZIP. Either kind runs inside the
+> Python/browser process and may replace core behavior. Curated means full-source review; installing
+> anything else accepts its full risk.
 
 <place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
@@ -69,6 +65,31 @@ Portuguese browsers start in Portuguese. Changing the interface between `en` and
 the visible application immediately and synchronizes the model response language to **English**
 or **Brazilian Portuguese** without changing the active session, form contents, or chat history.
 
+### ✦ Plugin platform
+
+The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
+configuration and preview. Individual plugins can also be cached and activated independently.
+Changing the active set rebuilds its uv dependency target and asks the supervisor to replace both
+the Python child and browser runtime.
+
+Packages use a strict `plugin.toml`, immutable `id/version/SHA-256` cache, physical activation
+pointers under `.data/plugins/started`, plugin-owned config, and an append-only access/crash journal.
+Backend plugins register deterministic actions, filters, wrappers, or contributions. Frontend
+plugins load as JavaScript modules through the browser SDK. Before-commit filters work on isolated
+drafts; a crash discards that plugin's draft, disables it for the boot, and continues clean. A
+post-commit crash is recorded and never replays durable work. `context.unsafe` deliberately gives
+trusted plugins an escape hatch to reach or replace arbitrary runtime objects.
+
+Reference packages live in `plugins/examples`. Authoring commands are available through
+`uv run python -m tools.plugin_author`; the separate curated-hub scaffold at
+`../alex-tavern-plugins` includes source, deterministic artifacts, an animated Experience preview,
+documentation, and a stdio MCP with contract, scaffold, validate, test, pack, and trace tools. It
+never performs Git or publication operations. Sync a published hub snapshot with:
+
+```fish
+uv run python tools/plugin_hub.py sync --repository https://github.com/al4xdev/alex-tavern-plugins.git
+```
+
 ### 🐳 Docker
 
 On Linux, the helper script is the shortest path:
@@ -94,7 +115,7 @@ docker run -d --name alex-tavern -p 8889:8889 `
   ghcr.io/al4xdev/alex-tavern:latest
 ```
 
-Then open <http://localhost:8889>. The named volume preserves configuration, presets, sessions,
+Then open <http://localhost:8889>. The named volume preserves configuration, scenarios, sessions,
 and debug logs when the container is replaced. To update an existing installation, pull the new
 image, run `docker rm -f alex-tavern`, and execute the `docker run` command again. When a Windows
 container must reach llama.cpp running on the host, use
@@ -124,7 +145,7 @@ with `uv` directly:
 uv sync
 
 # Start the server (runs on port 8889)
-uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
+uv run python -m src.supervisor --host 0.0.0.0 --port 8889
 ```
 
 *Note: The server automatically generates `.data/config.json` on first launch. The gear menu is
@@ -171,7 +192,7 @@ Inspect cache behavior across any normal or probe session with:
 jq -c '
   select(.usage != null)
   | {turn_number, agent, provider, usage, prompt_cache, duration_ms}
-' .data/sessions/<session-id>.debug.jsonl
+' .data/sessions/<session-id>/debug.jsonl
 ```
 
 To reproduce the controlled probes using the provider settings and API key already stored in
@@ -372,7 +393,7 @@ Alex Tavern exposes two complementary inspection layers:
    session log. `Prompt preview` assembles the next Narrator prompt without calling an LLM;
    `Log` shows actual requests, raw responses, errors, retries, and timing.
 2. **Persistent JSONL evidence.** Every session writes an append-only
-   `.data/sessions/{session_id}.debug.jsonl`. Each line is one chronological event, suitable for
+   `.data/sessions/{session_id}/debug.jsonl`. Each line is one chronological event, suitable for
    command-line inspection, deterministic replay, MCP tools, or analysis by a connected agent.
 
 The JSONL records the exact turn input before the first model call, followed by every real LLM
@@ -821,10 +842,10 @@ The setup modal's **AI engine** section calls `GET /config` and `PUT /config`:
 
 The entire `.data/` directory is gitignored and removed from the repository index. Development,
 CI/CD, desktop, and packaged runtimes must create and own separate data directories rather than
-sharing a checked-in key, session, preset, or debug log.
+sharing a checked-in key, session, scenario, or debug log.
 
-Built-in presets are immutable application assets under `src/defaults/`. User presets remain
-mutable runtime data under `.data/presets/`. Both use the same nested `mind`/`body` character
+Built-in scenarios are immutable application assets under `src/scenarios/`. User scenarios remain
+mutable runtime data under `.data/scenarios/`. Both use the same nested `mind`/`body` character
 shape from browser form through API, storage, and Runner; there is no flat legacy conversion path.
 
 ### Runtime switching and concurrency
@@ -842,9 +863,9 @@ newly selected provider.
 
 Session turns, suggestions, snapshots, history reads, prompt previews, forks, deletion,
 compaction, undo, and restore share the same per-session transaction lock. Delete waits for active
-work and removes state, debug log, and backups together. Preset writes/deletes and debug-log
+work and removes state, debug log, and backups together. Scenario writes/deletes and debug-log
 append/reads have their own locks. Lock registries use weak references so completed session or
-preset identifiers do not accumulate for the lifetime of the process.
+scenario identifiers do not accumulate for the lifetime of the process.
 
 The lock and Runner are process-local. Multi-worker Uvicorn deployment would require a shared
 coordination mechanism and is not claimed by this architecture.
@@ -878,14 +899,15 @@ remains an empirical and language-sensitive concern.
 
 ### Adding another provider
 
-A third OpenAI-compatible backend should be added as another adapter, not as branches in agents or
-the harness:
+A third OpenAI-compatible backend should normally be a plugin containing backend and frontend
+adapters, not branches in agents or the harness. The built-in adapters remain useful as the
+zero-plugin baseline; OpenRouter under `plugins/examples/openrouter_provider/` is the reference:
 
-1. Add the backend adapter under `src/llm/adapters/` and implement `ProviderAdapter`.
-2. Declare defaults, secret fields, model requirements, and immutable forced settings on it.
-3. Implement URL, authorization headers, and request capability adaptation.
-4. Register the adapter in `_ADAPTERS`.
-5. Add a declarative frontend adapter under `src/static/adapters/`; do not add provider markup to
+1. Scaffold a package with backend and frontend entrypoints.
+2. Implement `ProviderAdapter` in the plugin and register it during `setup(context)`.
+3. Declare defaults, secret fields, model requirements, and immutable forced settings on it.
+4. Implement URL, authorization headers, and request capability adaptation.
+5. Register a declarative frontend adapter through the browser SDK; do not add provider markup to
    `index.html` or provider branches to `runtime-config.js`.
 6. Add tests for redaction, configuration validation, request transformation, and failure paths.
 7. Run the same harness scenarios against the existing baseline before judging model quality.
@@ -910,16 +932,15 @@ Start the development server:
 ./start.sh
 ```
 
-This runs `uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8889`. Configuration lives
+This runs `uv run python -m src.supervisor --host 0.0.0.0 --port 8889`. The supervisor owns a real
+server child so activating a plugin or Experience can replace the Python process cleanly. Configuration lives
 in `.data/config.json` (gitignored); edit it through the gear menu or directly while the server is
-stopped. Presets (character and scene starting points) live under `.data/presets/`.
+stopped. Scenarios (character and scene starting points) live under `.data/scenarios/`.
 
 For a containerized installation, run `./start_docker.sh` on Linux or use the Docker Desktop
-command from [Docker](#-docker). For the current mobile build, use the
-[Latest Debug APK](https://github.com/al4xdev/alex-tavern/releases/tag/latest); it is an
-experimental development artifact, not a stable Android release.
+command from [Docker](#-docker).
 
-<place_8:gif of ./start.sh booting and a fresh session being created from a preset>
+<place_8:gif of ./start.sh booting and a fresh session being created from a scenario>
 
 ---
 
@@ -983,7 +1004,7 @@ separate from mutation.
 
 | Mutating tool | Purpose |
 |---|---|
-| `mutate_start_session` | Start from a preset or explicit configuration |
+| `mutate_start_session` | Start from a scenario or explicit configuration |
 | `mutate_fork_session` | Create a non-destructive copy |
 | `mutate_submit_turn` | Submit speech/thought/action and optionally force a speaker |
 | `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
@@ -993,7 +1014,7 @@ separate from mutation.
 | `mutate_reset_replay` | Rewind the replay tape to position zero |
 | `mutate_seek_replay` | Move the replay cursor to an absolute position |
 
-Session/preset deletion and retry are intentionally absent. Undo, compaction, and compaction
+Session/scenario deletion and retry are intentionally absent. Undo, compaction, and compaction
 restore are exposed because they are essential debugging operations, but each call must include
 `confirm=true`. MCP's `destructiveHint` annotation remains present for client UIs; the explicit
 argument is the server-side gate and does not rely on a particular client honoring the hint.
@@ -1059,7 +1080,7 @@ compare the complete conversation:
 uv run python tools/replay_session.py tests/fixtures/current_replay.debug.jsonl
 ```
 
-The driver resets the cursor, starts a real preset session, submits every recorded input, and
+The driver resets the cursor, starts a real scenario session, submits every recorded input, and
 requests state immediately after every turn. It rejects a wrong response turn number, missing
 history, or a persisted turn that does not match the input just submitted. When the source tape
 contains a Historian output it also triggers real compaction, then compares all successful

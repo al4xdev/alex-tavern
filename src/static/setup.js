@@ -13,11 +13,11 @@ export const Setup = (() => {
     // DOM refs
     const overlay      = document.getElementById('setup-overlay');
     const closeBtn     = document.getElementById('setup-close-btn');
-    const presetSelect = document.getElementById('preset-select');
-    const presetLoadBtn= document.getElementById('preset-load-btn');
-    const presetDelBtn = document.getElementById('preset-delete-btn');
-    const presetNameEl = document.getElementById('preset-name');
-    const presetSaveBtn= document.getElementById('preset-save-btn');
+    const scenarioSelect = document.getElementById('scenario-select');
+    const scenarioLoadBtn= document.getElementById('scenario-load-btn');
+    const scenarioDelBtn = document.getElementById('scenario-delete-btn');
+    const scenarioNameEl = document.getElementById('scenario-name');
+    const scenarioSaveBtn= document.getElementById('scenario-save-btn');
     const directivesEl = document.getElementById('setup-directives');
     const sceneLocEl   = document.getElementById('setup-scene-location');
     const sceneTimeEl  = document.getElementById('setup-scene-time');
@@ -201,13 +201,13 @@ export const Setup = (() => {
         }
     }
 
-    /* ── Built-in presets use the same canonical shape as user presets ─ */
-    async function loadBuiltinPreset(name = '') {
+    /* ── Built-in scenarios use the same canonical shape as user scenarios ─ */
+    async function loadBuiltinScenario(name = '') {
         try {
-            const data = await api.getDefaults(name);
-            populate(data.preset);
+            const data = await api.getBuiltinScenario(name);
+            populate(data.scenario);
         } catch (err) {
-            showError('presets.defaultLoadError', { error: err.message });
+            showError('scenarios.defaultLoadError', { error: err.message });
         }
     }
 
@@ -248,92 +248,92 @@ export const Setup = (() => {
         } catch { return null; }
     }
 
-    /* ── Named presets ────────────────────────────────────────────────── */
+    /* ── Named scenarios ────────────────────────────────────────────────── */
     function notify(msg, type = 'success') {
         notifyCb(msg, type, 2500);
     }
 
-    async function refreshPresetSelect(selected) {
-        let defaultPresets = [];
-        let userPresets = [];
+    async function refreshScenarioSelect(selected) {
+        let defaultScenarios = [];
+        let userScenarios = [];
         try {
-            const defData = await api.getDefaults();
-            defaultPresets = defData.presets;
-            userPresets = await api.listPresets();
+            const defData = await api.getBuiltinScenario();
+            defaultScenarios = defData.scenarios;
+            userScenarios = await api.listScenarios();
         } catch (err) {
-            showError('presets.refreshError', { error: err.message });
+            showError('scenarios.refreshError', { error: err.message });
         }
 
-        presetSelect.innerHTML = '';
+        scenarioSelect.innerHTML = '';
 
-        defaultPresets.forEach((name) => {
+        defaultScenarios.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = `builtin:${name}`;
-            opt.textContent = `${name} (${t('presets.builtinSuffix')})`;
-            presetSelect.appendChild(opt);
+            opt.textContent = `${name} (${t('scenarios.builtinSuffix')})`;
+            scenarioSelect.appendChild(opt);
         });
 
-        userPresets.forEach((name) => {
+        userScenarios.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = `user:${name}`;
             opt.textContent = name;
-            presetSelect.appendChild(opt);
+            scenarioSelect.appendChild(opt);
         });
 
-        if (selected && [...presetSelect.options].some((o) => o.value === selected)) {
-            presetSelect.value = selected;
-        } else if (defaultPresets.length > 0) {
-            presetSelect.value = `builtin:${defaultPresets[0]}`;
+        if (selected && [...scenarioSelect.options].some((o) => o.value === selected)) {
+            scenarioSelect.value = selected;
+        } else if (defaultScenarios.length > 0) {
+            scenarioSelect.value = `builtin:${defaultScenarios[0]}`;
         }
-        presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
+        scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
     }
 
-    async function loadSelectedPreset() {
-        const val = presetSelect.value;
+    async function loadSelectedScenario() {
+        const val = scenarioSelect.value;
         if (val.startsWith('builtin:')) {
             const name = val.replace(/^builtin:/, '');
-            await loadBuiltinPreset(name);
-            notify(t('presets.defaultLoaded', { name }));
+            await loadBuiltinScenario(name);
+            notify(t('scenarios.defaultLoaded', { name }));
             return;
         }
         const name = val.replace(/^user:/, '');
         try {
-            const cfg = await api.getPreset(name);
+            const cfg = await api.getScenario(name);
             populate(cfg);
             clearError();
-            notify(t('presets.loaded', { name }));
+            notify(t('scenarios.loaded', { name }));
         } catch (err) {
-            showError('presets.serverLoadError', { error: err.message });
+            showError('scenarios.serverLoadError', { error: err.message });
         }
     }
 
-    async function saveCurrentPreset() {
-        const name = presetNameEl.value.trim();
-        if (!name) { showError('presets.nameRequired'); return; }
+    async function saveCurrentScenario() {
+        const name = scenarioNameEl.value.trim();
+        if (!name) { showError('scenarios.nameRequired'); return; }
         const cfg = collect();
         const problem = validate(cfg);
         if (problem) { showError(problem.key, problem.params); return; }
         try {
-            await api.savePreset(name, cfg);
-            presetNameEl.value = '';
-            await refreshPresetSelect(`user:${name}`);
+            await api.saveScenario(name, cfg);
+            scenarioNameEl.value = '';
+            await refreshScenarioSelect(`user:${name}`);
             clearError();
-            notify(t('presets.saved', { name }));
+            notify(t('scenarios.saved', { name }));
         } catch (err) {
-            showError('presets.saveError', { error: err.message });
+            showError('scenarios.saveError', { error: err.message });
         }
     }
 
-    async function deleteSelectedPreset() {
-        const val = presetSelect.value;
+    async function deleteSelectedScenario() {
+        const val = scenarioSelect.value;
         if (!val.startsWith('user:')) return;
         const name = val.replace(/^user:/, '');
         try {
-            await api.deletePreset(name);
-            await refreshPresetSelect();
-            notify(t('presets.deleted', { name }));
+            await api.deleteScenario(name);
+            await refreshScenarioSelect();
+            notify(t('scenarios.deleted', { name }));
         } catch (err) {
-            showError('presets.deleteError', { error: err.message });
+            showError('scenarios.deleteError', { error: err.message });
         }
     }
 
@@ -373,21 +373,21 @@ export const Setup = (() => {
             if (e.target === overlay && hasSession) close();
         });
 
-        // Presets
-        presetLoadBtn.addEventListener('click', loadSelectedPreset);
-        presetSaveBtn.addEventListener('click', saveCurrentPreset);
-        presetDelBtn.addEventListener('click', deleteSelectedPreset);
-        presetSelect.addEventListener('change', () => {
-            presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
+        // Scenarios
+        scenarioLoadBtn.addEventListener('click', loadSelectedScenario);
+        scenarioSaveBtn.addEventListener('click', saveCurrentScenario);
+        scenarioDelBtn.addEventListener('click', deleteSelectedScenario);
+        scenarioSelect.addEventListener('change', () => {
+            scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
         });
         onLocaleChange(() => {
-            [...presetSelect.options].forEach((option) => {
+            [...scenarioSelect.options].forEach((option) => {
                 if (!option.value.startsWith('builtin:')) return;
                 const name = option.value.replace(/^builtin:/, '');
-                option.textContent = `${name} (${t('presets.builtinSuffix')})`;
+                option.textContent = `${name} (${t('scenarios.builtinSuffix')})`;
             });
         });
-        refreshPresetSelect();
+        refreshScenarioSelect();
 
         // Pre-fill from last saved setup, else empty scaffolding
         const saved = loadSaved();

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
 import threading
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -9,9 +11,9 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -24,6 +26,7 @@ from src.config import (
 )
 from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR
+from src.plugins.runtime import PluginRuntime
 from src.runner import Runner
 from src.store.sessions import delete_session, fork_session, list_sessions
 
@@ -38,6 +41,7 @@ class RuntimeState:
     server_config: dict[str, Any]
     llm_client: httpx.AsyncClient
     runner: Runner
+    plugins: PluginRuntime = field(default_factory=PluginRuntime)
     config_lock: threading.RLock = field(default_factory=threading.RLock)
 
 
@@ -46,15 +50,20 @@ class RuntimeState:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ANN201
+    plugins = PluginRuntime()
+    plugins.boot()
     stored_config = load_config()
     server_config = resolve_active_config(stored_config)
     llm_client = httpx.AsyncClient()
-    app.state.runtime = RuntimeState(
+    runtime = RuntimeState(
         stored_config=stored_config,
         server_config=server_config,
         llm_client=llm_client,
-        runner=Runner(llm_client, server_config),
+        runner=Runner(llm_client, server_config, plugins),
+        plugins=plugins,
     )
+    plugins.bind_host(runtime)
+    app.state.runtime = runtime
     yield
     await llm_client.aclose()
 
@@ -113,7 +122,7 @@ class StartSessionRequest(BaseModel):
     characters: dict[str, CharacterInput] | None = None
     scene: SceneInput | None = None
     narrator_directives: str | None = None
-    preset_name: str | None = None
+    scenario_name: str | None = None
 
 
 class StartSessionResponse(BaseModel):
@@ -191,28 +200,31 @@ async def start_session(req: StartSessionRequest) -> dict:
         dict_to_character,
         game_state_to_dict,
     )
-    from src.store.presets import list_defaults, load_default, load_preset
+    from src.store.scenarios import list_builtin_scenarios, load_builtin_scenario, load_scenario
 
-    preset_data: dict[str, Any] = {}
-    if req.preset_name:
-        preset_val = load_preset(req.preset_name)
-        if preset_val is None:
-            raise HTTPException(status_code=404, detail=f"Preset '{req.preset_name}' not found.")
-        preset_data = preset_val
+    scenario_data: dict[str, Any] = {}
+    if req.scenario_name:
+        scenario_val = load_scenario(req.scenario_name)
+        if scenario_val is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Scenario '{req.scenario_name}' not found.",
+            )
+        scenario_data = scenario_val
 
-    if not preset_data and not req.characters and not req.scene:
-        defaults = list_defaults()
+    if not scenario_data and not req.characters and not req.scene:
+        defaults = list_builtin_scenarios()
         if defaults:
-            first_def = load_default(defaults[0])
+            first_def = load_builtin_scenario(defaults[0])
             if first_def:
-                preset_data = first_def
+                scenario_data = first_def
 
     characters = {}
     if req.characters:
         for cid, ci in req.characters.items():
             characters[cid] = dict_to_character(ci.dict())
-    elif "characters" in preset_data:
-        for cid, cdata in preset_data["characters"].items():
+    elif "characters" in scenario_data:
+        for cid, cdata in scenario_data["characters"].items():
             characters[cid] = dict_to_character(cdata)
 
     scene = None
@@ -223,8 +235,8 @@ async def start_session(req: StartSessionRequest) -> dict:
             present_characters=[],  # recomputed by the runner
             physical_facts=dict(req.scene.physical_facts),
         )
-    elif "scene" in preset_data:
-        sdata = preset_data["scene"]
+    elif "scene" in scenario_data:
+        sdata = scenario_data["scene"]
         scene = Scene(
             location=sdata["location"],
             time_of_day=sdata["time_of_day"],
@@ -235,14 +247,14 @@ async def start_session(req: StartSessionRequest) -> dict:
     directives = ""
     if req.narrator_directives is not None:
         directives = req.narrator_directives
-    elif "narrator_directives" in preset_data:
-        directives = preset_data["narrator_directives"]
+    elif "narrator_directives" in scenario_data:
+        directives = scenario_data["narrator_directives"]
 
     controlled_id = ""
     if req.controlled_character_id:
         controlled_id = req.controlled_character_id
-    elif "controlled_character_id" in preset_data:
-        controlled_id = preset_data["controlled_character_id"]
+    elif "controlled_character_id" in scenario_data:
+        controlled_id = scenario_data["controlled_character_id"]
 
     cfg: dict[str, Any] = {
         "controlled_character_id": controlled_id,
@@ -367,26 +379,26 @@ async def get_history(
     ]
 
 
-@app.get("/defaults")
-def get_defaults(name: str | None = None) -> dict:
-    """Returns the default preset for the UI to pre-fill."""
-    from src.store.presets import list_defaults, load_default
+@app.get("/scenario-defaults")
+def get_builtin_scenarios(name: str | None = None) -> dict:
+    """Returns the default scenario for the UI to pre-fill."""
+    from src.store.scenarios import list_builtin_scenarios, load_builtin_scenario
 
-    defaults = list_defaults()
+    defaults = list_builtin_scenarios()
     target_name = name
     if not target_name:
         target_name = defaults[0] if defaults else ""
 
     if not target_name:
-        raise HTTPException(status_code=404, detail="No default preset available.")
+        raise HTTPException(status_code=404, detail="No default scenario available.")
 
-    preset_val = load_default(target_name)
-    if not preset_val:
-        raise HTTPException(status_code=404, detail=f"Default preset '{target_name}' not found.")
+    scenario_val = load_builtin_scenario(target_name)
+    if not scenario_val:
+        raise HTTPException(status_code=404, detail=f"Default scenario '{target_name}' not found.")
 
     return {
-        "presets": defaults,
-        "preset": preset_val,
+        "scenarios": defaults,
+        "scenario": scenario_val,
     }
 
 
@@ -408,49 +420,49 @@ def put_runtime_config(body: dict[str, Any]) -> dict:
         resolved = resolve_active_config(stored)
         runtime.stored_config = stored
         runtime.server_config = resolved
-        runtime.runner = Runner(runtime.llm_client, resolved)
+        runtime.runner = Runner(runtime.llm_client, resolved, runtime.plugins)
         return public_config(stored)
 
 
-# ── Presets API ──────────────────────────────────────────────────────────
+# ── Scenarios API ──────────────────────────────────────────────────────────
 
 
-@app.get("/presets")
-def get_presets() -> list[str]:
-    """Lists the names of all user presets."""
-    from src.store.presets import list_presets
+@app.get("/scenarios")
+def get_scenarios() -> list[str]:
+    """Lists the names of all user scenarios."""
+    from src.store.scenarios import list_scenarios
 
-    return list_presets()
-
-
-@app.get("/presets/{name}")
-def get_preset(name: str) -> dict:
-    """Returns the complete preset configuration."""
-    from src.store.presets import load_user_preset
-
-    preset_val = load_user_preset(name)
-    if preset_val is None:
-        raise HTTPException(status_code=404, detail=f"Preset '{name}' not found.")
-    return preset_val
+    return list_scenarios()
 
 
-@app.put("/presets/{name}")
-def put_preset(name: str, body: StartSessionRequest) -> dict:
-    """Saves or updates a user preset."""
-    from src.store.presets import save_preset
+@app.get("/scenarios/{name}")
+def get_scenario(name: str) -> dict:
+    """Returns the complete scenario configuration."""
+    from src.store.scenarios import load_user_scenario
 
-    save_preset(name, body.dict(exclude_none=True))
+    scenario_val = load_user_scenario(name)
+    if scenario_val is None:
+        raise HTTPException(status_code=404, detail=f"Scenario '{name}' not found.")
+    return scenario_val
+
+
+@app.put("/scenarios/{name}")
+def put_scenario(name: str, body: StartSessionRequest) -> dict:
+    """Saves or updates a user scenario."""
+    from src.store.scenarios import save_scenario
+
+    save_scenario(name, body.dict(exclude_none=True))
     return {"saved": True}
 
 
-@app.delete("/presets/{name}")
-def delete_preset_endpoint(name: str) -> dict:
-    """Removes a user preset."""
-    from src.store.presets import delete_preset
+@app.delete("/scenarios/{name}")
+def delete_scenario_endpoint(name: str) -> dict:
+    """Removes a user scenario."""
+    from src.store.scenarios import delete_scenario
 
-    success = delete_preset(name)
+    success = delete_scenario(name)
     if not success:
-        raise HTTPException(status_code=404, detail=f"Preset '{name}' not found.")
+        raise HTTPException(status_code=404, detail=f"Scenario '{name}' not found.")
     return {"deleted": True}
 
 
@@ -475,6 +487,195 @@ async def delete_session_endpoint(session_id: str) -> dict:
     if not await delete_session(session_id):
         raise HTTPException(status_code=404, detail="Session not found")
     return {"deleted": True}
+
+
+# ── Plugin platform ─────────────────────────────────────────────────────
+
+
+class PluginInstallRequest(BaseModel):
+    zip_path: str
+
+
+class PluginActivationRequest(BaseModel):
+    version: str | None = None
+    sha256: str | None = None
+
+
+@app.get("/plugins")
+def get_plugins() -> dict[str, Any]:
+    from src.plugins.store import installed_plugins
+
+    return {"installed": installed_plugins(), **_runtime().plugins.public_status()}
+
+
+@app.get("/plugins/events")
+def get_plugin_events(
+    limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT)] = 200,
+) -> list[dict[str, Any]]:
+    from src.plugins.journal import read
+
+    return read(limit)
+
+
+@app.post("/plugins/{plugin_id}/observe")
+def observe_frontend_plugin(plugin_id: str, body: dict[str, Any]) -> dict[str, bool]:
+    from src.plugins.journal import emit
+
+    permission = body.pop("permission", "frontend.unknown")
+    emit("permission_access", plugin_id, permission=permission, **body)
+    return {"recorded": True}
+
+
+@app.get("/plugins/{plugin_id}/config")
+def get_plugin_config(plugin_id: str) -> dict[str, Any]:
+    from src.plugins.sdk import PluginConfig
+
+    return PluginConfig(plugin_id).read()
+
+
+@app.put("/plugins/{plugin_id}/config")
+def put_plugin_config(plugin_id: str, body: dict[str, Any]) -> dict[str, bool]:
+    from src.plugins.sdk import PluginConfig
+
+    PluginConfig(plugin_id).write(body)
+    return {"saved": True}
+
+
+@app.post("/plugins/install")
+def install_plugin(body: PluginInstallRequest) -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, install_zip
+
+    try:
+        return install_zip(Path(body.zip_path).expanduser().resolve())
+    except PluginInstallError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/plugins/install-upload")
+async def upload_plugin(request: Request) -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, install_zip
+
+    with tempfile.TemporaryDirectory(prefix="alex-tavern-upload-") as temporary:
+        path = Path(temporary) / "plugin.zip"
+        size = 0
+        with path.open("wb") as handle:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 100 * 1024 * 1024:
+                    raise HTTPException(status_code=422, detail="Plugin ZIP exceeds 100 MiB")
+                handle.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=422, detail="Plugin ZIP is empty")
+        try:
+            return install_zip(path)
+        except PluginInstallError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get("/plugins/catalog")
+def get_plugin_catalog() -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, curated_catalog
+
+    try:
+        return curated_catalog()
+    except (PluginInstallError, json.JSONDecodeError, OSError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/plugins/catalog/{plugin_id}/install")
+def install_curated_plugin(plugin_id: str, version: str | None = None) -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, install_curated
+
+    try:
+        return install_curated(plugin_id, version)
+    except PluginInstallError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/plugins/{plugin_id}/activate")
+def activate_plugin(
+    plugin_id: str,
+    body: PluginActivationRequest,
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, activate, rebuild_environment
+    from src.supervisor import request_restart
+
+    try:
+        pointer = activate(plugin_id, body.version, body.sha256)
+        environment = rebuild_environment()
+    except (PluginInstallError, OSError, RuntimeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    background_tasks.add_task(request_restart)
+    return {"activated": pointer, "environment": environment, "restart": True}
+
+
+@app.post("/plugins/{plugin_id}/deactivate")
+def deactivate_plugin(plugin_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+    from src.plugins.store import deactivate, rebuild_environment
+    from src.supervisor import request_restart
+
+    changed = deactivate(plugin_id)
+    environment = rebuild_environment()
+    if changed:
+        background_tasks.add_task(request_restart)
+    return {"deactivated": changed, "environment": environment, "restart": changed}
+
+
+@app.get("/plugins/assets/{plugin_id}/{relative_path:path}")
+def plugin_asset(plugin_id: str, relative_path: str) -> FileResponse:
+    path = _runtime().plugins.asset(plugin_id, relative_path)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Plugin asset not found")
+    return FileResponse(path)
+
+
+@app.get("/experiences")
+def get_experiences() -> list[dict[str, Any]]:
+    from src.plugins.experiences import list_experiences
+
+    return list_experiences()
+
+
+@app.get("/experiences/assets/{relative_path:path}")
+def experience_asset(relative_path: str) -> FileResponse:
+    from src.paths import EXPERIENCES_DIR
+
+    root = (EXPERIENCES_DIR / "assets").resolve()
+    path = (root / relative_path).resolve()
+    if root not in path.parents or not path.is_file():
+        raise HTTPException(status_code=404, detail="Experience asset not found")
+    return FileResponse(path)
+
+
+@app.put("/experiences/{experience_id}")
+def put_experience(experience_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    from src.plugins.experiences import ExperienceError, save_experience
+
+    if body.get("id") != experience_id:
+        raise HTTPException(status_code=422, detail="Path and Experience id must match")
+    try:
+        experience = save_experience(body)
+    except ExperienceError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return experience.public_dict()
+
+
+@app.post("/experiences/{experience_id}/activate")
+def activate_experience_endpoint(
+    experience_id: str, background_tasks: BackgroundTasks
+) -> dict[str, Any]:
+    from src.plugins.experiences import ExperienceError, activate_experience
+    from src.plugins.store import rebuild_environment
+    from src.supervisor import request_restart
+
+    try:
+        result = activate_experience(experience_id)
+        result["environment"] = rebuild_environment()
+    except (ExperienceError, OSError, RuntimeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    background_tasks.add_task(request_restart)
+    return result
 
 
 def get_git_commit() -> str:
