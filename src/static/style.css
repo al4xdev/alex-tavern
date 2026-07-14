@@ -314,6 +314,17 @@ html, body {
     background: rgba(255, 255, 255, 0.025);
 }
 .experience-card { overflow: hidden; }
+.experience-card.active { border-color: rgba(100, 217, 164, 0.28); }
+.experience-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.experience-active-badge {
+    padding: 3px 7px;
+    border: 1px solid rgba(100, 217, 164, 0.4);
+    border-radius: 999px;
+    background: rgba(100, 217, 164, 0.13);
+    color: #82dfba;
+    font-size: 0.62rem;
+    font-weight: 800;
+}
 .experience-visual {
     min-height: 112px;
     display: flex;

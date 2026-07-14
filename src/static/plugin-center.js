@@ -101,9 +101,21 @@ export const PluginCenter = (() => {
         }
     }
 
-    function experienceCard(experience, releases, cachedKeys) {
+    function experienceIsActive(experience, statusPlugins) {
+        const activeVersions = new Map();
+        statusPlugins.forEach((plugin) => {
+            if (plugin.active) activeVersions.set(plugin.plugin_id, plugin.active.manifest.version);
+        });
+        if (activeVersions.size !== experience.plugins.length) return false;
+        return experience.plugins.every((item) => {
+            const version = activeVersions.get(item.id);
+            return version !== undefined && (!item.version || item.version === version);
+        });
+    }
+
+    function experienceCard(experience, releases, cachedKeys, isActive) {
         const card = document.createElement('article');
-        card.className = 'experience-card';
+        card.className = `experience-card ${isActive ? 'active' : ''}`;
         const visual = document.createElement('div');
         visual.className = 'experience-visual';
         if (experience.image) {
@@ -114,8 +126,17 @@ export const PluginCenter = (() => {
         visual.append(count);
         const copy = document.createElement('div');
         copy.className = 'experience-copy';
+        const titleRow = document.createElement('div');
+        titleRow.className = 'experience-title-row';
         const title = document.createElement('h4');
         title.textContent = experience.name;
+        titleRow.append(title);
+        if (isActive) {
+            const badge = document.createElement('span');
+            badge.className = 'experience-active-badge';
+            badge.textContent = t('plugins.experienceActive');
+            titleRow.append(badge);
+        }
         const description = document.createElement('p');
         description.textContent = experience.description;
         const activate = document.createElement('button');
@@ -145,7 +166,7 @@ export const PluginCenter = (() => {
                 },
             });
         });
-        copy.append(title, description, activate);
+        copy.append(titleRow, description, activate);
         card.append(visual, copy);
         return card;
     }
@@ -466,7 +487,7 @@ export const PluginCenter = (() => {
         )));
         if (experiences.length) {
             experienceGrid.replaceChildren(...experiences.map((experience) => (
-                experienceCard(experience, catalog.plugins, cachedKeys)
+                experienceCard(experience, catalog.plugins, cachedKeys, experienceIsActive(experience, status.plugins))
             )));
         } else empty(experienceGrid, 'plugins.noExperiences');
         const available = status.plugins.filter((plugin) => plugin.state === 'not_installed');
