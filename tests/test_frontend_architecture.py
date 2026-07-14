@@ -56,7 +56,34 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v13" in service_worker
+    assert "rpt-shell-v14" in service_worker
+    assert "'/slash-commands.js'" in service_worker
+    assert "'/slash-command-parser.js'" in service_worker
+
+
+def test_slash_parser_autocomplete_resolution_and_literal_escape() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        const m = await import('./src/static/slash-command-parser.js');
+        const catalog = [{name: 'convert-character'}, {name: 'compare-scenes'}];
+        const assert = (value, message) => { if (!value) throw new Error(message); };
+        assert(m.matchingCommands('/con', catalog)[0].name === 'convert-character', 'autocomplete');
+        const resolved = m.resolveCommand('/convert-character lyra-nightfall', catalog);
+        assert(resolved.command.name === 'convert-character', 'resolution');
+        assert(resolved.rest === 'lyra-nightfall', 'arguments');
+        assert(m.resolveCommand('/unknown', catalog) === null, 'unknown command');
+        const literal = m.tokenizeSlash('//waves');
+        assert(literal.kind === 'literal' && literal.speech === '/waves', 'literal escape');
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def test_setup_modal_is_always_dismissible() -> None:

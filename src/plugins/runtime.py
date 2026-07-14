@@ -12,6 +12,7 @@ from types import ModuleType
 from typing import Any
 
 from src.paths import PLUGIN_ENV_DIR
+from src.plugins.commands import CommandRegistry
 from src.plugins.hooks import HookRegistry
 from src.plugins.journal import emit
 from src.plugins.manifest import PluginManifest, load_manifest, satisfies_version
@@ -31,6 +32,7 @@ class PluginRuntime:
 
     def __init__(self) -> None:
         self.hooks = HookRegistry(self._hook_failed)
+        self.commands = CommandRegistry()
         self.loaded: dict[str, LoadedPlugin] = {}
         self.disabled_for_boot: dict[str, str] = {}
         self.host: Any = None
@@ -46,6 +48,7 @@ class PluginRuntime:
             return
         self.disabled_for_boot[plugin_id] = reason
         self.hooks.remove_plugin(plugin_id)
+        self.commands.remove_plugin(plugin_id)
         emit("crashed", plugin_id, reason=reason, traceback=traceback.format_exc())
 
     def boot(self) -> None:
@@ -160,8 +163,9 @@ class PluginRuntime:
             "disabled_for_boot": deepcopy(self.disabled_for_boot),
             "contributions": {
                 slot: self.hooks.contributions(slot)
-                for slot in ("providers", "routes", "settings", "commands", "panels")
+                for slot in ("providers", "routes", "settings", "panels")
             },
+            "commands": self.commands.public_catalog(),
         }
 
     def asset(self, plugin_id: str, relative_path: str) -> Path | None:

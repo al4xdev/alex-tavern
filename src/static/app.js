@@ -3,6 +3,7 @@ import { RuntimeConfig } from './runtime-config.js';
 import { PluginRuntime } from './plugin-runtime.js';
 import { PluginCenter } from './plugin-center.js';
 import { Setup } from './setup.js';
+import { SlashCommands } from './slash-commands.js';
 import {
     bindTranslation,
     getLocale,
@@ -31,6 +32,7 @@ const state = {
     compactionDepth: 0,
     narratorHint: '',       // pending narrator event hint for next turn
     lastEchoMessage: null,  // optimistic player bubble updated with effective input
+    avatarUrls: {},        // cid -> revisioned native preset avatar URL
 };
 
 const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
@@ -465,6 +467,7 @@ async function loadSession(sessionId) {
         state.canUndo = gameState.history && gameState.history.length > 0;
         updateActionPopup();
         ingestState(gameState);
+        await hydrateAvatarUrls(gameState);
 
         renderHistory(gameState.history);
 
@@ -560,6 +563,7 @@ function speakerInfo(speaker) {
             color: colorFor(cid),
             initial: controlledName().charAt(0).toUpperCase(),
             cls: 'msg-player',
+            avatar: state.avatarUrls[cid] || '',
         };
     }
     const ch = state.characters[speaker];
@@ -569,6 +573,7 @@ function speakerInfo(speaker) {
             color: colorFor(speaker),
             initial: ch.mind.name.charAt(0).toUpperCase(),
             cls: 'msg-npc',
+            avatar: state.avatarUrls[speaker] || '',
         };
     }
     return { label: speaker, color: null, initial: '💬', cls: 'msg-npc' };
@@ -680,7 +685,14 @@ function addMessage(speaker, content, contentType, { animate = false, transforme
     if (info.cls !== 'msg-narrator') {
         const avatar = document.createElement('span');
         avatar.className = 'msg-avatar';
-        avatar.textContent = info.initial;
+        if (info.avatar) {
+            const image = document.createElement('img');
+            image.src = info.avatar;
+            image.alt = '';
+            avatar.appendChild(image);
+        } else {
+            avatar.textContent = info.initial;
+        }
         avatar.style.background = info.color
             ? `${info.color}33` : 'var(--surface-hi)';
         if (info.color) avatar.style.color = info.color;
@@ -1146,6 +1158,18 @@ function ingestState(gameState) {
     updateActionPopup();
 }
 
+async function hydrateAvatarUrls(gameState) {
+    state.avatarUrls = {};
+    const byPreset = new Map();
+    await Promise.all(Object.entries(gameState?.character_preset_ids || {}).map(async ([cid, name]) => {
+        try {
+            if (!byPreset.has(name)) byPreset.set(name, api.getPreset(name));
+            const preset = await byPreset.get(name);
+            if (preset.avatar?.url) state.avatarUrls[cid] = preset.avatar.url;
+        } catch { /* the initial remains the stable fallback */ }
+    }));
+}
+
 async function startSession(cfg) {
     state.compactionAbortController?.abort();
     // reset the view
@@ -1170,6 +1194,7 @@ async function startSession(cfg) {
         state.canUndo = false;
         updateActionPopup();
         ingestState(data.state);
+        await hydrateAvatarUrls(data.state);
         renderHistory(data.state.history);
         inputSpeech.disabled = false;
         inputThought.disabled = false;
@@ -1211,6 +1236,7 @@ async function reconcileAutomaticCompaction(data) {
 
 async function sendTurn(isRetry = false) {
     if (!state.sessionId) return;
+    if (!isRetry && await SlashCommands.interceptSend()) return;
     const speech = inputSpeech.value.trim();
     const thought = inputThought.value.trim();
     const action = inputAction.value.trim();
@@ -1390,6 +1416,7 @@ inputAction.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTurn(); }
 });
 inputSpeech.addEventListener('keydown', (e) => {
+    if (SlashCommands.handleKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputThought.focus(); }
 });
 inputThought.addEventListener('keydown', (e) => {
@@ -1866,6 +1893,12 @@ async function initializeApplication() {
         onStart: (cfg) => startSession(cfg),
         onOpen: () => RuntimeConfig.refresh(),
         notify: toast,
+    });
+    SlashCommands.init({
+        getSessionId: () => state.sessionId,
+        notify: toast,
+        onPresetDraft: (character, name, avatarFile) =>
+            Setup.openPresetDraft(character, name, avatarFile),
     });
     await PluginRuntime.runHook('app.ready', null, { state, toast });
 }

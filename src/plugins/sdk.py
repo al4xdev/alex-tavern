@@ -196,5 +196,11 @@ class PluginContext:
     def contribute(self, slot: str, value: Any) -> None:
         self._hooks.contribute(self.plugin_id, slot, value)
 
+    def command(self, descriptor: dict[str, Any], handler: Callable[..., Any]) -> None:
+        """Register one executable utility command in the global slash namespace."""
+        self.unsafe.runtime.commands.register(
+            self.plugin_id, self.manifest.version, descriptor, handler
+        )
+
     def event(self, name: str, **details: Any) -> None:
         emit(name, self.plugin_id, **details)

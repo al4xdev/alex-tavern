@@ -10,6 +10,7 @@ DATA_DIR = Path(os.environ.get(DATA_DIR_ENV, ".data")).expanduser()
 CONFIG_PATH = DATA_DIR / "config.json"
 SESSIONS_DIR = DATA_DIR / "sessions"
 SCENARIOS_DIR = DATA_DIR / "scenarios"
+PRESETS_DIR = DATA_DIR / "presets"
 BUILTIN_SCENARIOS_DIR = Path(__file__).resolve().parent / "scenarios"
 PLUGINS_DIR = DATA_DIR / "plugins"
 PLUGIN_CACHE_DIR = PLUGINS_DIR / "cached"

@@ -132,6 +132,21 @@
                     </div>
                 </div>
 
+                <div class="section preset-library" id="preset-library-section">
+                    <div class="section-head">
+                        <div>
+                            <h3 class="section-title" data-i18n="presets.title">🪪 Character presets</h3>
+                            <p class="field-hint" data-i18n="presets.hint">Reuse a character and avatar without copying them into every story.</p>
+                        </div>
+                    </div>
+                    <div class="scenario-row">
+                        <select class="text-input" id="preset-select" aria-label="Character preset"></select>
+                        <button class="btn btn-mini" id="preset-load-btn" type="button" data-i18n="presets.load">Add to adventure</button>
+                        <button class="icon-btn" id="preset-delete-btn" type="button" aria-label="Delete preset">🗑️</button>
+                    </div>
+                    <p class="field-hint" id="preset-empty" data-i18n="presets.empty">No saved presets yet. Save one from a character card below.</p>
+                </div>
+
                 <!-- Narrator directives -->
                 <div class="field-group">
                     <label class="field-label" for="setup-directives" data-i18n="setup.directives">Narrator directives</label>
@@ -224,6 +239,21 @@
                 <button class="icon-btn char-remove" title="Remove" aria-label="Remove" data-i18n-title="common.remove" data-i18n-aria-label="common.remove">🗑️</button>
             </div>
             <div class="char-card-body">
+                <div class="char-preset-row">
+                    <div class="char-avatar-preview" aria-hidden="true"><span>?</span><img alt=""></div>
+                    <div class="char-preset-controls">
+                        <label class="field-label" data-i18n="presets.slug">Preset name</label>
+                        <input type="text" class="text-input char-preset-name" placeholder="lyra-nightfall" autocomplete="off">
+                        <div class="char-preset-actions">
+                            <label class="btn btn-mini char-avatar-label">
+                                <span data-i18n="presets.avatar">Choose avatar</span>
+                                <input type="file" class="char-avatar-file" accept="image/*" hidden>
+                            </label>
+                            <button class="btn btn-mini char-save-preset" type="button" data-i18n="presets.save">Save preset</button>
+                        </div>
+                        <p class="field-hint" data-i18n="presets.avatarHint">The image is cropped once to a small square WebP.</p>
+                    </div>
+                </div>
                 <div class="field-group">
                     <label class="field-label" data-i18n="character.personality">Personality</label>
                     <textarea class="text-area char-personality" rows="3" placeholder="Description of the character’s personality" data-i18n-placeholder="character.personalityPlaceholder"></textarea>
@@ -432,8 +462,19 @@
             <div class="input-fields-container" id="input-fields-container">
             <div class="input-row">
                 <input type="text" class="input-field" id="input-speech"
-                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" autocomplete="off" disabled>
+                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" autocomplete="off" disabled
+                    aria-autocomplete="list" aria-controls="slash-suggestions" aria-expanded="false">
             </div>
+            <div class="slash-suggestions" id="slash-suggestions" role="listbox" hidden></div>
+            <section class="command-panel" id="command-panel" aria-live="polite" hidden>
+                <div class="command-panel-head">
+                    <span class="command-sigil">/</span>
+                    <div><strong id="command-panel-title"></strong><p id="command-panel-summary"></p></div>
+                    <button class="icon-btn" id="command-panel-close" type="button" aria-label="Close command">✕</button>
+                </div>
+                <div class="command-fields" id="command-fields"></div>
+                <p class="command-error" id="command-error" role="alert"></p>
+            </section>
             <div class="input-row">
                 <input type="text" class="input-field" id="input-thought"
                     placeholder="💭 Private thought..." data-i18n-placeholder="input.thought" autocomplete="off" disabled>
