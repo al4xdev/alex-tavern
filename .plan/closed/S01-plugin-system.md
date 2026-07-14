@@ -12,9 +12,14 @@ governance, and roadmap_
 
 **Alex Tavern**
 
-Status: Planned Conceptual Architecture\
+Status: Completed and archived\
 Document version: 0.1\
 Date: July 13, 2026
+
+> [!NOTE]
+> Supertask completed on July 13, 2026. This document preserves the original
+> architecture exploration; `AGENTS.md`, the current source, and its tests are
+> the authoritative implementation contract.
 
 _Decision-preservation and architecture-exploration document_
 
@@ -35,7 +40,7 @@ memory of the original conversation.
 | Field                       | Value                                                                                               |
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
 | Supertask                   | 01 — Core Plugin System & Agentic Tool Pipeline                                                     |
-| Status                      | Planned Conceptual Architecture                                                                     |
+| Status                      | Completed and archived                                                                               |
 | Initial evidence            | `README.md:30-43` — warning about the planned plugin refactor                                       |
 | Replaces                    | `explore-plugin-system-task01-task07.md`                                                            |
 | Scope                       | Runtime, hooks, agentic tools, store, presets, curation, permissions, observability, and governance |
