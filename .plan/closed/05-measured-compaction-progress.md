@@ -1,8 +1,8 @@
 # Task 05: Measured compaction progress
 
-**Status:** Planned; ready after Task 04's shared compaction refactor
+**Status:** Completed
 
-**Updated:** 2026-07-13
+**Updated:** 2026-07-14
 
 **README evidence:** `README.md`, section `Context compaction`
 
@@ -32,9 +32,10 @@ changing the JSON representation intentionally used by replay and MCP clients.
   | `summarizing` | Eligible slice fixed; model-work total known | 0 model units |
   | `model_completed` | Named `summarizer:world` or private job completed successfully | measured completed model units |
   | `before_commit` | Every model job completed; plugin draft filter is running | all model units complete |
-  | `committing` | Backup is complete and the atomic state save is starting | final non-durable stage |
+  | `checkpointing` | Incremental undo checkpoint is being written | final reversible preparation |
+  | `committing` | Checkpoint is complete and the atomic state save is starting | final non-durable stage |
   | `completed` | State is durable and after-commit/log actions finished | 100% plus final result |
-  | `skipped` | Nothing eligible; no model call or backup occurred | terminal no-op |
+  | `skipped` | Nothing eligible; no model call or checkpoint occurred | terminal no-op |
   | `failed` | Operation ended before a durable commit | terminal sanitized error |
 
 - The browser maps model-unit completion into the central portion of the bar and reserves fixed
@@ -51,7 +52,7 @@ changing the JSON representation intentionally used by replay and MCP clients.
 - Compute relevant character IDs before starting model work. Run the independent world and private
   calls in one cancellation-safe task group and emit `model_completed` as each successful result
   arrives. Preserve deterministic final note ordering even when completion order differs.
-- A failed task cancels its siblings, discards the compaction draft, creates no backup, and emits
+- A failed task cancels its siblings, discards the compaction draft, creates no checkpoint, and emits
   one terminal `failed` event. A caller cancellation follows the same cleanup path.
 - Use HTTP content negotiation on the existing `POST /session/{id}/compact` endpoint:
   - `Accept: text/event-stream` returns UTF-8 SSE events with JSON `data` payloads;
@@ -99,25 +100,25 @@ changing the JSON representation intentionally used by replay and MCP clients.
 
 ## Tests and acceptance criteria
 
-- [ ] Unit tests prove monotonic sequence numbers, stable total units, valid stage transitions, and
+- [x] Unit tests prove monotonic sequence numbers, stable total units, valid stage transitions, and
   exactly one terminal event for success, skip, model error, plugin error, and cancellation.
-- [ ] Multiple relevant private memories complete concurrently; progress follows actual completion
+- [x] Multiple relevant private memories complete concurrently; progress follows actual completion
   order while persisted `character_notes` remain deterministically ordered/scoped.
-- [ ] No progress payload contains private thought text, character-note text, prompts, responses,
+- [x] No progress payload contains private thought text, character-note text, prompts, responses,
   API keys, or provider authorization data.
-- [ ] SSE framing survives chunk boundaries, multiline JSON text, keepalive comments, and UTF-8;
+- [x] SSE framing survives chunk boundaries, multiline JSON text, keepalive comments, and UTF-8;
   malformed/out-of-order/missing-terminal streams fail visibly in the browser client.
-- [ ] Client disconnect cancels outstanding Historian calls, releases the session lock, leaves
-  `state.json` and backups unchanged before commit, and permits the next session operation.
-- [ ] Cancellation during the synchronous backup/save commit window yields either the complete old
-  state with no new backup or the complete compacted state with its backup, never a partial file.
-- [ ] SSE success ends at 100%, refreshes canonical history once, and leaves the compact/other
+- [x] Client disconnect cancels outstanding Historian calls, releases the session lock, leaves
+  `state.json` and checkpoints unchanged before commit, and permits the next session operation.
+- [x] Cancellation during the synchronous checkpoint/save commit window yields either the complete old
+  state with no new checkpoint or the complete compacted state with its checkpoint, never a partial file.
+- [x] SSE success ends at 100%, refreshes canonical history once, and leaves the compact/other
   session controls usable. Skip and failure never flash a false 100% completion.
-- [ ] The same endpoint returns equivalent final result fields on SSE and JSON paths; MCP and replay
+- [x] The same endpoint returns equivalent final result fields on SSE and JSON paths; MCP and replay
   smoke tests continue to pass through JSON content negotiation.
-- [ ] Automatic compaction from Task 04 can use the same progress sink internally but its turn
+- [x] Automatic compaction from Task 04 can use the same progress sink internally but its turn
   response exposes only terminal metadata; no second compaction engine appears.
-- [ ] Standard Python validation, frontend module parsing, adapter-registry loading, HTML parsing,
+- [x] Standard Python validation, frontend module parsing, adapter-registry loading, HTML parsing,
   complete pytest suite, and a real Uvicorn/fetch streaming smoke test pass.
 
 ## Non-goals
@@ -129,3 +130,13 @@ changing the JSON representation intentionally used by replay and MCP clients.
 - Converting the normal player-turn endpoint to SSE.
 - Android-specific progress behavior beyond consuming the same browser fetch stream where its
   current WebView supports it; the plugin platform remains unrelated.
+
+## Completion evidence
+
+- `tests/test_compaction.py`, `tests/test_compaction_http.py`, and the Node browser-parser boundary
+  cover transitions, concurrency, privacy, cancellation, exact terminal behavior, chunked UTF-8,
+  JSON parity, headers, and missing/duplicate terminal failures.
+- A real Uvicorn plus Node `fetch` smoke on 2026-07-14 produced sequences `1..9`, model denominator
+  `3`, completions for `summarizer:world`, `summarizer:Thorn`, and `summarizer:Lyra`, then durable
+  `completed` with checkpoint `c000001` and undo depth `1`. Response headers were
+  `text/event-stream`, `Cache-Control: no-store`, and `X-Accel-Buffering: no`.

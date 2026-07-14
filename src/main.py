@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 import threading
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -172,6 +173,7 @@ class PlayerTurnResponse(BaseModel):
     turn_number: int | None = None
     effective_input: EffectiveTurnInput | None = None
     transformed_fields: list[Literal["speech", "thought", "action"]] = Field(default_factory=list)
+    automatic_compaction: dict[str, Any] | None = None
     error: str | None = None
 
 
@@ -182,17 +184,30 @@ class SuggestResponse(BaseModel):
 
 class CompactResponse(BaseModel):
     compacted: bool
+    status: str | None = None
+    trigger: str | None = None
+    compaction_id: str | None = None
     reason: str | None = None
-    backup_path: str | None = None
-    evicted_turns: int | None = None
-    kept_turns: int | None = None
+    evicted_records: int | None = None
+    kept_records: int | None = None
+    cutoff_turn_number: int | None = None
+    estimated_context_tokens: int | None = None
+    threshold_tokens: int | None = None
+    context_max: int | None = None
+    undo_depth: int | None = None
     error: str | None = None
 
 
 class RestoreCompactionResponse(BaseModel):
     restored: bool
+    undone: bool | None = None
+    compaction_id: str | None = None
     reason: str | None = None
     history_length: int | None = None
+    restored_records: int | None = None
+    preserved_through_turn: int | None = None
+    remaining_undo_depth: int | None = None
+    plugin_conflicts: list[str] = Field(default_factory=list)
     error: str | None = None
 
 
@@ -308,30 +323,91 @@ async def suggest_actions(session_id: str) -> dict:
 
 
 @app.post("/session/{session_id}/compact", response_model=CompactResponse)
-async def compact_session(session_id: str) -> dict:
+async def compact_session(session_id: str, request: Request):  # noqa: ANN201
     """Compacts the session: summarizes old turns, keeps only the most recent ones.
 
-    Manual trigger (no automatic trigger in this version) — overwrites the
-    active history. See ``Runner.compact_session`` for full
-    behavior (backup, window, post-compaction undo).
+    Browser clients negotiate measured SSE progress; machine clients receive
+    the equivalent final JSON result.
     """
-    result = await _runtime().runner.compact_session(session_id)
+    runner = _runtime().runner
+    if "text/event-stream" in request.headers.get("accept", ""):
+        if await runner.get_state(session_id) is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return StreamingResponse(
+            _compaction_event_stream(runner, session_id),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+        )
+    result = await runner.compact_session(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return result
 
 
-@app.post("/session/{session_id}/restore_compaction", response_model=RestoreCompactionResponse)
-async def restore_compaction(session_id: str) -> dict:
-    """Undoes the last compaction, restoring the most recent backup.
+async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: ANN201
+    """Forward measured Runner progress as one cancellation-safe SSE response."""
+    queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=64)
 
-    ⚠️ Only restores if no new turns have been played since that compaction —
-    otherwise it refuses (see ``Runner.restore_last_compaction``), to
-    never discard actual turns.
-    """
+    def publish(event: Any) -> None:
+        if queue.full():
+            queue.get_nowait()
+        queue.put_nowait(event)
+
+    operation = asyncio.create_task(runner.compact_session(session_id, progress=publish))
+    saw_terminal = False
+    try:
+        while not saw_terminal:
+            if operation.done() and queue.empty():
+                break
+            try:
+                event = await asyncio.wait_for(queue.get(), timeout=15)
+            except TimeoutError:
+                yield ": keepalive\n\n"
+                continue
+            payload = asdict(event)
+            if event.result is not None:
+                payload["result"] = CompactResponse.model_validate(event.result).model_dump()
+            yield f"event: {event.stage}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            saw_terminal = event.stage in {"completed", "skipped", "failed"}
+        try:
+            result = await operation
+        except Exception:
+            if not saw_terminal:
+                raise
+        else:
+            if not saw_terminal:
+                if "error" in result:
+                    stage = "failed"
+                    normalized_result = None
+                    error_type = "SessionUnavailable"
+                else:
+                    stage = "completed" if result.get("compacted") else "skipped"
+                    normalized_result = CompactResponse.model_validate(result).model_dump()
+                    error_type = None
+                payload = {
+                    "operation_id": "",
+                    "sequence": 1,
+                    "stage": stage,
+                    "completed_units": 0,
+                    "total_units": 0,
+                    "result": normalized_result,
+                    "error_type": error_type,
+                }
+                yield f"event: {stage}\ndata: {json.dumps(payload)}\n\n"
+    finally:
+        if not operation.done():
+            operation.cancel()
+            await asyncio.gather(operation, return_exceptions=True)
+
+
+@app.post("/session/{session_id}/restore_compaction", response_model=RestoreCompactionResponse)
+async def restore_compaction(session_id: str):  # noqa: ANN201
+    """Undo the latest compaction while preserving all later turns."""
     result = await _runtime().runner.restore_last_compaction(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
+    if result.get("plugin_conflicts"):
+        return JSONResponse(status_code=409, content=result)
     return result
 
 

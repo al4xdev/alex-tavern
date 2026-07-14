@@ -79,67 +79,46 @@ def load_game(session_id: str) -> GameState | None:
     return dict_to_game_state(data)
 
 
-def _backup_candidates(session_id: str) -> list[tuple[int, Path]]:
+def _checkpoint_candidates(session_id: str) -> list[tuple[int, Path]]:
     directory = session_backups_dir(session_id)
     if not directory.exists():
         return []
     candidates: list[tuple[int, Path]] = []
-    for path in directory.glob("state.*.json"):
+    for path in directory.glob("compaction.c*.json"):
         try:
-            index = int(path.name.removeprefix("state.").removesuffix(".json"))
+            index = int(path.name.removeprefix("compaction.c").removesuffix(".json"))
         except ValueError:
             continue
         candidates.append((index, path))
     return sorted(candidates)
 
 
-def backup_session(session_id: str) -> str:
-    """Create a bit-for-bit backup before a destructive state mutation."""
-    path = session_state_path(session_id)
-    if not path.exists():
-        raise FileNotFoundError(f"Session {session_id} not found for backup.")
-    candidates = _backup_candidates(session_id)
-    next_index = candidates[-1][0] + 1 if candidates else 0
-    backup_path = session_backups_dir(session_id) / f"state.{next_index}.json"
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
-    backup_path.write_bytes(path.read_bytes())
-    return str(backup_path)
+def next_compaction_id(session_id: str) -> str:
+    candidates = _checkpoint_candidates(session_id)
+    next_index = candidates[-1][0] + 1 if candidates else 1
+    return f"c{next_index:06d}"
 
 
-def find_latest_backup(session_id: str) -> Path | None:
-    candidates = _backup_candidates(session_id)
-    return candidates[-1][1] if candidates else None
+def compaction_checkpoint_path(session_id: str, checkpoint_id: str) -> Path:
+    return session_backups_dir(session_id) / f"compaction.{checkpoint_id}.json"
 
 
-def restore_last_backup(session_id: str) -> dict[str, Any]:
-    """Restore the newest backup only when doing so cannot discard newer turns."""
-    path = session_state_path(session_id)
-    if not path.exists():
-        return {"error": f"Session {session_id} not found."}
-    backup_path = find_latest_backup(session_id)
-    if backup_path is None:
-        return {"restored": False, "reason": "No compaction backup found."}
-    try:
-        backup_data: dict[str, Any] = json.loads(backup_path.read_text(encoding="utf-8"))
-        live_data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as error:
-        return {"restored": False, "reason": f"Backup or session corrupted: {error}"}
+def write_compaction_checkpoint(
+    session_id: str, checkpoint_id: str, checkpoint: dict[str, Any]
+) -> str:
+    path = compaction_checkpoint_path(session_id, checkpoint_id)
+    if path.exists():
+        raise FileExistsError(f"Compaction checkpoint {checkpoint_id} already exists")
+    _atomic_write_json(path, checkpoint)
+    return str(path)
 
-    backup_max = max((h["turn_number"] for h in backup_data["history"]), default=0)
-    live_max = max((h["turn_number"] for h in live_data["history"]), default=0)
-    if live_max > backup_max:
-        return {
-            "restored": False,
-            "reason": (
-                f"There are more recent turns (up to {live_max}) than the backup "
-                f"(up to {backup_max}) — restoring would lose those turns. Nothing was changed."
-            ),
-        }
 
-    backup_data["revision"] = int(live_data["revision"]) + 1
-    _atomic_write_json(path, backup_data)
-    backup_path.unlink()
-    return {"restored": True, "history_length": len(backup_data["history"])}
+def load_compaction_checkpoint(session_id: str, checkpoint_id: str) -> dict[str, Any]:
+    path = compaction_checkpoint_path(session_id, checkpoint_id)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"Compaction checkpoint {checkpoint_id} is not an object")
+    return value
 
 
 async def delete_session(session_id: str) -> bool:
@@ -174,6 +153,7 @@ def list_sessions() -> list[dict[str, Any]]:
                 "turn_count": len(data["history"]),
                 "created_at": data["created_at"],
                 "revision": data["revision"],
+                "compaction_depth": len(data["compaction_stack"]),
             }
         )
     summaries.sort(key=lambda item: item["created_at"], reverse=True)
@@ -186,6 +166,9 @@ async def fork_session(session_id: str) -> str | None:
         if game is None:
             return None
         new_id = generate_session_id()
+        for entry in game.compaction_stack:
+            checkpoint = load_compaction_checkpoint(session_id, entry.checkpoint_id)
+            write_compaction_checkpoint(new_id, entry.checkpoint_id, checkpoint)
         game.session_id = new_id
         game.revision = 0
         save_game(game)

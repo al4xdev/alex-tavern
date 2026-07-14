@@ -17,6 +17,7 @@ from src.config import (
     public_config,
     resolve_active_config,
     save_config,
+    validate_config,
 )
 from src.llm.adapters import ProviderResponseError, get_provider_adapter
 from src.llm.client import chat_completion_json
@@ -38,9 +39,34 @@ def test_config_round_trip_resolution_and_key_redaction(tmp_path: Path) -> None:
     assert resolved["provider"] == "deepseek"
     assert resolved["model"] == "deepseek-v4-flash"
     assert resolved["api_key"] == "secret-value"
+    assert resolved["automatic_compaction_enabled"] is False
+    assert resolved["automatic_compaction_threshold_percent"] == 80
     assert "api_key" not in safe["providers"]["deepseek"]
     assert safe["providers"]["deepseek"]["api_key_configured"] is True
     assert "secret-value" not in json.dumps(safe)
+    assert safe["automatic_compaction_enabled"] is False
+    assert safe["automatic_compaction_threshold_percent"] == 80
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("automatic_compaction_enabled", "yes", "must be a boolean"),
+        ("automatic_compaction_threshold_percent", True, "integer from 1 to 100"),
+        ("automatic_compaction_threshold_percent", 0, "integer from 1 to 100"),
+        ("automatic_compaction_threshold_percent", 101, "integer from 1 to 100"),
+    ],
+)
+def test_automatic_compaction_config_is_strict(field: str, value: object, message: str) -> None:
+    config = deepcopy(DEFAULT_CONFIG)
+    config[field] = value
+    with pytest.raises(ConfigValidationError, match=message):
+        validate_config(config)
+
+    missing = deepcopy(DEFAULT_CONFIG)
+    missing.pop(field)
+    with pytest.raises(ConfigValidationError, match=message):
+        validate_config(missing)
 
 
 def test_blank_ui_key_preserves_persisted_secret(tmp_path: Path) -> None:

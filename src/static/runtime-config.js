@@ -10,10 +10,20 @@ export const RuntimeConfig = (() => {
     const statusEl = document.getElementById('engine-status');
     const errorEl = document.getElementById('runtime-config-error');
     const saveBtn = document.getElementById('runtime-config-save-btn');
-    const compactTurnsEl = document.getElementById('runtime-compact-turns');
+    const autoCompactEl = document.getElementById('runtime-auto-compact');
+    const autoCompactThresholdEl = document.getElementById('runtime-auto-compact-threshold');
+    const autoCompactStateEl = document.getElementById('auto-compact-state');
+    const autoCompactThresholdValueEl = document.getElementById('auto-compact-threshold-value');
+    const autoCompactThresholdExplanationEl = document.getElementById(
+        'auto-compact-threshold-explanation'
+    );
+    const compactionThresholdEl = document.getElementById('compaction-threshold');
+    const compactionHelpBtn = document.getElementById('compaction-help-btn');
 
     let selectedProvider = '';
+    let compactionKeepRecentTurns = 8;
     let notify = () => {};
+    let openCompactionHelp = () => {};
     let rendered = false;
     let configMutation = Promise.resolve();
 
@@ -51,6 +61,29 @@ export const RuntimeConfig = (() => {
         statusEl.className = `engine-status ${selected.statusClass}`.trim();
     }
 
+    function thresholdBand(value) {
+        if (value <= 65) return 'earlier';
+        if (value <= 85) return 'balanced';
+        return 'later';
+    }
+
+    function refreshCompactionControl() {
+        const enabled = autoCompactEl.checked;
+        const value = Number.parseInt(autoCompactThresholdEl.value, 10) || 80;
+        const band = thresholdBand(value);
+        autoCompactStateEl.textContent = t(
+            enabled ? 'engine.autoCompactOn' : 'engine.autoCompactOff'
+        );
+        autoCompactThresholdValueEl.textContent = `${value}% · ${t(
+            `engine.autoCompactBand.${band}`
+        )}`;
+        autoCompactThresholdExplanationEl.textContent = t(
+            `engine.autoCompactExplanation.${band}`
+        );
+        autoCompactThresholdEl.disabled = !enabled;
+        compactionThresholdEl.classList.toggle('disabled', !enabled);
+    }
+
     function populate(config) {
         const backendProviders = Object.keys(config.providers || {}).sort();
         const frontendProviders = [...providerAdapterMap.keys()].sort();
@@ -62,7 +95,10 @@ export const RuntimeConfig = (() => {
                 }),
             );
         }
-        compactTurnsEl.value = config.compaction_keep_recent_turns;
+        compactionKeepRecentTurns = config.compaction_keep_recent_turns;
+        autoCompactEl.checked = config.automatic_compaction_enabled;
+        autoCompactThresholdEl.value = config.automatic_compaction_threshold_percent;
+        refreshCompactionControl();
         providerAdapters.forEach((adapter) => adapter.populate(config.providers[adapter.id]));
         chooseProvider(config.active_provider);
         setError();
@@ -72,7 +108,11 @@ export const RuntimeConfig = (() => {
         return {
             active_provider: selectedProvider,
             language: getLlmLanguage(),
-            compaction_keep_recent_turns: Number.parseInt(compactTurnsEl.value, 10),
+            compaction_keep_recent_turns: compactionKeepRecentTurns,
+            automatic_compaction_enabled: autoCompactEl.checked,
+            automatic_compaction_threshold_percent: Number.parseInt(
+                autoCompactThresholdEl.value, 10
+            ),
             providers: Object.fromEntries(
                 providerAdapters.map((adapter) => [adapter.id, adapter.read()]),
             ),
@@ -120,10 +160,15 @@ export const RuntimeConfig = (() => {
 
     function init(options = {}) {
         notify = options.notify || notify;
+        openCompactionHelp = options.onCompactionHelp || openCompactionHelp;
         renderAdapters();
         saveBtn.addEventListener('click', save);
+        autoCompactEl.addEventListener('change', refreshCompactionControl);
+        autoCompactThresholdEl.addEventListener('input', refreshCompactionControl);
+        compactionHelpBtn.addEventListener('click', openCompactionHelp);
         onLocaleChange(() => {
             if (selectedProvider) chooseProvider(selectedProvider);
+            refreshCompactionControl();
             queueLanguageSync();
         });
         refresh();

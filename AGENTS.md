@@ -284,10 +284,13 @@ Prompts são compartilhados entre providers e descrevem regras de papel de forma
 - texto gerado não usa em dash/en dash; a normalização é global no cliente;
 - histórico é limitado por orçamento de tokens, nunca por corte de caracteres.
 
-Compactação é um evento transacional: cria backup, resume turnos antigos, mantém a janela recente
-e atualiza `story_summary`/`character_notes`. Restauração só ocorre quando não apagaria turnos
-novos. RAG, se implementado, será recuperação semântica de volume externo e não um segundo sistema
-de memória para fatos já presentes na sessão.
+Compactação é um evento transacional: prepara resumos em draft isolado, grava um checkpoint
+incremental numerado, mantém a janela recente e atualiza `story_summary`/`character_notes`.
+Compactação automática é opt-in, usa a estimativa do prompt completo antes do Narrador e roda sob
+o mesmo lock do turno. Undo de compactação é LIFO, pode atravessar múltiplos checkpoints e preserva
+turnos posteriores; conflito em estado de plugin exige resolver do próprio plugin. Checkpoints
+imutáveis permanecem até a sessão ser apagada. RAG, se implementado, será recuperação semântica de
+volume externo e não um segundo sistema de memória para fatos já presentes na sessão.
 
 ## 7. Observabilidade e ferramentas
 

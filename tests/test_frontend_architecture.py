@@ -26,6 +26,11 @@ def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
     assert '<option value="en">English</option>' in html
     assert '<option value="pt-BR">Português (Brasil)</option>' in html
     assert 'id="runtime-language"' not in html
+    assert 'id="runtime-auto-compact"' in html
+    assert 'id="runtime-auto-compact-threshold"' in html
+    assert 'type="range" min="1" max="100"' in html
+    assert 'id="compaction-help-btn"' in html
+    assert 'id="runtime-compact-turns"' not in html
 
 
 def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -> None:
@@ -51,7 +56,7 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v9" in service_worker
+    assert "rpt-shell-v10" in service_worker
 
 
 def test_setup_modal_is_always_dismissible() -> None:
@@ -118,3 +123,76 @@ def test_transformed_player_input_updates_live_and_persisted_bubbles() -> None:
     assert "'input.adjusted'" in app_source
     assert "Adjusted by plugin" in i18n_source
     assert "Ajustado por plugin" in i18n_source
+
+
+def test_compaction_progress_is_measured_and_accessible() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
+    api_source = (STATIC / "api.js").read_text(encoding="utf-8")
+
+    assert 'id="compact-progress-status" aria-live="polite"' in html
+    assert "estimatedMs" not in app_source
+    assert "msgCount = chatLog" not in app_source
+    assert "event.completed_units / event.total_units" in app_source
+    assert "Accept: 'text/event-stream'" in api_source
+    assert "Compaction stream ended without a terminal event" in api_source
+    assert "onCompactionHelp" in app_source
+
+
+def test_browser_compaction_parser_handles_chunked_utf8_and_requires_terminal() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+globalThis.window = { location: { protocol: 'http:' } };
+const encoder = new TextEncoder();
+function streamed(text) {
+  const bytes = encoder.encode(text);
+  return new Response(new ReadableStream({
+    start(controller) {
+      for (let i = 0; i < bytes.length; i += 7) controller.enqueue(bytes.slice(i, i + 7));
+      controller.close();
+    },
+  }), { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+}
+const { api } = await import('./src/static/api.js');
+const checking = JSON.stringify({
+  operation_id:'c1', sequence:1, stage:'checking', completed_units:0, total_units:0,
+});
+const completed = JSON.stringify({
+  operation_id:'c1', sequence:2, stage:'completed', completed_units:1, total_units:1,
+  result:{compacted:true,label:'ação'},
+});
+globalThis.fetch = async () => streamed(
+  `: keepalive\n\nevent: checking\ndata: ${checking}\n\n` +
+  `event: completed\ndata: ${completed}\n\n`
+);
+const stages = [];
+const result = await api.compact('abc', event => stages.push(event.stage));
+if (stages.join(',') !== 'checking,completed' || result.label !== 'ação') process.exit(2);
+globalThis.fetch = async () => streamed(`data: ${checking}\n\n`);
+let missingTerminal = false;
+try { await api.compact('abc'); } catch (error) {
+  missingTerminal = error.message.includes('without a terminal');
+}
+if (!missingTerminal) process.exit(3);
+const duplicate = JSON.stringify({
+  operation_id:'c1', sequence:3, stage:'skipped', completed_units:1, total_units:1,
+  result:{compacted:false},
+});
+globalThis.fetch = async () => streamed(
+  `data: ${checking}\n\ndata: ${completed}\n\ndata: ${duplicate}\n\n`
+);
+let duplicateTerminal = false;
+try { await api.compact('abc'); } catch (error) {
+  duplicateTerminal = error.message.includes('multiple terminal');
+}
+if (!duplicateTerminal) process.exit(4);
+"""
+    subprocess.run(
+        [node, "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )

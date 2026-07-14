@@ -98,10 +98,10 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
     },
     "compaction.before_commit": {
         "kind": "filter",
-        "value": "GameState",
+        "value": "CompactionDraft",
         "context": ["cutoff", "evicted", "runner"],
         "commit": "before",
-        "description": "Mutate compacted state before its atomic save.",
+        "description": "Mutate reversible history, summaries, notes, or plugin state.",
     },
     "compaction.after_commit": {
         "kind": "action",
@@ -116,6 +116,13 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
         "context": ["game", "result"],
         "commit": "after",
         "description": "Observe a successfully restored compaction backup.",
+    },
+    "compaction.undo_conflict": {
+        "kind": "filter",
+        "value": "plugin-owned state namespace",
+        "context": ["paths", "checkpoint_id", "runner"],
+        "commit": "before",
+        "description": "Resolve later writes to paths changed by an undone compaction.",
     },
 }
 

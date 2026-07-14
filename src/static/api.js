@@ -15,12 +15,73 @@ async function apiFetch(url, options = {}) {
         data = null;
     }
     if (!res.ok) {
-        const detail = (data && (data.detail || data.error)) || `HTTP ${res.status}`;
+        const detail = (data && (data.detail || data.error || data.reason)) || `HTTP ${res.status}`;
         const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
         err.status = res.status;
         throw err;
     }
     return data;
+}
+
+async function compactStream(sessionId, onProgress = () => {}, signal = null) {
+    const res = await fetch(`${BASE_URL}/session/${sessionId}/compact`, {
+        method: 'POST',
+        headers: { Accept: 'text/event-stream' },
+        signal,
+    });
+    if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+            const data = await res.json();
+            detail = data.detail || data.error || detail;
+        } catch { /* preserve the status detail */ }
+        throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
+    }
+    if (!res.body) throw new Error('Compaction progress stream is unavailable');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let lastSequence = 0;
+    let terminal = null;
+    let terminalCount = 0;
+
+    function consume(frame) {
+        if (!frame.trim() || frame.trimStart().startsWith(':')) return;
+        const dataLines = frame
+            .split('\n')
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart());
+        if (!dataLines.length) return;
+        const event = JSON.parse(dataLines.join('\n'));
+        if (!Number.isInteger(event.sequence) || event.sequence <= lastSequence) {
+            throw new Error('Compaction progress sequence is invalid');
+        }
+        lastSequence = event.sequence;
+        onProgress(event);
+        if (['completed', 'skipped', 'failed'].includes(event.stage)) {
+            terminalCount += 1;
+            if (terminalCount > 1) {
+                throw new Error('Compaction stream has multiple terminal events');
+            }
+            terminal = event;
+        }
+    }
+
+    while (true) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const frames = buffer.split(/\r?\n\r?\n/);
+        buffer = frames.pop() || '';
+        frames.forEach(consume);
+        if (done) break;
+    }
+    if (buffer.trim()) consume(buffer);
+    if (!terminal) throw new Error('Compaction stream ended without a terminal event');
+    if (terminal.stage === 'failed') {
+        throw new Error(terminal.error_type || 'Compaction failed');
+    }
+    return terminal.result;
 }
 
 export const api = {
@@ -71,8 +132,8 @@ export const api = {
         return apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' });
     },
 
-    compact(sessionId) {
-        return apiFetch(`/session/${sessionId}/compact`, { method: 'POST' });
+    compact(sessionId, onProgress = () => {}, signal = null) {
+        return compactStream(sessionId, onProgress, signal);
     },
 
     restoreCompaction(sessionId) {

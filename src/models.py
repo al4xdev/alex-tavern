@@ -65,6 +65,19 @@ class TurnRecord:
     plugin_state_snapshot: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class CompactionStackEntry:
+    """Reference to one durable, incrementally reversible compaction."""
+
+    checkpoint_id: str
+    parent_id: str | None
+    trigger: str
+    created_at: str
+    cutoff_turn_number: int
+    max_turn_number: int
+    committed_revision: int
+
+
 @dataclass
 class GameState:
     """Persists between turns in the session JSON."""
@@ -81,6 +94,7 @@ class GameState:
     character_notes: dict[str, str] = field(default_factory=dict)
     revision: int = 0
     plugin_state: dict[str, Any] = field(default_factory=dict)
+    compaction_stack: list[CompactionStackEntry] = field(default_factory=list)
 
 
 def trim_history_by_tokens(
@@ -154,6 +168,26 @@ def dict_to_character(data: dict[str, Any]) -> Character:
     )
 
 
+def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
+    """Build the current forward-only TurnRecord representation."""
+    snap = data["scene_snapshot"]
+    return TurnRecord(
+        turn_number=data["turn_number"],
+        speaker=data["speaker"],
+        content=data["content"],
+        content_type=data["content_type"],
+        scene_snapshot=Scene(
+            location=snap["location"],
+            time_of_day=snap["time_of_day"],
+            present_characters=list(snap["present_characters"]),
+            physical_facts=dict(snap["physical_facts"]),
+        ),
+        input_transformed=data["input_transformed"],
+        mood_snapshot=dict(data["mood_snapshot"]),
+        plugin_state_snapshot=copy.deepcopy(data["plugin_state_snapshot"]),
+    )
+
+
 def dict_to_game_state(data: dict[str, Any]) -> GameState:
     """Reconstructs GameState from a dict (loaded from JSON).
 
@@ -177,28 +211,19 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         physical_facts=dict(scene_data["physical_facts"]),
     )
 
-    history_raw: list[dict[str, Any]] = data.get("history", [])
-    history: list[TurnRecord] = []
-    for h in history_raw:
-        snap = h["scene_snapshot"]
-        scene_snap = Scene(
-            location=snap["location"],
-            time_of_day=snap["time_of_day"],
-            present_characters=list(snap["present_characters"]),
-            physical_facts=dict(snap["physical_facts"]),
+    history = [dict_to_turn_record(item) for item in data["history"]]
+    compaction_stack = [
+        CompactionStackEntry(
+            checkpoint_id=item["checkpoint_id"],
+            parent_id=item["parent_id"],
+            trigger=item["trigger"],
+            created_at=item["created_at"],
+            cutoff_turn_number=item["cutoff_turn_number"],
+            max_turn_number=item["max_turn_number"],
+            committed_revision=item["committed_revision"],
         )
-        history.append(
-            TurnRecord(
-                turn_number=h["turn_number"],
-                speaker=h["speaker"],
-                content=h["content"],
-                content_type=h["content_type"],
-                scene_snapshot=scene_snap,
-                input_transformed=h["input_transformed"],
-                mood_snapshot=dict(h["mood_snapshot"]),
-                plugin_state_snapshot=copy.deepcopy(h["plugin_state_snapshot"]),
-            )
-        )
+        for item in data["compaction_stack"]
+    ]
 
     return GameState(
         session_id=data["session_id"],
@@ -212,4 +237,5 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         character_notes=dict(data["character_notes"]),
         revision=data["revision"],
         plugin_state=copy.deepcopy(data["plugin_state"]),
+        compaction_stack=compaction_stack,
     )

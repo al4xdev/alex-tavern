@@ -75,7 +75,7 @@ The driver:
 6. triggers compaction when the source contains a world/private summarizer output;
 7. compares successful `{turn_number, agent, response}` entries in exact order.
 
-It prints the new session id and preserves `state.json`, `debug.jsonl`, and compaction backups
+It prints the new session id and preserves `state.json`, `debug.jsonl`, and active compaction checkpoints
 under `.data/sessions/<new-id>/` for inspection.
 
 When the original state files still exist, stricter state comparison can also be enabled:
@@ -83,7 +83,7 @@ When the original state files still exist, stricter state comparison can also be
 ```bash
 uv run python tools/replay_session.py \
   .data/sessions/<source-id>/debug.jsonl \
-  --source-backup .data/sessions/<source-id>/backups/state.0.json \
+  --source-checkpoint .data/sessions/<source-id>/backups/compaction.c000001.json \
   --source-final .data/sessions/<source-id>/state.json
 ```
 

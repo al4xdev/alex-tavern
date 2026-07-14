@@ -7,6 +7,11 @@
 **Resultado:** os seis bugs objetivos foram corrigidos e verificados; os problemas qualitativos
 foram mitigados, mas continuam dependentes do modelo.
 
+> **Nota de contrato (2026-07-14):** os resultados abaixo continuam sendo evidência histórica do
+> runtime de 2026-07-12. Compactação hoje usa progresso SSE medido, gatilho automático opt-in e
+> checkpoints incrementais LIFO que preservam turnos posteriores. Consulte
+> [Context Compaction](../../README.md#-context-compaction).
+
 ## Resultado por achado
 
 | ID | Achado original | Estado | Evidência |
