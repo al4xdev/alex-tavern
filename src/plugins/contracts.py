@@ -130,7 +130,6 @@ CONTRIBUTION_SLOTS = {
     "providers": "LLM provider descriptors backed by a registered ProviderAdapter",
     "routes": "HTTP route descriptors or unsafe host mutations",
     "settings": "Plugin-owned configuration UI",
-    "commands": "Player command definitions",
     "panels": "Game-view panel definitions",
 }
 
@@ -164,6 +163,21 @@ SERVICES = {
     }
 }
 
+COMMANDS = {
+    "registration": "context.command(descriptor, handler)",
+    "scope": "session-bound utility; cannot mutate GameState in schema_version 1",
+    "descriptor": {
+        "required": ["name", "summary", "usage", "arguments", "fields", "result_kind"],
+        "locales": ["en", "pt-BR"],
+        "field_types": ["text", "textarea", "file"],
+    },
+    "handler": {
+        "arguments": ["normalized_payload", "command_context"],
+        "context": ["game", "turn_number", "runner", "operation_id"],
+        "result": "JSON object",
+    },
+}
+
 
 def exported_contract() -> dict[str, Any]:
     return {
@@ -171,6 +185,7 @@ def exported_contract() -> dict[str, Any]:
         "hooks": HOOK_CONTRACTS,
         "contribution_slots": CONTRIBUTION_SLOTS,
         "services": SERVICES,
+        "commands": COMMANDS,
         "permissions": PERMISSIONS,
         "crash_policy": {
             "before_commit": "discard plugin draft, disable plugin for boot, continue clean",

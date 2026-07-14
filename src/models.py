@@ -95,6 +95,8 @@ class GameState:
     revision: int = 0
     plugin_state: dict[str, Any] = field(default_factory=dict)
     compaction_stack: list[CompactionStackEntry] = field(default_factory=list)
+    # Character -> native preset identity. Avatar bytes remain outside session state.
+    character_preset_ids: dict[str, str] = field(default_factory=dict)
 
 
 def trim_history_by_tokens(
@@ -238,4 +240,5 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         revision=data["revision"],
         plugin_state=copy.deepcopy(data["plugin_state"]),
         compaction_stack=compaction_stack,
+        character_preset_ids=dict(data["character_preset_ids"]),
     )

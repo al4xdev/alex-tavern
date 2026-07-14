@@ -29,6 +29,10 @@ export const Setup = (() => {
     const errorEl      = document.getElementById('setup-error');
     const startBtn     = document.getElementById('start-btn');
     const cardTpl      = document.getElementById('char-card-template');
+    const presetSelect = document.getElementById('preset-select');
+    const presetLoadBtn = document.getElementById('preset-load-btn');
+    const presetDeleteBtn = document.getElementById('preset-delete-btn');
+    const presetEmpty = document.getElementById('preset-empty');
 
     let onStartCb = null;
     let onOpenCb = null;
@@ -76,7 +80,62 @@ export const Setup = (() => {
         return row;
     }
 
-    function makeCharCard(data = {}) {
+    function characterFromCard(card) {
+        const name = card.querySelector('.char-name').value.trim();
+        return {
+            mind: {
+                name,
+                personality: card.querySelector('.char-personality').value.trim(),
+                knowledge: [...card.querySelectorAll('.knowledge-val')]
+                    .map((input) => input.value.trim()).filter(Boolean),
+                current_mood: card.querySelector('.char-mood').value.trim(),
+            },
+            body: {
+                name,
+                physical_description: card.querySelector('.char-physical').value.trim(),
+                outfit: card.querySelector('.char-outfit').value.trim(),
+            },
+        };
+    }
+
+    function showCardAvatar(card, url = '') {
+        const img = card.querySelector('.char-avatar-preview img');
+        const fallback = card.querySelector('.char-avatar-preview span');
+        img.src = url;
+        img.hidden = !url;
+        fallback.hidden = Boolean(url);
+        if (!url) fallback.textContent = (card.querySelector('.char-name').value.trim()[0] || '?').toUpperCase();
+    }
+
+    async function processAvatar(file) {
+        if (!file || file.size > 10 * 1024 * 1024) throw new Error(t('presets.avatarTooLarge'));
+        const bitmap = await createImageBitmap(file);
+        const side = Math.min(bitmap.width, bitmap.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext('2d');
+        context.drawImage(
+            bitmap,
+            (bitmap.width - side) / 2,
+            (bitmap.height - side) / 2,
+            side,
+            side,
+            0,
+            0,
+            256,
+            256,
+        );
+        bitmap.close();
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82));
+        if (!blob) throw new Error(t('presets.avatarProcessError'));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let binary = '';
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return { base64: btoa(binary), preview: URL.createObjectURL(blob) };
+    }
+
+    function makeCharCard(data = {}, preset = {}) {
         const frag = cardTpl.content.cloneNode(true);
         translateDocument(frag);
         const card = frag.querySelector('.char-card');
@@ -87,6 +146,11 @@ export const Setup = (() => {
         card.querySelector('.char-mood').value = mind.current_mood || '';
         card.querySelector('.char-outfit').value = body.outfit || '';
         card.querySelector('.char-physical').value = body.physical_description || '';
+        card.dataset.presetName = preset.preset_name || '';
+        card.dataset.presetRevision = preset.revision ? String(preset.revision) : '';
+        card.dataset.avatarBase64 = '';
+        card.querySelector('.char-preset-name').value = preset.preset_name || '';
+        showCardAvatar(card, preset.avatar?.url || '');
 
         const kList = card.querySelector('.knowledge-list');
         (mind.knowledge && mind.knowledge.length ? mind.knowledge : ['']).forEach((k) =>
@@ -101,6 +165,16 @@ export const Setup = (() => {
 
         // keep controlled dropdown in sync as the name changes
         card.querySelector('.char-name').addEventListener('input', refreshControlled);
+        card.querySelector('.char-avatar-file').addEventListener('change', async (event) => {
+            try {
+                const processed = await processAvatar(event.target.files?.[0]);
+                card.dataset.avatarBase64 = processed.base64;
+                showCardAvatar(card, processed.preview);
+            } catch (error) {
+                notify(error.message, 'error');
+            }
+        });
+        card.querySelector('.char-save-preset').addEventListener('click', () => saveCardPreset(card));
 
         charsListEl.appendChild(card);
         reindexCards();
@@ -136,25 +210,11 @@ export const Setup = (() => {
     /* ── Collect / populate ───────────────────────────────────────────── */
     function collect() {
         const characters = {};
+        const character_preset_ids = {};
         [...charsListEl.querySelectorAll('.char-card')].forEach((card) => {
             const cid = card.dataset.cid;
-            const knowledge = [...card.querySelectorAll('.knowledge-val')]
-                .map((i) => i.value.trim())
-                .filter(Boolean);
-            const name = card.querySelector('.char-name').value.trim();
-            characters[cid] = {
-                mind: {
-                    name,
-                    personality: card.querySelector('.char-personality').value.trim(),
-                    knowledge,
-                    current_mood: card.querySelector('.char-mood').value.trim(),
-                },
-                body: {
-                    name,
-                    physical_description: card.querySelector('.char-physical').value.trim(),
-                    outfit: card.querySelector('.char-outfit').value.trim(),
-                },
-            };
+            characters[cid] = characterFromCard(card);
+            if (card.dataset.presetName) character_preset_ids[cid] = card.dataset.presetName;
         });
 
         const physical_facts = {};
@@ -168,6 +228,7 @@ export const Setup = (() => {
             controlled_character_id: controlledEl.value,
             narrator_directives: directivesEl.value.trim(),
             characters,
+            character_preset_ids,
             scene: {
                 location: sceneLocEl.value.trim(),
                 time_of_day: sceneTimeEl.value.trim(),
@@ -191,7 +252,11 @@ export const Setup = (() => {
         charsListEl.innerHTML = '';
         const chars = cfg.characters || {};
         const ids = Object.keys(chars);
-        if (ids.length) ids.forEach((cid) => makeCharCard(chars[cid]));
+        const presetIds = cfg.character_preset_ids || {};
+        if (ids.length) ids.forEach((cid) => {
+            const card = makeCharCard(chars[cid], { preset_name: presetIds[cid] || '' });
+            if (presetIds[cid]) hydrateCardPreset(card, presetIds[cid]);
+        });
         else makeCharCard({});
 
         reindexCards();
@@ -199,6 +264,115 @@ export const Setup = (() => {
             [...controlledEl.options].some((o) => o.value === cfg.controlled_character_id)) {
             controlledEl.value = cfg.controlled_character_id;
         }
+    }
+
+    async function hydrateCardPreset(card, name) {
+        try {
+            const preset = await api.getPreset(name);
+            card.dataset.presetName = name;
+            card.dataset.presetRevision = String(preset.revision);
+            card.querySelector('.char-preset-name').value = name;
+            showCardAvatar(card, preset.avatar?.url || '');
+        } catch { /* a missing preset is reported when starting the session */ }
+    }
+
+    async function refreshPresets(selected = '') {
+        try {
+            const data = await api.listPresets();
+            presetSelect.innerHTML = '';
+            data.presets.forEach((preset) => {
+                const option = document.createElement('option');
+                option.value = preset.preset_name;
+                option.textContent = `${preset.display_name} · ${preset.preset_name}`;
+                option.dataset.revision = String(preset.revision);
+                presetSelect.appendChild(option);
+            });
+            if (selected && [...presetSelect.options].some((option) => option.value === selected)) {
+                presetSelect.value = selected;
+            }
+            const empty = !data.presets.length;
+            presetEmpty.hidden = !empty;
+            presetSelect.disabled = empty;
+            presetLoadBtn.disabled = empty;
+            presetDeleteBtn.disabled = empty;
+        } catch (error) {
+            notify(t('presets.listError', { error: error.message }), 'error');
+        }
+    }
+
+    async function loadSelectedPreset() {
+        if (!presetSelect.value) return;
+        try {
+            const preset = await api.getPreset(presetSelect.value);
+            const card = makeCharCard(preset.character, preset);
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (error) {
+            notify(t('presets.loadError', { error: error.message }), 'error');
+        }
+    }
+
+    async function saveCardPreset(card) {
+        const name = card.querySelector('.char-preset-name').value.trim();
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(name)) {
+            notify(t('presets.nameError'), 'error');
+            return;
+        }
+        let revision = Number(card.dataset.presetRevision) || null;
+        let replace = Boolean(revision && card.dataset.presetName === name);
+        const payload = () => ({
+            character: characterFromCard(card),
+            avatar: card.dataset.avatarBase64
+                ? { media_type: 'image/webp', data_base64: card.dataset.avatarBase64 }
+                : null,
+            expected_revision: replace ? revision : null,
+            replace,
+        });
+        try {
+            let saved;
+            try {
+                saved = await api.savePreset(name, payload());
+            } catch (error) {
+                if (error.status !== 409 || !confirm(t('presets.replaceConfirm', { name }))) throw error;
+                const current = await api.getPreset(name);
+                revision = current.revision;
+                replace = true;
+                saved = await api.savePreset(name, payload());
+            }
+            card.dataset.presetName = name;
+            card.dataset.presetRevision = String(saved.revision);
+            card.dataset.avatarBase64 = '';
+            showCardAvatar(card, saved.avatar?.url || '');
+            await refreshPresets(name);
+            notify(t('presets.saved', { name }));
+        } catch (error) {
+            notify(t('presets.saveError', { error: error.message }), 'error');
+        }
+    }
+
+    async function deleteSelectedPreset() {
+        const option = presetSelect.selectedOptions[0];
+        if (!option || !confirm(t('presets.deleteConfirm', { name: option.value }))) return;
+        try {
+            await api.deletePreset(option.value, Number(option.dataset.revision));
+            await refreshPresets();
+            notify(t('presets.deleted'));
+        } catch (error) {
+            notify(t('presets.deleteError', { error: error.message }), 'error');
+        }
+    }
+
+    async function openPresetDraft(character, presetName, avatarFile = null) {
+        open();
+        const card = makeCharCard(character, { preset_name: presetName });
+        if (avatarFile) {
+            try {
+                const processed = await processAvatar(avatarFile);
+                card.dataset.avatarBase64 = processed.base64;
+                showCardAvatar(card, processed.preview);
+            } catch (error) { notify(error.message, 'error'); }
+        }
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.querySelector('.char-name').focus();
     }
 
     /* ── Built-in scenarios use the same canonical shape as user scenarios ─ */
@@ -346,6 +520,7 @@ export const Setup = (() => {
         overlay.classList.add('active');
         closeBtn.focus({ preventScroll: true });
         if (onOpenCb) onOpenCb();
+        refreshPresets();
     }
     function close() {
         overlay.classList.remove('active');
@@ -391,6 +566,8 @@ export const Setup = (() => {
         scenarioSelect.addEventListener('change', () => {
             scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
         });
+        presetLoadBtn.addEventListener('click', loadSelectedPreset);
+        presetDeleteBtn.addEventListener('click', deleteSelectedPreset);
         onLocaleChange(() => {
             [...scenarioSelect.options].forEach((option) => {
                 if (!option.value.startsWith('builtin:')) return;
@@ -399,6 +576,7 @@ export const Setup = (() => {
             });
         });
         refreshScenarioSelect();
+        refreshPresets();
 
         // Pre-fill from last saved setup, else empty scaffolding
         const saved = loadSaved();
@@ -406,5 +584,5 @@ export const Setup = (() => {
         else populate({ characters: {}, scene: {} });
     }
 
-    return { init, open, close };
+    return { init, open, close, openPresetDraft };
 })();

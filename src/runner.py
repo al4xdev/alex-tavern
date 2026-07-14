@@ -12,6 +12,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import httpx
 
@@ -32,6 +33,8 @@ from src.compaction import (
     invert_plugin_delta,
 )
 from src.llm.debug_log import (
+    log_command_input,
+    log_command_result,
     log_compact,
     log_compaction_status,
     log_effective_turn_input,
@@ -149,6 +152,16 @@ class Runner:
 
         player = Player(controlled_character_id=controlled_id)
 
+        character_preset_ids = dict(cfg.get("character_preset_ids", {}))
+        if set(character_preset_ids) - set(characters):
+            raise ValueError("A preset can only be linked to a character in this session.")
+        if character_preset_ids:
+            from src.store.presets import load_preset
+
+            for preset_name in character_preset_ids.values():
+                if load_preset(preset_name) is None:
+                    raise ValueError(f"Character preset '{preset_name}' was not found.")
+
         game = GameState(
             session_id=session_id,
             characters=characters,
@@ -156,6 +169,7 @@ class Runner:
             scene=scene,
             created_at=datetime.now(UTC).isoformat(),
             narrator_directives=cfg.get("narrator_directives", ""),
+            character_preset_ids=character_preset_ids,
         )
         if self.plugins is not None:
             game = self.plugins.hooks.filter_sync(
@@ -165,6 +179,93 @@ class Runner:
         if self.plugins is not None:
             self.plugins.hooks.action_sync("session.after_commit", {"game": game, "kind": "start"})
         return session_id
+
+    async def execute_command(
+        self, session_id: str, command_name: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Run a plugin utility command under the session transaction lock.
+
+        Commands receive an isolated state snapshot and cannot advance history,
+        revision, or any narrative state in schema version 1.
+        """
+        from src.plugins.commands import CommandError
+
+        if self.plugins is None:
+            raise CommandError("command_not_found", f"Command /{command_name} is not available.")
+        registration = self.plugins.commands.get(command_name)
+        if registration is None:
+            raise CommandError("command_not_found", f"Command /{command_name} is not available.")
+
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                raise CommandError("session_not_found", f"Session {session_id} was not found.")
+            turn_number = (game.history[-1].turn_number + 1) if game.history else 1
+            operation_id = uuid4().hex
+            result_kind = registration.descriptor["result_kind"]
+            log_command_input(
+                session_id,
+                turn_number,
+                operation_id=operation_id,
+                command=command_name,
+                plugin_id=registration.plugin_id,
+                plugin_version=registration.plugin_version,
+                input_metadata=self.plugins.commands.log_metadata(payload),
+            )
+            try:
+                result = await self.plugins.commands.invoke(
+                    registration,
+                    payload,
+                    {
+                        "game": copy.deepcopy(game),
+                        "turn_number": turn_number,
+                        "runner": self,
+                        "operation_id": operation_id,
+                    },
+                )
+            except BaseException as error:
+                log_command_result(
+                    session_id,
+                    turn_number,
+                    operation_id=operation_id,
+                    command=command_name,
+                    plugin_id=registration.plugin_id,
+                    plugin_version=registration.plugin_version,
+                    status="error",
+                    result_kind=result_kind,
+                    error_type=type(error).__name__,
+                    error=str(error) or repr(error),
+                )
+                if isinstance(error, CommandError):
+                    raise
+                public_code = getattr(error, "code", None)
+                if isinstance(public_code, str) and public_code:
+                    public_field = getattr(error, "field", None)
+                    raise CommandError(
+                        public_code,
+                        str(error) or "The command could not be completed.",
+                        field=public_field if isinstance(public_field, str) else None,
+                    ) from error
+                raise
+            log_command_result(
+                session_id,
+                turn_number,
+                operation_id=operation_id,
+                command=command_name,
+                plugin_id=registration.plugin_id,
+                plugin_version=registration.plugin_version,
+                status="ok",
+                result_kind=result_kind,
+            )
+            return {
+                "status": "ok",
+                "operation_id": operation_id,
+                "command": command_name,
+                "plugin_id": registration.plugin_id,
+                "plugin_version": registration.plugin_version,
+                "result_kind": result_kind,
+                "result": result,
+            }
 
     async def player_turn(
         self,

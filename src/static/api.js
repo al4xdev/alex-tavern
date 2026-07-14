@@ -120,6 +120,40 @@ export const api = {
         return apiFetch(`/session/${sessionId}/turn`, opts);
     },
 
+    getCommands() {
+        return apiFetch('/commands');
+    },
+
+    executeCommand(sessionId, command, payload) {
+        return apiFetch(`/session/${sessionId}/commands/${encodeURIComponent(command)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    },
+
+    listPresets() {
+        return apiFetch('/presets');
+    },
+
+    getPreset(name) {
+        return apiFetch(`/presets/${encodeURIComponent(name)}`);
+    },
+
+    savePreset(name, value) {
+        return apiFetch(`/presets/${encodeURIComponent(name)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(value),
+        });
+    },
+
+    deletePreset(name, revision) {
+        return apiFetch(`/presets/${encodeURIComponent(name)}?expected_revision=${revision}`, {
+            method: 'DELETE',
+        });
+    },
+
     getState(sessionId) {
         return apiFetch(`/session/${sessionId}/state`);
     },

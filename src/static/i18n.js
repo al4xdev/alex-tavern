@@ -314,6 +314,19 @@ const en = {
     'compaction.stage.skipped': 'Nothing to compact',
     'compaction.stage.failed': 'Compaction failed',
     'pwa.installed': 'App installed 🎉',
+    'presets.title': '🪪 Character presets', 'presets.hint': 'Reuse a character and avatar without copying them into every story.',
+    'presets.load': 'Add to adventure', 'presets.empty': 'No saved presets yet. Save one from a character card below.',
+    'presets.slug': 'Preset name', 'presets.avatar': 'Choose avatar', 'presets.save': 'Save preset',
+    'presets.avatarHint': 'The image is cropped once to a small square WebP.',
+    'presets.avatarTooLarge': 'Choose an image smaller than 10 MiB.', 'presets.avatarProcessError': 'The browser could not process this image.',
+    'presets.nameError': 'Use 1-64 lowercase letters, numbers, or hyphens for the preset name.',
+    'presets.replaceConfirm': 'Preset “{name}” already exists. Replace it?', 'presets.saved': 'Preset “{name}” saved',
+    'presets.deleted': 'Preset deleted', 'presets.listError': 'Could not list presets: {error}',
+    'presets.loadError': 'Could not load preset: {error}', 'presets.saveError': 'Could not save preset: {error}',
+    'presets.deleteError': 'Could not delete preset: {error}', 'presets.deleteConfirm': 'Delete preset “{name}”?',
+    'commands.unknown': '“{command}” is not a known command. Choose a suggestion or type // to send a literal slash.',
+    'commands.startFirst': 'Start or open an adventure before running a command.',
+    'commands.completed': '/{command} completed. Review the generated draft before saving.',
 };
 
 const ptBR = {
@@ -548,6 +561,19 @@ const ptBR = {
     'compaction.stage.skipped': 'Nada para compactar',
     'compaction.stage.failed': 'Falha na compactação',
     'pwa.installed': 'App instalado 🎉',
+    'presets.title': '🪪 Presets de personagem', 'presets.hint': 'Reutilize personagem e avatar sem copiá-los para cada história.',
+    'presets.load': 'Adicionar à aventura', 'presets.empty': 'Nenhum preset salvo. Salve um pelo cartão abaixo.',
+    'presets.slug': 'Nome do preset', 'presets.avatar': 'Escolher avatar', 'presets.save': 'Salvar preset',
+    'presets.avatarHint': 'A imagem é recortada uma única vez como WebP quadrado e leve.',
+    'presets.avatarTooLarge': 'Escolha uma imagem menor que 10 MiB.', 'presets.avatarProcessError': 'O navegador não conseguiu processar esta imagem.',
+    'presets.nameError': 'Use de 1 a 64 letras minúsculas, números ou hífens no nome do preset.',
+    'presets.replaceConfirm': 'O preset “{name}” já existe. Deseja substituí-lo?', 'presets.saved': 'Preset “{name}” salvo',
+    'presets.deleted': 'Preset apagado', 'presets.listError': 'Não foi possível listar presets: {error}',
+    'presets.loadError': 'Não foi possível carregar o preset: {error}', 'presets.saveError': 'Não foi possível salvar o preset: {error}',
+    'presets.deleteError': 'Não foi possível apagar o preset: {error}', 'presets.deleteConfirm': 'Apagar o preset “{name}”?',
+    'commands.unknown': '“{command}” não é um comando conhecido. Escolha uma sugestão ou digite // para enviar uma barra normal.',
+    'commands.startFirst': 'Inicie ou abra uma aventura antes de executar um comando.',
+    'commands.completed': '/{command} concluído. Revise o rascunho antes de salvar.',
 };
 
 export const catalogs = Object.freeze({ en: Object.freeze(en), 'pt-BR': Object.freeze(ptBR) });

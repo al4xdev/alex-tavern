@@ -14,7 +14,7 @@ from typing import Annotated, Any, Literal
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -124,6 +124,7 @@ class StartSessionRequest(BaseModel):
     scene: SceneInput | None = None
     narrator_directives: str | None = None
     scenario_name: str | None = None
+    character_preset_ids: dict[str, str] = Field(default_factory=dict)
 
 
 class StartSessionResponse(BaseModel):
@@ -152,6 +153,38 @@ class PlayerTurnRequest(BaseModel):
         ):
             raise ValueError("A turn needs speech, thought, action, or narrator_hint")
         return self
+
+
+class CommandFileInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    media_type: str = "application/octet-stream"
+    data_base64: str
+
+
+class CommandRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    arguments: dict[str, str] = Field(default_factory=dict)
+    fields: dict[str, str] = Field(default_factory=dict)
+    files: dict[str, CommandFileInput] = Field(default_factory=dict)
+
+
+class AvatarInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    media_type: Literal["image/webp"]
+    data_base64: str
+
+
+class PresetPutRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    character: CharacterInput
+    avatar: AvatarInput | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+    replace: bool = False
 
 
 class CharacterResponse(BaseModel):
@@ -282,6 +315,11 @@ async def start_session(req: StartSessionRequest) -> dict:
     cfg: dict[str, Any] = {
         "controlled_character_id": controlled_id,
         "narrator_directives": directives,
+        "character_preset_ids": (
+            dict(req.character_preset_ids)
+            if req.character_preset_ids
+            else dict(scenario_data.get("character_preset_ids", {}))
+        ),
     }
     if characters:
         cfg["characters"] = characters
@@ -311,6 +349,37 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         skip=body.skip,
     )
     return result
+
+
+@app.get("/commands")
+def get_commands() -> dict[str, Any]:
+    """Return the executable command catalog for slash autocomplete and forms."""
+    return {"schema_version": 1, "commands": _runtime().plugins.commands.public_catalog()}
+
+
+@app.post("/session/{session_id}/commands/{command_name}")
+async def execute_command(
+    session_id: str, command_name: str, body: CommandRequest
+) -> dict[str, Any]:
+    """Execute a non-narrative plugin command under the session lock."""
+    from src.plugins.commands import CommandError
+
+    try:
+        return await _runtime().runner.execute_command(session_id, command_name, body.model_dump())
+    except CommandError as error:
+        status = 404 if error.code in {"command_not_found", "session_not_found"} else 422
+        raise HTTPException(
+            status_code=status,
+            detail={"code": error.code, "message": str(error), "field": error.field},
+        ) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "command_failed",
+                "message": str(error) or "The command could not be completed.",
+            },
+        ) from error
 
 
 @app.post("/session/{session_id}/suggest", response_model=SuggestResponse)
@@ -506,6 +575,97 @@ def put_runtime_config(body: dict[str, Any]) -> dict:
         runtime.server_config = resolved
         runtime.runner = Runner(runtime.llm_client, resolved, runtime.plugins)
         return public_config(stored)
+
+
+# ── Native character presets ───────────────────────────────────────────────
+
+
+@app.get("/presets")
+def get_presets() -> dict[str, Any]:
+    from src.store.presets import list_presets
+
+    return {"schema_version": 1, "presets": list_presets()}
+
+
+@app.get("/presets/{preset_name}")
+def get_preset(preset_name: str) -> dict[str, Any]:
+    from src.store.presets import PresetError, load_preset
+
+    try:
+        value = load_preset(preset_name)
+    except PresetError as error:
+        raise HTTPException(
+            status_code=422, detail={"code": error.code, "message": str(error)}
+        ) from error
+    if value is None:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    return value
+
+
+@app.put("/presets/{preset_name}")
+def put_preset(preset_name: str, body: PresetPutRequest) -> dict[str, Any]:
+    from src.store.presets import PresetConflictError, PresetError, save_preset
+
+    try:
+        return save_preset(
+            preset_name,
+            character=body.character.model_dump(),
+            avatar=body.avatar.model_dump() if body.avatar else None,
+            expected_revision=body.expected_revision,
+            replace=body.replace,
+        )
+    except PresetConflictError as error:
+        raise HTTPException(
+            status_code=409, detail={"code": error.code, "message": str(error)}
+        ) from error
+    except PresetError as error:
+        raise HTTPException(
+            status_code=422, detail={"code": error.code, "message": str(error)}
+        ) from error
+
+
+@app.delete("/presets/{preset_name}")
+def remove_preset(
+    preset_name: str, expected_revision: Annotated[int, Query(ge=1)]
+) -> dict[str, bool]:
+    from src.store.presets import PresetConflictError, PresetError, delete_preset
+
+    try:
+        deleted = delete_preset(preset_name, expected_revision=expected_revision)
+    except PresetConflictError as error:
+        raise HTTPException(
+            status_code=409, detail={"code": error.code, "message": str(error)}
+        ) from error
+    except PresetError as error:
+        raise HTTPException(
+            status_code=422, detail={"code": error.code, "message": str(error)}
+        ) from error
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    return {"deleted": True}
+
+
+@app.get("/presets/{preset_name}/avatar")
+def get_preset_avatar(preset_name: str, request: Request) -> Response:
+    from src.store.presets import PresetError, load_avatar
+
+    try:
+        value = load_avatar(preset_name)
+    except PresetError as error:
+        raise HTTPException(
+            status_code=422, detail={"code": error.code, "message": str(error)}
+        ) from error
+    if value is None:
+        raise HTTPException(status_code=404, detail="Preset avatar not found")
+    data, sha256 = value
+    etag = f'"{sha256}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+    return Response(
+        content=data,
+        media_type="image/webp",
+        headers={"ETag": etag, "Cache-Control": "private, max-age=31536000, immutable"},
+    )
 
 
 # ── Scenarios API ──────────────────────────────────────────────────────────

@@ -107,6 +107,66 @@ def log_effective_turn_input(
     )
 
 
+def log_command_input(
+    session_id: str,
+    turn_number: int,
+    *,
+    operation_id: str,
+    command: str,
+    plugin_id: str,
+    plugin_version: str,
+    input_metadata: dict[str, Any],
+) -> None:
+    """Record a utility command without ever persisting uploaded Base64 data."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "command_input",
+            "operation_id": operation_id,
+            "command": command,
+            "plugin_id": plugin_id,
+            "plugin_version": plugin_version,
+            "input": input_metadata,
+        },
+    )
+
+
+def log_command_result(
+    session_id: str,
+    turn_number: int,
+    *,
+    operation_id: str,
+    command: str,
+    plugin_id: str,
+    plugin_version: str,
+    status: str,
+    result_kind: str,
+    error_type: str | None = None,
+    error: str | None = None,
+) -> None:
+    """Record the command outcome while keeping the potentially large draft out of the log."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "command_result",
+            "operation_id": operation_id,
+            "command": command,
+            "plugin_id": plugin_id,
+            "plugin_version": plugin_version,
+            "status": status,
+            "result_kind": result_kind,
+            "error_type": error_type,
+            "error": error,
+        },
+    )
+
+
 def log_llm_call(
     session_id: str,
     turn_number: int,

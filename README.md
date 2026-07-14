@@ -65,194 +65,6 @@ Portuguese browsers start in Portuguese. Changing the interface between `en` and
 the visible application immediately and synchronizes the model response language to **English**
 or **Brazilian Portuguese** without changing the active session, form contents, or chat history.
 
-### ✦ Plugin platform
-
-The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
-configuration and preview. Individual plugins can also be cached and activated independently.
-Changing the active set rebuilds its uv dependency target and asks the supervisor to replace both
-the Python child and browser runtime.
-
-Packages use a strict `plugin.toml`, immutable `id/version/SHA-256` cache, physical activation
-pointers under `.data/plugins/started`, plugin-owned config, and an append-only access/crash journal.
-Before any curated or external ZIP enters that cache, the Plugin Center shows its exact release,
-hash, permissions, dependencies, entrypoints, and Python requirements. External ZIPs are inspected
-without installation first and carry an explicit full-trust warning in the confirmation screen.
-Backend plugins register deterministic actions, filters, wrappers, or contributions. Frontend
-plugins load as JavaScript modules through the browser SDK. Before-commit filters work on isolated
-drafts; a crash discards that plugin's draft, disables it for the boot, and continues clean. A
-post-commit crash is recorded and never replays durable work. `context.unsafe` deliberately gives
-trusted plugins an escape hatch to reach or replace arbitrary runtime objects.
-
-#### A runtime extension platform, not a callback folder
-
-The plugin system owns the complete path from reviewed source to deterministic execution. A plugin
-is not copied into a scripts directory and imported opportunistically:
-
-```text
-reviewed source + strict manifest
-              │
-              ▼
- reproducible ZIP + fixed SHA-256
-              │
-              ▼
- immutable versioned cache ──► dependency resolution with uv
-              │
-              ▼
- activation pointers + per-hook ordering DAG
-              │
-              ▼
- supervisor replaces the Python runtime
-              │
-              ├── filters transform isolated drafts
-              ├── wrappers surround Narrator/Character operations
-              ├── actions observe lifecycle and durable commits
-              ├── contributions extend providers, routes, settings, commands, and panels
-              └── browser modules extend the same running product through the frontend SDK
-```
-
-The SDK surface is deliberately small, but each primitive has a different ownership and failure
-contract:
-
-| SDK primitive | Intended use | Runtime guarantee |
-|---|---|---|
-| `context.filter` | Transform input, structured model output, or a pre-commit draft | Ordered pipeline; a failed isolated draft is discarded |
-| `context.wrapper` | Surround or replace the complete Narrator/Character call | Explicit nesting through `next`; no hidden provider branch |
-| `context.action` | Observe a lifecycle event or durable commit | Post-commit work is never replayed automatically |
-| `context.contribute` | Register providers, routes, settings, commands, or panels | Shared registry with plugin provenance |
-| `context.config` | Read/write plugin-owned global configuration | Atomic JSON, separate from session state |
-| `game.plugin_state[plugin_id]` | Persist plugin-owned session state | Saved, snapshotted, compacted, and undone with the session |
-| `context.model.call_json` | Make a plugin-owned structured LLM call | Core-owned secrets, provider adaptation, schema validation, retries, and debug logging |
-| `context.unsafe` | Reach a core object not covered by the stable SDK | Deliberate trusted-code escape hatch, journaled for review |
-
-A stateful plugin can remain compact because the Runner still owns persistence and transactions:
-
-```python
-def setup(context):
-    def count_commits(game, hook_context):
-        state = game.plugin_state.setdefault(context.plugin_id, {})
-        state["commits"] = int(state.get("commits", 0)) + 1
-        return game
-
-    context.filter(
-        "turn.before_commit",
-        count_commits,
-        after=("dev.example.input-normalizer",),
-        priority=10,
-    )
-```
-
-Ordering is a deterministic DAG, not import order. A manifest's `[order]` table supplies default
-`before`, `after`, and `priority` values. Explicit edges win; unconstrained registrations use higher
-priority first, then plugin ID and registration sequence. Priority controls execution position, not
-authority—a later filter receives and may transform the earlier result. Advanced plugins can
-override ordering for one hook, so the same pair may compose in opposite directions at different
-extension points. Cycles are rejected instead of guessed.
-
-This separation is what allows a grammar filter, an LLM provider, a stateful world system, and an
-administrative panel to evolve independently without adding provider or feature branches to the
-Runner. Experiences then turn those capabilities into reviewed, ordered products with exact
-versions and configuration.
-
-Model-backed plugins use the provider-neutral `context.model.call_json` SDK. It requires JSON
-Schema, uses the active provider and shared HTTP client, keeps API keys inside the server, and logs
-every attempt as `plugin:<plugin_id>` with the current session and turn. The curated **Clean
-Writing** Experience uses this gateway to correct grammar in speech, private thought, and action
-before authoritative history, while preserving language, meaning, and character voice.
-
-Reference packages live in `plugins/examples`. Authoring commands are available through
-`uv run python -m tools.plugin_author`; the separate curated-hub scaffold at
-`../alex-tavern-plugins` includes source, deterministic artifacts, an animated Experience preview,
-documentation, and a stdio MCP with contract, scaffold, validate, test, pack, and trace tools. It
-never performs Git or publication operations. Opening the Plugin Center automatically downloads a
-validated GitHub snapshot when the local cache is missing or older than five minutes. Downloads are
-bounded, reject unsafe archive paths, verify every artifact SHA-256 and its internal manifest, publish
-atomically, and fall back to the last valid snapshot while offline. The Plugin Center groups cached
-versions by plugin ID and compares the active package with the newest curated SemVer release. An
-update review shows hashes, permissions and dependency/entrypoint changes before one transactional
-“update and activate” operation; the old cache remains available for rollback. A same-version,
-different-hash artifact is reported as a release conflict instead of silently replacing code. To
-force the same synchronization from the CLI:
-
-```fish
-uv run python tools/plugin_hub.py sync --repository https://github.com/al4xdev/alex-tavern-plugins.git
-```
-
-#### Build plugins with Codex, Claude Code, or another coding agent
-
-Alex Tavern is designed so a coding agent can inspect the running application and author a plugin
-without guessing internal contracts. The two repository-local MCP servers have complementary jobs:
-
-| MCP server | Repository | Purpose |
-|---|---|---|
-| Alex Tavern debug MCP | `roleplay` | Inspect sessions and debug logs, exercise the live HTTP boundary, and work with replay tools |
-| Plugin authoring MCP | `alex-tavern-plugins` | Read the live SDK contract, scaffold source, validate, test, package, and trace a plugin |
-
-Start the application before asking an agent to use the debug MCP. A generic MCP client entry looks
-like this; the location of the MCP configuration itself depends on the agent client:
-
-```json
-{
-  "mcpServers": {
-    "alex-tavern-debug": {
-      "command": "uv",
-      "args": ["run", "python", "tools/mcp_server.py"],
-      "cwd": "/absolute/path/to/roleplay"
-    }
-  }
-}
-```
-
-For curated plugin development, ask the agent to read this repository's `AGENTS.md` and inspect
-`.plan/tasks/` first. It should then locate the sibling `../alex-tavern-plugins` checkout or create
-the sparse clone prescribed by `AGENTS.md`:
-
-```fish
-git clone --filter=blob:none --sparse \
-  git@github.com:al4xdev/alex-tavern-plugins.git \
-  ../alex-tavern-plugins
-git -C ../alex-tavern-plugins sparse-checkout set docs plugins experiences
-```
-
-Inside the hub, the agent should read `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`,
-`docs/hooks.md`, and `docs/mcp.md`; plugins that call an LLM must also follow
-`docs/model-calls.md`. After `uv sync`, connect the authoring MCP with the main checkout as its
-`--core-root` so exported contracts come from the exact core being developed:
-
-```json
-{
-  "mcpServers": {
-    "alex-tavern-plugin-author": {
-      "command": "uv",
-      "args": [
-        "run",
-        "python",
-        "mcp_server.py",
-        "--core-root",
-        "/absolute/path/to/roleplay"
-      ],
-      "cwd": "/absolute/path/to/alex-tavern-plugins"
-    }
-  }
-}
-```
-
-The recommended tool sequence is `plugin_contract`, `plugin_scaffold`, `plugin_validate`,
-`plugin_test`, `plugin_trace`, and finally `plugin_pack`. Plugin source belongs in the hub's
-`plugins/` directory; `.data/plugins/hub` is only an ephemeral runtime snapshot and must never be
-edited as source. Neither MCP commits, pushes, or publishes anything.
-
-You can begin a Codex, Claude Code, or similar agent session with this prompt:
-
-```text
-Read AGENTS.md and inspect .plan/tasks before changing code. Connect the repository-local Alex
-Tavern debug MCP so you can inspect the running application when the task requires it. Locate the
-sibling ../alex-tavern-plugins checkout; if it is missing, follow the sparse-clone workflow in
-AGENTS.md. Read the hub's AGENTS.md and its manifest, SDK, hooks, MCP, and model-call documentation.
-Then connect the hub authoring MCP with this checkout passed as --core-root, query plugin_contract
-before choosing extension points, and use its scaffold, validation, test, trace, and pack tools.
-Keep authored source in the sibling hub and do not edit .data/plugins/hub. Do not commit, push, or
-publish without my explicit permission.
-```
 
 ### 🐳 Docker
 
@@ -598,6 +410,36 @@ sensitive session data.
 
 ---
 
+## ⌨️ Slash tools, character presets, and avatars
+
+Typing `/` in the Speech field opens the command catalog exported by active backend plugins.
+Autocomplete supports keyboard arrows, Enter/Tab, Escape, and pointer selection. A recognized
+command switches the composer into a descriptor-driven tool card; an unknown command is rejected
+locally and `//` escapes a literal leading slash. Command requests run under the same per-session
+lock as turns, but version 1 utilities receive an isolated state snapshot and cannot advance
+history, revision, undo, Narrator, or Character execution. JSONL records operation identity and
+input sizes without persisting uploaded Base64.
+
+The first curated implementation is `dev.alex-tavern.character-converter` and its
+`/convert-character <preset-name>` command. It accepts exactly one free-text description or one
+open Character Card V1/V2/V3 PNG/JSON. PNG chunks and CRCs are validated locally, `ccv3` metadata
+takes precedence over `chara`, and ordinary images fail clearly rather than invoking vision. The
+active structured provider maps untrusted card data into canonical `mind`/`body`; one semantic
+correction is allowed. The result is always an editable draft and is never saved automatically.
+
+Native character presets live in `.data/presets/{preset-name}.json`. Writes are atomic and use
+per-name locks plus optimistic revisions; replacing an existing name requires explicit
+confirmation. The setup library can load, edit, save, replace, or delete presets. A browser upload
+is center-cropped once to a 256×256 WebP at approximately 0.82 quality. Only that compact image is
+stored with the preset. Sessions persist a character-to-preset mapping, never image Base64, and
+avatars are fetched separately through revisioned URLs with ETags for setup and chat rendering.
+Initials remain the fallback. Dynamic addition to a running session remains separate future work.
+
+The in-app **Shortcuts & Features** guide explains the same behavior in English and Brazilian
+Portuguese for non-technical users.
+
+---
+
 ## 🧠 Context Compaction
 
 > [!IMPORTANT]
@@ -792,6 +634,8 @@ The interface is dependency-free and built from native ES modules. Current behav
 - an action menu for undo, retry, force-speaker, suggestions, compaction, and restore;
 - a novice-facing automatic-compaction card with an on/off switch, an earlier-to-later timing
   slider, live plain-language consequences, and a direct link to the compaction guide;
+- slash-command autocomplete and descriptor-driven tool cards that never masquerade as dialogue;
+- a native character preset library with one compact avatar for setup and chat;
 - a network-first service worker with cache fallback for the application shell;
 - typewriter reveal for Narrator and Character responses, with click-to-skip and
   `prefers-reduced-motion` support;
@@ -802,6 +646,197 @@ The interface is dependency-free and built from native ES modules. Current behav
 <place_7:screenshot of the session list landing screen>
 
 ---
+
+### ✦ Plugin platform
+
+The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
+configuration and preview. Individual plugins can also be cached and activated independently.
+Changing the active set rebuilds its uv dependency target and asks the supervisor to replace both
+the Python child and browser runtime.
+
+Packages use a strict `plugin.toml`, immutable `id/version/SHA-256` cache, physical activation
+pointers under `.data/plugins/started`, plugin-owned config, and an append-only access/crash journal.
+Before any curated or external ZIP enters that cache, the Plugin Center shows its exact release,
+hash, permissions, dependencies, entrypoints, and Python requirements. External ZIPs are inspected
+without installation first and carry an explicit full-trust warning in the confirmation screen.
+Backend plugins register deterministic actions, filters, wrappers, or contributions. Frontend
+plugins load as JavaScript modules through the browser SDK. Before-commit filters work on isolated
+drafts; a crash discards that plugin's draft, disables it for the boot, and continues clean. A
+post-commit crash is recorded and never replays durable work. `context.unsafe` deliberately gives
+trusted plugins an escape hatch to reach or replace arbitrary runtime objects.
+
+#### A runtime extension platform, not a callback folder
+
+The plugin system owns the complete path from reviewed source to deterministic execution. A plugin
+is not copied into a scripts directory and imported opportunistically:
+
+```text
+reviewed source + strict manifest
+              │
+              ▼
+ reproducible ZIP + fixed SHA-256
+              │
+              ▼
+ immutable versioned cache ──► dependency resolution with uv
+              │
+              ▼
+ activation pointers + per-hook ordering DAG
+              │
+              ▼
+ supervisor replaces the Python runtime
+              │
+              ├── filters transform isolated drafts
+              ├── wrappers surround Narrator/Character operations
+              ├── actions observe lifecycle and durable commits
+              ├── contributions extend providers, routes, settings, and panels
+              ├── executable utility commands own a separate strict registry
+              └── browser modules extend the same running product through the frontend SDK
+```
+
+The SDK surface is deliberately small, but each primitive has a different ownership and failure
+contract:
+
+| SDK primitive | Intended use | Runtime guarantee |
+|---|---|---|
+| `context.filter` | Transform input, structured model output, or a pre-commit draft | Ordered pipeline; a failed isolated draft is discarded |
+| `context.wrapper` | Surround or replace the complete Narrator/Character call | Explicit nesting through `next`; no hidden provider branch |
+| `context.action` | Observe a lifecycle event or durable commit | Post-commit work is never replayed automatically |
+| `context.contribute` | Register providers, routes, settings, or panels | Shared registry with plugin provenance |
+| `context.command` | Register one executable slash utility and its localized form | Unique global name, session lock, typed input, no narrative mutation |
+| `context.config` | Read/write plugin-owned global configuration | Atomic JSON, separate from session state |
+| `game.plugin_state[plugin_id]` | Persist plugin-owned session state | Saved, snapshotted, compacted, and undone with the session |
+| `context.model.call_json` | Make a plugin-owned structured LLM call | Core-owned secrets, provider adaptation, schema validation, retries, and debug logging |
+| `context.unsafe` | Reach a core object not covered by the stable SDK | Deliberate trusted-code escape hatch, journaled for review |
+
+A stateful plugin can remain compact because the Runner still owns persistence and transactions:
+
+```python
+def setup(context):
+    def count_commits(game, hook_context):
+        state = game.plugin_state.setdefault(context.plugin_id, {})
+        state["commits"] = int(state.get("commits", 0)) + 1
+        return game
+
+    context.filter(
+        "turn.before_commit",
+        count_commits,
+        after=("dev.example.input-normalizer",),
+        priority=10,
+    )
+```
+
+Ordering is a deterministic DAG, not import order. A manifest's `[order]` table supplies default
+`before`, `after`, and `priority` values. Explicit edges win; unconstrained registrations use higher
+priority first, then plugin ID and registration sequence. Priority controls execution position, not
+authority—a later filter receives and may transform the earlier result. Advanced plugins can
+override ordering for one hook, so the same pair may compose in opposite directions at different
+extension points. Cycles are rejected instead of guessed.
+
+This separation is what allows a grammar filter, an LLM provider, a stateful world system, and an
+administrative panel to evolve independently without adding provider or feature branches to the
+Runner. Experiences then turn those capabilities into reviewed, ordered products with exact
+versions and configuration.
+
+Model-backed plugins use the provider-neutral `context.model.call_json` SDK. It requires JSON
+Schema, uses the active provider and shared HTTP client, keeps API keys inside the server, and logs
+every attempt as `plugin:<plugin_id>` with the current session and turn. The curated **Clean
+Writing** Experience uses this gateway to correct grammar in speech, private thought, and action
+before authoritative history, while preserving language, meaning, and character voice.
+
+Reference packages live in `plugins/examples`. Authoring commands are available through
+`uv run python -m tools.plugin_author`; the separate curated-hub scaffold at
+`../alex-tavern-plugins` includes source, deterministic artifacts, an animated Experience preview,
+documentation, and a stdio MCP with contract, scaffold, validate, test, pack, and trace tools. It
+never performs Git or publication operations. Opening the Plugin Center automatically downloads a
+validated GitHub snapshot when the local cache is missing or older than five minutes. Downloads are
+bounded, reject unsafe archive paths, verify every artifact SHA-256 and its internal manifest, publish
+atomically, and fall back to the last valid snapshot while offline. The Plugin Center groups cached
+versions by plugin ID and compares the active package with the newest curated SemVer release. An
+update review shows hashes, permissions and dependency/entrypoint changes before one transactional
+“update and activate” operation; the old cache remains available for rollback. A same-version,
+different-hash artifact is reported as a release conflict instead of silently replacing code. To
+force the same synchronization from the CLI:
+
+```fish
+uv run python tools/plugin_hub.py sync --repository https://github.com/al4xdev/alex-tavern-plugins.git
+```
+
+#### Build plugins with Codex, Claude Code, or another coding agent
+
+Alex Tavern is designed so a coding agent can inspect the running application and author a plugin
+without guessing internal contracts. The two repository-local MCP servers have complementary jobs:
+
+| MCP server | Repository | Purpose |
+|---|---|---|
+| Alex Tavern debug MCP | `roleplay` | Inspect sessions and debug logs, exercise the live HTTP boundary, and work with replay tools |
+| Plugin authoring MCP | `alex-tavern-plugins` | Read the live SDK contract, scaffold source, validate, test, package, and trace a plugin |
+
+Start the application before asking an agent to use the debug MCP. A generic MCP client entry looks
+like this; the location of the MCP configuration itself depends on the agent client:
+
+```json
+{
+  "mcpServers": {
+    "alex-tavern-debug": {
+      "command": "uv",
+      "args": ["run", "python", "tools/mcp_server.py"],
+      "cwd": "/absolute/path/to/roleplay"
+    }
+  }
+}
+```
+
+For curated plugin development, ask the agent to read this repository's `AGENTS.md` and inspect
+`.plan/tasks/` first. It should then locate the sibling `../alex-tavern-plugins` checkout or create
+the sparse clone prescribed by `AGENTS.md`:
+
+```fish
+git clone --filter=blob:none --sparse \
+  git@github.com:al4xdev/alex-tavern-plugins.git \
+  ../alex-tavern-plugins
+git -C ../alex-tavern-plugins sparse-checkout set docs plugins experiences
+```
+
+Inside the hub, the agent should read `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`,
+`docs/hooks.md`, and `docs/mcp.md`; plugins that call an LLM must also follow
+`docs/model-calls.md`. After `uv sync`, connect the authoring MCP with the main checkout as its
+`--core-root` so exported contracts come from the exact core being developed:
+
+```json
+{
+  "mcpServers": {
+    "alex-tavern-plugin-author": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "mcp_server.py",
+        "--core-root",
+        "/absolute/path/to/roleplay"
+      ],
+      "cwd": "/absolute/path/to/alex-tavern-plugins"
+    }
+  }
+}
+```
+
+The recommended tool sequence is `plugin_contract`, `plugin_scaffold`, `plugin_validate`,
+`plugin_test`, `plugin_trace`, and finally `plugin_pack`. Plugin source belongs in the hub's
+`plugins/` directory; `.data/plugins/hub` is only an ephemeral runtime snapshot and must never be
+edited as source. Neither MCP commits, pushes, or publishes anything.
+
+You can begin a Codex, Claude Code, or similar agent session with this prompt:
+
+```text
+Read AGENTS.md and inspect .plan/tasks before changing code. Connect the repository-local Alex
+Tavern debug MCP so you can inspect the running application when the task requires it. Locate the
+sibling ../alex-tavern-plugins checkout; if it is missing, follow the sparse-clone workflow in
+AGENTS.md. Read the hub's AGENTS.md and its manifest, SDK, hooks, MCP, and model-call documentation.
+Then connect the hub authoring MCP with this checkout passed as --core-root, query plugin_contract
+before choosing extension points, and use its scaffold, validation, test, trace, and pack tools.
+Keep authored source in the sibling hub and do not edit .data/plugins/hub. Do not commit, push, or
+publish without my explicit permission.
+```
 
 ## ⚡ Multi-provider LLM architecture
 
@@ -1357,7 +1392,7 @@ current source supersede intermediate assumptions.
 
 ## 🔮 Future Work
 
-**RAG, delivered as a slash-command tool rather than a pipeline change.** RAG itself (see
+**RAG can use the delivered slash-command boundary rather than changing the pipeline.** RAG itself (see
 [Related agent architecture patterns](#-related-agent-architecture-patterns))
 is deferred. The proposed design keeps the existing turn pipeline unchanged and uses
 **vector embeddings over a lexical keyword search** — the data volume
@@ -1382,8 +1417,7 @@ prompt. Two separate LLM layers sit between the vector search and the live conve
 Retrieval would be triggered on demand via `/rag <keyword>` instead of keeping external material
 permanently loaded in the live prompt.
 
-**A general slash-command tool system, not a one-off for RAG.** `/rag` is meant to be the first
-instance of a small plugin mechanism, not a special case: a slash-command layer that lets new
-tools be registered and invoked on demand, instead of being hardcoded into the turn-assembly
-pipeline one `if` at a time. This keeps the core Narrator/Character loop untouched while still
-allowing ad hoc capabilities — RAG today, more later — to be bolted on cleanly.
+The general slash-command system is already implemented and first exercised by the curated
+Character Converter plugin. A future `/rag` plugin can register through the same descriptor and
+handler contract without adding a provider branch or special case to the Narrator/Character turn
+pipeline.
