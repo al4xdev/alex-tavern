@@ -100,8 +100,8 @@ def test_setup_and_app_dynamic_messages_use_catalog_keys() -> None:
     app = (STATIC / "app.js").read_text(encoding="utf-8")
     catalog = (STATIC / "i18n.js").read_text(encoding="utf-8")
 
-    assert "t('presets.saved', { name })" in setup
-    assert "'presets.saved':" in catalog
+    assert "t('scenarios.saved', { name })" in setup
+    assert "'scenarios.saved':" in catalog
     assert "t('sessions.loaded', { id: sessionId })" in app
     assert "'sessions.loaded':" in catalog
 

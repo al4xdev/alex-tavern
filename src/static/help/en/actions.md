@@ -12,4 +12,5 @@ Discover advanced action controls next to the Send button.
 - 💡 **Suggestion**: Request 3 plausible in-character suggestions from the Narrator.
 - 📜 **Narrator Hint**: Guide the Narrator by injecting an upcoming environmental event.
 - ↩ **Undo**: Revert the last turn step.
-- 🗜️ **Compact**: Compress older history into notes and summaries.
+- 🗜️ **Compact**: Summarize older history now, with measured progress.
+- 🧯 **Undo Compaction**: Restore the newest compaction checkpoint while keeping later turns.

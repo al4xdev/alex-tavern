@@ -7,6 +7,11 @@ turno pós-compactação e undo
 **Armazenamento isolado:** `/tmp/roleplay-report-playtest.DmyEbG`
 **Sessão:** `89c21c6c`
 
+> **Nota de contrato (2026-07-14):** este playtest registra o backup/restore existente na data da
+> execução. O runtime atual substituiu esse formato por checkpoints incrementais LIFO, mantém os
+> checkpoints até a exclusão da sessão e preserva turnos posteriores durante o undo. Consulte
+> [Context Compaction](../../README.md#-context-compaction).
+
 ## Artefatos
 
 - Resultado estruturado: `/tmp/roleplay-report-playtest.DmyEbG/playtest-results.json`

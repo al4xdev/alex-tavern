@@ -30,7 +30,7 @@
                         <p class="modal-sub" data-i18n="setup.subtitle">Build the scene, characters, and tone of the world</p>
                     </div>
                 </div>
-                <button class="icon-btn" id="setup-close-btn" title="Close" aria-label="Close"
+                <button class="icon-btn" id="setup-close-btn" type="button" title="Close" aria-label="Close"
                     data-i18n-title="common.close" data-i18n-aria-label="common.close">✕</button>
             </div>
 
@@ -73,9 +73,39 @@
                     <div class="provider-switch" id="provider-switch" role="radiogroup" aria-label="Artificial intelligence provider"
                         data-i18n-aria-label="engine.providerAria"></div>
 
-                    <div class="field-group">
-                        <label class="field-label" for="runtime-compact-turns" data-i18n="engine.compactTurns">Recent turns kept after compaction</label>
-                        <input class="text-input" id="runtime-compact-turns" type="number" min="1" inputmode="numeric">
+                    <div class="compaction-control" id="compaction-control">
+                        <div class="compaction-control-head">
+                            <div>
+                                <div class="compaction-control-title" data-i18n="engine.autoCompact">Automatic compaction</div>
+                                <p class="compaction-control-intro" data-i18n="engine.autoCompactIntro">Keeps long stories within the AI's reading space.</p>
+                            </div>
+                            <button class="compaction-help-btn" id="compaction-help-btn" type="button"
+                                title="Learn how compaction works" aria-label="Learn how compaction works"
+                                data-i18n-title="engine.autoCompactHelp" data-i18n-aria-label="engine.autoCompactHelp">?</button>
+                        </div>
+
+                        <label class="toggle compaction-toggle" for="runtime-auto-compact">
+                            <input id="runtime-auto-compact" type="checkbox">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="compaction-toggle-copy">
+                                <strong id="auto-compact-state"></strong>
+                                <small data-i18n="engine.autoCompactToggleHint">The app summarizes older events before the story gets too long.</small>
+                            </span>
+                        </label>
+
+                        <div class="compaction-threshold" id="compaction-threshold">
+                            <div class="compaction-threshold-head">
+                                <label for="runtime-auto-compact-threshold" data-i18n="engine.autoCompactTiming">When should it summarize?</label>
+                                <output id="auto-compact-threshold-value" for="runtime-auto-compact-threshold"></output>
+                            </div>
+                            <input id="runtime-auto-compact-threshold" type="range" min="1" max="100" step="1"
+                                aria-describedby="auto-compact-threshold-explanation">
+                            <div class="compaction-threshold-scale" aria-hidden="true">
+                                <span data-i18n="engine.autoCompactEarlier">Earlier</span>
+                                <span data-i18n="engine.autoCompactLater">Later</span>
+                            </div>
+                            <p id="auto-compact-threshold-explanation" class="compaction-threshold-explanation"></p>
+                        </div>
                     </div>
 
                     <div id="provider-panels"></div>
@@ -86,20 +116,35 @@
                     </div>
                 </section>
 
-                <!-- Presets -->
-                <div class="section" id="presets-section">
-                    <h3 class="section-title" data-i18n="presets.title">💾 Presets</h3>
-                    <div class="preset-row">
-                        <select class="text-input" id="preset-select" aria-label="Saved preset" data-i18n-aria-label="presets.savedAria"></select>
-                        <button class="btn btn-mini" id="preset-load-btn" type="button" data-i18n="presets.load">Load</button>
-                        <button class="icon-btn" id="preset-delete-btn" type="button"
-                            title="Delete preset" aria-label="Delete preset" data-i18n-title="presets.delete" data-i18n-aria-label="presets.delete">🗑️</button>
+                <!-- Scenarios -->
+                <div class="section" id="scenarios-section">
+                    <h3 class="section-title" data-i18n="scenarios.title">💾 Scenarios</h3>
+                    <div class="scenario-row">
+                        <select class="text-input" id="scenario-select" aria-label="Saved scenario" data-i18n-aria-label="scenarios.savedAria"></select>
+                        <button class="btn btn-mini" id="scenario-load-btn" type="button" data-i18n="scenarios.load">Load</button>
+                        <button class="icon-btn" id="scenario-delete-btn" type="button"
+                            title="Delete scenario" aria-label="Delete scenario" data-i18n-title="scenarios.delete" data-i18n-aria-label="scenarios.delete">🗑️</button>
                     </div>
-                    <div class="preset-row">
-                        <input type="text" class="text-input" id="preset-name"
-                            placeholder="New preset name (e.g. Pirate campaign)" data-i18n-placeholder="presets.namePlaceholder">
-                        <button class="btn btn-mini" id="preset-save-btn" type="button" data-i18n="presets.saveCurrent">Save current</button>
+                    <div class="scenario-row">
+                        <input type="text" class="text-input" id="scenario-name"
+                            placeholder="New scenario name (e.g. Pirate campaign)" data-i18n-placeholder="scenarios.namePlaceholder">
+                        <button class="btn btn-mini" id="scenario-save-btn" type="button" data-i18n="scenarios.saveCurrent">Save current</button>
                     </div>
+                </div>
+
+                <div class="section preset-library" id="preset-library-section">
+                    <div class="section-head">
+                        <div>
+                            <h3 class="section-title" data-i18n="presets.title">🪪 Character presets</h3>
+                            <p class="field-hint" data-i18n="presets.hint">Reuse a character and avatar without copying them into every story.</p>
+                        </div>
+                    </div>
+                    <div class="scenario-row">
+                        <select class="text-input" id="preset-select" aria-label="Character preset"></select>
+                        <button class="btn btn-mini" id="preset-load-btn" type="button" data-i18n="presets.load">Add to adventure</button>
+                        <button class="icon-btn" id="preset-delete-btn" type="button" aria-label="Delete preset">🗑️</button>
+                    </div>
+                    <p class="field-hint" id="preset-empty" data-i18n="presets.empty">No saved presets yet. Save one from a character card below.</p>
                 </div>
 
                 <!-- Narrator directives -->
@@ -194,6 +239,21 @@
                 <button class="icon-btn char-remove" title="Remove" aria-label="Remove" data-i18n-title="common.remove" data-i18n-aria-label="common.remove">🗑️</button>
             </div>
             <div class="char-card-body">
+                <div class="char-preset-row">
+                    <div class="char-avatar-preview" aria-hidden="true"><span>?</span><img alt=""></div>
+                    <div class="char-preset-controls">
+                        <label class="field-label" data-i18n="presets.slug">Preset name</label>
+                        <input type="text" class="text-input char-preset-name" placeholder="lyra-nightfall" autocomplete="off">
+                        <div class="char-preset-actions">
+                            <label class="btn btn-mini char-avatar-label">
+                                <span data-i18n="presets.avatar">Choose avatar</span>
+                                <input type="file" class="char-avatar-file" accept="image/*" hidden>
+                            </label>
+                            <button class="btn btn-mini char-save-preset" type="button" data-i18n="presets.save">Save preset</button>
+                        </div>
+                        <p class="field-hint" data-i18n="presets.avatarHint">The image is cropped once to a small square WebP.</p>
+                    </div>
+                </div>
                 <div class="field-group">
                     <label class="field-label" data-i18n="character.personality">Personality</label>
                     <textarea class="text-area char-personality" rows="3" placeholder="Description of the character’s personality" data-i18n-placeholder="character.personalityPlaceholder"></textarea>
@@ -221,12 +281,92 @@
         </div>
     </template>
 
+    <!-- ══════════════════ Plugin Center ══════════════════ -->
+    <div class="overlay" id="plugins-overlay">
+        <div class="modal plugin-center" role="dialog" aria-modal="true" aria-labelledby="plugins-title">
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <span class="modal-glyph">✦</span>
+                    <div>
+                        <h2 id="plugins-title" data-i18n="plugins.title">Plugin Center</h2>
+                        <p class="modal-sub" data-i18n="plugins.subtitle">Compose a new Tavern without changing its core</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="plugins-close-btn" data-i18n-title="common.close"
+                    data-i18n-aria-label="common.close">✕</button>
+            </div>
+            <div class="plugin-tabs" role="tablist">
+                <button class="plugin-tab active" id="plugin-tab-experiences" data-plugin-tab="experiences"
+                    type="button" role="tab" aria-selected="true" aria-controls="plugin-view-experiences"
+                    data-i18n="plugins.experiences">Experiences</button>
+                <button class="plugin-tab" id="plugin-tab-plugins" data-plugin-tab="plugins" type="button"
+                    role="tab" aria-selected="false" aria-controls="plugin-view-plugins" tabindex="-1">
+                    <span data-i18n="plugins.extensions">Plugins</span>
+                    <span class="plugin-update-count" id="plugin-update-count" hidden></span>
+                </button>
+                <button class="plugin-tab" id="plugin-tab-activity" data-plugin-tab="activity" type="button"
+                    role="tab" aria-selected="false" aria-controls="plugin-view-activity" tabindex="-1"
+                    data-i18n="plugins.activity">Activity</button>
+            </div>
+            <div class="modal-body plugin-center-body">
+              <div class="plugin-view-track" id="plugin-view-track">
+                <section class="plugin-view active" id="plugin-view-experiences" data-plugin-view="experiences"
+                    role="tabpanel" aria-labelledby="plugin-tab-experiences" tabindex="0">
+                    <div class="experience-hero">
+                        <span class="experience-kicker" data-i18n="plugins.featured">CURATED COMPOSITIONS</span>
+                        <h3 data-i18n="plugins.experienceLead">Change the whole experience in one move.</h3>
+                        <p data-i18n="plugins.experienceHint">Each Experience activates an ordered, reviewed set of plugins and settings.</p>
+                    </div>
+                    <div class="experience-grid" id="experience-grid"></div>
+                </section>
+                <section class="plugin-view" id="plugin-view-plugins" data-plugin-view="plugins"
+                    role="tabpanel" aria-labelledby="plugin-tab-plugins" tabindex="0">
+                    <div class="plugin-install-row">
+                        <input class="text-input plugin-file-input" id="plugin-zip-path" type="file"
+                            accept=".zip,application/zip" aria-label="Plugin ZIP"
+                            data-i18n-aria-label="plugins.zipPath">
+                        <button class="btn btn-primary" id="plugin-install-btn" type="button"
+                            data-i18n="plugins.installZip">Install ZIP</button>
+                    </div>
+                    <p class="plugin-trust-note" data-i18n="plugins.trustNote">Plugins run with full application power. Curated means code-reviewed, not sandboxed.</p>
+                    <h3 class="plugin-list-title" data-i18n="plugins.available">Available from curated hub</h3>
+                    <div class="plugin-stack" id="plugin-catalog-stack"></div>
+                    <h3 class="plugin-list-title" data-i18n="plugins.installedTitle">Installed cache</h3>
+                    <div class="plugin-stack" id="plugin-stack"></div>
+                    <div data-plugin-slot="plugin-center.footer"></div>
+                </section>
+                <section class="plugin-view" id="plugin-view-activity" data-plugin-view="activity"
+                    role="tabpanel" aria-labelledby="plugin-tab-activity" tabindex="0">
+                    <div class="plugin-activity" id="plugin-activity"></div>
+                </section>
+              </div>
+            </div>
+            <div class="plugin-confirm-layer" id="plugin-confirm-layer" hidden>
+                <section class="plugin-confirm-panel" role="alertdialog" aria-modal="true"
+                    aria-labelledby="plugin-confirm-title" aria-describedby="plugin-confirm-description">
+                    <span class="plugin-confirm-kicker" data-i18n="plugins.reviewChanges">REVIEW CHANGES</span>
+                    <h3 id="plugin-confirm-title"></h3>
+                    <p id="plugin-confirm-description"></p>
+                    <ul class="plugin-confirm-list" id="plugin-confirm-list"></ul>
+                    <div class="plugin-confirm-actions">
+                        <button class="btn" id="plugin-confirm-cancel" type="button"
+                            data-i18n="common.cancel">Cancel</button>
+                        <button class="btn btn-primary" id="plugin-confirm-accept" type="button"></button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
     <!-- ══════════════════ Game view ══════════════════ -->
     <div class="app" id="app">
         <header class="header">
             <h1 class="brand" id="brand-header" tabindex="0" role="button" aria-label="Open help"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="install-btn" type="button" hidden data-i18n="header.install">⬇ Install</button>
+                <button class="icon-btn plugin-center-trigger" id="plugins-btn" title="Plugin Center"
+                    aria-label="Plugin Center" data-i18n-title="plugins.title"
+                    data-i18n-aria-label="plugins.title">✦</button>
                 <button class="icon-btn" id="settings-btn" title="Configure" aria-label="Configure" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙️</button>
                 <button class="icon-btn" id="sessions-btn" title="Sessions" aria-label="Manage sessions" data-i18n-title="sessions.title" data-i18n-aria-label="sessions.manage">📋</button>
             </div>
@@ -246,9 +386,16 @@
         <div class="stage">
             <div class="chat-log" id="chat-log">
                 <div class="empty-state" id="empty-state">
-                    <div class="icon">🎭</div>
-                    <p data-i18n="empty.prompt">Configure your adventure to begin</p>
-                    <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="empty.open">Open configuration</button>
+                    <div class="empty-stage-mark" aria-hidden="true">
+                        <span>✦</span>
+                    </div>
+                    <span class="empty-kicker" id="empty-kicker" data-i18n="empty.kicker">BEFORE THE CURTAIN</span>
+                    <p id="empty-prompt" data-i18n="empty.prompt">Configure your adventure to begin</p>
+                    <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="sessions.manage">📋 Manage sessions</button>
+                    <span class="empty-scroll-cue" id="empty-scroll-cue" hidden>
+                        <span aria-hidden="true">↑</span>
+                        <span data-i18n="empty.scrollCue">Swipe up or tap below to write</span>
+                    </span>
                 </div>
             </div>
 
@@ -315,8 +462,19 @@
             <div class="input-fields-container" id="input-fields-container">
             <div class="input-row">
                 <input type="text" class="input-field" id="input-speech"
-                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" autocomplete="off" disabled>
+                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" autocomplete="off" disabled
+                    aria-autocomplete="list" aria-controls="slash-suggestions" aria-expanded="false">
             </div>
+            <div class="slash-suggestions" id="slash-suggestions" role="listbox" hidden></div>
+            <section class="command-panel" id="command-panel" aria-live="polite" hidden>
+                <div class="command-panel-head">
+                    <span class="command-sigil">/</span>
+                    <div><strong id="command-panel-title"></strong><p id="command-panel-summary"></p></div>
+                    <button class="icon-btn" id="command-panel-close" type="button" aria-label="Close command">✕</button>
+                </div>
+                <div class="command-fields" id="command-fields"></div>
+                <p class="command-error" id="command-error" role="alert"></p>
+            </section>
             <div class="input-row">
                 <input type="text" class="input-field" id="input-thought"
                     placeholder="💭 Private thought..." data-i18n-placeholder="input.thought" autocomplete="off" disabled>
@@ -347,9 +505,10 @@
                                         title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
                                         <span class="compact-progress" id="compact-progress"></span>
                                         <span class="compact-icon">🗜️</span>
+                                        <span class="sr-only" id="compact-progress-status" aria-live="polite"></span>
                                     </button>
                                     <button class="icon-btn action-btn" id="action-restore-compaction-btn"
-                                        title="Undo last compaction (only when safe)" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
+                                        title="Undo last compaction" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
                                 </div>
                             </div>
                         </div>

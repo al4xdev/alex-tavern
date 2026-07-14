@@ -5,6 +5,11 @@
 **Escopo:** 20 turnos reais, 1 compactação manual e inspeção do estado, backup e log bruto
 sequencial.
 
+> **Nota de contrato (2026-07-14):** este relatório preserva os caminhos e o comportamento
+> observados no playtest de 2026-07-11. O runtime atual usa sessões em diretórios, compactação
+> manual ou automática, progresso SSE medido e checkpoints incrementais LIFO que preservam turnos
+> posteriores. Consulte [Context Compaction](../../README.md#-context-compaction).
+
 ## Artefatos auditados
 
 - Estado após compactação: `.data/sessions/7cb448da.json`

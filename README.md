@@ -11,10 +11,10 @@ FastAPI Runner enforces player agency, persistence, and knowledge boundaries. It
 llama.cpp inference and the DeepSeek API through provider adapters.
 
 > [!NOTE]
-> **Context Compaction is implemented.** A manual action backs up the session, folds older
-> turns into a running story summary and per-character notes, and keeps a recent verbatim
-> window active. See [Context compaction](#-context-compaction) for the exact behavior and
-> restore safeguards.
+> **Context Compaction is implemented.** Manual and opt-in automatic actions fold older turns
+> into a running story summary and isolated character notes, keep a recent verbatim window, and
+> append incremental undo checkpoints. Manual progress is measured over SSE. See
+> [Context compaction](#-context-compaction) for the exact trigger, privacy, and undo behavior.
 
 > [!NOTE]
 > **Provider-native prompt caching is verified on both supported backends.** DeepSeek reused
@@ -30,14 +30,10 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > debug build for active development, not a production-ready mobile release.
 
 > [!WARNING]
-> **Upcoming Plugin Refactoring:** While complex features, wild interactions, battle systems, or even simple mechanics like rolling dice are fully possible, it is highly recommended to wait for a planned refactoring of the plugin system before writing them. The goal is to secure a very stable and solid core engine capable of reliably supporting extensions.
-> 
-> The future architecture will support three plugin types:
-> 1. **Trigger:** Responds to events (e.g., a command slash bar, similar to the RAG features mentioned in this documentation).
-> 2. **Background:** Asynchronous background tasks.
-> 3. **Hybrid:** A mix of both trigger and background behaviors.
-> 
-> This separation keeps the engine solid and reliable, while allowing plugins to introduce the wild dynamics users desire. A curated public plugin repository is also envisioned for safety. Following this, the project focus will be to shift towards polling and reduce asynchronous complexity.
+> **Plugins are trusted code, not sandboxed extensions.** The Plugin Center can activate reviewed,
+> fixed-hash packages from the curated hub or install a third-party ZIP. Either kind runs inside the
+> Python/browser process and may replace core behavior. Curated means full-source review; installing
+> anything else accepts its full risk.
 
 <place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
@@ -69,6 +65,7 @@ Portuguese browsers start in Portuguese. Changing the interface between `en` and
 the visible application immediately and synchronizes the model response language to **English**
 or **Brazilian Portuguese** without changing the active session, form contents, or chat history.
 
+
 ### 🐳 Docker
 
 On Linux, the helper script is the shortest path:
@@ -94,7 +91,7 @@ docker run -d --name alex-tavern -p 8889:8889 `
   ghcr.io/al4xdev/alex-tavern:latest
 ```
 
-Then open <http://localhost:8889>. The named volume preserves configuration, presets, sessions,
+Then open <http://localhost:8889>. The named volume preserves configuration, scenarios, sessions,
 and debug logs when the container is replaced. To update an existing installation, pull the new
 image, run `docker rm -f alex-tavern`, and execute the `docker run` command again. When a Windows
 container must reach llama.cpp running on the host, use
@@ -124,7 +121,7 @@ with `uv` directly:
 uv sync
 
 # Start the server (runs on port 8889)
-uv run uvicorn src.main:app --host 0.0.0.0 --port 8889
+uv run python -m src.supervisor --host 0.0.0.0 --port 8889
 ```
 
 *Note: The server automatically generates `.data/config.json` on first launch. The gear menu is
@@ -171,7 +168,7 @@ Inspect cache behavior across any normal or probe session with:
 jq -c '
   select(.usage != null)
   | {turn_number, agent, provider, usage, prompt_cache, duration_ms}
-' .data/sessions/<session-id>.debug.jsonl
+' .data/sessions/<session-id>/debug.jsonl
 ```
 
 To reproduce the controlled probes using the provider settings and API key already stored in
@@ -220,7 +217,7 @@ resolve:
 1. **Narrator call** — reads the current scene, the full personality and appearance of every
    present character, the running `story_summary` when one exists, and the active history
    (trimmed by an estimated token budget, never by a fixed turn count or by character clipping).
-   Before the first manual compaction, that active history is the entire stored history; after
+   Before the first compaction, that active history is the entire stored history; after
    compaction, it is the retained verbatim window. Private `thought` records are removed before
    token trimming, so they cannot re-enter through the budget path. There's no separate "player
    input" block; public human speech/action records appear under the controlled character's name
@@ -372,15 +369,17 @@ Alex Tavern exposes two complementary inspection layers:
    session log. `Prompt preview` assembles the next Narrator prompt without calling an LLM;
    `Log` shows actual requests, raw responses, errors, retries, and timing.
 2. **Persistent JSONL evidence.** Every session writes an append-only
-   `.data/sessions/{session_id}.debug.jsonl`. Each line is one chronological event, suitable for
+   `.data/sessions/{session_id}/debug.jsonl`. Each line is one chronological event, suitable for
    command-line inspection, deterministic replay, MCP tools, or analysis by a connected agent.
 
-The JSONL records the exact turn input before the first model call, followed by every real LLM
-attempt, raw provider token usage, normalized prompt-cache hit/miss counts, and state-operation
-markers such as undo, compaction, and restore. A redacted two-line example looks like this:
+The JSONL records the exact raw turn input before the first model call, the post-plugin effective
+input, every real LLM attempt, raw provider token usage, normalized prompt-cache hit/miss counts,
+and state-operation markers such as undo, compaction, and restore. A redacted example looks like
+this:
 
 ```jsonl
-{"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2"},"effective_force_speaker":"C2"}
+{"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como esta, Lyra?","thought":"Ela parece preocupado.","action":"Observo o rosto dela.","force_speaker":"C2","narrator_hint":"","skip":false}}
+{"ts":"2026-07-12T22:02:01Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input_effective","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2","narrator_hint":"","skip":false},"effective_force_speaker":"C2","transformed_fields":["speech","thought"]}
 {"ts":"2026-07-12T22:02:03Z","session_id":"a1b2c3d4","turn_number":12,"agent":"character:Lyra","provider":"deepseek","model":"deepseek-v4-flash","request":{"messages":[{"role":"system","content":"[full system prompt]"},{"role":"user","content":"[full filtered context]"}],"max_tokens":1024,"response_format":{"type":"json_object"},"provider_options":{"api_base":"https://api.deepseek.com","thinking_enabled":false}},"response":"{\"speech\":\"Estou bem.\",\"thought\":\"Ele parece preocupado.\"}","usage":{"prompt_tokens":604,"completion_tokens":18,"total_tokens":622,"prompt_cache_hit_tokens":512,"prompt_cache_miss_tokens":92},"prompt_cache":{"hit_tokens":512,"miss_tokens":92},"error":null,"error_type":null,"duration_ms":2650.4,"attempt_number":1,"prompt_chars":2418,"prompt_estimated_tokens":604}
 ```
 
@@ -411,30 +410,79 @@ sensitive session data.
 
 ---
 
+## ⌨️ Slash tools, character presets, and avatars
+
+Typing `/` in the Speech field opens the command catalog exported by active backend plugins.
+Autocomplete supports keyboard arrows, Enter/Tab, Escape, and pointer selection. A recognized
+command switches the composer into a descriptor-driven tool card; an unknown command is rejected
+locally and `//` escapes a literal leading slash. Command requests run under the same per-session
+lock as turns, but version 1 utilities receive an isolated state snapshot and cannot advance
+history, revision, undo, Narrator, or Character execution. JSONL records operation identity and
+input sizes without persisting uploaded Base64.
+
+The first curated implementation is `dev.alex-tavern.character-converter` and its
+`/convert-character <preset-name>` command. It accepts exactly one free-text description or one
+open Character Card V1/V2/V3 PNG/JSON. PNG chunks and CRCs are validated locally, `ccv3` metadata
+takes precedence over `chara`, and ordinary images fail clearly rather than invoking vision. The
+active structured provider maps untrusted card data into canonical `mind`/`body`; one semantic
+correction is allowed. The result is always an editable draft and is never saved automatically.
+
+Native character presets live in `.data/presets/{preset-name}.json`. Writes are atomic and use
+per-name locks plus optimistic revisions; replacing an existing name requires explicit
+confirmation. The setup library can load, edit, save, replace, or delete presets. A browser upload
+is center-cropped once to a 256×256 WebP at approximately 0.82 quality. Only that compact image is
+stored with the preset. Sessions persist a character-to-preset mapping, never image Base64, and
+avatars are fetched separately through revisioned URLs with ETags for setup and chat rendering.
+Initials remain the fallback. Dynamic addition to a running session remains separate future work.
+
+The in-app **Shortcuts & Features** guide explains the same behavior in English and Brazilian
+Portuguese for non-technical users.
+
+---
+
 ## 🧠 Context Compaction
 
 > [!IMPORTANT]
-> Compaction is a completed manual MVP. It is not triggered automatically by context usage, and
-> its progress bar is a UI estimate rather than measured generation progress.
+> Compaction is a transactional state operation. It remains available manually, can be enabled
+> automatically at a context threshold, reports measured lifecycle progress over SSE, and writes
+> an incremental checkpoint journal for multi-step undo.
 
 Context is finite even with large model windows. Alex Tavern keeps scene facts and current moods
-as durable structured state, while manual compaction condenses old narrative prose into a public
+as durable structured state, while compaction condenses old narrative prose into a public
 story summary and isolated per-character notes. No layer is recomputed on every prompt;
 compaction is a discrete state transition:
 
 1. Read `compaction_keep_recent_turns` (200 by default) and count distinct `turn_number` values,
    not individual history records. If the session has at most that many turns, return without
-   creating a backup or calling the model.
-2. Copy the current session bytes to the next `{session_id}.kb_N.json` before changing the live
-   state.
-3. Send only public records older than the retained window to the world summarizer, together with
+   creating a checkpoint or calling the model.
+2. Send only public records older than the retained window to the world summarizer, together with
    the existing public summary. It never receives thoughts or character notes.
-4. In parallel, run a smaller private-memory call for each relevant character. Each receives
+3. In parallel with the world job, run a smaller private-memory call for each relevant character.
+   Each receives
    public events, that character's existing note, and only that character's thoughts; it cannot
    see another character's thoughts or note.
-5. Replace `story_summary`, merge the isolated character notes, and replace live history with the
+4. Run plugin pre-commit filters against an isolated compaction draft. Replace `story_summary`,
+   merge the isolated character notes, and replace live history with the
    retained verbatim window.
-6. Save the compacted state and append a `compact` marker to the session's debug log.
+5. Write `.data/sessions/{id}/backups/compaction.cNNNNNN.json` with only the evicted records,
+   previous summaries/notes, integrity hashes, and reversible plugin-state delta. Then save the
+   compacted state atomically with a reference to that checkpoint.
+6. Append a `compact` marker containing trigger, checkpoint ID, cutoff, counts, and automatic
+   threshold evidence to the session debug log.
+
+Automatic compaction is disabled by default. When enabled, the Runner prepares the same complete,
+untrimmed Narrator messages used by the real call, estimates them with the shared character-based
+estimator, adds the reserved Narrator output, and compares the result with
+`automatic_compaction_threshold_percent` (80 by default). It runs only when a Narrator call is
+about to happen and at least one complete turn is older than the retained window. A private-only
+thought defers the check. If the Historian or a plugin fails, no checkpoint or compacted state is
+committed, the failure is logged, and the normal token-trimmed turn continues.
+
+The explicit browser operation negotiates `text/event-stream`. Its progress is based on completed
+work: eligibility, the known world/private model-job denominator, each actual model completion,
+plugin filtering, checkpoint writing, atomic save, and the terminal result. JSON clients such as
+MCP and replay continue to receive the equivalent final object from the same endpoint. The client
+never retries an interrupted compaction automatically.
 
 In practical terms, one compaction fans out into a public summary plus granular private memories:
 
@@ -534,16 +582,15 @@ presence filter would first require canonical enter/leave state to be updated pe
 then exclude public records whose snapshots do not include that character before building their
 private compaction prompt.
 
-A consequence accepted explicitly: ordinary turn undo cannot reach past whatever was compacted
-away, since those turns are gone from the active history. It continues to work normally for
-turns inside the retained window.
+A normal turn undo operates on the active verbatim window. Compaction undo is separate: it
+rehydrates the evicted records from the newest active checkpoint while preserving every live turn
+with a higher `turn_number`.
 
 Current deliberate constraints and known gaps include:
 
-- **No automatic token-threshold trigger** in this first version — only a manual button next to
-  the existing undo control, with a deliberately simulated (not measured) progress indicator,
-  since real progress tracking would need a streaming architecture judged not worth the
-  complexity yet.
+- **Automatic compaction is opt-in.** The default remains off because the Historian is a
+  semantically non-idempotent model operation. The browser exposes the opt-in and threshold; the
+  recent-turn retention remains a server-owned default rather than another common-user control.
 - **Per-character notes** (accumulated memory/relationships, distinct from the world-level
   rolling summary) are included from the start, scoped per character the same way personality
   already is — each character only ever sees its own notes, never anyone else's.
@@ -559,14 +606,13 @@ optional "story so far" section, placed before the current scene, populated only
 line, populated only from that character's own notes — matching the same per-role scoping used
 everywhere else in this project.
 
-**Undoing a compaction itself.** A separate action restores the highest-numbered backup, but only
-when the live session has no turn newer than that backup. The backend compares their maximum
-`turn_number` values and refuses without changing either file if restoration would discard newer
-play. On success it copies the backup over the live session and deletes that consumed backup.
-The UI asks for confirmation, reloads the restored state, and reports refusals without changing
-the visible history. This is deliberately not a merge operation and not an unrestricted undo
-stack: older backups can remain after restoring the newest one, but the same safety check may
-make them impossible to restore through the UI if the live history is already newer.
+**Undoing compactions.** `state.json` holds an active LIFO stack of checkpoint references. Undo
+validates the newest checkpoint's parent and hashes, restores its evicted prefix and previous
+summary/note state, and appends every later live turn unchanged. Repeating undo walks backward
+across multiple compactations. Checkpoint files are immutable journal evidence and remain until
+the session is deleted, even after their active stack entry is popped. Plugin-owned state is
+reversed path by path; a later divergent path causes a safe conflict unless that same plugin
+registered `compaction.undo_conflict` to resolve its namespace explicitly.
 
 ---
 
@@ -586,6 +632,10 @@ The interface is dependency-free and built from native ES modules. Current behav
   states, and accessibility labels without recreating forms or sessions;
 - automatic synchronization between interface locale and model response language;
 - an action menu for undo, retry, force-speaker, suggestions, compaction, and restore;
+- a novice-facing automatic-compaction card with an on/off switch, an earlier-to-later timing
+  slider, live plain-language consequences, and a direct link to the compaction guide;
+- slash-command autocomplete and descriptor-driven tool cards that never masquerade as dialogue;
+- a native character preset library with one compact avatar for setup and chat;
 - a network-first service worker with cache fallback for the application shell;
 - typewriter reveal for Narrator and Character responses, with click-to-skip and
   `prefers-reduced-motion` support;
@@ -596,6 +646,197 @@ The interface is dependency-free and built from native ES modules. Current behav
 <place_7:screenshot of the session list landing screen>
 
 ---
+
+### ✦ Plugin platform
+
+The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
+configuration and preview. Individual plugins can also be cached and activated independently.
+Changing the active set rebuilds its uv dependency target and asks the supervisor to replace both
+the Python child and browser runtime.
+
+Packages use a strict `plugin.toml`, immutable `id/version/SHA-256` cache, physical activation
+pointers under `.data/plugins/started`, plugin-owned config, and an append-only access/crash journal.
+Before any curated or external ZIP enters that cache, the Plugin Center shows its exact release,
+hash, permissions, dependencies, entrypoints, and Python requirements. External ZIPs are inspected
+without installation first and carry an explicit full-trust warning in the confirmation screen.
+Backend plugins register deterministic actions, filters, wrappers, or contributions. Frontend
+plugins load as JavaScript modules through the browser SDK. Before-commit filters work on isolated
+drafts; a crash discards that plugin's draft, disables it for the boot, and continues clean. A
+post-commit crash is recorded and never replays durable work. `context.unsafe` deliberately gives
+trusted plugins an escape hatch to reach or replace arbitrary runtime objects.
+
+#### A runtime extension platform, not a callback folder
+
+The plugin system owns the complete path from reviewed source to deterministic execution. A plugin
+is not copied into a scripts directory and imported opportunistically:
+
+```text
+reviewed source + strict manifest
+              │
+              ▼
+ reproducible ZIP + fixed SHA-256
+              │
+              ▼
+ immutable versioned cache ──► dependency resolution with uv
+              │
+              ▼
+ activation pointers + per-hook ordering DAG
+              │
+              ▼
+ supervisor replaces the Python runtime
+              │
+              ├── filters transform isolated drafts
+              ├── wrappers surround Narrator/Character operations
+              ├── actions observe lifecycle and durable commits
+              ├── contributions extend providers, routes, settings, and panels
+              ├── executable utility commands own a separate strict registry
+              └── browser modules extend the same running product through the frontend SDK
+```
+
+The SDK surface is deliberately small, but each primitive has a different ownership and failure
+contract:
+
+| SDK primitive | Intended use | Runtime guarantee |
+|---|---|---|
+| `context.filter` | Transform input, structured model output, or a pre-commit draft | Ordered pipeline; a failed isolated draft is discarded |
+| `context.wrapper` | Surround or replace the complete Narrator/Character call | Explicit nesting through `next`; no hidden provider branch |
+| `context.action` | Observe a lifecycle event or durable commit | Post-commit work is never replayed automatically |
+| `context.contribute` | Register providers, routes, settings, or panels | Shared registry with plugin provenance |
+| `context.command` | Register one executable slash utility and its localized form | Unique global name, session lock, typed input, no narrative mutation |
+| `context.config` | Read/write plugin-owned global configuration | Atomic JSON, separate from session state |
+| `game.plugin_state[plugin_id]` | Persist plugin-owned session state | Saved, snapshotted, compacted, and undone with the session |
+| `context.model.call_json` | Make a plugin-owned structured LLM call | Core-owned secrets, provider adaptation, schema validation, retries, and debug logging |
+| `context.unsafe` | Reach a core object not covered by the stable SDK | Deliberate trusted-code escape hatch, journaled for review |
+
+A stateful plugin can remain compact because the Runner still owns persistence and transactions:
+
+```python
+def setup(context):
+    def count_commits(game, hook_context):
+        state = game.plugin_state.setdefault(context.plugin_id, {})
+        state["commits"] = int(state.get("commits", 0)) + 1
+        return game
+
+    context.filter(
+        "turn.before_commit",
+        count_commits,
+        after=("dev.example.input-normalizer",),
+        priority=10,
+    )
+```
+
+Ordering is a deterministic DAG, not import order. A manifest's `[order]` table supplies default
+`before`, `after`, and `priority` values. Explicit edges win; unconstrained registrations use higher
+priority first, then plugin ID and registration sequence. Priority controls execution position, not
+authority—a later filter receives and may transform the earlier result. Advanced plugins can
+override ordering for one hook, so the same pair may compose in opposite directions at different
+extension points. Cycles are rejected instead of guessed.
+
+This separation is what allows a grammar filter, an LLM provider, a stateful world system, and an
+administrative panel to evolve independently without adding provider or feature branches to the
+Runner. Experiences then turn those capabilities into reviewed, ordered products with exact
+versions and configuration.
+
+Model-backed plugins use the provider-neutral `context.model.call_json` SDK. It requires JSON
+Schema, uses the active provider and shared HTTP client, keeps API keys inside the server, and logs
+every attempt as `plugin:<plugin_id>` with the current session and turn. The curated **Clean
+Writing** Experience uses this gateway to correct grammar in speech, private thought, and action
+before authoritative history, while preserving language, meaning, and character voice.
+
+Reference packages live in `plugins/examples`. Authoring commands are available through
+`uv run python -m tools.plugin_author`; the separate curated-hub scaffold at
+`../alex-tavern-plugins` includes source, deterministic artifacts, an animated Experience preview,
+documentation, and a stdio MCP with contract, scaffold, validate, test, pack, and trace tools. It
+never performs Git or publication operations. Opening the Plugin Center automatically downloads a
+validated GitHub snapshot when the local cache is missing or older than five minutes. Downloads are
+bounded, reject unsafe archive paths, verify every artifact SHA-256 and its internal manifest, publish
+atomically, and fall back to the last valid snapshot while offline. The Plugin Center groups cached
+versions by plugin ID and compares the active package with the newest curated SemVer release. An
+update review shows hashes, permissions and dependency/entrypoint changes before one transactional
+“update and activate” operation; the old cache remains available for rollback. A same-version,
+different-hash artifact is reported as a release conflict instead of silently replacing code. To
+force the same synchronization from the CLI:
+
+```fish
+uv run python tools/plugin_hub.py sync --repository https://github.com/al4xdev/alex-tavern-plugins.git
+```
+
+#### Build plugins with Codex, Claude Code, or another coding agent
+
+Alex Tavern is designed so a coding agent can inspect the running application and author a plugin
+without guessing internal contracts. The two repository-local MCP servers have complementary jobs:
+
+| MCP server | Repository | Purpose |
+|---|---|---|
+| Alex Tavern debug MCP | `roleplay` | Inspect sessions and debug logs, exercise the live HTTP boundary, and work with replay tools |
+| Plugin authoring MCP | `alex-tavern-plugins` | Read the live SDK contract, scaffold source, validate, test, package, and trace a plugin |
+
+Start the application before asking an agent to use the debug MCP. A generic MCP client entry looks
+like this; the location of the MCP configuration itself depends on the agent client:
+
+```json
+{
+  "mcpServers": {
+    "alex-tavern-debug": {
+      "command": "uv",
+      "args": ["run", "python", "tools/mcp_server.py"],
+      "cwd": "/absolute/path/to/roleplay"
+    }
+  }
+}
+```
+
+For curated plugin development, ask the agent to read this repository's `AGENTS.md` and inspect
+`.plan/tasks/` first. It should then locate the sibling `../alex-tavern-plugins` checkout or create
+the sparse clone prescribed by `AGENTS.md`:
+
+```fish
+git clone --filter=blob:none --sparse \
+  git@github.com:al4xdev/alex-tavern-plugins.git \
+  ../alex-tavern-plugins
+git -C ../alex-tavern-plugins sparse-checkout set docs plugins experiences
+```
+
+Inside the hub, the agent should read `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`,
+`docs/hooks.md`, and `docs/mcp.md`; plugins that call an LLM must also follow
+`docs/model-calls.md`. After `uv sync`, connect the authoring MCP with the main checkout as its
+`--core-root` so exported contracts come from the exact core being developed:
+
+```json
+{
+  "mcpServers": {
+    "alex-tavern-plugin-author": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "mcp_server.py",
+        "--core-root",
+        "/absolute/path/to/roleplay"
+      ],
+      "cwd": "/absolute/path/to/alex-tavern-plugins"
+    }
+  }
+}
+```
+
+The recommended tool sequence is `plugin_contract`, `plugin_scaffold`, `plugin_validate`,
+`plugin_test`, `plugin_trace`, and finally `plugin_pack`. Plugin source belongs in the hub's
+`plugins/` directory; `.data/plugins/hub` is only an ephemeral runtime snapshot and must never be
+edited as source. Neither MCP commits, pushes, or publishes anything.
+
+You can begin a Codex, Claude Code, or similar agent session with this prompt:
+
+```text
+Read AGENTS.md and inspect .plan/tasks before changing code. Connect the repository-local Alex
+Tavern debug MCP so you can inspect the running application when the task requires it. Locate the
+sibling ../alex-tavern-plugins checkout; if it is missing, follow the sparse-clone workflow in
+AGENTS.md. Read the hub's AGENTS.md and its manifest, SDK, hooks, MCP, and model-call documentation.
+Then connect the hub authoring MCP with this checkout passed as --core-root, query plugin_contract
+before choosing extension points, and use its scaffold, validation, test, trace, and pack tools.
+Keep authored source in the sibling hub and do not edit .data/plugins/hub. Do not commit, push, or
+publish without my explicit permission.
+```
 
 ## ⚡ Multi-provider LLM architecture
 
@@ -779,6 +1020,8 @@ is:
   "active_provider": "llama_cpp",
   "language": "English",
   "compaction_keep_recent_turns": 200,
+  "automatic_compaction_enabled": false,
+  "automatic_compaction_threshold_percent": 80,
   "providers": {
     "llama_cpp": {
       "api_base": "http://localhost:8888/v1",
@@ -821,10 +1064,10 @@ The setup modal's **AI engine** section calls `GET /config` and `PUT /config`:
 
 The entire `.data/` directory is gitignored and removed from the repository index. Development,
 CI/CD, desktop, and packaged runtimes must create and own separate data directories rather than
-sharing a checked-in key, session, preset, or debug log.
+sharing a checked-in key, session, scenario, or debug log.
 
-Built-in presets are immutable application assets under `src/defaults/`. User presets remain
-mutable runtime data under `.data/presets/`. Both use the same nested `mind`/`body` character
+Built-in scenarios are immutable application assets under `src/scenarios/`. User scenarios remain
+mutable runtime data under `.data/scenarios/`. Both use the same nested `mind`/`body` character
 shape from browser form through API, storage, and Runner; there is no flat legacy conversion path.
 
 ### Runtime switching and concurrency
@@ -842,9 +1085,9 @@ newly selected provider.
 
 Session turns, suggestions, snapshots, history reads, prompt previews, forks, deletion,
 compaction, undo, and restore share the same per-session transaction lock. Delete waits for active
-work and removes state, debug log, and backups together. Preset writes/deletes and debug-log
+work and removes state, debug log, and backups together. Scenario writes/deletes and debug-log
 append/reads have their own locks. Lock registries use weak references so completed session or
-preset identifiers do not accumulate for the lifetime of the process.
+scenario identifiers do not accumulate for the lifetime of the process.
 
 The lock and Runner are process-local. Multi-worker Uvicorn deployment would require a shared
 coordination mechanism and is not claimed by this architecture.
@@ -878,14 +1121,15 @@ remains an empirical and language-sensitive concern.
 
 ### Adding another provider
 
-A third OpenAI-compatible backend should be added as another adapter, not as branches in agents or
-the harness:
+A third OpenAI-compatible backend should normally be a plugin containing backend and frontend
+adapters, not branches in agents or the harness. The built-in adapters remain useful as the
+zero-plugin baseline; OpenRouter under `plugins/examples/openrouter_provider/` is the reference:
 
-1. Add the backend adapter under `src/llm/adapters/` and implement `ProviderAdapter`.
-2. Declare defaults, secret fields, model requirements, and immutable forced settings on it.
-3. Implement URL, authorization headers, and request capability adaptation.
-4. Register the adapter in `_ADAPTERS`.
-5. Add a declarative frontend adapter under `src/static/adapters/`; do not add provider markup to
+1. Scaffold a package with backend and frontend entrypoints.
+2. Implement `ProviderAdapter` in the plugin and register it during `setup(context)`.
+3. Declare defaults, secret fields, model requirements, and immutable forced settings on it.
+4. Implement URL, authorization headers, and request capability adaptation.
+5. Register a declarative frontend adapter through the browser SDK; do not add provider markup to
    `index.html` or provider branches to `runtime-config.js`.
 6. Add tests for redaction, configuration validation, request transformation, and failure paths.
 7. Run the same harness scenarios against the existing baseline before judging model quality.
@@ -910,16 +1154,15 @@ Start the development server:
 ./start.sh
 ```
 
-This runs `uv run uvicorn src.main:app --reload --host 0.0.0.0 --port 8889`. Configuration lives
+This runs `uv run python -m src.supervisor --host 0.0.0.0 --port 8889`. The supervisor owns a real
+server child so activating a plugin or Experience can replace the Python process cleanly. Configuration lives
 in `.data/config.json` (gitignored); edit it through the gear menu or directly while the server is
-stopped. Presets (character and scene starting points) live under `.data/presets/`.
+stopped. Scenarios (character and scene starting points) live under `.data/scenarios/`.
 
 For a containerized installation, run `./start_docker.sh` on Linux or use the Docker Desktop
-command from [Docker](#-docker). For the current mobile build, use the
-[Latest Debug APK](https://github.com/al4xdev/alex-tavern/releases/tag/latest); it is an
-experimental development artifact, not a stable Android release.
+command from [Docker](#-docker).
 
-<place_8:gif of ./start.sh booting and a fresh session being created from a preset>
+<place_8:gif of ./start.sh booting and a fresh session being created from a scenario>
 
 ---
 
@@ -983,17 +1226,17 @@ separate from mutation.
 
 | Mutating tool | Purpose |
 |---|---|
-| `mutate_start_session` | Start from a preset or explicit configuration |
+| `mutate_start_session` | Start from a scenario or explicit configuration |
 | `mutate_fork_session` | Create a non-destructive copy |
 | `mutate_submit_turn` | Submit speech/thought/action and optionally force a speaker |
 | `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
 | `mutate_undo_turn` | Undo the latest complete turn |
 | `mutate_compact_session` | Summarize older history and retain the configured recent window |
-| `mutate_restore_compaction` | Restore a compaction backup when the backend safety check allows it |
+| `mutate_restore_compaction` | Undo the newest incremental compaction checkpoint while preserving later turns |
 | `mutate_reset_replay` | Rewind the replay tape to position zero |
 | `mutate_seek_replay` | Move the replay cursor to an absolute position |
 
-Session/preset deletion and retry are intentionally absent. Undo, compaction, and compaction
+Session/scenario deletion and retry are intentionally absent. Undo, compaction, and compaction
 restore are exposed because they are essential debugging operations, but each call must include
 `confirm=true`. MCP's `destructiveHint` annotation remains present for client UIs; the explicit
 argument is the server-side gate and does not rely on a particular client honoring the hint.
@@ -1041,10 +1284,10 @@ Connection failures, timeouts, non-success HTTP responses, and invalid JSON beco
 
 ### Deterministic replay without llama.cpp
 
-Every current-format turn writes a `turn_input` marker before its first LLM request. It records
-the exact speech, private thought, action, requested force-speaker value, and validated effective
-override. That
-marker makes a session reproducible without guessing from prompt text.
+Every current-format turn writes a raw `turn_input` marker before its first LLM request and a
+`turn_input_effective` marker after transactional input filters. Replay resubmits the raw payload,
+then consumes any recorded plugin model output before Narrator and Character responses. This makes
+the complete transformation reproducible without guessing from prompt text.
 
 Start the fake OpenAI-compatible endpoint with a current debug log:
 
@@ -1059,12 +1302,13 @@ compare the complete conversation:
 uv run python tools/replay_session.py tests/fixtures/current_replay.debug.jsonl
 ```
 
-The driver resets the cursor, starts a real preset session, submits every recorded input, and
+The driver resets the cursor, starts a real scenario session, submits every recorded input, and
 requests state immediately after every turn. It rejects a wrong response turn number, missing
 history, or a persisted turn that does not match the input just submitted. When the source tape
 contains a Historian output it also triggers real compaction, then compares all successful
-`{turn_number, agent, response}` records in exact order. Optional source backup/final-state files
-enable full structural state comparison in addition to output comparison.
+`{turn_number, agent, response}` records in exact order. An optional source checkpoint compares
+the exact evicted prefix and pre-compaction summaries/notes; an optional final-state file enables
+full structural comparison after replay.
 
 Replay is strict about plain text versus structured output and never silently recycles a tape.
 Mismatch and exhaustion return HTTP 409 without advancing the cursor. Reset and seek share the
@@ -1108,8 +1352,9 @@ agent keep notes in files outside its active context window and pull them back i
 Only unstructured narrative prose needs compaction; canonical scene and mood state remains durable.
 
 **Compaction.** The general pattern summarizes content approaching a context limit and continues
-from that summary. Alex Tavern performs this manually as one transaction: summarize the evicted
-window, retain recent turns verbatim, rewrite the session, and preserve a numbered backup.
+from that summary. Alex Tavern performs it as one transaction, manually or through the opt-in
+threshold: summarize the evicted window, retain recent turns verbatim, rewrite the session, and
+append a numbered incremental undo checkpoint.
 
 **Retrieval-augmented generation, explicitly deferred.** RAG addresses source material larger than
 any practical context window. It remains future work after compaction, following the same
@@ -1141,13 +1386,13 @@ current source supersede intermediate assumptions.
 > [!IMPORTANT]
 > **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](file:///home/alex/git/my/roleplay/.plan/) directory.
 > - **Always consult [`.plan/tasks/`](file:///home/alex/git/my/roleplay/.plan/tasks/) and [`AGENTS.md`](file:///home/alex/git/my/roleplay/AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
-> - **Prioritize tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes (e.g., [S01-plugin-system.md](file:///home/alex/git/my/roleplay/.plan/tasks/S01-plugin-system.md)). Always align your implementation with the designs laid out in these Supertasks.
+> - **Prioritize open tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes. Completed Supertasks are historical records under [`.plan/closed/`](file:///home/alex/git/my/roleplay/.plan/closed/), including [S01-plugin-system.md](file:///home/alex/git/my/roleplay/.plan/closed/S01-plugin-system.md); current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
 
 ---
 
 ## 🔮 Future Work
 
-**RAG, delivered as a slash-command tool rather than a pipeline change.** RAG itself (see
+**RAG can use the delivered slash-command boundary rather than changing the pipeline.** RAG itself (see
 [Related agent architecture patterns](#-related-agent-architecture-patterns))
 is deferred. The proposed design keeps the existing turn pipeline unchanged and uses
 **vector embeddings over a lexical keyword search** — the data volume
@@ -1172,8 +1417,7 @@ prompt. Two separate LLM layers sit between the vector search and the live conve
 Retrieval would be triggered on demand via `/rag <keyword>` instead of keeping external material
 permanently loaded in the live prompt.
 
-**A general slash-command tool system, not a one-off for RAG.** `/rag` is meant to be the first
-instance of a small plugin mechanism, not a special case: a slash-command layer that lets new
-tools be registered and invoked on demand, instead of being hardcoded into the turn-assembly
-pipeline one `if` at a time. This keeps the core Narrator/Character loop untouched while still
-allowing ad hoc capabilities — RAG today, more later — to be bolted on cleanly.
+The general slash-command system is already implemented and first exercised by the curated
+Character Converter plugin. A future `/rag` plugin can register through the same descriptor and
+handler contract without adding a provider branch or special case to the Narrator/Character turn
+pipeline.

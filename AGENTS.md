@@ -11,7 +11,7 @@ ficam em `.plan/closed/`; trabalho ainda aberto fica em `.plan/tasks/`.
 > [!IMPORTANT]
 > **Regra Básica de Execução para Agentes:**
 > Antes de criar qualquer código ou feature nova, você **deve sempre consultar a pasta `.plan/tasks/`** para verificar se já existe uma especificação ou planejamento em andamento, evitando retrabalho e mantendo a consistência arquitetural.
-> Dê prioridade e preferência para implementar ou alinhar suas alterações com as tasks que começam com a letra **`S`** (ex: `S01-plugin-system.md`). O prefixo **`S`** indica uma **Supertask**, que planeja uma mudança estrutural e de grande impacto na base de código.
+> Dê prioridade e preferência para implementar ou alinhar suas alterações com as tasks abertas que começam com a letra **`S`**. O prefixo **`S`** indica uma **Supertask**, que planeja uma mudança estrutural e de grande impacto na base de código. Supertasks concluídas, como `S01-plugin-system.md`, ficam em `.plan/closed/`.
 
 ## 1. Visão atual
 
@@ -24,6 +24,8 @@ adaptável:
 - estado persistido em JSON com locks transacionais e escritas atômicas;
 - contratos estruturados entre programa e modelo;
 - frontend vanilla em módulos ES, sem globals de aplicação;
+- plugins Python/JavaScript confiáveis, in-process, sem sandbox e com SDK explícito;
+- Experiences como composições ordenadas de plugins/configuração;
 - observabilidade, replay, MCP e playtests como ferramentas externas ao turno normal;
 - a documentação extensa é parte do estudo de caso, não um problema a ser reduzido.
 
@@ -40,7 +42,7 @@ Este é um projeto novo. Quando um contrato muda, todos os produtores e consumid
 Não criar:
 
 - conversores ou fallback para formatos anteriores;
-- leitura dupla de config, preset, sessão ou log;
+- leitura dupla de config, scenario, sessão ou log;
 - campos antigos mantidos “por segurança”;
 - arquivos duplicados em runtime e source;
 - branches permanentes para comportamentos removidos;
@@ -88,9 +90,11 @@ de outros personagens nunca entram no prompt de Character.
 - Personalidade usa apenas `personality`.
 - Cena usa campos reservados (`location`, `time_of_day`, `present_characters`) e
   `physical_facts` para fatos livres.
-- Built-ins imutáveis vivem em `src/defaults/`.
-- Config, presets do usuário, sessões, backups e logs vivem exclusivamente em `.data/` ou no
+- Scenarios built-in imutáveis vivem em `src/scenarios/`.
+- Config, scenarios do usuário, sessões, backups e logs vivem exclusivamente em `.data/` ou no
   `ROLEPLAY_DATA_DIR` do deployment.
+- Cada sessão vive em `.data/sessions/{id}/`, com `state.json`, `debug.jsonl` e `backups/`.
+- Cache, ativação física, config, ambiente e journal de plugins vivem em `.data/plugins/`.
 - `.data/` nunca é rastreado pelo Git nem reutilizado por CI/CD.
 
 ## 4. Arquitetura e ownership
@@ -100,10 +104,11 @@ Frontend ES modules
     ├── api.js
     ├── setup.js
     ├── runtime-config.js
+    ├── plugin-runtime.js / plugin-center.js
     └── adapters/<provider>.js
                  │ HTTP
                  ▼
-FastAPI ── RuntimeState ── Runner ── role agents
+FastAPI ── RuntimeState ── PluginRuntime ── Runner ── role agents
                                   │
                                   ▼
                          shared LLM client
@@ -122,7 +127,7 @@ desse limite transacional.
 
 - save crítico usa temporário, flush, `fsync` e rename;
 - delete espera operações ativas e remove estado, log e backups juntos;
-- presets têm lock por nome;
+- scenarios têm lock por nome;
 - debug JSONL tem lock próprio para append e leitura;
 - registries de locks usam referências fracas;
 - locks atuais são process-local: o deployment suportado usa um único processo Uvicorn.
@@ -131,9 +136,80 @@ desse limite transacional.
 Runner ativo. Uma troca de provider persiste e substitui o Runner sob o mesmo lock. Não recrie
 globals mutáveis paralelos.
 
+### Plugins e Experiences
+
+Plugins são código confiável in-process e podem substituir comportamento central. Não existe
+sandbox nem bloqueio por permissão: `permissions` documenta acesso para review e journal. O escape
+`unsafe` é deliberado. O repositório curado fornece confiança por revisão integral da fonte e
+SHA-256 fixo; ZIP de terceiro é responsabilidade de quem instala.
+
+- `plugin.toml` é strict/forward-only e usa `schema_version = 1`;
+- pacotes instalados são imutáveis por `id/version/hash`;
+- arquivos em `.data/plugins/started/` são o conjunto global ativo;
+- dependências usam constraints semver e o ambiente exato é reconstruído com uv;
+- ordem é um DAG determinístico, e a ordem declarada pela Experience vira arestas padrão;
+- filtros pre-commit recebem drafts isolados; falha descarta o draft e desativa o plugin no boot;
+- ações post-commit nunca repetem trabalho já persistido;
+- wrappers `narrator.call` e `character.call` podem substituir a operação inteira;
+- o supervisor precisa ser o pai real do Uvicorn para trocar o processo Python.
+
+O SDK e os contratos machine-readable vivem em `src/plugins/`. Exemplos e CLI de autoria ficam em
+`plugins/examples/` e `tools/plugin_author.py`. O hub curado/MCP é um repositório separado; o MCP
+não possui ferramentas Git ou publicação.
+
+### Workspace do hub para agentes
+
+Quando uma tarefa envolver criar, revisar, testar ou publicar um plugin curado, o agente que está
+no repositório principal deve trabalhar com os dois repositórios, sem copiar o SDK nem transformar
+o snapshot de runtime em source:
+
+1. Use `src/plugins/`, `src/static/plugin-runtime.js` e `tools/plugin_author.py` deste checkout como
+   fonte de verdade do core e dos pontos de extensão.
+2. Procure primeiro o checkout irmão `../alex-tavern-plugins`. Se ele não existir, solicite a
+   autorização Git exigida pelo ambiente e crie um clone parcial:
+
+   ```fish
+   git clone --filter=blob:none --sparse \
+     git@github.com:al4xdev/alex-tavern-plugins.git \
+     ../alex-tavern-plugins
+   git -C ../alex-tavern-plugins sparse-checkout set docs plugins experiences
+   ```
+
+   O modo sparse inclui os arquivos da raiz, o MCP, as ferramentas e as três pastas declaradas,
+   mas não materializa os blobs de `artifacts/` ou `assets/`. Não substitua esse fluxo por clone
+   completo apenas para ler documentação ou criar source.
+3. Dentro do hub, leia `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`, `docs/hooks.md` e
+   `docs/mcp.md` antes de selecionar hooks. Para plugins com chamadas LLM, leia também
+   `docs/model-calls.md`. O contrato exportado pelo core atual vence qualquer exemplo antigo.
+4. Configure o MCP do hub com o hub como diretório de trabalho e o checkout principal como
+   `--core-root`. Em um terminal fish, a forma equivalente é:
+
+   ```fish
+   set core_root (pwd)
+   cd ../alex-tavern-plugins
+   uv sync
+   uv run python mcp_server.py --core-root "$core_root"
+   ```
+
+   Use as tools MCP `plugin_contract`, `plugin_scaffold`, `plugin_validate`, `plugin_test`,
+   `plugin_pack` e `plugin_trace`; não replique manualmente contratos que já são exportados pelo
+   SDK.
+5. Fonte de plugin pertence a `../alex-tavern-plugins/plugins/`. Para revisar ou regenerar mídia e
+   pacotes publicados, peça autorização para expandir o sparse checkout antes de tocar esses
+   caminhos:
+
+   ```fish
+   git -C ../alex-tavern-plugins sparse-checkout add artifacts assets
+   ```
+
+6. Nunca edite `.data/plugins/hub`: ele é um snapshot efêmero, validado e substituível usado pelo
+   aplicativo. Não faça `pull`, commit, push, mudança de remoto ou publicação no repositório irmão
+   sem autorização Git explícita e específica.
+
 ### Providers
 
-Backend adapters ficam em `src/llm/adapters/`. Cada adapter possui:
+Adapters built-in ficam em `src/llm/adapters/`; providers adicionais devem preferencialmente ser
+plugins que registram o mesmo `ProviderAdapter` durante o boot. Cada adapter possui:
 
 - identidade e defaults;
 - campos secretos e requisitos de ativação;
@@ -146,12 +222,13 @@ O cliente compartilhado possui HTTP, timeout, retry, política textual e parsing
 pertence a `src/llm/schema.py`; persistência de observabilidade pertence a
 `src/llm/debug_log.py`. Diferenças de fornecedor não entram no Runner nem nos agentes.
 
-Frontend adapters ficam em `src/static/adapters/`. Cada um declara card, campos, segredo,
+Frontend adapters built-in ficam em `src/static/adapters/`; plugins registram o mesmo contrato pelo
+SDK do browser antes de `RuntimeConfig.init`. Cada um declara card, campos, segredo,
 settings forçados, parsing e serialização. `index.html` contém somente containers; não adicione
 formulário hardcoded por provider nem branches de provider em `runtime-config.js`.
 
-Adicionar um provider exige os dois adapters e testes de config, redaction, request, response e
-UI. O registry backend é a fonte de verdade do contrato do servidor; a UI recusa catálogos
+Adicionar um provider exige os dois adapters e testes de config, redaction, request, response e UI.
+O registry backend extensível é a fonte de verdade do contrato do servidor; a UI recusa catálogos
 divergentes em runtime.
 
 ### Contratos estruturados
@@ -178,14 +255,16 @@ objeto completo por provider.
 ## 5. Fluxo de um turno
 
 1. Runner adquire o lock da sessão e carrega o estado.
-2. Fala, pensamento privado e ação humanos são persistidos separadamente com um único `turn_number`.
-3. Narrador recebe o estado canônico e devolve JSON validado.
-4. Runner aplica `force_speaker` quando solicitado e preserva a agência do personagem controlado.
-5. Se necessário, Character recebe apenas seu contexto permitido e gera `speech`/`thought` estruturados.
-6. Runner aplica `scene_update` e `mood_updates`.
-7. Estado é salvo atomicamente e o resultado é devolvido.
+2. `turn.input` pode transformar um draft da entrada.
+3. Fala, pensamento privado e ação humanos são persistidos separadamente com um único `turn_number`.
+4. Narrador recebe o estado canônico e devolve JSON validado; wrappers/filtros podem substituir a chamada/saída.
+5. Runner aplica `force_speaker` quando solicitado e preserva a agência do personagem controlado.
+6. Se necessário, Character recebe apenas seu contexto permitido e gera `speech`/`thought` estruturados.
+7. Runner aplica `scene_update` e `mood_updates` e executa `turn.before_commit` em draft isolado.
+8. Estado é salvo atomicamente, a revisão avança uma vez e `turn.after_commit` é emitido.
 
-Todos os registros do passo compartilham `turn_number`, `scene_snapshot` e `mood_snapshot`. Undo
+Todos os registros do passo compartilham `turn_number`, `scene_snapshot`, `mood_snapshot` e
+`plugin_state_snapshot`. Undo
 remove o passo inteiro e restaura esses snapshots.
 
 Qualquer nova chamada ao modelo precisa propagar `session_id`, `turn_number` e `agent` para o log.
@@ -205,14 +284,17 @@ Prompts são compartilhados entre providers e descrevem regras de papel de forma
 - texto gerado não usa em dash/en dash; a normalização é global no cliente;
 - histórico é limitado por orçamento de tokens, nunca por corte de caracteres.
 
-Compactação é um evento transacional: cria backup, resume turnos antigos, mantém a janela recente
-e atualiza `story_summary`/`character_notes`. Restauração só ocorre quando não apagaria turnos
-novos. RAG, se implementado, será recuperação semântica de volume externo e não um segundo sistema
-de memória para fatos já presentes na sessão.
+Compactação é um evento transacional: prepara resumos em draft isolado, grava um checkpoint
+incremental numerado, mantém a janela recente e atualiza `story_summary`/`character_notes`.
+Compactação automática é opt-in, usa a estimativa do prompt completo antes do Narrador e roda sob
+o mesmo lock do turno. Undo de compactação é LIFO, pode atravessar múltiplos checkpoints e preserva
+turnos posteriores; conflito em estado de plugin exige resolver do próprio plugin. Checkpoints
+imutáveis permanecem até a sessão ser apagada. RAG, se implementado, será recuperação semântica de
+volume externo e não um segundo sistema de memória para fatos já presentes na sessão.
 
 ## 7. Observabilidade e ferramentas
 
-`.data/sessions/{id}.debug.jsonl` é a evidência primária de execução. Ele registra:
+`.data/sessions/{id}/debug.jsonl` é a evidência primária de execução. Ele registra:
 
 - `turn_input` antes da primeira chamada;
 - request redigido, response, tentativa, duração e tamanho de prompt;
@@ -227,6 +309,8 @@ Ferramentas em `tools/` ficam fora do runtime narrativo:
 - `replay_session.py`: reproduz inputs atuais contra a API real;
 - `mcp_server.py`: inspeção e mutações de debug via stdio;
 - `playtest_harness.py`: cenários repetíveis, fila e comparações A/B.
+- `plugin_author.py`: contract, scaffold, validate, test, pack e trace de plugins;
+- `plugin_hub.py`: sincronização HTTPS validada do hub curado e instalação por hash.
 
 Não adicionar compatibilidade com logs sem `turn_input`. Fixtures representam somente o contrato
 atual.
@@ -237,7 +321,7 @@ O frontend é dependency-free e usa módulos ES. Comunicação entre módulos oc
 injeção explícita de callbacks, não por variáveis globais. Config do jogo pode usar localStorage;
 config e segredos de provider não podem.
 
-Pipelines substantivas vivem em:
+Pipelines existentes vivem em:
 
 - `.ci-cd/android/`;
 - `.ci-cd/test/`;
@@ -250,15 +334,8 @@ Todos os deployments executam o mesmo backend e o mesmo contrato de dados. Não 
 dependências, config ou source alternativo para um deployment. A versão de Python e dependências
 de cada pacote precisam ser compatíveis com o contrato canônico do `pyproject.toml`.
 
-Android é direcionado a Android 14+ e usa API Python local em loopback. Seu bootstrap precisa:
-
-- possuir uma única estratégia para servir o frontend;
-- iniciar o backend sem depender do cwd;
-- criar sua própria config canônica;
-- aguardar `/health` antes de liberar a UI;
-- registrar falhas de startup de forma legível.
-
-Não resolver falha Android com fallback para config ou layout antigos.
+Android permanece fora do escopo desta plataforma de plugins. Não condicione decisões do SDK,
+runtime, UI ou supervisor a esse deployment enquanto ele estiver em beta.
 
 ## 9. Critério de entrega
 
@@ -296,6 +373,9 @@ HTML. Para mudanças de integração, use também o smoke test HTTP ou a ferrame
 - `src/config.py`: config canônica e redaction.
 - `src/llm/adapters/`: providers backend.
 - `src/static/adapters/`: providers frontend.
+- `src/plugins/`: manifestos, SDK, hooks, store, runtime, Experiences e contratos.
+- `src/static/plugin-runtime.js`: SDK/loader frontend.
+- `src/static/plugin-center.js`: gestão Experience-first.
 - `src/llm/schema.py`: contrato estruturado local.
 - `src/llm/debug_log.py`: observabilidade persistida.
 - `tools/README.md`: operação de replay, MCP e harness.

@@ -389,7 +389,7 @@ async def run_scenario(
             }
         )
 
-    debug_path = sessions_dir / f"{session_id}.debug.jsonl"
+    debug_path = sessions_dir / session_id / "debug.jsonl"
     records = _load_debug_records(debug_path) if debug_path.exists() else []
     return {
         "scenario": scenario.name,

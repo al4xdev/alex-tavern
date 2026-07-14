@@ -62,7 +62,7 @@ async def chat_completion(
         max_tokens: Maximum tokens in the response.
         timeout: Timeout in seconds.
         session_id: If provided, records this call in the raw session log
-            (``.data/sessions/{session_id}.debug.jsonl``).
+            (``.data/sessions/{session_id}/debug.jsonl``).
         turn_number: Number of the turn/step that triggered the call (log).
         agent: Who triggered the call — "narrator", "narrator_suggest" or
             "character:<name>" (log).

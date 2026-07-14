@@ -2,3 +2,17 @@
 command = "uv"
 args = ["run", "python", "tools/mcp_server.py"]
 cwd = "/home/alex/git/my/roleplay"
+
+[mcp_servers.alex-tavern-plugin-author]
+command = "uv"
+args = [
+    "run",
+    "python",
+    "mcp_server.py",
+    "--core-root",
+    "/home/alex/git/my/roleplay",
+]
+cwd = "/home/alex/git/my/alex-tavern-plugins"
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+default_tools_approval_mode = "writes"

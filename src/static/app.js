@@ -1,6 +1,9 @@
 import { api } from './api.js';
 import { RuntimeConfig } from './runtime-config.js';
+import { PluginRuntime } from './plugin-runtime.js';
+import { PluginCenter } from './plugin-center.js';
 import { Setup } from './setup.js';
+import { SlashCommands } from './slash-commands.js';
 import {
     bindTranslation,
     getLocale,
@@ -25,7 +28,11 @@ const state = {
     lastTurnFailed: false,  // true when last sendTurn errored
     canUndo: false,         // true when there's a turn to undo
     abortController: null,  // AbortController for current turn
+    compactionAbortController: null,
+    compactionDepth: 0,
     narratorHint: '',       // pending narrator event hint for next turn
+    lastEchoMessage: null,  // optimistic player bubble updated with effective input
+    avatarUrls: {},        // cid -> revisioned native preset avatar URL
 };
 
 const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
@@ -47,6 +54,9 @@ const settingsBtn   = document.getElementById('settings-btn');
 const emptyConfigBtn= document.getElementById('empty-config-btn');
 const spinner       = document.getElementById('spinner');
 const emptyState    = document.getElementById('empty-state');
+const emptyKicker   = document.getElementById('empty-kicker');
+const emptyPrompt   = document.getElementById('empty-prompt');
+const emptyScrollCue= document.getElementById('empty-scroll-cue');
 const debugToggle   = document.getElementById('debug-toggle');
 const debugDrawer   = document.getElementById('debug-drawer');
 const debugContent  = document.getElementById('debug-content');
@@ -64,6 +74,7 @@ const actionSuggestBtn = document.getElementById('action-suggest-btn');
 const actionHintBtn = document.getElementById('action-hint-btn');
 const actionCompactBtn = document.getElementById('action-compact-btn');
 const compactProgress = document.getElementById('compact-progress');
+const compactProgressStatus = document.getElementById('compact-progress-status');
 const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
 const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const actionPopup   = document.getElementById('action-popup');
@@ -123,6 +134,25 @@ function scrollToBottom(forceBottom = false) {
     }
 }
 
+function showEmptyState(sessionReady = false) {
+    emptyState.classList.toggle('session-ready', sessionReady);
+    bindTranslation(emptyKicker, sessionReady ? 'empty.sessionKicker' : 'empty.kicker');
+    bindTranslation(emptyPrompt, sessionReady ? 'empty.sessionPrompt' : 'empty.prompt');
+    emptyConfigBtn.hidden = sessionReady;
+    if (!sessionReady) bindTranslation(emptyConfigBtn, 'sessions.manage');
+    emptyScrollCue.hidden = !sessionReady;
+    emptyState.style.display = 'flex';
+}
+
+function expandMobileInput({ focus = true } = {}) {
+    if (!state.sessionId) return;
+    inputArea.classList.remove('collapsed');
+    scrollToBottom(true);
+    if (focus && window.innerWidth <= 760) {
+        requestAnimationFrame(() => inputSpeech.focus({ preventScroll: true }));
+    }
+}
+
 /* ── Action popup (undo / retry / force-speaker / suggest) ────────────── */
 function updateActionPopup() {
     if (actionUndoBtn) actionUndoBtn.style.display = state.canUndo ? '' : 'none';
@@ -133,7 +163,9 @@ function updateActionPopup() {
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
     if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
-    if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.style.display = hasSession ? '' : 'none';
+    if (actionRestoreCompactionBtn) {
+        actionRestoreCompactionBtn.style.display = hasSession && state.compactionDepth > 0 ? '' : 'none';
+    }
     // Hide the popup entirely when there's nothing to show — prevents
     // an empty bordered box (tiny black dot) from appearing on hover/long-press.
     if (actionPopup) {
@@ -167,19 +199,25 @@ async function skipTurn() {
     state.abortController = ac;
 
     try {
-        const data = await api.turn(state.sessionId, {
+        let payload = {
             speech: '',
             thought: '',
             action: '',
             skip: true,
             narrator_hint: state.narratorHint || undefined,
             force_speaker: state.forceSpeaker || undefined,
-        }, ac.signal);
+        };
+        payload = await PluginRuntime.runHook('turn.input', payload, { state });
+        let data = await api.turn(state.sessionId, payload, ac.signal);
+        data = await PluginRuntime.runHook('turn.output', data, { state });
 
+        const historyWasReconciled = await reconcileAutomaticCompaction(data);
         if (state.debug) refreshDebugLog();
-        if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-        if (data.character_response) {
-            addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+        if (!historyWasReconciled) {
+            if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
+            if (data.character_response) {
+                addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+            }
         }
         if (data.scene_update) {
             try {
@@ -351,9 +389,10 @@ function renderSessionList(sessions) {
                 if (s.session_id === state.sessionId) {
                     // Current session was deleted — reset UI
                     state.sessionId = null;
+                    state.compactionDepth = 0;
                     chatLog.innerHTML = '';
                     chatLog.appendChild(emptyState);
-                    emptyState.style.display = 'flex';
+                    showEmptyState(false);
                     clearSuggestions();
                     renderScene({});
                 }
@@ -373,15 +412,19 @@ function renderSessionList(sessions) {
 function renderHistory(history) {
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
-    emptyState.style.display = 'none';
+    const records = history || [];
+    if (records.length) emptyState.style.display = 'none';
+    else showEmptyState(true);
 
     let responseBuffer = null;
     const flushResponseBuffer = () => {
         if (!responseBuffer) return;
-        addMessage(responseBuffer.speaker, responseBuffer, 'response');
+        addMessage(responseBuffer.speaker, responseBuffer, 'response', {
+            transformed: responseBuffer.transformed,
+        });
         responseBuffer = null;
     };
-    for (const record of (history || [])) {
+    for (const record of records) {
         const combinable = ['speech', 'thought', 'action'].includes(record.content_type) &&
             record.speaker !== 'Narrator';
         if (combinable) {
@@ -394,9 +437,11 @@ function renderHistory(history) {
                     speech: null,
                     thought: null,
                     action: null,
+                    transformed: false,
                 };
             }
             responseBuffer[record.content_type] = record.content;
+            responseBuffer.transformed ||= record.input_transformed === true;
             continue;
         }
         flushResponseBuffer();
@@ -407,7 +452,9 @@ function renderHistory(history) {
 
 async function loadSession(sessionId) {
     try {
-        const gameState = await api.getState(sessionId);
+        state.compactionAbortController?.abort();
+        let gameState = await api.getState(sessionId);
+        gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
         lastDebugEntries = null;
         debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
@@ -415,10 +462,12 @@ async function loadSession(sessionId) {
 
         state.sessionId = sessionId;
         state.lastInputs = null;
+        state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = gameState.history && gameState.history.length > 0;
         updateActionPopup();
         ingestState(gameState);
+        await hydrateAvatarUrls(gameState);
 
         renderHistory(gameState.history);
 
@@ -514,6 +563,7 @@ function speakerInfo(speaker) {
             color: colorFor(cid),
             initial: controlledName().charAt(0).toUpperCase(),
             cls: 'msg-player',
+            avatar: state.avatarUrls[cid] || '',
         };
     }
     const ch = state.characters[speaker];
@@ -523,6 +573,7 @@ function speakerInfo(speaker) {
             color: colorFor(speaker),
             initial: ch.mind.name.charAt(0).toUpperCase(),
             cls: 'msg-npc',
+            avatar: state.avatarUrls[speaker] || '',
         };
     }
     return { label: speaker, color: null, initial: '💬', cls: 'msg-npc' };
@@ -621,7 +672,7 @@ function messageSegments(content, contentType) {
     return [{ type: contentType, text: content }];
 }
 
-function addMessage(speaker, content, contentType, { animate = false } = {}) {
+function addMessage(speaker, content, contentType, { animate = false, transformed = false } = {}) {
     const info = speakerInfo(speaker);
 
     const msg = document.createElement('div');
@@ -634,7 +685,14 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
     if (info.cls !== 'msg-narrator') {
         const avatar = document.createElement('span');
         avatar.className = 'msg-avatar';
-        avatar.textContent = info.initial;
+        if (info.avatar) {
+            const image = document.createElement('img');
+            image.src = info.avatar;
+            image.alt = '';
+            avatar.appendChild(image);
+        } else {
+            avatar.textContent = info.initial;
+        }
         avatar.style.background = info.color
             ? `${info.color}33` : 'var(--surface-hi)';
         if (info.color) avatar.style.color = info.color;
@@ -646,6 +704,13 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
         header.appendChild(document.createTextNode(info.label));
     }
     msg.appendChild(header);
+
+    if (transformed) {
+        const badge = bindTranslation(document.createElement('span'), 'input.adjusted');
+        badge.className = 'msg-transform-badge';
+        header.appendChild(badge);
+        msg.classList.add('msg-transformed');
+    }
 
     const body = document.createElement('div');
     body.className = 'msg-content';
@@ -673,6 +738,19 @@ function addMessage(speaker, content, contentType, { animate = false } = {}) {
     scrollToBottom();
 
     if (shouldType) revealTypewriter(msg, units);
+    return msg;
+}
+
+function updatePlayerEcho(message, effectiveInput, transformed) {
+    if (!message || !effectiveInput) return;
+    const replacement = addMessage(
+        'Player',
+        buildPlayerEcho(effectiveInput.speech, effectiveInput.thought, effectiveInput.action),
+        'response',
+        { transformed },
+    );
+    message.replaceWith(replacement);
+    state.lastEchoMessage = replacement;
 }
 
 /* Combines the player's speech, thought, and action into the single echo bubble text
@@ -771,41 +849,71 @@ function sendHint() {
 }
 
 /* ── Session compaction ───────────────────────────────────────────────── */
-// NOTE: the progress fill below is a MOCKED estimate, not real backend
-// progress — measuring actual LLM generation progress would require
-// streaming (SSE), which is more than this personal MVP needs right now.
-// We guess a duration from how much is on screen, animate up to ~90%
-// over that guess, and only jump to 100% once the real response lands.
-// Fine to swap for real progress later if that's ever worth doing.
+function compactionProgressPercent(event) {
+    const fixed = {
+        checking: 3,
+        before_commit: 88,
+        checkpointing: 93,
+        committing: 97,
+        completed: 100,
+        skipped: 3,
+    };
+    if (event.stage === 'failed') {
+        return Number.parseFloat(compactProgress.style.width) || 0;
+    }
+    if (!['summarizing', 'model_completed'].includes(event.stage)) {
+        return fixed[event.stage] ?? 0;
+    }
+    if (!event.total_units) return 8;
+    return 8 + (event.completed_units / event.total_units) * 76;
+}
+
+function renderCompactionProgress(event) {
+    const percent = Math.max(0, Math.min(100, compactionProgressPercent(event)));
+    compactProgress.style.width = `${percent}%`;
+    if (compactProgressStatus) {
+        compactProgressStatus.textContent = t(`compaction.stage.${event.stage}`, {
+            completed: event.completed_units ?? 0,
+            total: event.total_units ?? 0,
+        });
+    }
+}
+
+function setCompactionBusy(on) {
+    actionCompactBtn.classList.toggle('busy', on);
+    for (const control of [
+        sendBtn,
+        actionUndoBtn,
+        actionRetryBtn,
+        actionSkipBtn,
+        actionSuggestBtn,
+        actionHintBtn,
+        actionRestoreCompactionBtn,
+    ]) {
+        if (control) control.disabled = on;
+    }
+}
+
 async function compactSession() {
     if (!state.sessionId || !actionCompactBtn || !compactProgress) return;
     hideActionPopup();
 
-    const msgCount = chatLog.querySelectorAll('.msg').length;
-    const estimatedMs = Math.min(3500, 400 + msgCount * 120);
-    actionCompactBtn.classList.add('busy');
+    setCompactionBusy(true);
     compactProgress.style.width = '0%';
-    const start = performance.now();
-    let done = false;
-
-    function tick(now) {
-        if (done) return;
-        const elapsed = now - start;
-        const pct = Math.min(90, (elapsed / estimatedMs) * 90);
-        compactProgress.style.width = `${pct}%`;
-        requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+    const ac = new AbortController();
+    state.compactionAbortController = ac;
 
     try {
-        const data = await api.compact(state.sessionId);
-        done = true;
-        compactProgress.style.width = '100%';
+        const data = await api.compact(
+            state.sessionId,
+            renderCompactionProgress,
+            ac.signal,
+        );
         if (data.compacted) {
             toast(
                 t('compaction.done', {
-                    evicted: data.evicted_turns,
-                    kept: data.kept_turns,
+                    evicted: data.evicted_records,
+                    kept: data.kept_records,
                 }),
                 'success',
                 3500
@@ -819,20 +927,22 @@ async function compactSession() {
             toast(data.reason || t('compaction.none'), 'info', 2500);
         }
     } catch (err) {
-        done = true;
-        toast(t('compaction.error', { error: err.message }), 'error');
+        if (err.name !== 'AbortError') {
+            toast(t('compaction.error', { error: err.message }), 'error');
+        }
     } finally {
+        state.compactionAbortController = null;
         setTimeout(() => {
-            actionCompactBtn.classList.remove('busy');
+            setCompactionBusy(false);
             compactProgress.style.width = '0%';
+            if (compactProgressStatus) compactProgressStatus.textContent = '';
         }, 400);
     }
 }
 
 /* ── Undo last compaction ─────────────────────────────────────────────────── */
-// Risky operation: only undoes if NO new turns have been played
-// since the last compaction (the backend refuses and explains why, without
-// changing anything, if it is not safe) — see Runner.restore_last_compaction.
+// Checkpoints are undone in LIFO order. Turns played after the checkpoint are
+// preserved, while divergent plugin-owned state requires an explicit resolver.
 async function restoreCompaction() {
     if (!state.sessionId) return;
     hideActionPopup();
@@ -844,7 +954,10 @@ async function restoreCompaction() {
         const data = await api.restoreCompaction(state.sessionId);
         if (data.restored) {
             toast(
-                t('compaction.restored', { count: data.history_length }),
+                t('compaction.restored', {
+                    count: data.restored_records,
+                    depth: data.remaining_compaction_depth,
+                }),
                 'success',
                 3500
             );
@@ -945,7 +1058,12 @@ function renderRawLog(entries) {
             if (e.agent === 'turn_input') {
                 raw = `[TURN INPUT]\n${JSON.stringify({
                     input: e.input,
+                }, null, 2)}`;
+            } else if (e.agent === 'turn_input_effective') {
+                raw = `[EFFECTIVE TURN INPUT]\n${JSON.stringify({
+                    input: e.input,
                     effective_force_speaker: e.effective_force_speaker,
+                    transformed_fields: e.transformed_fields,
                 }, null, 2)}`;
             } else if (e.error) {
                 raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
@@ -1032,15 +1150,32 @@ function ingestState(gameState) {
     state.characters = gameState.characters || {};
     state.order = Object.keys(state.characters);
     state.controlledId = gameState.player && gameState.player.controlled_character_id;
+    state.compactionDepth = Array.isArray(gameState.compaction_stack)
+        ? gameState.compaction_stack.length
+        : 0;
     if (gameState.scene) renderScene(gameState.scene);
     populateForceSpeakerOptions();
+    updateActionPopup();
+}
+
+async function hydrateAvatarUrls(gameState) {
+    state.avatarUrls = {};
+    const byPreset = new Map();
+    await Promise.all(Object.entries(gameState?.character_preset_ids || {}).map(async ([cid, name]) => {
+        try {
+            if (!byPreset.has(name)) byPreset.set(name, api.getPreset(name));
+            const preset = await byPreset.get(name);
+            if (preset.avatar?.url) state.avatarUrls[cid] = preset.avatar.url;
+        } catch { /* the initial remains the stable fallback */ }
+    }));
 }
 
 async function startSession(cfg) {
+    state.compactionAbortController?.abort();
     // reset the view
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
-    emptyState.style.display = 'flex';
+    showEmptyState(false);
     clearSuggestions();
     lastDebugEntries = null;
     sceneTags.innerHTML = '';
@@ -1054,11 +1189,13 @@ async function startSession(cfg) {
         const data = await api.startSession(cfg);
         state.sessionId = data.session_id;
         state.lastInputs = null;
+        state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = false;
         updateActionPopup();
         ingestState(data.state);
-        emptyState.style.display = 'none';
+        await hydrateAvatarUrls(data.state);
+        renderHistory(data.state.history);
         inputSpeech.disabled = false;
         inputThought.disabled = false;
         inputAction.disabled = false;
@@ -1069,14 +1206,37 @@ async function startSession(cfg) {
         showTipBanner();
     } catch (err) {
         toast(t('turn.startError', { error: err.message }), 'error');
-        emptyState.style.display = 'flex';
+        showEmptyState(Boolean(state.sessionId));
     } finally {
         setLoading(false);
     }
 }
 
+async function reconcileAutomaticCompaction(data) {
+    const result = data?.automatic_compaction;
+    if (!result) return false;
+    if (result.compacted) {
+        const gameState = await api.getState(state.sessionId);
+        ingestState(gameState);
+        renderHistory(gameState.history);
+        toast(
+            t('compaction.automaticDone', { count: result.evicted_records }),
+            'info',
+            3500,
+        );
+        return true;
+    }
+    if (result.status === 'blocked_by_retention_window') {
+        toast(t('compaction.automaticBlocked'), 'info', 3000);
+    } else if (result.status === 'failed') {
+        toast(t('compaction.automaticFailed'), 'error', 4500);
+    }
+    return false;
+}
+
 async function sendTurn(isRetry = false) {
     if (!state.sessionId) return;
+    if (!isRetry && await SlashCommands.interceptSend()) return;
     const speech = inputSpeech.value.trim();
     const thought = inputThought.value.trim();
     const action = inputAction.value.trim();
@@ -1100,7 +1260,9 @@ async function sendTurn(isRetry = false) {
 
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
     if (!isRetry) {
-        addMessage('Player', buildPlayerEcho(speech, thought, action), 'response');
+        state.lastEchoMessage = addMessage(
+            'Player', buildPlayerEcho(speech, thought, action), 'response'
+        );
     }
 
     setLoading(true);
@@ -1113,19 +1275,35 @@ async function sendTurn(isRetry = false) {
     state.abortController = ac;
 
     try {
-        const data = await api.turn(state.sessionId, {
+        let payload = {
             speech: speech || '',
             thought: thought || '',
             action: action || '',
             force_speaker: forceSpeaker || undefined,
             narrator_hint: state.narratorHint || undefined,
-        }, ac.signal);
+        };
+        payload = await PluginRuntime.runHook('turn.input', payload, { state });
+        let data = await api.turn(state.sessionId, payload, ac.signal);
+        data = await PluginRuntime.runHook('turn.output', data, { state });
+
+        const historyWasReconciled = await reconcileAutomaticCompaction(data);
+        if (!historyWasReconciled) {
+            updatePlayerEcho(
+                state.lastEchoMessage,
+                data.effective_input,
+                Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
+            );
+        } else {
+            state.lastEchoMessage = null;
+        }
 
         if (state.debug) refreshDebugLog();
 
-        if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-        if (data.character_response) {
-            addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+        if (!historyWasReconciled) {
+            if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
+            if (data.character_response) {
+                addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+            }
         }
 
         if (data.scene_update) {
@@ -1144,6 +1322,11 @@ async function sendTurn(isRetry = false) {
         state.canUndo = true;
         updateActionPopup();
     } catch (err) {
+        try {
+            const gameState = await api.getState(state.sessionId);
+            ingestState(gameState);
+            renderHistory(gameState.history);
+        } catch { /* best-effort reconciliation after an ambiguous turn failure */ }
         if (err.name === 'AbortError') {
             // User pressed stop — don't treat as failure, keep inputs
             toast(t('turn.stopped'), 'info', 2500);
@@ -1233,6 +1416,7 @@ inputAction.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTurn(); }
 });
 inputSpeech.addEventListener('keydown', (e) => {
+    if (SlashCommands.handleKeydown(e)) return;
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputThought.focus(); }
 });
 inputThought.addEventListener('keydown', (e) => {
@@ -1241,7 +1425,7 @@ inputThought.addEventListener('keydown', (e) => {
 
 if (inputExpandBtn) {
     inputExpandBtn.addEventListener('click', () => {
-        scrollToBottom(true);
+        expandMobileInput();
     });
 }
 
@@ -1399,7 +1583,7 @@ inputArea.addEventListener('touchend', (e) => {
             }
             inputArea.classList.add('collapsed');
         } else if (diffY < -30) {
-            inputArea.classList.remove('collapsed');
+            expandMobileInput({ focus: false });
         }
     }
     
@@ -1452,19 +1636,17 @@ if (sessionsBtn) sessionsBtn.addEventListener('click', openSessionsModal);
 if (sessionsCloseBtn) sessionsCloseBtn.addEventListener('click', closeSessionsModal);
 if (sessionsNewBtn) sessionsNewBtn.addEventListener('click', () => {
     closeSessionsModal();
-    Setup.setHasSession(Boolean(state.sessionId));
     Setup.open();
 });
 sessionsOverlay.addEventListener('click', (e) => {
     if (e.target === sessionsOverlay) closeSessionsModal();
 });
 settingsBtn.addEventListener('click', () => {
-    Setup.setHasSession(Boolean(state.sessionId));
     Setup.open();
 });
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
-    Setup.setHasSession(Boolean(state.sessionId));
-    Setup.open();
+    if (state.sessionId) expandMobileInput();
+    else openSessionsModal();
 });
 
 if (interfaceLanguage) {
@@ -1682,6 +1864,10 @@ window.addEventListener('appinstalled', () => {
     toast(t('pwa.installed'), 'success', 2500);
 });
 
+window.addEventListener('beforeunload', () => {
+    state.compactionAbortController?.abort();
+});
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => { /* offline shell optional */ });
@@ -1689,12 +1875,35 @@ if ('serviceWorker' in navigator) {
 }
 
 /* ── Init ─────────────────────────────────────────────────────────────── */
-RuntimeConfig.init({ notify: toast });
-Setup.init({
-    onStart: (cfg) => startSession(cfg),
-    onOpen: () => RuntimeConfig.refresh(),
-    notify: toast,
-});
+async function initializeApplication() {
+    try {
+        await PluginRuntime.boot();
+    } catch (error) {
+        console.warn('Plugin frontend boot failed:', error);
+    }
+    RuntimeConfig.init({
+        notify: toast,
+        onCompactionHelp: () => {
+            setHelp(true);
+            showHelpArticle('compaction');
+        },
+    });
+    PluginCenter.init({ notify: toast });
+    Setup.init({
+        onStart: (cfg) => startSession(cfg),
+        onOpen: () => RuntimeConfig.refresh(),
+        notify: toast,
+    });
+    SlashCommands.init({
+        getSessionId: () => state.sessionId,
+        notify: toast,
+        onPresetDraft: (character, name, avatarFile) =>
+            Setup.openPresetDraft(character, name, avatarFile),
+    });
+    await PluginRuntime.runHook('app.ready', null, { state, toast });
+}
+
+initializeApplication();
 // openSessionsModal(); // show the sessions list on first load
 
 /* ── Version Check ────────────────────────────────────────────────────── */

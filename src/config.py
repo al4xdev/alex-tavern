@@ -20,6 +20,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "active_provider": "llama_cpp",
     "language": "Portuguese",
     "compaction_keep_recent_turns": 200,
+    "automatic_compaction_enabled": False,
+    "automatic_compaction_threshold_percent": 80,
     "providers": {
         name: deepcopy(adapter.config_defaults) for name, adapter in provider_adapters().items()
     },
@@ -42,6 +44,18 @@ def _positive_integer(value: object, label: str) -> int:
     return value
 
 
+def _boolean(value: object, label: str) -> bool:
+    if not isinstance(value, bool):
+        raise ConfigValidationError(f"{label} must be a boolean")
+    return value
+
+
+def _percentage(value: object, label: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 100:
+        raise ConfigValidationError(f"{label} must be an integer from 1 to 100")
+    return value
+
+
 def _required_string(value: object, label: str, *, allow_empty: bool = False) -> str:
     if not isinstance(value, str) or (not allow_empty and not value.strip()):
         raise ConfigValidationError(f"{label} must be a string")
@@ -50,9 +64,10 @@ def _required_string(value: object, label: str, *, allow_empty: bool = False) ->
 
 def validate_config(value: dict[str, Any]) -> dict[str, Any]:
     """Validate and return one canonical forward-only configuration object."""
+    current_provider_names = provider_names()
     active_provider = value.get("active_provider")
-    if active_provider not in PROVIDER_NAMES:
-        raise ConfigValidationError(f"active_provider must be one of {PROVIDER_NAMES}")
+    if active_provider not in current_provider_names:
+        raise ConfigValidationError(f"active_provider must be one of {current_provider_names}")
     providers = value.get("providers")
     if not isinstance(providers, dict):
         raise ConfigValidationError("providers must be an object")
@@ -63,11 +78,18 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         "compaction_keep_recent_turns": _positive_integer(
             value.get("compaction_keep_recent_turns"), "compaction_keep_recent_turns"
         ),
+        "automatic_compaction_enabled": _boolean(
+            value.get("automatic_compaction_enabled"), "automatic_compaction_enabled"
+        ),
+        "automatic_compaction_threshold_percent": _percentage(
+            value.get("automatic_compaction_threshold_percent"),
+            "automatic_compaction_threshold_percent",
+        ),
         "providers": {},
     }
-    for name in PROVIDER_NAMES:
+    for name in current_provider_names:
         adapter = get_provider_adapter(name)
-        raw = providers.get(name)
+        raw = providers.get(name, adapter.config_defaults)
         if not isinstance(raw, dict):
             raise ConfigValidationError(f"providers.{name} must be an object")
         provider = {
@@ -184,6 +206,10 @@ def resolve_active_config(value: dict[str, Any]) -> dict[str, Any]:
         "provider": provider_name,
         "language": canonical["language"],
         "compaction_keep_recent_turns": canonical["compaction_keep_recent_turns"],
+        "automatic_compaction_enabled": canonical["automatic_compaction_enabled"],
+        "automatic_compaction_threshold_percent": canonical[
+            "automatic_compaction_threshold_percent"
+        ],
     }
 
 

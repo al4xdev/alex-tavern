@@ -168,6 +168,35 @@ def first_difference(expected: object, actual: object, path: str = "$") -> str |
     return None
 
 
+def compare_checkpoint_input(
+    checkpoint: dict[str, Any], before_compaction: dict[str, Any]
+) -> str | None:
+    """Compare a replayed pre-compaction state with an incremental checkpoint."""
+    if checkpoint.get("schema_version") != 1:
+        raise ReplaySessionError("Source checkpoint must use schema_version 1")
+    cutoff = checkpoint.get("cutoff_turn_number")
+    history = before_compaction.get("history")
+    if not isinstance(cutoff, int) or not isinstance(history, list):
+        raise ReplaySessionError("Source checkpoint or replay state has invalid history metadata")
+    actual = {
+        "evicted_history": [
+            record
+            for record in history
+            if isinstance(record, dict)
+            and isinstance(record.get("turn_number"), int)
+            and record["turn_number"] < cutoff
+        ],
+        "before_story_summary": before_compaction.get("story_summary"),
+        "before_character_notes": before_compaction.get("character_notes"),
+    }
+    expected = {
+        "evicted_history": checkpoint.get("evicted_history"),
+        "before_story_summary": checkpoint.get("before_story_summary"),
+        "before_character_notes": checkpoint.get("before_character_notes"),
+    }
+    return first_difference(expected, actual)
+
+
 def inspect_turn_state(state: object, expected_turn_number: int) -> dict[str, Any]:
     """Validate and summarize the live state immediately after one submitted turn."""
     if not isinstance(state, dict):
@@ -217,10 +246,10 @@ async def replay_and_compare(
     *,
     app_url: str,
     replay_url: str,
-    preset: str,
+    scenario: str,
     turns: list[RecordedTurn],
     source_records: list[dict[str, Any]],
-    source_backup: dict[str, Any] | None = None,
+    source_checkpoint: dict[str, Any] | None = None,
     source_final: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Drive all recorded turns, compact, and compare both states and output sequences."""
@@ -233,7 +262,7 @@ async def replay_and_compare(
             app_client,
             "POST",
             "/session/start",
-            payload={"preset_name": preset, "controlled_character_id": "C1"},
+            payload={"scenario_name": scenario, "controlled_character_id": "C1"},
         )
         if not isinstance(started, dict) or not isinstance(started.get("session_id"), str):
             raise ReplaySessionError("Session start response did not contain a session id")
@@ -272,8 +301,8 @@ async def replay_and_compare(
         if not isinstance(before_compaction, dict):
             raise ReplaySessionError("State endpoint did not return an object")
         before_difference = (
-            first_difference(normalize_state(source_backup), normalize_state(before_compaction))
-            if source_backup is not None
+            compare_checkpoint_input(source_checkpoint, before_compaction)
+            if source_checkpoint is not None
             else None
         )
 
@@ -302,7 +331,7 @@ async def replay_and_compare(
         successful_outputs(source_records), successful_outputs(typed_new_records)
     )
     differences: dict[str, str | None] = {"outputs": output_difference}
-    if source_backup is not None:
+    if source_checkpoint is not None:
         differences["before_compaction"] = before_difference
     if source_final is not None:
         differences["after_compaction"] = after_difference
@@ -323,26 +352,30 @@ def _parse_args() -> argparse.Namespace:
         description="Recreate a recorded Roleplay session through HTTP and compare artifacts."
     )
     parser.add_argument("source_log", type=Path, help="Original .debug.jsonl")
-    parser.add_argument("--source-backup", type=Path, help="Optional pre-compaction session JSON")
+    parser.add_argument(
+        "--source-checkpoint",
+        type=Path,
+        help="Optional incremental compaction checkpoint JSON",
+    )
     parser.add_argument("--source-final", type=Path, help="Optional expected final session JSON")
     parser.add_argument("--app-url", default="http://127.0.0.1:8889")
     parser.add_argument("--replay-url", default="http://127.0.0.1:8888")
-    parser.add_argument("--preset", default="thorn-lyra")
+    parser.add_argument("--scenario", default="thorn-lyra")
     return parser.parse_args()
 
 
 async def _async_main() -> int:
     args = _parse_args()
     source_records = load_debug_records(args.source_log)
-    source_backup = load_json_object(args.source_backup) if args.source_backup else None
+    source_checkpoint = load_json_object(args.source_checkpoint) if args.source_checkpoint else None
     turns = build_recorded_turns_from_turn_inputs(source_records)
     result = await replay_and_compare(
         app_url=args.app_url,
         replay_url=args.replay_url,
-        preset=args.preset,
+        scenario=args.scenario,
         turns=turns,
         source_records=source_records,
-        source_backup=source_backup,
+        source_checkpoint=source_checkpoint,
         source_final=load_json_object(args.source_final) if args.source_final else None,
     )
     print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import copy
-import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -61,46 +60,22 @@ class TurnRecord:
     content: str
     content_type: str  # "speech", "thought", "narration", "action"
     scene_snapshot: Scene  # deepcopy of the scene in that turn
+    input_transformed: bool = False
     mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
+    plugin_state_snapshot: dict[str, Any] = field(default_factory=dict)
 
 
-_LEGACY_THOUGHT_RE = re.compile(r"(\*\*[^*]+\*\*)")
+@dataclass(frozen=True)
+class CompactionStackEntry:
+    """Reference to one durable, incrementally reversible compaction."""
 
-
-def migrate_legacy_history(history: list[TurnRecord]) -> list[TurnRecord]:
-    """Split legacy ``**thought**`` fragments out of speech records.
-
-    The transformation is idempotent: only speech records containing legacy
-    wrappers are expanded, while already typed thought records pass through.
-    """
-    migrated: list[TurnRecord] = []
-    for record in history:
-        if record.content_type != "speech" or "**" not in record.content:
-            migrated.append(record)
-            continue
-        parts = _LEGACY_THOUGHT_RE.split(record.content)
-        expanded: list[TurnRecord] = []
-        converted = False
-        for part in parts:
-            content = part.strip()
-            if not content:
-                continue
-            is_thought = content.startswith("**") and content.endswith("**")
-            if is_thought:
-                content = content[2:-2].strip()
-                converted = True
-            expanded.append(
-                TurnRecord(
-                    turn_number=record.turn_number,
-                    speaker=record.speaker,
-                    content=content,
-                    content_type="thought" if is_thought else "speech",
-                    scene_snapshot=record.scene_snapshot,
-                    mood_snapshot=record.mood_snapshot,
-                )
-            )
-        migrated.extend(expanded if converted else [record])
-    return migrated
+    checkpoint_id: str
+    parent_id: str | None
+    trigger: str
+    created_at: str
+    cutoff_turn_number: int
+    max_turn_number: int
+    committed_revision: int
 
 
 @dataclass
@@ -117,6 +92,11 @@ class GameState:
     story_summary: str = ""  # world summary of compacted turns — only the Narrator sees
     # {cid: note} — each character only receives their own note, never another's
     character_notes: dict[str, str] = field(default_factory=dict)
+    revision: int = 0
+    plugin_state: dict[str, Any] = field(default_factory=dict)
+    compaction_stack: list[CompactionStackEntry] = field(default_factory=list)
+    # Character -> native preset identity. Avatar bytes remain outside session state.
+    character_preset_ids: dict[str, str] = field(default_factory=dict)
 
 
 def trim_history_by_tokens(
@@ -190,6 +170,26 @@ def dict_to_character(data: dict[str, Any]) -> Character:
     )
 
 
+def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
+    """Build the current forward-only TurnRecord representation."""
+    snap = data["scene_snapshot"]
+    return TurnRecord(
+        turn_number=data["turn_number"],
+        speaker=data["speaker"],
+        content=data["content"],
+        content_type=data["content_type"],
+        scene_snapshot=Scene(
+            location=snap["location"],
+            time_of_day=snap["time_of_day"],
+            present_characters=list(snap["present_characters"]),
+            physical_facts=dict(snap["physical_facts"]),
+        ),
+        input_transformed=data["input_transformed"],
+        mood_snapshot=dict(data["mood_snapshot"]),
+        plugin_state_snapshot=copy.deepcopy(data["plugin_state_snapshot"]),
+    )
+
+
 def dict_to_game_state(data: dict[str, Any]) -> GameState:
     """Reconstructs GameState from a dict (loaded from JSON).
 
@@ -213,35 +213,32 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         physical_facts=dict(scene_data["physical_facts"]),
     )
 
-    history_raw: list[dict[str, Any]] = data.get("history", [])
-    history: list[TurnRecord] = []
-    for h in history_raw:
-        snap = h["scene_snapshot"]
-        scene_snap = Scene(
-            location=snap["location"],
-            time_of_day=snap["time_of_day"],
-            present_characters=list(snap["present_characters"]),
-            physical_facts=dict(snap["physical_facts"]),
+    history = [dict_to_turn_record(item) for item in data["history"]]
+    compaction_stack = [
+        CompactionStackEntry(
+            checkpoint_id=item["checkpoint_id"],
+            parent_id=item["parent_id"],
+            trigger=item["trigger"],
+            created_at=item["created_at"],
+            cutoff_turn_number=item["cutoff_turn_number"],
+            max_turn_number=item["max_turn_number"],
+            committed_revision=item["committed_revision"],
         )
-        history.append(
-            TurnRecord(
-                turn_number=h["turn_number"],
-                speaker=h["speaker"],
-                content=h["content"],
-                content_type=h["content_type"],
-                scene_snapshot=scene_snap,
-                mood_snapshot=dict(h.get("mood_snapshot", {})),
-            )
-        )
+        for item in data["compaction_stack"]
+    ]
 
     return GameState(
         session_id=data["session_id"],
         characters=characters,
         player=player,
         scene=scene,
-        history=migrate_legacy_history(history),
-        created_at=data.get("created_at", ""),
-        narrator_directives=data.get("narrator_directives", ""),
-        story_summary=data.get("story_summary", ""),
-        character_notes=dict(data.get("character_notes", {})),
+        history=history,
+        created_at=data["created_at"],
+        narrator_directives=data["narrator_directives"],
+        story_summary=data["story_summary"],
+        character_notes=dict(data["character_notes"]),
+        revision=data["revision"],
+        plugin_state=copy.deepcopy(data["plugin_state"]),
+        compaction_stack=compaction_stack,
+        character_preset_ids=dict(data["character_preset_ids"]),
     )

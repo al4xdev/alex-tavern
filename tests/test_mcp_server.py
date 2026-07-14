@@ -77,7 +77,7 @@ async def test_adapter_maps_supported_operations_to_http() -> None:
         assert await api.session_state("abc") == {"session_id": "abc"}
         await api.session_history("abc", 25)
         await api.debug_log("abc", 75)
-        await api.start_session(preset_name="thorn-lyra", controlled_character_id="C1")
+        await api.start_session(scenario_name="thorn-lyra", controlled_character_id="C1")
         await api.fork_session("abc")
         await api.submit_turn(
             "abc", speech="Hello", thought="Stay alert.", action="Wave", force_speaker="C2"
@@ -98,7 +98,7 @@ async def test_adapter_maps_supported_operations_to_http() -> None:
     start_request = next(request for request in requests if request.url.path == "/session/start")
     assert start_request.method == "POST"
     assert start_request.read().decode() == (
-        '{"preset_name":"thorn-lyra","controlled_character_id":"C1"}'
+        '{"scenario_name":"thorn-lyra","controlled_character_id":"C1"}'
     )
     turn_request = next(request for request in requests if request.url.path.endswith("/turn"))
     assert turn_request.read().decode() == (

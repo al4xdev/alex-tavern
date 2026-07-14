@@ -13,11 +13,11 @@ export const Setup = (() => {
     // DOM refs
     const overlay      = document.getElementById('setup-overlay');
     const closeBtn     = document.getElementById('setup-close-btn');
-    const presetSelect = document.getElementById('preset-select');
-    const presetLoadBtn= document.getElementById('preset-load-btn');
-    const presetDelBtn = document.getElementById('preset-delete-btn');
-    const presetNameEl = document.getElementById('preset-name');
-    const presetSaveBtn= document.getElementById('preset-save-btn');
+    const scenarioSelect = document.getElementById('scenario-select');
+    const scenarioLoadBtn= document.getElementById('scenario-load-btn');
+    const scenarioDelBtn = document.getElementById('scenario-delete-btn');
+    const scenarioNameEl = document.getElementById('scenario-name');
+    const scenarioSaveBtn= document.getElementById('scenario-save-btn');
     const directivesEl = document.getElementById('setup-directives');
     const sceneLocEl   = document.getElementById('setup-scene-location');
     const sceneTimeEl  = document.getElementById('setup-scene-time');
@@ -29,11 +29,15 @@ export const Setup = (() => {
     const errorEl      = document.getElementById('setup-error');
     const startBtn     = document.getElementById('start-btn');
     const cardTpl      = document.getElementById('char-card-template');
+    const presetSelect = document.getElementById('preset-select');
+    const presetLoadBtn = document.getElementById('preset-load-btn');
+    const presetDeleteBtn = document.getElementById('preset-delete-btn');
+    const presetEmpty = document.getElementById('preset-empty');
 
     let onStartCb = null;
     let onOpenCb = null;
     let notifyCb = () => {};
-    let hasSession = false; // whether the close (✕) button is allowed
+    let returnFocusEl = null;
 
     /* ── Row builders ─────────────────────────────────────────────────── */
     function makeKvRow(listEl, key = '', val = '') {
@@ -76,7 +80,62 @@ export const Setup = (() => {
         return row;
     }
 
-    function makeCharCard(data = {}) {
+    function characterFromCard(card) {
+        const name = card.querySelector('.char-name').value.trim();
+        return {
+            mind: {
+                name,
+                personality: card.querySelector('.char-personality').value.trim(),
+                knowledge: [...card.querySelectorAll('.knowledge-val')]
+                    .map((input) => input.value.trim()).filter(Boolean),
+                current_mood: card.querySelector('.char-mood').value.trim(),
+            },
+            body: {
+                name,
+                physical_description: card.querySelector('.char-physical').value.trim(),
+                outfit: card.querySelector('.char-outfit').value.trim(),
+            },
+        };
+    }
+
+    function showCardAvatar(card, url = '') {
+        const img = card.querySelector('.char-avatar-preview img');
+        const fallback = card.querySelector('.char-avatar-preview span');
+        img.src = url;
+        img.hidden = !url;
+        fallback.hidden = Boolean(url);
+        if (!url) fallback.textContent = (card.querySelector('.char-name').value.trim()[0] || '?').toUpperCase();
+    }
+
+    async function processAvatar(file) {
+        if (!file || file.size > 10 * 1024 * 1024) throw new Error(t('presets.avatarTooLarge'));
+        const bitmap = await createImageBitmap(file);
+        const side = Math.min(bitmap.width, bitmap.height);
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext('2d');
+        context.drawImage(
+            bitmap,
+            (bitmap.width - side) / 2,
+            (bitmap.height - side) / 2,
+            side,
+            side,
+            0,
+            0,
+            256,
+            256,
+        );
+        bitmap.close();
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82));
+        if (!blob) throw new Error(t('presets.avatarProcessError'));
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let binary = '';
+        bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+        return { base64: btoa(binary), preview: URL.createObjectURL(blob) };
+    }
+
+    function makeCharCard(data = {}, preset = {}) {
         const frag = cardTpl.content.cloneNode(true);
         translateDocument(frag);
         const card = frag.querySelector('.char-card');
@@ -87,6 +146,11 @@ export const Setup = (() => {
         card.querySelector('.char-mood').value = mind.current_mood || '';
         card.querySelector('.char-outfit').value = body.outfit || '';
         card.querySelector('.char-physical').value = body.physical_description || '';
+        card.dataset.presetName = preset.preset_name || '';
+        card.dataset.presetRevision = preset.revision ? String(preset.revision) : '';
+        card.dataset.avatarBase64 = '';
+        card.querySelector('.char-preset-name').value = preset.preset_name || '';
+        showCardAvatar(card, preset.avatar?.url || '');
 
         const kList = card.querySelector('.knowledge-list');
         (mind.knowledge && mind.knowledge.length ? mind.knowledge : ['']).forEach((k) =>
@@ -101,6 +165,16 @@ export const Setup = (() => {
 
         // keep controlled dropdown in sync as the name changes
         card.querySelector('.char-name').addEventListener('input', refreshControlled);
+        card.querySelector('.char-avatar-file').addEventListener('change', async (event) => {
+            try {
+                const processed = await processAvatar(event.target.files?.[0]);
+                card.dataset.avatarBase64 = processed.base64;
+                showCardAvatar(card, processed.preview);
+            } catch (error) {
+                notify(error.message, 'error');
+            }
+        });
+        card.querySelector('.char-save-preset').addEventListener('click', () => saveCardPreset(card));
 
         charsListEl.appendChild(card);
         reindexCards();
@@ -136,25 +210,11 @@ export const Setup = (() => {
     /* ── Collect / populate ───────────────────────────────────────────── */
     function collect() {
         const characters = {};
+        const character_preset_ids = {};
         [...charsListEl.querySelectorAll('.char-card')].forEach((card) => {
             const cid = card.dataset.cid;
-            const knowledge = [...card.querySelectorAll('.knowledge-val')]
-                .map((i) => i.value.trim())
-                .filter(Boolean);
-            const name = card.querySelector('.char-name').value.trim();
-            characters[cid] = {
-                mind: {
-                    name,
-                    personality: card.querySelector('.char-personality').value.trim(),
-                    knowledge,
-                    current_mood: card.querySelector('.char-mood').value.trim(),
-                },
-                body: {
-                    name,
-                    physical_description: card.querySelector('.char-physical').value.trim(),
-                    outfit: card.querySelector('.char-outfit').value.trim(),
-                },
-            };
+            characters[cid] = characterFromCard(card);
+            if (card.dataset.presetName) character_preset_ids[cid] = card.dataset.presetName;
         });
 
         const physical_facts = {};
@@ -168,6 +228,7 @@ export const Setup = (() => {
             controlled_character_id: controlledEl.value,
             narrator_directives: directivesEl.value.trim(),
             characters,
+            character_preset_ids,
             scene: {
                 location: sceneLocEl.value.trim(),
                 time_of_day: sceneTimeEl.value.trim(),
@@ -191,7 +252,11 @@ export const Setup = (() => {
         charsListEl.innerHTML = '';
         const chars = cfg.characters || {};
         const ids = Object.keys(chars);
-        if (ids.length) ids.forEach((cid) => makeCharCard(chars[cid]));
+        const presetIds = cfg.character_preset_ids || {};
+        if (ids.length) ids.forEach((cid) => {
+            const card = makeCharCard(chars[cid], { preset_name: presetIds[cid] || '' });
+            if (presetIds[cid]) hydrateCardPreset(card, presetIds[cid]);
+        });
         else makeCharCard({});
 
         reindexCards();
@@ -201,13 +266,122 @@ export const Setup = (() => {
         }
     }
 
-    /* ── Built-in presets use the same canonical shape as user presets ─ */
-    async function loadBuiltinPreset(name = '') {
+    async function hydrateCardPreset(card, name) {
         try {
-            const data = await api.getDefaults(name);
-            populate(data.preset);
+            const preset = await api.getPreset(name);
+            card.dataset.presetName = name;
+            card.dataset.presetRevision = String(preset.revision);
+            card.querySelector('.char-preset-name').value = name;
+            showCardAvatar(card, preset.avatar?.url || '');
+        } catch { /* a missing preset is reported when starting the session */ }
+    }
+
+    async function refreshPresets(selected = '') {
+        try {
+            const data = await api.listPresets();
+            presetSelect.innerHTML = '';
+            data.presets.forEach((preset) => {
+                const option = document.createElement('option');
+                option.value = preset.preset_name;
+                option.textContent = `${preset.display_name} · ${preset.preset_name}`;
+                option.dataset.revision = String(preset.revision);
+                presetSelect.appendChild(option);
+            });
+            if (selected && [...presetSelect.options].some((option) => option.value === selected)) {
+                presetSelect.value = selected;
+            }
+            const empty = !data.presets.length;
+            presetEmpty.hidden = !empty;
+            presetSelect.disabled = empty;
+            presetLoadBtn.disabled = empty;
+            presetDeleteBtn.disabled = empty;
+        } catch (error) {
+            notify(t('presets.listError', { error: error.message }), 'error');
+        }
+    }
+
+    async function loadSelectedPreset() {
+        if (!presetSelect.value) return;
+        try {
+            const preset = await api.getPreset(presetSelect.value);
+            const card = makeCharCard(preset.character, preset);
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (error) {
+            notify(t('presets.loadError', { error: error.message }), 'error');
+        }
+    }
+
+    async function saveCardPreset(card) {
+        const name = card.querySelector('.char-preset-name').value.trim();
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/.test(name)) {
+            notify(t('presets.nameError'), 'error');
+            return;
+        }
+        let revision = Number(card.dataset.presetRevision) || null;
+        let replace = Boolean(revision && card.dataset.presetName === name);
+        const payload = () => ({
+            character: characterFromCard(card),
+            avatar: card.dataset.avatarBase64
+                ? { media_type: 'image/webp', data_base64: card.dataset.avatarBase64 }
+                : null,
+            expected_revision: replace ? revision : null,
+            replace,
+        });
+        try {
+            let saved;
+            try {
+                saved = await api.savePreset(name, payload());
+            } catch (error) {
+                if (error.status !== 409 || !confirm(t('presets.replaceConfirm', { name }))) throw error;
+                const current = await api.getPreset(name);
+                revision = current.revision;
+                replace = true;
+                saved = await api.savePreset(name, payload());
+            }
+            card.dataset.presetName = name;
+            card.dataset.presetRevision = String(saved.revision);
+            card.dataset.avatarBase64 = '';
+            showCardAvatar(card, saved.avatar?.url || '');
+            await refreshPresets(name);
+            notify(t('presets.saved', { name }));
+        } catch (error) {
+            notify(t('presets.saveError', { error: error.message }), 'error');
+        }
+    }
+
+    async function deleteSelectedPreset() {
+        const option = presetSelect.selectedOptions[0];
+        if (!option || !confirm(t('presets.deleteConfirm', { name: option.value }))) return;
+        try {
+            await api.deletePreset(option.value, Number(option.dataset.revision));
+            await refreshPresets();
+            notify(t('presets.deleted'));
+        } catch (error) {
+            notify(t('presets.deleteError', { error: error.message }), 'error');
+        }
+    }
+
+    async function openPresetDraft(character, presetName, avatarFile = null) {
+        open();
+        const card = makeCharCard(character, { preset_name: presetName });
+        if (avatarFile) {
+            try {
+                const processed = await processAvatar(avatarFile);
+                card.dataset.avatarBase64 = processed.base64;
+                showCardAvatar(card, processed.preview);
+            } catch (error) { notify(error.message, 'error'); }
+        }
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.querySelector('.char-name').focus();
+    }
+
+    /* ── Built-in scenarios use the same canonical shape as user scenarios ─ */
+    async function loadBuiltinScenario(name = '') {
+        try {
+            const data = await api.getBuiltinScenario(name);
+            populate(data.scenario);
         } catch (err) {
-            showError('presets.defaultLoadError', { error: err.message });
+            showError('scenarios.defaultLoadError', { error: err.message });
         }
     }
 
@@ -248,104 +422,112 @@ export const Setup = (() => {
         } catch { return null; }
     }
 
-    /* ── Named presets ────────────────────────────────────────────────── */
+    /* ── Named scenarios ────────────────────────────────────────────────── */
     function notify(msg, type = 'success') {
         notifyCb(msg, type, 2500);
     }
 
-    async function refreshPresetSelect(selected) {
-        let defaultPresets = [];
-        let userPresets = [];
+    async function refreshScenarioSelect(selected) {
+        let defaultScenarios = [];
+        let userScenarios = [];
         try {
-            const defData = await api.getDefaults();
-            defaultPresets = defData.presets;
-            userPresets = await api.listPresets();
+            const defData = await api.getBuiltinScenario();
+            defaultScenarios = defData.scenarios;
+            userScenarios = await api.listScenarios();
         } catch (err) {
-            showError('presets.refreshError', { error: err.message });
+            showError('scenarios.refreshError', { error: err.message });
         }
 
-        presetSelect.innerHTML = '';
+        scenarioSelect.innerHTML = '';
 
-        defaultPresets.forEach((name) => {
+        defaultScenarios.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = `builtin:${name}`;
-            opt.textContent = `${name} (${t('presets.builtinSuffix')})`;
-            presetSelect.appendChild(opt);
+            opt.textContent = `${name} (${t('scenarios.builtinSuffix')})`;
+            scenarioSelect.appendChild(opt);
         });
 
-        userPresets.forEach((name) => {
+        userScenarios.forEach((name) => {
             const opt = document.createElement('option');
             opt.value = `user:${name}`;
             opt.textContent = name;
-            presetSelect.appendChild(opt);
+            scenarioSelect.appendChild(opt);
         });
 
-        if (selected && [...presetSelect.options].some((o) => o.value === selected)) {
-            presetSelect.value = selected;
-        } else if (defaultPresets.length > 0) {
-            presetSelect.value = `builtin:${defaultPresets[0]}`;
+        if (selected && [...scenarioSelect.options].some((o) => o.value === selected)) {
+            scenarioSelect.value = selected;
+        } else if (defaultScenarios.length > 0) {
+            scenarioSelect.value = `builtin:${defaultScenarios[0]}`;
         }
-        presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
+        scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
     }
 
-    async function loadSelectedPreset() {
-        const val = presetSelect.value;
+    async function loadSelectedScenario() {
+        const val = scenarioSelect.value;
         if (val.startsWith('builtin:')) {
             const name = val.replace(/^builtin:/, '');
-            await loadBuiltinPreset(name);
-            notify(t('presets.defaultLoaded', { name }));
+            await loadBuiltinScenario(name);
+            notify(t('scenarios.defaultLoaded', { name }));
             return;
         }
         const name = val.replace(/^user:/, '');
         try {
-            const cfg = await api.getPreset(name);
+            const cfg = await api.getScenario(name);
             populate(cfg);
             clearError();
-            notify(t('presets.loaded', { name }));
+            notify(t('scenarios.loaded', { name }));
         } catch (err) {
-            showError('presets.serverLoadError', { error: err.message });
+            showError('scenarios.serverLoadError', { error: err.message });
         }
     }
 
-    async function saveCurrentPreset() {
-        const name = presetNameEl.value.trim();
-        if (!name) { showError('presets.nameRequired'); return; }
+    async function saveCurrentScenario() {
+        const name = scenarioNameEl.value.trim();
+        if (!name) { showError('scenarios.nameRequired'); return; }
         const cfg = collect();
         const problem = validate(cfg);
         if (problem) { showError(problem.key, problem.params); return; }
         try {
-            await api.savePreset(name, cfg);
-            presetNameEl.value = '';
-            await refreshPresetSelect(`user:${name}`);
+            await api.saveScenario(name, cfg);
+            scenarioNameEl.value = '';
+            await refreshScenarioSelect(`user:${name}`);
             clearError();
-            notify(t('presets.saved', { name }));
+            notify(t('scenarios.saved', { name }));
         } catch (err) {
-            showError('presets.saveError', { error: err.message });
+            showError('scenarios.saveError', { error: err.message });
         }
     }
 
-    async function deleteSelectedPreset() {
-        const val = presetSelect.value;
+    async function deleteSelectedScenario() {
+        const val = scenarioSelect.value;
         if (!val.startsWith('user:')) return;
         const name = val.replace(/^user:/, '');
         try {
-            await api.deletePreset(name);
-            await refreshPresetSelect();
-            notify(t('presets.deleted', { name }));
+            await api.deleteScenario(name);
+            await refreshScenarioSelect();
+            notify(t('scenarios.deleted', { name }));
         } catch (err) {
-            showError('presets.deleteError', { error: err.message });
+            showError('scenarios.deleteError', { error: err.message });
         }
     }
 
     /* ── Open / close ─────────────────────────────────────────────────── */
     function open() {
         clearError();
-        closeBtn.style.display = hasSession ? '' : 'none';
+        returnFocusEl = document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
         overlay.classList.add('active');
+        closeBtn.focus({ preventScroll: true });
         if (onOpenCb) onOpenCb();
+        refreshPresets();
     }
     function close() {
         overlay.classList.remove('active');
+        if (returnFocusEl?.isConnected) {
+            returnFocusEl.focus({ preventScroll: true });
+        }
+        returnFocusEl = null;
     }
 
     /* ── Wiring ───────────────────────────────────────────────────────── */
@@ -355,7 +537,6 @@ export const Setup = (() => {
         const problem = validate(cfg);
         if (problem) { showError(problem.key, problem.params); return; }
         save(cfg);
-        hasSession = true;
         close();
         if (onStartCb) onStartCb(cfg);
     }
@@ -368,26 +549,34 @@ export const Setup = (() => {
         addFactBtn.addEventListener('click', () => makeKvRow(factsListEl, '', ''));
         addCharBtn.addEventListener('click', () => makeCharCard({}));
         startBtn.addEventListener('click', handleStart);
-        closeBtn.addEventListener('click', () => { if (hasSession) close(); });
+        closeBtn.addEventListener('click', close);
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && hasSession) close();
+            if (e.target === overlay) close();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || !overlay.classList.contains('active')) return;
+            event.preventDefault();
+            close();
         });
 
-        // Presets
-        presetLoadBtn.addEventListener('click', loadSelectedPreset);
-        presetSaveBtn.addEventListener('click', saveCurrentPreset);
-        presetDelBtn.addEventListener('click', deleteSelectedPreset);
-        presetSelect.addEventListener('change', () => {
-            presetDelBtn.disabled = !presetSelect.value.startsWith('user:');
+        // Scenarios
+        scenarioLoadBtn.addEventListener('click', loadSelectedScenario);
+        scenarioSaveBtn.addEventListener('click', saveCurrentScenario);
+        scenarioDelBtn.addEventListener('click', deleteSelectedScenario);
+        scenarioSelect.addEventListener('change', () => {
+            scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
         });
+        presetLoadBtn.addEventListener('click', loadSelectedPreset);
+        presetDeleteBtn.addEventListener('click', deleteSelectedPreset);
         onLocaleChange(() => {
-            [...presetSelect.options].forEach((option) => {
+            [...scenarioSelect.options].forEach((option) => {
                 if (!option.value.startsWith('builtin:')) return;
                 const name = option.value.replace(/^builtin:/, '');
-                option.textContent = `${name} (${t('presets.builtinSuffix')})`;
+                option.textContent = `${name} (${t('scenarios.builtinSuffix')})`;
             });
         });
-        refreshPresetSelect();
+        refreshScenarioSelect();
+        refreshPresets();
 
         // Pre-fill from last saved setup, else empty scaffolding
         const saved = loadSaved();
@@ -395,9 +584,5 @@ export const Setup = (() => {
         else populate({ characters: {}, scene: {} });
     }
 
-    function setHasSession(val) {
-        hasSession = Boolean(val);
-    }
-
-    return { init, open, close, setHasSession };
+    return { init, open, close, openPresetDraft };
 })();

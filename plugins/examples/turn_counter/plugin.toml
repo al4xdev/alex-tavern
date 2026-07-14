@@ -1,0 +1,20 @@
+schema_version = 1
+id = "dev.alex-tavern.turn-counter"
+name = "Turn Counter"
+version = "1.0.0"
+description = "Minimal stateful filter used by core lifecycle tests."
+license = "MIT"
+authors = ["Alex Tavern"]
+permissions = ["session.state.write"]
+dependencies = []
+
+[entrypoints]
+backend = "backend.py"
+
+[order]
+priority = 10
+before = []
+after = []
+
+[python]
+dependencies = []

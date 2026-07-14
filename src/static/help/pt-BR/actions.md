@@ -12,4 +12,5 @@ Descubra controles avançados de ações localizados junto ao botão Enviar (Sen
 - 💡 **Sugestão (Suggest)**: Solicita ao Narrador 3 opções plausíveis de fala e ação para seu personagem.
 - 📜 **Dica do Narrador (Hint)**: Direciona o Narrador injetando um evento externo na cena.
 - ↩ **Desfazer (Undo)**: Reverte a última rodada de turnos.
-- 🗜️ **Compactar (Compact)**: Comprime o histórico antigo em notas e resumos.
+- 🗜️ **Compactar (Compact)**: Resume o histórico antigo agora, mostrando progresso real.
+- 🧯 **Desfazer Compactação**: Recupera o checkpoint mais recente sem apagar turnos posteriores.

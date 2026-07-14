@@ -9,6 +9,7 @@ import pytest
 from tools.replay_session import (
     ReplaySessionError,
     build_recorded_turns_from_turn_inputs,
+    compare_checkpoint_input,
     first_difference,
     inspect_turn_state,
     load_debug_records,
@@ -209,6 +210,21 @@ def test_first_difference_returns_none_for_equal_values() -> None:
     value = {"a": [1, {"b": True}]}
 
     assert first_difference(value, value) is None
+
+
+def test_checkpoint_input_comparison_uses_incremental_domains() -> None:
+    state = _source_state() | {"story_summary": "before", "character_notes": {"C1": "note"}}
+    checkpoint = {
+        "schema_version": 1,
+        "cutoff_turn_number": 2,
+        "evicted_history": [dict(record) for record in state["history"][:2]],
+        "before_story_summary": "before",
+        "before_character_notes": {"C1": "note"},
+    }
+
+    assert compare_checkpoint_input(checkpoint, state) is None
+    checkpoint["evicted_history"][0]["content"] = "drift"
+    assert "evicted_history" in str(compare_checkpoint_input(checkpoint, state))
 
 
 def test_inspect_turn_state_reports_per_turn_evidence() -> None:
