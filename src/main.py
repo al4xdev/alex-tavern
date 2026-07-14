@@ -585,11 +585,16 @@ class PluginActivationRequest(BaseModel):
     sha256: str | None = None
 
 
+class PluginUpdateRequest(BaseModel):
+    version: str
+    sha256: str
+
+
 @app.get("/plugins")
 def get_plugins() -> dict[str, Any]:
-    from src.plugins.store import installed_plugins
+    from src.plugins.store import plugin_inventory
 
-    return {"installed": installed_plugins(), **_runtime().plugins.public_status()}
+    return {"plugins": plugin_inventory(), **_runtime().plugins.public_status()}
 
 
 @app.get("/plugins/events")
@@ -656,6 +661,28 @@ async def upload_plugin(request: Request) -> dict[str, Any]:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
 
+@app.post("/plugins/inspect-upload")
+async def inspect_uploaded_plugin(request: Request) -> dict[str, Any]:
+    """Validate an external ZIP and expose its review contract without installing it."""
+    from src.plugins.store import PluginInstallError, inspect_zip
+
+    with tempfile.TemporaryDirectory(prefix="alex-tavern-inspect-") as temporary:
+        path = Path(temporary) / "plugin.zip"
+        size = 0
+        with path.open("wb") as handle:
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > 100 * 1024 * 1024:
+                    raise HTTPException(status_code=422, detail="Plugin ZIP exceeds 100 MiB")
+                handle.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=422, detail="Plugin ZIP is empty")
+        try:
+            return inspect_zip(path)
+        except PluginInstallError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+
 @app.get("/plugins/catalog")
 def get_plugin_catalog(refresh: bool = False) -> dict[str, Any]:
     from src.plugins.hub import HubSyncError, ensure_hub_synced
@@ -680,22 +707,38 @@ def install_curated_plugin(plugin_id: str, version: str | None = None) -> dict[s
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
+@app.post("/plugins/catalog/{plugin_id}/update")
+def update_curated_plugin(
+    plugin_id: str,
+    body: PluginUpdateRequest,
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, update_curated
+    from src.supervisor import request_restart
+
+    try:
+        result = update_curated(plugin_id, body.version, body.sha256)
+    except (PluginInstallError, OSError, RuntimeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    background_tasks.add_task(request_restart)
+    return result
+
+
 @app.post("/plugins/{plugin_id}/activate")
 def activate_plugin(
     plugin_id: str,
     body: PluginActivationRequest,
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, activate, rebuild_environment
+    from src.plugins.store import PluginInstallError, switch_activation
     from src.supervisor import request_restart
 
     try:
-        pointer = activate(plugin_id, body.version, body.sha256)
-        environment = rebuild_environment()
+        result = switch_activation(plugin_id, body.version, body.sha256)
     except (PluginInstallError, OSError, RuntimeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
     background_tasks.add_task(request_restart)
-    return {"activated": pointer, "environment": environment, "restart": True}
+    return {**result, "restart": True}
 
 
 @app.post("/plugins/{plugin_id}/deactivate")

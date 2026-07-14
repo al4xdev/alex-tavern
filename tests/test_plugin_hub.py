@@ -29,12 +29,33 @@ def _patch_data_paths(monkeypatch: pytest.MonkeyPatch, root: Path) -> None:
     monkeypatch.setattr(experiences_module, "EXPERIENCES_DIR", experiences)
 
 
-def _build_hub_archive(root: Path, *, valid_hash: bool = True) -> Path:
+def _build_hub_archive(
+    root: Path,
+    *,
+    valid_hash: bool = True,
+    manifest_id: str = "dev.test.sample",
+    duplicate_release: bool = False,
+) -> Path:
     source = root / "source" / "alex-tavern-plugins-master"
     artifact = source / "artifacts" / "sample.zip"
     artifact.parent.mkdir(parents=True)
     with zipfile.ZipFile(artifact, "w") as package:
-        package.writestr("plugin.toml", 'schema_version = 1\nid = "dev.test.sample"\n')
+        package.writestr(
+            "plugin.toml",
+            f"""schema_version = 1
+id = "{manifest_id}"
+name = "Sample"
+version = "1.0.0"
+description = "Test plugin"
+license = "MIT"
+authors = ["Test"]
+permissions = []
+
+[entrypoints]
+backend = "backend.py"
+""",
+        )
+        package.writestr("backend.py", "def setup(api):\n    pass\n")
     artifact_hash = hashlib.sha256(artifact.read_bytes()).hexdigest()
 
     experience = {
@@ -52,19 +73,18 @@ def _build_hub_archive(root: Path, *, valid_hash: bool = True) -> Path:
     image.parent.mkdir(parents=True)
     image.write_bytes(b"GIF89a-test")
 
+    release = {
+        "id": "dev.test.sample",
+        "name": "Sample",
+        "version": "1.0.0",
+        "description": "Test plugin",
+        "license": "MIT",
+        "artifact": "artifacts/sample.zip",
+        "sha256": artifact_hash if valid_hash else "0" * 64,
+    }
     catalog = {
         "schema_version": 1,
-        "plugins": [
-            {
-                "id": "dev.test.sample",
-                "name": "Sample",
-                "version": "1.0.0",
-                "description": "Test plugin",
-                "license": "MIT",
-                "artifact": "artifacts/sample.zip",
-                "sha256": artifact_hash if valid_hash else "0" * 64,
-            }
-        ],
+        "plugins": [release, dict(release)] if duplicate_release else [release],
         "experiences": [{"manifest": "experiences/sample.json", "image": "assets/sample.gif"}],
     }
     (source / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
@@ -125,6 +145,30 @@ def test_invalid_update_keeps_previous_valid_snapshot(
         hub.sync_hub("https://example.test/hub.zip")
 
     assert store.curated_catalog() == previous
+
+
+def test_sync_rejects_catalog_manifest_identity_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_data_paths(monkeypatch, tmp_path / "data")
+    archive = _build_hub_archive(tmp_path, manifest_id="dev.test.other")
+    _use_archive(monkeypatch, archive)
+
+    with pytest.raises(hub.HubSyncError, match="manifest does not match"):
+        hub.sync_hub("https://example.test/hub.zip")
+
+
+def test_sync_rejects_duplicate_release_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_data_paths(monkeypatch, tmp_path / "data")
+    archive = _build_hub_archive(tmp_path, duplicate_release=True)
+    _use_archive(monkeypatch, archive)
+
+    with pytest.raises(hub.HubSyncError, match="Duplicate curated release"):
+        hub.sync_hub("https://example.test/hub.zip")
 
 
 def test_refresh_uses_stale_cache_when_remote_is_offline(

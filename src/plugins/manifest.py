@@ -5,16 +5,100 @@ from __future__ import annotations
 import re
 import tomllib
 from dataclasses import dataclass
+from functools import total_ordering
 from pathlib import Path
 from typing import Any
 
 PLUGIN_API_VERSION = 1
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
-_VERSION_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][a-zA-Z0-9.-]+)?$")
+_VERSION_RE = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
 
 
 class ManifestError(ValueError):
     """Raised when a package does not implement the current plugin contract."""
+
+
+@total_ordering
+@dataclass(frozen=True, slots=True)
+class SemanticVersion:
+    """SemVer 2.0 precedence value; build metadata does not affect ordering."""
+
+    major: int
+    minor: int
+    patch: int
+    prerelease: tuple[str, ...] = ()
+    build: tuple[str, ...] = ()
+
+    @classmethod
+    def parse(cls, value: str) -> SemanticVersion:
+        match = _VERSION_RE.fullmatch(value)
+        if match is None:
+            raise ManifestError(f"Invalid semantic version: {value}")
+        prerelease = tuple((match.group(4) or "").split(".")) if match.group(4) else ()
+        build = tuple((match.group(5) or "").split(".")) if match.group(5) else ()
+        if any(part.isdigit() and len(part) > 1 and part.startswith("0") for part in prerelease):
+            raise ManifestError(f"Invalid semantic version: {value}")
+        return cls(
+            int(match.group(1)),
+            int(match.group(2)),
+            int(match.group(3)),
+            prerelease,
+            build,
+        )
+
+    def _compare_prerelease(self, other: SemanticVersion) -> int:
+        if not self.prerelease and not other.prerelease:
+            return 0
+        if not self.prerelease:
+            return 1
+        if not other.prerelease:
+            return -1
+        for left, right in zip(self.prerelease, other.prerelease, strict=False):
+            if left == right:
+                continue
+            left_numeric = left.isdigit()
+            right_numeric = right.isdigit()
+            if left_numeric and right_numeric:
+                return -1 if int(left) < int(right) else 1
+            if left_numeric != right_numeric:
+                return -1 if left_numeric else 1
+            return -1 if left < right else 1
+        if len(self.prerelease) == len(other.prerelease):
+            return 0
+        return -1 if len(self.prerelease) < len(other.prerelease) else 1
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, SemanticVersion):
+            return NotImplemented
+        core = (self.major, self.minor, self.patch)
+        other_core = (other.major, other.minor, other.patch)
+        return core < other_core or (core == other_core and self._compare_prerelease(other) < 0)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SemanticVersion):
+            return NotImplemented
+        return (
+            self.major,
+            self.minor,
+            self.patch,
+            self.prerelease,
+        ) == (
+            other.major,
+            other.minor,
+            other.patch,
+            other.prerelease,
+        )
+
+
+def compare_versions(left: str, right: str) -> int:
+    """Return SemVer precedence without treating build metadata as a release update."""
+    parsed_left = SemanticVersion.parse(left)
+    parsed_right = SemanticVersion.parse(right)
+    return (parsed_left > parsed_right) - (parsed_left < parsed_right)
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,13 +282,7 @@ def load_manifest(package_dir: Path) -> PluginManifest:
 def satisfies_version(version: str, expression: str) -> bool:
     """Evaluate the small semver constraint language used by plugin dependencies."""
 
-    def parsed(value: str) -> tuple[int, int, int]:
-        match = re.match(r"^(\d+)\.(\d+)\.(\d+)", value)
-        if match is None:
-            raise ManifestError(f"Invalid semantic version: {value}")
-        return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
-
-    actual = parsed(version)
+    actual = SemanticVersion.parse(version)
     if expression.strip() in {"", "*"}:
         return True
     for raw_constraint in expression.split(","):
@@ -217,7 +295,7 @@ def satisfies_version(version: str, expression: str) -> bool:
             ),
             "=",
         )
-        expected = parsed(constraint.removeprefix(operator).strip())
+        expected = SemanticVersion.parse(constraint.removeprefix(operator).strip())
         if operator == ">=" and actual < expected:
             return False
         if operator == "<=" and actual > expected:
@@ -228,8 +306,10 @@ def satisfies_version(version: str, expression: str) -> bool:
             return False
         if operator == "=" and actual != expected:
             return False
-        if operator == "^" and not (actual >= expected and actual[0] == expected[0]):
+        if operator == "^" and not (actual >= expected and actual.major == expected.major):
             return False
-        if operator == "~" and not (actual >= expected and actual[:2] == expected[:2]):
+        if operator == "~" and not (
+            actual >= expected and (actual.major, actual.minor) == (expected.major, expected.minor)
+        ):
             return False
     return True

@@ -19,6 +19,8 @@ from src.paths import SESSIONS_DIR
 _session_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
 _session_locks_guard = threading.Lock()
 _JSON_READ_ERRORS = (json.JSONDecodeError, OSError)
+_SESSION_SCHEMA_ERRORS = (KeyError, TypeError, ValueError, AttributeError)
+_SESSION_READ_ERRORS = _JSON_READ_ERRORS + _SESSION_SCHEMA_ERRORS
 
 
 def _get_lock(session_id: str) -> asyncio.Lock:
@@ -141,19 +143,20 @@ def list_sessions() -> list[dict[str, Any]]:
         path = directory / "state.json"
         try:
             data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-        except _JSON_READ_ERRORS:
+            game = dict_to_game_state(data)
+        except _SESSION_READ_ERRORS:
             continue
         summaries.append(
             {
-                "session_id": data["session_id"],
+                "session_id": game.session_id,
                 "characters": [
-                    {"name": character["mind"]["name"]} for character in data["characters"].values()
+                    {"name": character.mind.name} for character in game.characters.values()
                 ],
-                "scene_location": data["scene"]["location"],
-                "turn_count": len(data["history"]),
-                "created_at": data["created_at"],
-                "revision": data["revision"],
-                "compaction_depth": len(data["compaction_stack"]),
+                "scene_location": game.scene.location,
+                "turn_count": len(game.history),
+                "created_at": game.created_at,
+                "revision": game.revision,
+                "compaction_depth": len(game.compaction_stack),
             }
         )
     summaries.sort(key=lambda item: item["created_at"], reverse=True)

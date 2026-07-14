@@ -14,7 +14,13 @@ from typing import Any
 
 from src.paths import PLUGIN_CACHE_DIR, PLUGIN_ENV_DIR, PLUGIN_HUB_DIR, PLUGIN_STARTED_DIR
 from src.plugins.journal import emit
-from src.plugins.manifest import ManifestError, PluginManifest, load_manifest
+from src.plugins.manifest import (
+    ManifestError,
+    PluginManifest,
+    SemanticVersion,
+    compare_versions,
+    load_manifest,
+)
 from src.plugins.sdk import _atomic_json
 
 _lock = threading.RLock()
@@ -63,6 +69,23 @@ def validate_package(package_dir: Path) -> PluginManifest:
         if entrypoint and not (package_dir / entrypoint).is_file():
             raise PluginInstallError(f"Missing entrypoint: {entrypoint}")
     return manifest
+
+
+def inspect_zip(zip_path: Path) -> dict[str, Any]:
+    """Read the authoritative manifest from a ZIP without installing it."""
+    if not zip_path.is_file():
+        raise PluginInstallError(f"ZIP not found: {zip_path}")
+    archive_hash = _sha256(zip_path)
+    with tempfile.TemporaryDirectory(prefix="alex-tavern-plugin-inspect-") as temporary:
+        extracted = Path(temporary) / "package"
+        extracted.mkdir()
+        try:
+            with zipfile.ZipFile(zip_path) as archive:
+                archive.extractall(extracted, _safe_members(archive))
+            manifest = validate_package(_package_root(extracted))
+        except (zipfile.BadZipFile, ManifestError, OSError) as error:
+            raise PluginInstallError(str(error)) from error
+    return {"manifest": manifest.public_dict(), "sha256": archive_hash}
 
 
 def install_zip(zip_path: Path) -> dict[str, Any]:
@@ -129,6 +152,10 @@ def install_curated(plugin_id: str, version: str | None = None) -> dict[str, Any
         raise PluginInstallError(
             f"Curated artifact hash mismatch: expected {expected_hash}, received {actual_hash}"
         )
+    inspected = inspect_zip(artifact)
+    manifest = inspected["manifest"]
+    if manifest["plugin_id"] != plugin_id or manifest["version"] != selected.get("version"):
+        raise PluginInstallError("Curated artifact manifest does not match its catalog release")
     return install_zip(artifact)
 
 
@@ -160,12 +187,183 @@ def installed_plugins() -> list[dict[str, Any]]:
             )
         return sorted(
             result,
-            key=lambda item: (item["manifest"]["plugin_id"], item["manifest"]["version"]),
+            key=lambda item: (
+                item["manifest"]["plugin_id"],
+                SemanticVersion.parse(item["manifest"]["version"]),
+                item["sha256"],
+            ),
         )
+
+
+def _manifest_diff(current: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+    current_permissions = set(current.get("permissions", []))
+    candidate_permissions = set(candidate.get("permissions", []))
+    current_dependencies = {
+        item["plugin_id"]: {"version": item["version"], "optional": item["optional"]}
+        for item in current.get("dependencies", [])
+    }
+    candidate_dependencies = {
+        item["plugin_id"]: {"version": item["version"], "optional": item["optional"]}
+        for item in candidate.get("dependencies", [])
+    }
+    changed_dependencies = [
+        {
+            "plugin_id": plugin_id,
+            "from": current_dependencies[plugin_id],
+            "to": candidate_dependencies[plugin_id],
+        }
+        for plugin_id in sorted(current_dependencies.keys() & candidate_dependencies.keys())
+        if current_dependencies[plugin_id] != candidate_dependencies[plugin_id]
+    ]
+    return {
+        "permissions": {
+            "added": sorted(candidate_permissions - current_permissions),
+            "removed": sorted(current_permissions - candidate_permissions),
+        },
+        "dependencies": {
+            "added": [
+                {"plugin_id": plugin_id, **candidate_dependencies[plugin_id]}
+                for plugin_id in sorted(candidate_dependencies.keys() - current_dependencies.keys())
+            ],
+            "removed": [
+                {"plugin_id": plugin_id, **current_dependencies[plugin_id]}
+                for plugin_id in sorted(current_dependencies.keys() - candidate_dependencies.keys())
+            ],
+            "changed": changed_dependencies,
+        },
+        "entrypoints": {
+            "from": current.get("entrypoints", {}),
+            "to": candidate.get("entrypoints", {}),
+            "changed": current.get("entrypoints", {}) != candidate.get("entrypoints", {}),
+        },
+        "python_dependencies": {
+            "from": current.get("python_dependencies", []),
+            "to": candidate.get("python_dependencies", []),
+            "changed": current.get("python_dependencies", [])
+            != candidate.get("python_dependencies", []),
+        },
+    }
+
+
+def _catalog_releases() -> dict[str, list[dict[str, Any]]]:
+    releases: dict[str, list[dict[str, Any]]] = {}
+    for entry in curated_catalog()["plugins"]:
+        if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
+            continue
+        artifact = (PLUGIN_HUB_DIR / str(entry.get("artifact", ""))).resolve()
+        if PLUGIN_HUB_DIR.resolve() not in artifact.parents:
+            raise PluginInstallError("Curated artifact path is invalid")
+        inspected = inspect_zip(artifact)
+        manifest = inspected["manifest"]
+        if (
+            manifest["plugin_id"] != entry["id"]
+            or manifest["version"] != entry.get("version")
+            or inspected["sha256"] != entry.get("sha256")
+        ):
+            raise PluginInstallError("Curated artifact manifest does not match its catalog release")
+        releases.setdefault(entry["id"], []).append(
+            {"manifest": manifest, "sha256": inspected["sha256"]}
+        )
+    return releases
+
+
+def plugin_inventory() -> list[dict[str, Any]]:
+    """Group immutable installations and the newest curated release by logical plugin id."""
+    with _lock:
+        cached_by_id: dict[str, list[dict[str, Any]]] = {}
+        for installation in installed_plugins():
+            cached_by_id.setdefault(installation["manifest"]["plugin_id"], []).append(installation)
+        curated_by_id = _catalog_releases()
+        result: list[dict[str, Any]] = []
+        for plugin_id in sorted(cached_by_id.keys() | curated_by_id.keys()):
+            cached = sorted(
+                cached_by_id.get(plugin_id, []),
+                key=lambda item: (
+                    SemanticVersion.parse(item["manifest"]["version"]),
+                    item["sha256"],
+                ),
+                reverse=True,
+            )
+            active = next((item for item in cached if item["active"]), None)
+            reference = active or (cached[0] if cached else None)
+            releases = curated_by_id.get(plugin_id, [])
+            candidate = max(
+                releases,
+                key=lambda item: (
+                    SemanticVersion.parse(item["manifest"]["version"]),
+                    item["sha256"],
+                ),
+                default=None,
+            )
+            state = "not_installed"
+            curated: dict[str, Any] | None = None
+            if candidate is not None:
+                exact_cached = any(
+                    item["manifest"]["version"] == candidate["manifest"]["version"]
+                    and item["sha256"] == candidate["sha256"]
+                    for item in cached
+                )
+                if reference is not None:
+                    relation = compare_versions(
+                        candidate["manifest"]["version"], reference["manifest"]["version"]
+                    )
+                    if relation == 0 and candidate["sha256"] != reference["sha256"]:
+                        state = "release_conflict"
+                    elif relation > 0:
+                        state = "update_available"
+                    elif relation < 0:
+                        state = "catalog_older"
+                    elif active and exact_cached and active["sha256"] == candidate["sha256"]:
+                        state = "current"
+                    else:
+                        state = "candidate_available"
+                curated = {
+                    **candidate,
+                    "cached": exact_cached,
+                    "diff": _manifest_diff(reference["manifest"], candidate["manifest"])
+                    if reference
+                    else None,
+                }
+            elif reference is not None:
+                state = "current"
+            identity = reference or candidate
+            if identity is None:  # pragma: no cover - union keys guarantee one release
+                continue
+            result.append(
+                {
+                    "plugin_id": plugin_id,
+                    "name": identity["manifest"]["name"],
+                    "state": state,
+                    "active": active,
+                    "cached_versions": cached,
+                    "curated": curated,
+                }
+            )
+        return result
 
 
 def activation_path(plugin_id: str) -> Path:
     return PLUGIN_STARTED_DIR / f"{plugin_id}.json"
+
+
+def _select_installation(
+    plugin_id: str,
+    version: str | None = None,
+    sha256: str | None = None,
+) -> dict[str, Any]:
+    matches = [
+        item
+        for item in installed_plugins()
+        if item["manifest"]["plugin_id"] == plugin_id
+        and (version is None or item["manifest"]["version"] == version)
+        and (sha256 is None or item["sha256"] == sha256)
+    ]
+    if not matches:
+        raise PluginInstallError(f"No installed package matches {plugin_id}")
+    return max(
+        matches,
+        key=lambda item: (SemanticVersion.parse(item["manifest"]["version"]), item["sha256"]),
+    )
 
 
 def activate(
@@ -174,22 +372,9 @@ def activate(
     sha256: str | None = None,
     order: int = 0,
 ) -> dict[str, Any]:
+    """Write an activation pointer; callers changing runtime should use switch_activation."""
     with _lock:
-        matches = [
-            item
-            for item in installed_plugins()
-            if item["manifest"]["plugin_id"] == plugin_id
-            and (version is None or item["manifest"]["version"] == version)
-            and (sha256 is None or item["sha256"] == sha256)
-        ]
-        if not matches:
-            raise PluginInstallError(f"No installed package matches {plugin_id}")
-        selected = sorted(
-            matches,
-            key=lambda item: tuple(
-                int(part) for part in item["manifest"]["version"].split("-")[0].split(".")
-            ),
-        )[-1]
+        selected = _select_installation(plugin_id, version, sha256)
         PLUGIN_STARTED_DIR.mkdir(parents=True, exist_ok=True)
         pointer = {
             "plugin_id": plugin_id,
@@ -201,6 +386,88 @@ def activate(
         _atomic_json(activation_path(plugin_id), pointer)
         emit("activated", plugin_id, version=pointer["version"], sha256=pointer["sha256"])
         return pointer
+
+
+def switch_activation(
+    plugin_id: str,
+    version: str | None = None,
+    sha256: str | None = None,
+) -> dict[str, Any]:
+    """Prepare the exact environment before atomically switching one active pointer."""
+    with _lock:
+        selected = _select_installation(plugin_id, version, sha256)
+        previous = active_pointers()
+        previous_pointer = next(
+            (item for item in previous if item.get("plugin_id") == plugin_id), None
+        )
+        order = int(previous_pointer.get("order", 0)) if previous_pointer else 0
+        pointer = {
+            "plugin_id": plugin_id,
+            "version": selected["manifest"]["version"],
+            "sha256": selected["sha256"],
+            "path": selected["path"],
+            "order": order,
+        }
+        proposed = [item for item in previous if item.get("plugin_id") != plugin_id]
+        proposed.append(pointer)
+        proposed.sort(key=lambda item: (int(item.get("order", 0)), item["plugin_id"]))
+        environment = rebuild_environment(proposed)
+        try:
+            PLUGIN_STARTED_DIR.mkdir(parents=True, exist_ok=True)
+            _atomic_json(activation_path(plugin_id), pointer)
+        except BaseException:
+            rebuild_environment(previous)
+            raise
+        emit("activated", plugin_id, version=pointer["version"], sha256=pointer["sha256"])
+        return {"activated": pointer, "environment": environment}
+
+
+def update_curated(
+    plugin_id: str,
+    version: str,
+    sha256: str,
+) -> dict[str, Any]:
+    """Install one exact reviewed release, then activate it transactionally."""
+    with _lock:
+        catalog_match = next(
+            (
+                item
+                for item in curated_catalog()["plugins"]
+                if item.get("id") == plugin_id
+                and item.get("version") == version
+                and item.get("sha256") == sha256
+            ),
+            None,
+        )
+        if catalog_match is None:
+            raise PluginInstallError("Requested curated release is no longer in the synced catalog")
+        plugin_cache = [
+            item for item in installed_plugins() if item["manifest"]["plugin_id"] == plugin_id
+        ]
+        if not plugin_cache:
+            raise PluginInstallError("Curated update requires an installed plugin")
+        reference = next((item for item in plugin_cache if item["active"]), None) or max(
+            plugin_cache,
+            key=lambda item: SemanticVersion.parse(item["manifest"]["version"]),
+        )
+        relation = compare_versions(version, reference["manifest"]["version"])
+        if relation < 0:
+            raise PluginInstallError("Curated update cannot downgrade the active release")
+        if relation == 0 and reference["sha256"] != sha256:
+            raise PluginInstallError("Curated release conflicts with the installed version hash")
+        cached = next(
+            (
+                item
+                for item in plugin_cache
+                if item["manifest"]["version"] == version and item["sha256"] == sha256
+            ),
+            None,
+        )
+        installed = cached or install_curated(plugin_id, version)
+        if installed["sha256"] != sha256:
+            raise PluginInstallError("Installed artifact does not match requested curated release")
+        switched = switch_activation(plugin_id, version, sha256)
+        return {"installed": None if cached else installed, **switched, "restart": True}
 
 
 def deactivate(plugin_id: str) -> bool:

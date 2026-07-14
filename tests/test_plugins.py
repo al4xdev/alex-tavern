@@ -14,10 +14,17 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
+import src.plugins.store as store_module
+from src import main
 from src.paths import EXPERIENCES_DIR, PLUGIN_HUB_DIR, PLUGINS_DIR
 from src.plugins.experiences import activate_experience, save_experience
 from src.plugins.hooks import HookOrderError, HookRegistry
-from src.plugins.manifest import ManifestError, load_manifest, satisfies_version
+from src.plugins.manifest import (
+    ManifestError,
+    compare_versions,
+    load_manifest,
+    satisfies_version,
+)
 from src.plugins.runtime import PluginRuntime
 from src.plugins.sdk import PluginModel
 from src.plugins.store import (
@@ -27,7 +34,10 @@ from src.plugins.store import (
     install_curated,
     install_zip,
     installed_plugins,
+    plugin_inventory,
+    switch_activation,
     uninstall,
+    update_curated,
 )
 from src.runner import Runner
 from src.store.sessions import delete_session, load_game, session_debug_path
@@ -53,6 +63,62 @@ def _pack(source: Path, destination: Path) -> Path:
             if path.is_file():
                 archive.write(path, path.relative_to(source))
     return destination
+
+
+def _versioned_plugin(
+    destination: Path,
+    version: str,
+    *,
+    permissions: tuple[str, ...] = (),
+    python_dependencies: tuple[str, ...] = (),
+) -> Path:
+    permission_values = ", ".join(json.dumps(item) for item in permissions)
+    dependency_values = ", ".join(json.dumps(item) for item in python_dependencies)
+    manifest = f'''schema_version = 1
+id = "dev.test.release"
+name = "Release Test"
+version = "{version}"
+description = "Release inventory fixture"
+license = "MIT"
+authors = ["Tests"]
+permissions = [{permission_values}]
+
+[entrypoints]
+backend = "backend.py"
+
+[python]
+dependencies = [{dependency_values}]
+'''
+    with zipfile.ZipFile(destination, "w") as archive:
+        archive.writestr("plugin.toml", manifest)
+        archive.writestr("backend.py", "def setup(api):\n    pass\n")
+    return destination
+
+
+def _curate(artifact: Path, version: str) -> str:
+    artifacts = PLUGIN_HUB_DIR / "artifacts"
+    artifacts.mkdir(parents=True, exist_ok=True)
+    target = artifacts / artifact.name
+    shutil.copy2(artifact, target)
+    sha256 = hashlib.sha256(target.read_bytes()).hexdigest()
+    (PLUGIN_HUB_DIR / "catalog.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plugins": [
+                    {
+                        "id": "dev.test.release",
+                        "version": version,
+                        "artifact": f"artifacts/{target.name}",
+                        "sha256": sha256,
+                    }
+                ],
+                "experiences": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return sha256
 
 
 def test_reference_manifest_is_strict_and_current() -> None:
@@ -102,6 +168,8 @@ def test_dependency_version_constraints_are_semantic() -> None:
     assert not satisfies_version("2.0.0", "^1.4.0")
     assert satisfies_version("1.8.9", "~1.8.0")
     assert not satisfies_version("1.9.0", "~1.8.0")
+    assert compare_versions("2.0.0-rc.1", "2.0.0") < 0
+    assert compare_versions("2.0.0+build.2", "2.0.0+build.1") == 0
 
 
 def test_zip_install_activation_and_backend_boot(tmp_path: Path) -> None:
@@ -125,6 +193,23 @@ def test_zip_rejects_path_traversal(tmp_path: Path) -> None:
         archive.writestr("../outside", "no")
     with pytest.raises(PluginInstallError, match="Unsafe ZIP member"):
         install_zip(malicious)
+
+
+@pytest.mark.asyncio
+async def test_external_zip_can_be_inspected_without_installing(tmp_path: Path) -> None:
+    package = _versioned_plugin(tmp_path / "external.zip", "1.0.0", permissions=("model.call",))
+    transport = httpx.ASGITransport(app=main.app)
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/plugins/inspect-upload",
+            headers={"Content-Type": "application/zip"},
+            content=package.read_bytes(),
+        )
+
+    assert response.status_code == 200
+    assert response.json()["manifest"]["permissions"] == ["model.call"]
+    assert installed_plugins() == []
 
 
 def test_curated_install_requires_the_catalog_hash() -> None:
@@ -151,6 +236,67 @@ def test_curated_install_requires_the_catalog_hash() -> None:
     )
     installed = install_curated("dev.alex-tavern.openrouter", "1.0.0")
     assert installed["sha256"] == sha256
+
+
+def test_inventory_groups_versions_and_describes_reviewed_update(tmp_path: Path) -> None:
+    first = install_zip(_versioned_plugin(tmp_path / "release-1.zip", "1.0.0"))
+    activate("dev.test.release", "1.0.0", first["sha256"])
+    candidate_zip = _versioned_plugin(
+        tmp_path / "release-2.zip", "2.0.0", permissions=("model.call",)
+    )
+    candidate_hash = _curate(candidate_zip, "2.0.0")
+
+    inventory = plugin_inventory()
+
+    assert len(inventory) == 1
+    plugin = inventory[0]
+    assert plugin["plugin_id"] == "dev.test.release"
+    assert plugin["state"] == "update_available"
+    assert plugin["active"]["manifest"]["version"] == "1.0.0"
+    assert [item["manifest"]["version"] for item in plugin["cached_versions"]] == ["1.0.0"]
+    assert plugin["curated"]["sha256"] == candidate_hash
+    assert plugin["curated"]["diff"]["permissions"]["added"] == ["model.call"]
+
+
+def test_same_version_with_different_hash_is_release_conflict(tmp_path: Path) -> None:
+    installed = install_zip(_versioned_plugin(tmp_path / "local.zip", "1.0.0"))
+    activate("dev.test.release", "1.0.0", installed["sha256"])
+    remote = _versioned_plugin(tmp_path / "remote.zip", "1.0.0", permissions=("config.read",))
+    remote_hash = _curate(remote, "1.0.0")
+
+    assert plugin_inventory()[0]["state"] == "release_conflict"
+    with pytest.raises(PluginInstallError, match="conflicts"):
+        update_curated("dev.test.release", "1.0.0", remote_hash)
+
+
+def test_failed_environment_build_keeps_previous_activation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first = install_zip(_versioned_plugin(tmp_path / "release-1.zip", "1.0.0"))
+    second = install_zip(_versioned_plugin(tmp_path / "release-2.zip", "2.0.0"))
+    activate("dev.test.release", "1.0.0", first["sha256"])
+
+    def fail(pointers=None):  # noqa: ANN001, ANN202, ARG001
+        raise RuntimeError("dependency installation failed")
+
+    monkeypatch.setattr(store_module, "rebuild_environment", fail)
+    with pytest.raises(RuntimeError, match="dependency installation failed"):
+        switch_activation("dev.test.release", "2.0.0", second["sha256"])
+
+    assert active_pointers()[0]["sha256"] == first["sha256"]
+
+
+def test_exact_curated_update_retains_old_version_for_rollback(tmp_path: Path) -> None:
+    first = install_zip(_versioned_plugin(tmp_path / "release-1.zip", "1.0.0"))
+    activate("dev.test.release", "1.0.0", first["sha256"])
+    candidate = _versioned_plugin(tmp_path / "release-2.zip", "2.0.0")
+    candidate_hash = _curate(candidate, "2.0.0")
+
+    result = update_curated("dev.test.release", "2.0.0", candidate_hash)
+
+    assert result["activated"]["version"] == "2.0.0"
+    assert {item["manifest"]["version"] for item in installed_plugins()} == {"1.0.0", "2.0.0"}
 
 
 def test_experience_switches_the_physical_active_set(tmp_path: Path) -> None:
