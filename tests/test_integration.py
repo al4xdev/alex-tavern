@@ -347,12 +347,12 @@ class TestSessions:
 
     @pytest.mark.asyncio
     async def test_delete_waits_and_removes_all_session_artifacts(self) -> None:
-        """Delete serializes with turns and removes state, log, and compaction backups."""
+        """Delete serializes with turns and removes state, log, and checkpoints."""
         save_game(_make_test_game(self.sid))
         session_debug_path(self.sid).write_text("{}\n", encoding="utf-8")
         backups = session_backups_dir(self.sid)
         backups.mkdir(parents=True)
-        (backups / "state.0.json").write_text("{}", encoding="utf-8")
+        (backups / "compaction.c000001.json").write_text("{}", encoding="utf-8")
         lock = _get_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(delete_session_async(self.sid))
@@ -744,8 +744,7 @@ class TestCompactSession:
 
     def teardown_method(self) -> None:
         delete_session(self.sid)
-        # Limpa eventuais backups kb_N.json criados pelo teste
-        for f in session_backups_dir(self.sid).glob("state.*.json"):
+        for f in session_backups_dir(self.sid).glob("compaction.c*.json"):
             f.unlink()
 
     def _seed_history(self, num_turns: int) -> None:
@@ -791,31 +790,33 @@ class TestCompactSession:
         result = await self.runner.compact_session(self.sid)
         assert result["compacted"] is False
 
-        assert list(session_backups_dir(self.sid).glob("state.*.json")) == []
+        assert list(session_backups_dir(self.sid).glob("compaction.c*.json")) == []
         game = load_game(self.sid)
         assert game is not None
         assert len(game.history) == 10  # 5 passos * 2 registros, intocado
 
     @pytest.mark.asyncio
-    async def test_compact_above_window_rewrites_session_with_backup(
+    async def test_compact_above_window_writes_incremental_checkpoint(
         self,
         monkeypatch,  # noqa: ANN001
     ) -> None:
-        """Histórico maior que a janela → compacta, faz backup idêntico ao pré-estado."""
+        """Histórico maior que a janela produz um checkpoint incremental reversível."""
         self._mock_summarize(monkeypatch)
         self._seed_history(12)  # 12 passos, janela = 8 -> compacta os 4 mais antigos
 
-        pre_compaction_bytes = (session_state_path(self.sid)).read_bytes()
-
         result = await self.runner.compact_session(self.sid)
         assert result["compacted"] is True
-        assert result["evicted_turns"] == 8  # 4 passos evictados * 2 registros
-        assert result["kept_turns"] == 16  # 8 passos mantidos * 2 registros
+        assert result["compaction_id"] == "c000001"
+        assert result["evicted_records"] == 8  # 4 passos evictados * 2 registros
+        assert result["kept_records"] == 16  # 8 passos mantidos * 2 registros
+        assert result["undo_depth"] == 1
 
-        # Backup kb_0 existe e é byte-a-byte igual ao estado pré-compactação
-        backup_path = Path(result["backup_path"])
-        assert backup_path.exists()
-        assert backup_path.read_bytes() == pre_compaction_bytes
+        checkpoint_path = session_backups_dir(self.sid) / "compaction.c000001.json"
+        checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        assert checkpoint["checkpoint_id"] == "c000001"
+        assert checkpoint["parent_id"] is None
+        assert len(checkpoint["evicted_history"]) == 8
+        assert "characters" not in checkpoint
 
         # Sessão real foi reescrita: histórico menor, resumo/notas preenchidos
         game = load_game(self.sid)
@@ -824,6 +825,7 @@ class TestCompactSession:
         assert game.history[0].turn_number == 5  # os 4 primeiros passos saíram
         assert game.story_summary == "Resumo dos turnos antigos."
         assert game.character_notes["C1"] == "Nota atualizada sobre Thorn."
+        assert [entry.checkpoint_id for entry in game.compaction_stack] == ["c000001"]
 
     @pytest.mark.asyncio
     async def test_undo_still_works_after_compaction(self, monkeypatch) -> None:  # noqa: ANN001
@@ -911,7 +913,7 @@ class TestRestoreCompaction:
 
     def teardown_method(self) -> None:
         delete_session(self.sid)
-        for f in session_backups_dir(self.sid).glob("state.*.json"):
+        for f in session_backups_dir(self.sid).glob("compaction.c*.json"):
             f.unlink()
 
     def _seed_history(self, num_turns: int) -> None:
@@ -947,7 +949,7 @@ class TestRestoreCompaction:
 
     @pytest.mark.asyncio
     async def test_restore_after_compaction_with_no_new_turns(self, monkeypatch) -> None:  # noqa: ANN001
-        """Nada mudou desde a compactação -> restaura, backup some, histórico volta."""
+        """Nada mudou desde a compactação: histórico volta e journal permanece."""
         self._mock_summarize(monkeypatch)
         self._seed_history(12)
         pre_compaction_bytes = (session_state_path(self.sid)).read_bytes()
@@ -962,14 +964,15 @@ class TestRestoreCompaction:
         restored_data = json.loads(session_state_path(self.sid).read_text(encoding="utf-8"))
         original_data = json.loads(pre_compaction_bytes)
         assert restored_data == {**original_data, "revision": original_data["revision"] + 2}
-        assert list(session_backups_dir(self.sid).glob("state.*.json")) == []  # backup consumido
+        assert restored_data["compaction_stack"] == []
+        assert len(list(session_backups_dir(self.sid).glob("compaction.c*.json"))) == 1
 
     @pytest.mark.asyncio
-    async def test_restore_refuses_when_new_turns_played_after_compaction(
+    async def test_restore_preserves_new_turns_played_after_compaction(
         self,
         monkeypatch,  # noqa: ANN001
     ) -> None:
-        """Jogou mais depois de compactar -> restaurar é recusado, nada muda."""
+        """Jogadas posteriores sobrevivem ao undo do checkpoint."""
         self._mock_summarize(monkeypatch)
         self._seed_history(12)
         await self.runner.compact_session(self.sid)
@@ -988,15 +991,14 @@ class TestRestoreCompaction:
             )
         )
         save_game(game)
-        pre_restore_bytes = (session_state_path(self.sid)).read_bytes()
-
         result = await self.runner.restore_last_compaction(self.sid)
-        assert result["restored"] is False
-        assert "more recent" in result["reason"]
-
-        # Nada foi alterado: sessão idêntica, backup continua existindo
-        assert (session_state_path(self.sid)).read_bytes() == pre_restore_bytes
-        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 1
+        assert result["restored"] is True
+        assert result["preserved_through_turn"] == 13
+        restored = load_game(self.sid)
+        assert restored is not None
+        assert [record.turn_number for record in restored.history] == list(range(1, 14))
+        assert restored.history[-1].content == "Ação nova pós-compactação."
+        assert len(list(session_backups_dir(self.sid).glob("compaction.c*.json"))) == 1
 
     @pytest.mark.asyncio
     async def test_restore_no_backup_available(self) -> None:
@@ -1004,7 +1006,7 @@ class TestRestoreCompaction:
         self._seed_history(3)
         result = await self.runner.restore_last_compaction(self.sid)
         assert result["restored"] is False
-        assert "No compaction backup" in result["reason"]
+        assert "No compaction checkpoint" in result["reason"]
 
     @pytest.mark.asyncio
     async def test_restore_missing_session(self) -> None:
@@ -1017,16 +1019,7 @@ class TestRestoreCompaction:
         self,
         monkeypatch,  # noqa: ANN001
     ) -> None:
-        """Restaurar é um "ctrl-Z" de uma camada só — não empilha através de
-        múltiplas compactações.
-
-        Depois de restaurar a 2ª compactação (kb_1), os turnos que ela trazia
-        de volta (21-32) voltam a existir ao vivo. Tentar restaurar a 1ª
-        compactação (kb_0, que só conhece até o turno 20) nesse momento
-        apagaria esses turnos — a trava de segurança RECUSA corretamente,
-        em vez de permitir. kb_0 continua intacto, disponível pra restaurar
-        manualmente depois, se o dono aceitar perder 21-32 de propósito.
-        """
+        """Checkpoints podem ser desfeitos em LIFO sem perder turnos posteriores."""
         self._mock_summarize(monkeypatch)
         self._seed_history(20)
 
@@ -1038,19 +1031,22 @@ class TestRestoreCompaction:
         self._append_turns(12)
         second_compact = await self.runner.compact_session(self.sid)
         assert second_compact["compacted"] is True  # evicta 13-24, mantém 25-32
-        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 2
+        assert second_compact["compaction_id"] == "c000002"
+        assert len(list(session_backups_dir(self.sid).glob("compaction.c*.json"))) == 2
 
-        # Restaura a compactação mais recente (kb_1) -> turnos 13-32 voltam
+        # Restaura a compactação mais recente -> turnos 13-32 voltam.
         r1 = await self.runner.restore_last_compaction(self.sid)
         assert r1["restored"] is True
-        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 1
+        assert r1["remaining_undo_depth"] == 1
 
-        # Tentar ir além (kb_0, só conhece até o turno 20) é recusado: isso
-        # apagaria os turnos 21-32 que r1 acabou de trazer de volta.
+        # O checkpoint anterior volta 1-12 e mantém 21-32 como cauda posterior.
         r2 = await self.runner.restore_last_compaction(self.sid)
-        assert r2["restored"] is False
-        assert "more recent" in r2["reason"]
-        assert len(list(session_backups_dir(self.sid).glob("state.*.json"))) == 1  # kb_0 intacto
+        assert r2["restored"] is True
+        assert r2["remaining_undo_depth"] == 0
+        restored = load_game(self.sid)
+        assert restored is not None
+        assert [record.turn_number for record in restored.history] == list(range(1, 33))
+        assert len(list(session_backups_dir(self.sid).glob("compaction.c*.json"))) == 2
 
 
 # ═══════════════════════════════════════════════════════════════════════════

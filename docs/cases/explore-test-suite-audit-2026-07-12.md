@@ -4,6 +4,11 @@
 **Scope**: `tests/`, pytest configuration, related persistence/model compatibility paths, and
 the boundaries exercised by the current suite.
 
+> **Contract note (2026-07-14):** test counts and compaction persistence observations below are a
+> dated audit. The current contract uses opt-in automatic triggering, measured SSE progress, and
+> incremental LIFO checkpoints that preserve later turns. See
+> [Context Compaction](../../README.md#-context-compaction).
+
 ## Suite shape
 
 - Pytest collects 138 cases, deselects 5 `llm` cases by default, and runs 133.

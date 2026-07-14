@@ -1,8 +1,8 @@
 # Task 04: Automatic compaction trigger
 
-**Status:** Planned; ready for implementation
+**Status:** Completed
 
-**Updated:** 2026-07-13
+**Updated:** 2026-07-14
 
 **README evidence:** `README.md`, section `Context compaction`
 
@@ -57,9 +57,9 @@ non-destructive and visible without blocking the player's turn.
   If triggered, compact the loaded pre-turn game first, then append the effective player input and
   continue through the normal Narrator/Character transaction.
 - Prepare summaries and run `compaction.before_commit` against an isolated draft. Only after every
-  fallible LLM/plugin step succeeds, create the backup from the still-current session bytes, save
-  the compacted draft atomically, and emit `compaction.after_commit`. This prevents failed or
-  cancelled attempts from leaving a restoreable backup for a state that was never compacted.
+  fallible LLM/plugin step succeeds, create an incremental checkpoint from the still-current
+  state, save the compacted draft atomically, and emit `compaction.after_commit`. Ordinary save
+  failure removes its uncommitted checkpoint; failed or cancelled preparation creates none.
 - The automatic compaction is a discrete committed revision before the turn revision. If the later
   Narrator call fails, the compaction remains valid and the player's unsaved draft input does not
   enter session state.
@@ -71,16 +71,17 @@ non-destructive and visible without blocking the player's turn.
 
 - Define a typed compaction result shared by manual and automatic paths with:
   `status` (`not_needed`, `blocked`, `compacted`, `failed`), `trigger` (`manual`, `automatic`),
-  `reason`, estimated/threshold/context tokens, cutoff, record counts, and backup path where
-  applicable.
+  `reason`, estimated/threshold/context tokens, cutoff, record counts, checkpoint ID, and undo
+  depth where applicable.
 - Add optional `automatic_compaction` to `PlayerTurnResponse`. The field reports only the completed
   maintenance outcome and contains no prompt text or secret. The browser shows a localized success,
   blocked, or failure toast after the turn response and refreshes history when compaction committed.
 - Extend debug markers to record automatic trigger decisions, the estimate and threshold, terminal
   status, cutoff/counts, and a sanitized error type/representation. Preserve all Historian LLM
   records with their existing `session_id`, `turn_number`, and `summarizer:*` agents.
-- Keep the manual button and restore behavior. An automatic compaction creates the same backup and
-  is restored by the same safety rule as a manual one.
+- Keep the manual button. Automatic and manual compaction create the same numbered incremental
+  checkpoints. Undo is LIFO across multiple compactations and preserves later turns; divergent
+  plugin paths require an explicit resolver owned by that plugin.
 
 ## Implementation sequence
 
@@ -88,7 +89,7 @@ non-destructive and visible without blocking the player's turn.
    settings controls, localization, and config round-trip tests.
 2. Extract the shared prompt estimator and add pure tests proving parity with debug-log estimates
    and exclusion of private thoughts from the Narrator probe.
-3. Refactor compaction into lock-owning and lock-held layers; move backup creation to the final
+3. Refactor compaction into lock-owning and lock-held layers; move checkpoint creation to the final
    commit boundary and keep plugin hooks on an isolated draft.
 4. Add the pre-Narrator automatic policy to `player_turn`, including effective plugin-transformed
    input, private-thought exclusion, typed result metadata, and best-effort failure handling.
@@ -99,26 +100,26 @@ non-destructive and visible without blocking the player's turn.
 
 ## Tests and acceptance criteria
 
-- [ ] Canonical config accepts valid booleans/percentages, rejects missing/wrong/out-of-range
+- [x] Canonical config accepts valid booleans/percentages, rejects missing/wrong/out-of-range
   values, redacts secrets unchanged, and round-trips through `GET/PUT /config` and the browser.
-- [ ] A below-threshold narrating turn performs no Historian call, backup, compaction revision, or
+- [x] A below-threshold narrating turn performs no Historian call, checkpoint, compaction revision, or
   history rewrite.
-- [ ] An above-threshold eligible turn compacts exactly once before the Narrator, keeps the
+- [x] An above-threshold eligible turn compacts exactly once before the Narrator, keeps the
   configured recent window, and the Narrator sees the new summary plus effective current input.
-- [ ] Plugin-transformed speech/action affect the estimate; private thoughts never enter the
+- [x] Plugin-transformed speech/action affect the estimate; private thoughts never enter the
   Narrator estimate or world summarizer.
-- [ ] Private-thought-only turns defer automatic evaluation and remain one atomic persisted step.
-- [ ] Above-threshold but ineligible history returns `blocked_by_retention_window`, creates no
-  backup, and still completes through token trimming.
-- [ ] Historian/plugin failure leaves state and backups unchanged, appends failure evidence, and
+- [x] Private-thought-only turns defer automatic evaluation and remain one atomic persisted step.
+- [x] Above-threshold but ineligible history returns `blocked_by_retention_window`, creates no
+  checkpoint, and still completes through token trimming.
+- [x] Historian/plugin failure leaves state and checkpoints unchanged, appends failure evidence, and
   does not prevent the player's normal turn.
-- [ ] Concurrent turn, manual compaction, undo, restore, fork, read, and delete operations wait on
+- [x] Concurrent turn, manual compaction, undo, restore, fork, read, and delete operations wait on
   the same session lock; no nested-lock deadlock occurs.
-- [ ] Successful automatic compaction increments revision once, the subsequent successful turn
-  increments it once, and restore refuses whenever restoring would erase that new turn.
-- [ ] HTTP and browser tests prove localized notification and history refresh without exposing
+- [x] Successful automatic compaction increments revision once, the subsequent successful turn
+  increments it once, and checkpoint undo preserves that newer turn.
+- [x] HTTP and browser tests prove localized notification and history refresh without exposing
   config secrets or the internal `Player` marker.
-- [ ] Standard Python validation, frontend module parsing, adapter-registry loading, HTML parsing,
+- [x] Standard Python validation, frontend module parsing, adapter-registry loading, HTML parsing,
   and a real ASGI/HTTP smoke test pass.
 
 ## Non-goals
@@ -129,3 +130,14 @@ non-destructive and visible without blocking the player's turn.
 - Automatically overriding `compaction_keep_recent_turns`.
 - Streaming automatic progress through the turn endpoint; Task 05 covers measured progress for
   the explicit compaction operation while turns retain their atomic JSON response.
+
+## Completion evidence
+
+- `tests/test_compaction.py` covers threshold/no-op, eligible trigger order, transformed input,
+  private-thought deferral, retention blocking, failure/cancellation atomicity, revisions,
+  incremental LIFO undo, plugin conflicts/resolution, fork, and deletion.
+- `tests/test_provider_config.py` and frontend architecture/i18n tests cover strict round-trip
+  configuration, redaction, the novice-facing toggle/slider, localized explanations, and direct
+  compaction help.
+- Final validation passed: Ruff check/format, mypy, frontend module parsing, and all 239 pytest
+  cases.

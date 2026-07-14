@@ -8,6 +8,7 @@ knows a human exists, only sees character names (via ``speaker_label``).
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 
 import httpx
 
@@ -112,6 +113,23 @@ def _private_owner(record: TurnRecord, controlled_id: str) -> str:
     return controlled_id if record.speaker == "Player" else record.speaker
 
 
+def relevant_character_ids(
+    characters: dict[str, Character],
+    controlled_id: str,
+    evicted_turns: list[TurnRecord],
+) -> list[str]:
+    """Return deterministic private-memory work units for one compaction."""
+    return sorted(
+        character_id
+        for character_id, character in characters.items()
+        if any(
+            _private_owner(record, controlled_id) == character_id
+            or character.mind.name.casefold() in record.content.casefold()
+            for record in evicted_turns
+        )
+    )
+
+
 def build_private_memory_messages(
     character_id: str,
     character: Character,
@@ -185,6 +203,7 @@ async def summarize(
     narrator_directives: str = "",
     session_id: str = "",
     turn_number: int = 0,
+    on_model_completed: Callable[[str], None] | None = None,
 ) -> tuple[str, dict[str, str]]:
     """Compact public history and isolated per-character private memories."""
     max_tokens = config.get("summarizer_max_tokens", 1024)
@@ -198,33 +217,29 @@ async def summarize(
     )
 
     common_options = llm_request_options(config)
-    result = await chat_completion_json(
-        client,
-        messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
-        json_schema=build_summarizer_json_schema(),
-        session_id=session_id,
-        turn_number=turn_number,
-        agent="summarizer:world",
-        **common_options,
-    )
+    relevant_ids = relevant_character_ids(characters, controlled_id, evicted_turns)
 
-    new_summary = normalize_generated_text(str(result.get("story_summary", story_summary)))
-    relevant_ids = {
-        character_id
-        for character_id, character in characters.items()
-        if any(
-            _private_owner(record, controlled_id) == character_id
-            or character.mind.name.casefold() in record.content.casefold()
-            for record in evicted_turns
+    async def compact_world() -> tuple[str, str, str]:
+        agent = "summarizer:world"
+        result = await chat_completion_json(
+            client,
+            messages,
+            model=config.get("model", ""),
+            language=config.get("language", ""),
+            max_tokens=max_tokens,
+            timeout=resolve_llm_timeout(config),
+            json_schema=build_summarizer_json_schema(),
+            session_id=session_id,
+            turn_number=turn_number,
+            agent=agent,
+            **common_options,
         )
-    }
+        summary = normalize_generated_text(str(result.get("story_summary", story_summary)))
+        return "world", summary, agent
 
-    async def compact_private(character_id: str) -> tuple[str, str]:
+    async def compact_private(character_id: str) -> tuple[str, str, str]:
         character = characters[character_id]
+        agent = f"summarizer:{character.mind.name}"
         private_result = await chat_completion_json(
             client,
             build_private_memory_messages(
@@ -243,12 +258,31 @@ async def summarize(
             json_schema=build_private_memory_json_schema(),
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"summarizer:{character.mind.name}",
+            agent=agent,
             **common_options,
         )
         note = normalize_generated_text(str(private_result.get("character_note", "")))
-        return character_id, note
+        return f"private:{character_id}", note, agent
 
-    private_results = await asyncio.gather(*(compact_private(cid) for cid in sorted(relevant_ids)))
-    changed_notes = {character_id: note for character_id, note in private_results if note}
+    new_summary = story_summary
+    private_results: list[tuple[str, str]] = []
+    tasks = [
+        asyncio.create_task(compact_world()),
+        *(asyncio.create_task(compact_private(cid)) for cid in relevant_ids),
+    ]
+    try:
+        for completed in asyncio.as_completed(tasks):
+            kind, value, agent = await completed
+            if kind == "world":
+                new_summary = value
+            else:
+                private_results.append((kind.removeprefix("private:"), value))
+            if on_model_completed is not None:
+                on_model_completed(agent)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+    changed_notes = {character_id: note for character_id, note in sorted(private_results) if note}
     return new_summary, changed_notes

@@ -416,6 +416,153 @@ html, body {
 }
 .field-hint { font-size: 0.72rem; color: var(--text-3); margin-top: -3px; }
 
+.compaction-control {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 15px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    background:
+        radial-gradient(circle at 92% 0%, rgba(124, 108, 255, 0.12), transparent 36%),
+        var(--bg-1);
+}
+.compaction-control-head,
+.compaction-threshold-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+.compaction-control-title {
+    color: var(--text-1);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+.compaction-control-intro {
+    max-width: 520px;
+    margin-top: 3px;
+    color: var(--text-3);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+.compaction-help-btn {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--glass-border-hi);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--accent-2);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.compaction-help-btn:hover {
+    border-color: var(--accent);
+    background: var(--surface-hi);
+}
+.compaction-help-btn:focus-visible,
+.compaction-threshold input[type='range']:focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 3px;
+}
+.compaction-toggle {
+    align-items: flex-start;
+    gap: 11px;
+    padding: 11px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+}
+.compaction-toggle .toggle-track { flex: 0 0 auto; margin-top: 1px; }
+.compaction-toggle-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.compaction-toggle-copy strong {
+    color: var(--text-1);
+    font-size: 0.8rem;
+}
+.compaction-toggle-copy small {
+    color: var(--text-3);
+    font-size: 0.7rem;
+    line-height: 1.4;
+}
+.compaction-threshold {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity var(--dur) var(--ease);
+}
+.compaction-threshold.disabled { opacity: 0.38; }
+.compaction-threshold-head label {
+    color: var(--text-2);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+.compaction-threshold-head output {
+    flex: 0 0 auto;
+    color: var(--accent-2);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.compaction-threshold input[type='range'] {
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+.compaction-threshold input[type='range']::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--success), var(--accent) 68%, #ffb454);
+}
+.compaction-threshold input[type='range']::-moz-range-track {
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--success), var(--accent) 68%, #ffb454);
+}
+.compaction-threshold input[type='range']::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    appearance: none;
+    border: 3px solid var(--bg-1);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 2px var(--accent), 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+.compaction-threshold input[type='range']::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border: 3px solid var(--bg-1);
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 2px var(--accent), 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+.compaction-threshold input[type='range']:disabled { cursor: not-allowed; }
+.compaction-threshold-scale {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-3);
+    font-size: 0.65rem;
+}
+.compaction-threshold-explanation {
+    min-height: 2.1em;
+    color: var(--text-2);
+    font-size: 0.72rem;
+    line-height: 1.45;
+}
+
 .text-input, .text-area {
     background: var(--bg-1);
     border: 1px solid var(--glass-border);
@@ -1370,8 +1517,7 @@ select.text-input { cursor: pointer; }
 }
 .action-btn:hover { background: var(--accent-grad); color: #fff; }
 
-/* Compact button — progress is a mocked width-fill, not real backend
-   progress (see suggestForMe-adjacent compactSession() in app.js). */
+/* Compact button progress is driven by measured backend lifecycle events. */
 .action-compact-btn { position: relative; overflow: hidden; }
 .action-compact-btn.busy { pointer-events: none; }
 .compact-progress {
@@ -1384,6 +1530,18 @@ select.text-input { cursor: pointer; }
     z-index: 0;
 }
 .compact-icon { position: relative; z-index: 1; }
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
 
 .force-speaker-select {
     height: 34px;

@@ -3,6 +3,11 @@
 **Date**: 2026-07-12
 **Scope**: Read-only review of backend, LLM integration, persistence, and vanilla frontend, with a concurrent review of the uncommitted provider work in `src/config.py` and `src/llm/providers.py`.
 
+> **Contract note (2026-07-14):** compaction and storage observations below describe the audited
+> revision. The current contract uses one lock-held compaction engine, opt-in automatic triggering,
+> measured SSE progress, and incremental LIFO checkpoints. See
+> [Context Compaction](../../README.md#-context-compaction).
+
 ## Executive finding
 
 The codebase is small and most direct dependencies are proportional to that size. The new provider adapter is a real separation at the HTTP compatibility boundary, not a cosmetic abstraction. The main extensibility gap is that provider discovery, configuration, validation, and UI metadata remain separate hardcoded catalogs. The most concrete correctness risks are concurrency boundaries around runtime configuration and filesystem mutations, rather than the number of modules or absence of a large dependency-injection framework.

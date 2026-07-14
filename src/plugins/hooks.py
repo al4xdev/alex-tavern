@@ -124,6 +124,9 @@ class HookRegistry:
             raise HookOrderError(f"Hook order cycle for {hook}: {', '.join(involved)}")
         return result
 
+    def has_registration(self, hook: str, kind: HookKind, plugin_id: str) -> bool:
+        return any(registration.plugin_id == plugin_id for registration in self.ordered(hook, kind))
+
     async def _failed(self, registration: Registration, error: BaseException) -> None:
         if self._on_error is not None:
             await _await(self._on_error(registration.plugin_id, registration.hook, error))
@@ -174,6 +177,40 @@ class HookRegistry:
             except BaseException as error:
                 await self._failed(registration, error)
                 continue
+            current = draft if candidate is None else candidate
+        return current
+
+    async def filter_strict(self, hook: str, value: Any, context: Any) -> Any:
+        """Run isolated drafts but abort the host transaction on a filter failure."""
+        current = value
+        for registration in self.ordered(hook, "filter"):
+            draft = deepcopy(current)
+            try:
+                candidate = await _await(registration.handler(draft, context))
+            except BaseException as error:
+                await self._failed(registration, error)
+                raise
+            current = draft if candidate is None else candidate
+        return current
+
+    async def filter_for_plugin(
+        self,
+        hook: str,
+        plugin_id: str,
+        value: Any,
+        context: Any,
+    ) -> Any:
+        """Run one plugin's isolated resolver without exposing another namespace."""
+        current = value
+        for registration in self.ordered(hook, "filter"):
+            if registration.plugin_id != plugin_id:
+                continue
+            draft = deepcopy(current)
+            try:
+                candidate = await _await(registration.handler(draft, context))
+            except BaseException as error:
+                await self._failed(registration, error)
+                raise
             current = draft if candidate is None else candidate
         return current
 

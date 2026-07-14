@@ -73,9 +73,39 @@
                     <div class="provider-switch" id="provider-switch" role="radiogroup" aria-label="Artificial intelligence provider"
                         data-i18n-aria-label="engine.providerAria"></div>
 
-                    <div class="field-group">
-                        <label class="field-label" for="runtime-compact-turns" data-i18n="engine.compactTurns">Recent turns kept after compaction</label>
-                        <input class="text-input" id="runtime-compact-turns" type="number" min="1" inputmode="numeric">
+                    <div class="compaction-control" id="compaction-control">
+                        <div class="compaction-control-head">
+                            <div>
+                                <div class="compaction-control-title" data-i18n="engine.autoCompact">Automatic compaction</div>
+                                <p class="compaction-control-intro" data-i18n="engine.autoCompactIntro">Keeps long stories within the AI's reading space.</p>
+                            </div>
+                            <button class="compaction-help-btn" id="compaction-help-btn" type="button"
+                                title="Learn how compaction works" aria-label="Learn how compaction works"
+                                data-i18n-title="engine.autoCompactHelp" data-i18n-aria-label="engine.autoCompactHelp">?</button>
+                        </div>
+
+                        <label class="toggle compaction-toggle" for="runtime-auto-compact">
+                            <input id="runtime-auto-compact" type="checkbox">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="compaction-toggle-copy">
+                                <strong id="auto-compact-state"></strong>
+                                <small data-i18n="engine.autoCompactToggleHint">The app summarizes older events before the story gets too long.</small>
+                            </span>
+                        </label>
+
+                        <div class="compaction-threshold" id="compaction-threshold">
+                            <div class="compaction-threshold-head">
+                                <label for="runtime-auto-compact-threshold" data-i18n="engine.autoCompactTiming">When should it summarize?</label>
+                                <output id="auto-compact-threshold-value" for="runtime-auto-compact-threshold"></output>
+                            </div>
+                            <input id="runtime-auto-compact-threshold" type="range" min="1" max="100" step="1"
+                                aria-describedby="auto-compact-threshold-explanation">
+                            <div class="compaction-threshold-scale" aria-hidden="true">
+                                <span data-i18n="engine.autoCompactEarlier">Earlier</span>
+                                <span data-i18n="engine.autoCompactLater">Later</span>
+                            </div>
+                            <p id="auto-compact-threshold-explanation" class="compaction-threshold-explanation"></p>
+                        </div>
                     </div>
 
                     <div id="provider-panels"></div>
@@ -417,9 +447,10 @@
                                         title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
                                         <span class="compact-progress" id="compact-progress"></span>
                                         <span class="compact-icon">🗜️</span>
+                                        <span class="sr-only" id="compact-progress-status" aria-live="polite"></span>
                                     </button>
                                     <button class="icon-btn action-btn" id="action-restore-compaction-btn"
-                                        title="Undo last compaction (only when safe)" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
+                                        title="Undo last compaction" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
                                 </div>
                             </div>
                         </div>

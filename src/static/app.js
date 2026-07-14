@@ -27,6 +27,8 @@ const state = {
     lastTurnFailed: false,  // true when last sendTurn errored
     canUndo: false,         // true when there's a turn to undo
     abortController: null,  // AbortController for current turn
+    compactionAbortController: null,
+    compactionDepth: 0,
     narratorHint: '',       // pending narrator event hint for next turn
     lastEchoMessage: null,  // optimistic player bubble updated with effective input
 };
@@ -67,6 +69,7 @@ const actionSuggestBtn = document.getElementById('action-suggest-btn');
 const actionHintBtn = document.getElementById('action-hint-btn');
 const actionCompactBtn = document.getElementById('action-compact-btn');
 const compactProgress = document.getElementById('compact-progress');
+const compactProgressStatus = document.getElementById('compact-progress-status');
 const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
 const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const actionPopup   = document.getElementById('action-popup');
@@ -136,7 +139,9 @@ function updateActionPopup() {
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
     if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
-    if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.style.display = hasSession ? '' : 'none';
+    if (actionRestoreCompactionBtn) {
+        actionRestoreCompactionBtn.style.display = hasSession && state.compactionDepth > 0 ? '' : 'none';
+    }
     // Hide the popup entirely when there's nothing to show — prevents
     // an empty bordered box (tiny black dot) from appearing on hover/long-press.
     if (actionPopup) {
@@ -182,10 +187,13 @@ async function skipTurn() {
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
+        const historyWasReconciled = await reconcileAutomaticCompaction(data);
         if (state.debug) refreshDebugLog();
-        if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-        if (data.character_response) {
-            addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+        if (!historyWasReconciled) {
+            if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
+            if (data.character_response) {
+                addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+            }
         }
         if (data.scene_update) {
             try {
@@ -357,6 +365,7 @@ function renderSessionList(sessions) {
                 if (s.session_id === state.sessionId) {
                     // Current session was deleted — reset UI
                     state.sessionId = null;
+                    state.compactionDepth = 0;
                     chatLog.innerHTML = '';
                     chatLog.appendChild(emptyState);
                     emptyState.style.display = 'flex';
@@ -417,6 +426,7 @@ function renderHistory(history) {
 
 async function loadSession(sessionId) {
     try {
+        state.compactionAbortController?.abort();
         let gameState = await api.getState(sessionId);
         gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
@@ -803,41 +813,71 @@ function sendHint() {
 }
 
 /* ── Session compaction ───────────────────────────────────────────────── */
-// NOTE: the progress fill below is a MOCKED estimate, not real backend
-// progress — measuring actual LLM generation progress would require
-// streaming (SSE), which is more than this personal MVP needs right now.
-// We guess a duration from how much is on screen, animate up to ~90%
-// over that guess, and only jump to 100% once the real response lands.
-// Fine to swap for real progress later if that's ever worth doing.
+function compactionProgressPercent(event) {
+    const fixed = {
+        checking: 3,
+        before_commit: 88,
+        checkpointing: 93,
+        committing: 97,
+        completed: 100,
+        skipped: 3,
+    };
+    if (event.stage === 'failed') {
+        return Number.parseFloat(compactProgress.style.width) || 0;
+    }
+    if (!['summarizing', 'model_completed'].includes(event.stage)) {
+        return fixed[event.stage] ?? 0;
+    }
+    if (!event.total_units) return 8;
+    return 8 + (event.completed_units / event.total_units) * 76;
+}
+
+function renderCompactionProgress(event) {
+    const percent = Math.max(0, Math.min(100, compactionProgressPercent(event)));
+    compactProgress.style.width = `${percent}%`;
+    if (compactProgressStatus) {
+        compactProgressStatus.textContent = t(`compaction.stage.${event.stage}`, {
+            completed: event.completed_units ?? 0,
+            total: event.total_units ?? 0,
+        });
+    }
+}
+
+function setCompactionBusy(on) {
+    actionCompactBtn.classList.toggle('busy', on);
+    for (const control of [
+        sendBtn,
+        actionUndoBtn,
+        actionRetryBtn,
+        actionSkipBtn,
+        actionSuggestBtn,
+        actionHintBtn,
+        actionRestoreCompactionBtn,
+    ]) {
+        if (control) control.disabled = on;
+    }
+}
+
 async function compactSession() {
     if (!state.sessionId || !actionCompactBtn || !compactProgress) return;
     hideActionPopup();
 
-    const msgCount = chatLog.querySelectorAll('.msg').length;
-    const estimatedMs = Math.min(3500, 400 + msgCount * 120);
-    actionCompactBtn.classList.add('busy');
+    setCompactionBusy(true);
     compactProgress.style.width = '0%';
-    const start = performance.now();
-    let done = false;
-
-    function tick(now) {
-        if (done) return;
-        const elapsed = now - start;
-        const pct = Math.min(90, (elapsed / estimatedMs) * 90);
-        compactProgress.style.width = `${pct}%`;
-        requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+    const ac = new AbortController();
+    state.compactionAbortController = ac;
 
     try {
-        const data = await api.compact(state.sessionId);
-        done = true;
-        compactProgress.style.width = '100%';
+        const data = await api.compact(
+            state.sessionId,
+            renderCompactionProgress,
+            ac.signal,
+        );
         if (data.compacted) {
             toast(
                 t('compaction.done', {
-                    evicted: data.evicted_turns,
-                    kept: data.kept_turns,
+                    evicted: data.evicted_records,
+                    kept: data.kept_records,
                 }),
                 'success',
                 3500
@@ -851,20 +891,22 @@ async function compactSession() {
             toast(data.reason || t('compaction.none'), 'info', 2500);
         }
     } catch (err) {
-        done = true;
-        toast(t('compaction.error', { error: err.message }), 'error');
+        if (err.name !== 'AbortError') {
+            toast(t('compaction.error', { error: err.message }), 'error');
+        }
     } finally {
+        state.compactionAbortController = null;
         setTimeout(() => {
-            actionCompactBtn.classList.remove('busy');
+            setCompactionBusy(false);
             compactProgress.style.width = '0%';
+            if (compactProgressStatus) compactProgressStatus.textContent = '';
         }, 400);
     }
 }
 
 /* ── Undo last compaction ─────────────────────────────────────────────────── */
-// Risky operation: only undoes if NO new turns have been played
-// since the last compaction (the backend refuses and explains why, without
-// changing anything, if it is not safe) — see Runner.restore_last_compaction.
+// Checkpoints are undone in LIFO order. Turns played after the checkpoint are
+// preserved, while divergent plugin-owned state requires an explicit resolver.
 async function restoreCompaction() {
     if (!state.sessionId) return;
     hideActionPopup();
@@ -876,7 +918,10 @@ async function restoreCompaction() {
         const data = await api.restoreCompaction(state.sessionId);
         if (data.restored) {
             toast(
-                t('compaction.restored', { count: data.history_length }),
+                t('compaction.restored', {
+                    count: data.restored_records,
+                    depth: data.remaining_compaction_depth,
+                }),
                 'success',
                 3500
             );
@@ -1069,11 +1114,16 @@ function ingestState(gameState) {
     state.characters = gameState.characters || {};
     state.order = Object.keys(state.characters);
     state.controlledId = gameState.player && gameState.player.controlled_character_id;
+    state.compactionDepth = Array.isArray(gameState.compaction_stack)
+        ? gameState.compaction_stack.length
+        : 0;
     if (gameState.scene) renderScene(gameState.scene);
     populateForceSpeakerOptions();
+    updateActionPopup();
 }
 
 async function startSession(cfg) {
+    state.compactionAbortController?.abort();
     // reset the view
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
@@ -1111,6 +1161,28 @@ async function startSession(cfg) {
     } finally {
         setLoading(false);
     }
+}
+
+async function reconcileAutomaticCompaction(data) {
+    const result = data?.automatic_compaction;
+    if (!result) return false;
+    if (result.compacted) {
+        const gameState = await api.getState(state.sessionId);
+        ingestState(gameState);
+        renderHistory(gameState.history);
+        toast(
+            t('compaction.automaticDone', { count: result.evicted_records }),
+            'info',
+            3500,
+        );
+        return true;
+    }
+    if (result.status === 'blocked_by_retention_window') {
+        toast(t('compaction.automaticBlocked'), 'info', 3000);
+    } else if (result.status === 'failed') {
+        toast(t('compaction.automaticFailed'), 'error', 4500);
+    }
+    return false;
 }
 
 async function sendTurn(isRetry = false) {
@@ -1164,17 +1236,24 @@ async function sendTurn(isRetry = false) {
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
-        updatePlayerEcho(
-            state.lastEchoMessage,
-            data.effective_input,
-            Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
-        );
+        const historyWasReconciled = await reconcileAutomaticCompaction(data);
+        if (!historyWasReconciled) {
+            updatePlayerEcho(
+                state.lastEchoMessage,
+                data.effective_input,
+                Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
+            );
+        } else {
+            state.lastEchoMessage = null;
+        }
 
         if (state.debug) refreshDebugLog();
 
-        if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-        if (data.character_response) {
-            addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+        if (!historyWasReconciled) {
+            if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
+            if (data.character_response) {
+                addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+            }
         }
 
         if (data.scene_update) {
@@ -1193,6 +1272,11 @@ async function sendTurn(isRetry = false) {
         state.canUndo = true;
         updateActionPopup();
     } catch (err) {
+        try {
+            const gameState = await api.getState(state.sessionId);
+            ingestState(gameState);
+            renderHistory(gameState.history);
+        } catch { /* best-effort reconciliation after an ambiguous turn failure */ }
         if (err.name === 'AbortError') {
             // User pressed stop — don't treat as failure, keep inputs
             toast(t('turn.stopped'), 'info', 2500);
@@ -1728,6 +1812,10 @@ window.addEventListener('appinstalled', () => {
     toast(t('pwa.installed'), 'success', 2500);
 });
 
+window.addEventListener('beforeunload', () => {
+    state.compactionAbortController?.abort();
+});
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => { /* offline shell optional */ });
@@ -1741,7 +1829,13 @@ async function initializeApplication() {
     } catch (error) {
         console.warn('Plugin frontend boot failed:', error);
     }
-    RuntimeConfig.init({ notify: toast });
+    RuntimeConfig.init({
+        notify: toast,
+        onCompactionHelp: () => {
+            setHelp(true);
+            showHelpArticle('compaction');
+        },
+    });
     PluginCenter.init({ notify: toast });
     Setup.init({
         onStart: (cfg) => startSession(cfg),

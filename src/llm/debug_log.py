@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 from weakref import WeakValueDictionary
 
+from src.llm.tokens import estimate_prompt_tokens
 from src.store.sessions import session_debug_path
 
 _locks: WeakValueDictionary[str, threading.Lock] = WeakValueDictionary()
@@ -163,7 +164,7 @@ def log_llm_call(
             "duration_ms": duration_ms,
             "attempt_number": attempt_number,
             "prompt_chars": prompt_chars,
-            "prompt_estimated_tokens": prompt_chars // 4,
+            "prompt_estimated_tokens": estimate_prompt_tokens(messages),
         },
     )
 
@@ -182,7 +183,15 @@ def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
 
 
 def log_compact(
-    session_id: str, cutoff_turn_number: int, evicted_records: int, kept_records: int
+    session_id: str,
+    cutoff_turn_number: int,
+    evicted_records: int,
+    kept_records: int,
+    *,
+    checkpoint_id: str,
+    trigger: str,
+    estimated_context_tokens: int | None = None,
+    threshold_tokens: int | None = None,
 ) -> None:
     _append(
         session_id,
@@ -190,9 +199,48 @@ def log_compact(
             "ts": datetime.now(UTC).isoformat(),
             "session_id": session_id,
             "agent": "compact",
+            "status": "compacted",
+            "trigger": trigger,
+            "checkpoint_id": checkpoint_id,
             "cutoff_turn_number": cutoff_turn_number,
             "evicted_records": evicted_records,
             "kept_records": kept_records,
+            "estimated_context_tokens": estimated_context_tokens,
+            "threshold_tokens": threshold_tokens,
+        },
+    )
+
+
+def log_compaction_status(
+    session_id: str,
+    turn_number: int,
+    *,
+    status: str,
+    trigger: str,
+    estimated_context_tokens: int | None,
+    threshold_tokens: int | None,
+    reason: str = "",
+    error: BaseException | None = None,
+) -> None:
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "compaction_status",
+            "status": status,
+            "trigger": trigger,
+            "estimated_context_tokens": estimated_context_tokens,
+            "threshold_tokens": threshold_tokens,
+            "reason": reason,
+            "error": None,
+            "error_type": type(error).__name__ if error is not None else None,
+            "error_repr": (
+                f"<{type(error).__module__}.{type(error).__qualname__}>"
+                if error is not None
+                else None
+            ),
         },
     )
 

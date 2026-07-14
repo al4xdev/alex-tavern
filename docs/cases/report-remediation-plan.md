@@ -5,6 +5,11 @@
 **Estado:** pronto para execução autônoma
 **Saída prevista:** [`report-remediation-final.md`](./report-remediation-final.md)
 
+> **Nota de contrato (2026-07-14):** as referências a backup e restore neste plano descrevem a
+> implementação auditada em 2026-07-12. O contrato atual usa checkpoints incrementais LIFO,
+> preserva turnos posteriores e pode compactar automaticamente por pressão estimada de contexto.
+> Consulte [Context Compaction](../../README.md#-context-compaction).
+
 ## Objetivo
 
 Corrigir e verificar os problemas encontrados no playtest Thorn/Lyra sem incorporar o backlog

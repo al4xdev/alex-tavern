@@ -11,10 +11,10 @@ FastAPI Runner enforces player agency, persistence, and knowledge boundaries. It
 llama.cpp inference and the DeepSeek API through provider adapters.
 
 > [!NOTE]
-> **Context Compaction is implemented.** A manual action backs up the session, folds older
-> turns into a running story summary and per-character notes, and keeps a recent verbatim
-> window active. See [Context compaction](#-context-compaction) for the exact behavior and
-> restore safeguards.
+> **Context Compaction is implemented.** Manual and opt-in automatic actions fold older turns
+> into a running story summary and isolated character notes, keep a recent verbatim window, and
+> append incremental undo checkpoints. Manual progress is measured over SSE. See
+> [Context compaction](#-context-compaction) for the exact trigger, privacy, and undo behavior.
 
 > [!NOTE]
 > **Provider-native prompt caching is verified on both supported backends.** DeepSeek reused
@@ -250,7 +250,7 @@ resolve:
 1. **Narrator call** — reads the current scene, the full personality and appearance of every
    present character, the running `story_summary` when one exists, and the active history
    (trimmed by an estimated token budget, never by a fixed turn count or by character clipping).
-   Before the first manual compaction, that active history is the entire stored history; after
+   Before the first compaction, that active history is the entire stored history; after
    compaction, it is the retained verbatim window. Private `thought` records are removed before
    token trimming, so they cannot re-enter through the budget path. There's no separate "player
    input" block; public human speech/action records appear under the controlled character's name
@@ -446,27 +446,46 @@ sensitive session data.
 ## 🧠 Context Compaction
 
 > [!IMPORTANT]
-> Compaction is a completed manual MVP. It is not triggered automatically by context usage, and
-> its progress bar is a UI estimate rather than measured generation progress.
+> Compaction is a transactional state operation. It remains available manually, can be enabled
+> automatically at a context threshold, reports measured lifecycle progress over SSE, and writes
+> an incremental checkpoint journal for multi-step undo.
 
 Context is finite even with large model windows. Alex Tavern keeps scene facts and current moods
-as durable structured state, while manual compaction condenses old narrative prose into a public
+as durable structured state, while compaction condenses old narrative prose into a public
 story summary and isolated per-character notes. No layer is recomputed on every prompt;
 compaction is a discrete state transition:
 
 1. Read `compaction_keep_recent_turns` (200 by default) and count distinct `turn_number` values,
    not individual history records. If the session has at most that many turns, return without
-   creating a backup or calling the model.
-2. Copy the current session bytes to the next `{session_id}.kb_N.json` before changing the live
-   state.
-3. Send only public records older than the retained window to the world summarizer, together with
+   creating a checkpoint or calling the model.
+2. Send only public records older than the retained window to the world summarizer, together with
    the existing public summary. It never receives thoughts or character notes.
-4. In parallel, run a smaller private-memory call for each relevant character. Each receives
+3. In parallel with the world job, run a smaller private-memory call for each relevant character.
+   Each receives
    public events, that character's existing note, and only that character's thoughts; it cannot
    see another character's thoughts or note.
-5. Replace `story_summary`, merge the isolated character notes, and replace live history with the
+4. Run plugin pre-commit filters against an isolated compaction draft. Replace `story_summary`,
+   merge the isolated character notes, and replace live history with the
    retained verbatim window.
-6. Save the compacted state and append a `compact` marker to the session's debug log.
+5. Write `.data/sessions/{id}/backups/compaction.cNNNNNN.json` with only the evicted records,
+   previous summaries/notes, integrity hashes, and reversible plugin-state delta. Then save the
+   compacted state atomically with a reference to that checkpoint.
+6. Append a `compact` marker containing trigger, checkpoint ID, cutoff, counts, and automatic
+   threshold evidence to the session debug log.
+
+Automatic compaction is disabled by default. When enabled, the Runner prepares the same complete,
+untrimmed Narrator messages used by the real call, estimates them with the shared character-based
+estimator, adds the reserved Narrator output, and compares the result with
+`automatic_compaction_threshold_percent` (80 by default). It runs only when a Narrator call is
+about to happen and at least one complete turn is older than the retained window. A private-only
+thought defers the check. If the Historian or a plugin fails, no checkpoint or compacted state is
+committed, the failure is logged, and the normal token-trimmed turn continues.
+
+The explicit browser operation negotiates `text/event-stream`. Its progress is based on completed
+work: eligibility, the known world/private model-job denominator, each actual model completion,
+plugin filtering, checkpoint writing, atomic save, and the terminal result. JSON clients such as
+MCP and replay continue to receive the equivalent final object from the same endpoint. The client
+never retries an interrupted compaction automatically.
 
 In practical terms, one compaction fans out into a public summary plus granular private memories:
 
@@ -566,16 +585,15 @@ presence filter would first require canonical enter/leave state to be updated pe
 then exclude public records whose snapshots do not include that character before building their
 private compaction prompt.
 
-A consequence accepted explicitly: ordinary turn undo cannot reach past whatever was compacted
-away, since those turns are gone from the active history. It continues to work normally for
-turns inside the retained window.
+A normal turn undo operates on the active verbatim window. Compaction undo is separate: it
+rehydrates the evicted records from the newest active checkpoint while preserving every live turn
+with a higher `turn_number`.
 
 Current deliberate constraints and known gaps include:
 
-- **No automatic token-threshold trigger** in this first version — only a manual button next to
-  the existing undo control, with a deliberately simulated (not measured) progress indicator,
-  since real progress tracking would need a streaming architecture judged not worth the
-  complexity yet.
+- **Automatic compaction is opt-in.** The default remains off because the Historian is a
+  semantically non-idempotent model operation. The browser exposes the opt-in and threshold; the
+  recent-turn retention remains a server-owned default rather than another common-user control.
 - **Per-character notes** (accumulated memory/relationships, distinct from the world-level
   rolling summary) are included from the start, scoped per character the same way personality
   already is — each character only ever sees its own notes, never anyone else's.
@@ -591,14 +609,13 @@ optional "story so far" section, placed before the current scene, populated only
 line, populated only from that character's own notes — matching the same per-role scoping used
 everywhere else in this project.
 
-**Undoing a compaction itself.** A separate action restores the highest-numbered backup, but only
-when the live session has no turn newer than that backup. The backend compares their maximum
-`turn_number` values and refuses without changing either file if restoration would discard newer
-play. On success it copies the backup over the live session and deletes that consumed backup.
-The UI asks for confirmation, reloads the restored state, and reports refusals without changing
-the visible history. This is deliberately not a merge operation and not an unrestricted undo
-stack: older backups can remain after restoring the newest one, but the same safety check may
-make them impossible to restore through the UI if the live history is already newer.
+**Undoing compactions.** `state.json` holds an active LIFO stack of checkpoint references. Undo
+validates the newest checkpoint's parent and hashes, restores its evicted prefix and previous
+summary/note state, and appends every later live turn unchanged. Repeating undo walks backward
+across multiple compactations. Checkpoint files are immutable journal evidence and remain until
+the session is deleted, even after their active stack entry is popped. Plugin-owned state is
+reversed path by path; a later divergent path causes a safe conflict unless that same plugin
+registered `compaction.undo_conflict` to resolve its namespace explicitly.
 
 ---
 
@@ -618,6 +635,8 @@ The interface is dependency-free and built from native ES modules. Current behav
   states, and accessibility labels without recreating forms or sessions;
 - automatic synchronization between interface locale and model response language;
 - an action menu for undo, retry, force-speaker, suggestions, compaction, and restore;
+- a novice-facing automatic-compaction card with an on/off switch, an earlier-to-later timing
+  slider, live plain-language consequences, and a direct link to the compaction guide;
 - a network-first service worker with cache fallback for the application shell;
 - typewriter reveal for Narrator and Character responses, with click-to-skip and
   `prefers-reduced-motion` support;
@@ -811,6 +830,8 @@ is:
   "active_provider": "llama_cpp",
   "language": "English",
   "compaction_keep_recent_turns": 200,
+  "automatic_compaction_enabled": false,
+  "automatic_compaction_threshold_percent": 80,
   "providers": {
     "llama_cpp": {
       "api_base": "http://localhost:8888/v1",
@@ -1021,7 +1042,7 @@ separate from mutation.
 | `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
 | `mutate_undo_turn` | Undo the latest complete turn |
 | `mutate_compact_session` | Summarize older history and retain the configured recent window |
-| `mutate_restore_compaction` | Restore a compaction backup when the backend safety check allows it |
+| `mutate_restore_compaction` | Undo the newest incremental compaction checkpoint while preserving later turns |
 | `mutate_reset_replay` | Rewind the replay tape to position zero |
 | `mutate_seek_replay` | Move the replay cursor to an absolute position |
 
@@ -1095,8 +1116,9 @@ The driver resets the cursor, starts a real scenario session, submits every reco
 requests state immediately after every turn. It rejects a wrong response turn number, missing
 history, or a persisted turn that does not match the input just submitted. When the source tape
 contains a Historian output it also triggers real compaction, then compares all successful
-`{turn_number, agent, response}` records in exact order. Optional source backup/final-state files
-enable full structural state comparison in addition to output comparison.
+`{turn_number, agent, response}` records in exact order. An optional source checkpoint compares
+the exact evicted prefix and pre-compaction summaries/notes; an optional final-state file enables
+full structural comparison after replay.
 
 Replay is strict about plain text versus structured output and never silently recycles a tape.
 Mismatch and exhaustion return HTTP 409 without advancing the cursor. Reset and seek share the
@@ -1140,8 +1162,9 @@ agent keep notes in files outside its active context window and pull them back i
 Only unstructured narrative prose needs compaction; canonical scene and mood state remains durable.
 
 **Compaction.** The general pattern summarizes content approaching a context limit and continues
-from that summary. Alex Tavern performs this manually as one transaction: summarize the evicted
-window, retain recent turns verbatim, rewrite the session, and preserve a numbered backup.
+from that summary. Alex Tavern performs it as one transaction, manually or through the opt-in
+threshold: summarize the evicted window, retain recent turns verbatim, rewrite the session, and
+append a numbered incremental undo checkpoint.
 
 **Retrieval-augmented generation, explicitly deferred.** RAG addresses source material larger than
 any practical context window. It remains future work after compaction, following the same
