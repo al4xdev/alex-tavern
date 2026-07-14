@@ -56,7 +56,7 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v10" in service_worker
+    assert "rpt-shell-v13" in service_worker
 
 
 def test_setup_modal_is_always_dismissible() -> None:
@@ -93,6 +93,65 @@ def test_plugin_center_confirms_experiences_and_supports_uninstall() -> None:
     assert "api.activateExperience(experience.id)" in source
     assert "api.uninstallPlugin(" in source
     assert "uninstallPlugin(pluginId, version, sha256)" in api_source
+
+
+def test_plugin_center_groups_releases_and_exposes_reviewed_updates() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")
+    api_source = (STATIC / "api.js").read_text(encoding="utf-8")
+
+    assert "status.plugins.flatMap" in source
+    assert "plugin.cached_versions.map" in source
+    assert "plugin.state === 'update_available'" in source
+    assert "diff.permissions.added" in source
+    assert "permission === 'model.call'" in source
+    assert "api.updateCuratedPlugin(" in source
+    assert "updateCuratedPlugin(pluginId, version, sha256)" in api_source
+    assert 'id="plugin-update-count"' in html
+
+
+def test_plugin_installations_are_reviewed_before_curated_or_external_cache_write() -> None:
+    source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")
+    api_source = (STATIC / "api.js").read_text(encoding="utf-8")
+
+    assert "installationReviewItems(manifest, release.sha256)" in source
+    assert "api.inspectPluginFile(file)" in source
+    assert "installationReviewItems(manifest, inspected.sha256, { external: true })" in source
+    assert source.index("api.inspectPluginFile(file)") < source.index("api.installPluginFile(file)")
+    assert "inspectPluginFile(file)" in api_source
+    assert "'/plugins/inspect-upload'" in api_source
+
+
+def test_plugin_center_tabs_are_accessible_and_touch_draggable() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+
+    assert html.count('role="tab"') == 3
+    assert html.count('role="tabpanel"') == 3
+    assert "ArrowLeft" in source and "ArrowRight" in source
+    assert "Home: 0" in source and "End: tabNames.length - 1" in source
+    assert "['touch', 'pen'].includes(event.pointerType)" in source
+    assert "width * 0.25" in source and "Math.abs(velocity) >= 0.5" in source
+    assert "reducedMotion.matches" in source
+    assert "touch-action: pan-y" in styles
+    assert ".plugin-view-track" in styles
+
+
+def test_empty_session_invites_first_move_and_mobile_input_opens_directly() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+
+    assert 'id="empty-scroll-cue"' in html
+    assert "else showEmptyState(true);" in source
+    assert "function expandMobileInput" in source
+    assert "inputArea.classList.remove('collapsed');" in source
+    assert (
+        "inputExpandBtn.addEventListener('click', () => {\n        expandMobileInput();" in source
+    )
+    assert ".empty-state.session-ready" in styles
+    assert "min-height: calc(100% + 76px)" in styles
 
 
 def test_frontend_adapter_registry_loads_both_provider_modules() -> None:

@@ -272,6 +272,21 @@ class TestSessions:
             assert "turn_count" in r
             assert "created_at" in r
 
+    def test_list_sessions_rejects_incompatible_schema_without_crashing(self) -> None:
+        valid = _make_test_game()
+        save_game(valid)
+        legacy = game_state_to_dict(_make_test_game("legacy"))
+        legacy.pop("compaction_stack")
+        legacy_path = session_state_path("legacy")
+        legacy_path.parent.mkdir(parents=True)
+        legacy_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+        result = list_sessions()
+
+        assert valid.session_id in {item["session_id"] for item in result}
+        assert "legacy" not in {item["session_id"] for item in result}
+        assert "compaction_stack" not in json.loads(legacy_path.read_text(encoding="utf-8"))
+
     @pytest.mark.asyncio
     async def test_fork_session(self) -> None:
         """fork_session copia sessão com novo ID."""

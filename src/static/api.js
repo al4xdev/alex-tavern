@@ -204,10 +204,26 @@ export const api = {
         });
     },
 
+    inspectPluginFile(file) {
+        return apiFetch('/plugins/inspect-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/zip' },
+            body: file,
+        });
+    },
+
     installCuratedPlugin(pluginId, version = null) {
         const query = version ? `?version=${encodeURIComponent(version)}` : '';
         return apiFetch(`/plugins/catalog/${encodeURIComponent(pluginId)}/install${query}`, {
             method: 'POST',
+        });
+    },
+
+    updateCuratedPlugin(pluginId, version, sha256) {
+        return apiFetch(`/plugins/catalog/${encodeURIComponent(pluginId)}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ version, sha256 }),
         });
     },
 

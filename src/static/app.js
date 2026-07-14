@@ -52,6 +52,9 @@ const settingsBtn   = document.getElementById('settings-btn');
 const emptyConfigBtn= document.getElementById('empty-config-btn');
 const spinner       = document.getElementById('spinner');
 const emptyState    = document.getElementById('empty-state');
+const emptyKicker   = document.getElementById('empty-kicker');
+const emptyPrompt   = document.getElementById('empty-prompt');
+const emptyScrollCue= document.getElementById('empty-scroll-cue');
 const debugToggle   = document.getElementById('debug-toggle');
 const debugDrawer   = document.getElementById('debug-drawer');
 const debugContent  = document.getElementById('debug-content');
@@ -126,6 +129,25 @@ function scrollToBottom(forceBottom = false) {
         chatLog.scrollTo({ top: chatLog.scrollHeight - chatLog.clientHeight - 15, behavior: 'auto' });
     } else {
         chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
+    }
+}
+
+function showEmptyState(sessionReady = false) {
+    emptyState.classList.toggle('session-ready', sessionReady);
+    bindTranslation(emptyKicker, sessionReady ? 'empty.sessionKicker' : 'empty.kicker');
+    bindTranslation(emptyPrompt, sessionReady ? 'empty.sessionPrompt' : 'empty.prompt');
+    emptyConfigBtn.hidden = sessionReady;
+    if (!sessionReady) bindTranslation(emptyConfigBtn, 'sessions.manage');
+    emptyScrollCue.hidden = !sessionReady;
+    emptyState.style.display = 'flex';
+}
+
+function expandMobileInput({ focus = true } = {}) {
+    if (!state.sessionId) return;
+    inputArea.classList.remove('collapsed');
+    scrollToBottom(true);
+    if (focus && window.innerWidth <= 760) {
+        requestAnimationFrame(() => inputSpeech.focus({ preventScroll: true }));
     }
 }
 
@@ -368,7 +390,7 @@ function renderSessionList(sessions) {
                     state.compactionDepth = 0;
                     chatLog.innerHTML = '';
                     chatLog.appendChild(emptyState);
-                    emptyState.style.display = 'flex';
+                    showEmptyState(false);
                     clearSuggestions();
                     renderScene({});
                 }
@@ -388,7 +410,9 @@ function renderSessionList(sessions) {
 function renderHistory(history) {
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
-    emptyState.style.display = 'none';
+    const records = history || [];
+    if (records.length) emptyState.style.display = 'none';
+    else showEmptyState(true);
 
     let responseBuffer = null;
     const flushResponseBuffer = () => {
@@ -398,7 +422,7 @@ function renderHistory(history) {
         });
         responseBuffer = null;
     };
-    for (const record of (history || [])) {
+    for (const record of records) {
         const combinable = ['speech', 'thought', 'action'].includes(record.content_type) &&
             record.speaker !== 'Narrator';
         if (combinable) {
@@ -1127,7 +1151,7 @@ async function startSession(cfg) {
     // reset the view
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
-    emptyState.style.display = 'flex';
+    showEmptyState(false);
     clearSuggestions();
     lastDebugEntries = null;
     sceneTags.innerHTML = '';
@@ -1146,7 +1170,7 @@ async function startSession(cfg) {
         state.canUndo = false;
         updateActionPopup();
         ingestState(data.state);
-        emptyState.style.display = 'none';
+        renderHistory(data.state.history);
         inputSpeech.disabled = false;
         inputThought.disabled = false;
         inputAction.disabled = false;
@@ -1157,7 +1181,7 @@ async function startSession(cfg) {
         showTipBanner();
     } catch (err) {
         toast(t('turn.startError', { error: err.message }), 'error');
-        emptyState.style.display = 'flex';
+        showEmptyState(Boolean(state.sessionId));
     } finally {
         setLoading(false);
     }
@@ -1374,7 +1398,7 @@ inputThought.addEventListener('keydown', (e) => {
 
 if (inputExpandBtn) {
     inputExpandBtn.addEventListener('click', () => {
-        scrollToBottom(true);
+        expandMobileInput();
     });
 }
 
@@ -1532,7 +1556,7 @@ inputArea.addEventListener('touchend', (e) => {
             }
             inputArea.classList.add('collapsed');
         } else if (diffY < -30) {
-            inputArea.classList.remove('collapsed');
+            expandMobileInput({ focus: false });
         }
     }
     
@@ -1594,7 +1618,8 @@ settingsBtn.addEventListener('click', () => {
     Setup.open();
 });
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
-    openSessionsModal();
+    if (state.sessionId) expandMobileInput();
+    else openSessionsModal();
 });
 
 if (interfaceLanguage) {

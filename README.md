@@ -74,6 +74,9 @@ the Python child and browser runtime.
 
 Packages use a strict `plugin.toml`, immutable `id/version/SHA-256` cache, physical activation
 pointers under `.data/plugins/started`, plugin-owned config, and an append-only access/crash journal.
+Before any curated or external ZIP enters that cache, the Plugin Center shows its exact release,
+hash, permissions, dependencies, entrypoints, and Python requirements. External ZIPs are inspected
+without installation first and carry an explicit full-trust warning in the confirmation screen.
 Backend plugins register deterministic actions, filters, wrappers, or contributions. Frontend
 plugins load as JavaScript modules through the browser SDK. Before-commit filters work on isolated
 drafts; a crash discards that plugin's draft, disables it for the boot, and continues clean. A
@@ -92,8 +95,13 @@ Reference packages live in `plugins/examples`. Authoring commands are available 
 documentation, and a stdio MCP with contract, scaffold, validate, test, pack, and trace tools. It
 never performs Git or publication operations. Opening the Plugin Center automatically downloads a
 validated GitHub snapshot when the local cache is missing or older than five minutes. Downloads are
-bounded, reject unsafe archive paths, verify every artifact SHA-256, publish atomically, and fall
-back to the last valid snapshot while offline. To force the same synchronization from the CLI:
+bounded, reject unsafe archive paths, verify every artifact SHA-256 and its internal manifest, publish
+atomically, and fall back to the last valid snapshot while offline. The Plugin Center groups cached
+versions by plugin ID and compares the active package with the newest curated SemVer release. An
+update review shows hashes, permissions and dependency/entrypoint changes before one transactional
+“update and activate” operation; the old cache remains available for rollback. A same-version,
+different-hash artifact is reported as a release conflict instead of silently replacing code. To
+force the same synchronization from the CLI:
 
 ```fish
 uv run python tools/plugin_hub.py sync --repository https://github.com/al4xdev/alex-tavern-plugins.git

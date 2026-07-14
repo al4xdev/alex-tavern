@@ -21,7 +21,7 @@ import httpx
 
 from src.paths import EXPERIENCES_DIR, PLUGIN_HUB_DIR, PLUGINS_DIR
 from src.plugins.experiences import parse_experience, save_experience
-from src.plugins.store import PluginInstallError, curated_catalog
+from src.plugins.store import PluginInstallError, curated_catalog, inspect_zip
 
 DEFAULT_REPOSITORY = "https://github.com/al4xdev/alex-tavern-plugins.git"
 DEFAULT_BRANCH = "master"
@@ -132,6 +132,7 @@ def _validated_snapshot(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]
     if not isinstance(plugins, list) or not isinstance(experiences, list):
         raise HubSyncError("Curated catalog plugins and experiences must be arrays")
 
+    seen_releases: set[tuple[str, str]] = set()
     for index, plugin in enumerate(plugins):
         if not isinstance(plugin, dict):
             raise HubSyncError(f"plugins[{index}] must be an object")
@@ -139,6 +140,23 @@ def _validated_snapshot(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]
         expected_hash = plugin.get("sha256")
         if not isinstance(expected_hash, str) or _sha256(artifact) != expected_hash:
             raise HubSyncError(f"plugins[{index}] artifact SHA-256 does not match the catalog")
+        plugin_id = plugin.get("id")
+        version = plugin.get("version")
+        if not isinstance(plugin_id, str) or not isinstance(version, str):
+            raise HubSyncError(f"plugins[{index}] id and version must be strings")
+        release = (plugin_id, version)
+        if release in seen_releases:
+            raise HubSyncError(f"Duplicate curated release: {plugin_id}@{version}")
+        seen_releases.add(release)
+        try:
+            inspected = inspect_zip(artifact)
+        except PluginInstallError as error:
+            raise HubSyncError(f"plugins[{index}] artifact is invalid: {error}") from error
+        manifest = inspected["manifest"]
+        if manifest["plugin_id"] != plugin_id or manifest["version"] != version:
+            raise HubSyncError(
+                f"plugins[{index}] artifact manifest does not match {plugin_id}@{version}"
+            )
 
     prepared_experiences: list[dict[str, Any]] = []
     for index, entry in enumerate(experiences):

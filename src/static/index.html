@@ -266,15 +266,22 @@
                     data-i18n-aria-label="common.close">✕</button>
             </div>
             <div class="plugin-tabs" role="tablist">
-                <button class="plugin-tab active" data-plugin-tab="experiences" type="button"
+                <button class="plugin-tab active" id="plugin-tab-experiences" data-plugin-tab="experiences"
+                    type="button" role="tab" aria-selected="true" aria-controls="plugin-view-experiences"
                     data-i18n="plugins.experiences">Experiences</button>
-                <button class="plugin-tab" data-plugin-tab="plugins" type="button"
-                    data-i18n="plugins.extensions">Plugins</button>
-                <button class="plugin-tab" data-plugin-tab="activity" type="button"
+                <button class="plugin-tab" id="plugin-tab-plugins" data-plugin-tab="plugins" type="button"
+                    role="tab" aria-selected="false" aria-controls="plugin-view-plugins" tabindex="-1">
+                    <span data-i18n="plugins.extensions">Plugins</span>
+                    <span class="plugin-update-count" id="plugin-update-count" hidden></span>
+                </button>
+                <button class="plugin-tab" id="plugin-tab-activity" data-plugin-tab="activity" type="button"
+                    role="tab" aria-selected="false" aria-controls="plugin-view-activity" tabindex="-1"
                     data-i18n="plugins.activity">Activity</button>
             </div>
             <div class="modal-body plugin-center-body">
-                <section class="plugin-view active" data-plugin-view="experiences">
+              <div class="plugin-view-track" id="plugin-view-track">
+                <section class="plugin-view active" id="plugin-view-experiences" data-plugin-view="experiences"
+                    role="tabpanel" aria-labelledby="plugin-tab-experiences" tabindex="0">
                     <div class="experience-hero">
                         <span class="experience-kicker" data-i18n="plugins.featured">CURATED COMPOSITIONS</span>
                         <h3 data-i18n="plugins.experienceLead">Change the whole experience in one move.</h3>
@@ -282,7 +289,8 @@
                     </div>
                     <div class="experience-grid" id="experience-grid"></div>
                 </section>
-                <section class="plugin-view" data-plugin-view="plugins">
+                <section class="plugin-view" id="plugin-view-plugins" data-plugin-view="plugins"
+                    role="tabpanel" aria-labelledby="plugin-tab-plugins" tabindex="0">
                     <div class="plugin-install-row">
                         <input class="text-input plugin-file-input" id="plugin-zip-path" type="file"
                             accept=".zip,application/zip" aria-label="Plugin ZIP"
@@ -295,11 +303,13 @@
                     <div class="plugin-stack" id="plugin-catalog-stack"></div>
                     <h3 class="plugin-list-title" data-i18n="plugins.installedTitle">Installed cache</h3>
                     <div class="plugin-stack" id="plugin-stack"></div>
+                    <div data-plugin-slot="plugin-center.footer"></div>
                 </section>
-                <section class="plugin-view" data-plugin-view="activity">
+                <section class="plugin-view" id="plugin-view-activity" data-plugin-view="activity"
+                    role="tabpanel" aria-labelledby="plugin-tab-activity" tabindex="0">
                     <div class="plugin-activity" id="plugin-activity"></div>
                 </section>
-                <div data-plugin-slot="plugin-center.footer"></div>
+              </div>
             </div>
             <div class="plugin-confirm-layer" id="plugin-confirm-layer" hidden>
                 <section class="plugin-confirm-panel" role="alertdialog" aria-modal="true"
@@ -346,9 +356,16 @@
         <div class="stage">
             <div class="chat-log" id="chat-log">
                 <div class="empty-state" id="empty-state">
-                    <div class="icon">🎭</div>
-                    <p data-i18n="empty.prompt">Configure your adventure to begin</p>
+                    <div class="empty-stage-mark" aria-hidden="true">
+                        <span>✦</span>
+                    </div>
+                    <span class="empty-kicker" id="empty-kicker" data-i18n="empty.kicker">BEFORE THE CURTAIN</span>
+                    <p id="empty-prompt" data-i18n="empty.prompt">Configure your adventure to begin</p>
                     <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="sessions.manage">📋 Manage sessions</button>
+                    <span class="empty-scroll-cue" id="empty-scroll-cue" hidden>
+                        <span aria-hidden="true">↑</span>
+                        <span data-i18n="empty.scrollCue">Swipe up or tap below to write</span>
+                    </span>
                 </div>
             </div>
 
