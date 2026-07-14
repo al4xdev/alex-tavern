@@ -271,6 +271,20 @@
                 </section>
                 <div data-plugin-slot="plugin-center.footer"></div>
             </div>
+            <div class="plugin-confirm-layer" id="plugin-confirm-layer" hidden>
+                <section class="plugin-confirm-panel" role="alertdialog" aria-modal="true"
+                    aria-labelledby="plugin-confirm-title" aria-describedby="plugin-confirm-description">
+                    <span class="plugin-confirm-kicker" data-i18n="plugins.reviewChanges">REVIEW CHANGES</span>
+                    <h3 id="plugin-confirm-title"></h3>
+                    <p id="plugin-confirm-description"></p>
+                    <ul class="plugin-confirm-list" id="plugin-confirm-list"></ul>
+                    <div class="plugin-confirm-actions">
+                        <button class="btn" id="plugin-confirm-cancel" type="button"
+                            data-i18n="common.cancel">Cancel</button>
+                        <button class="btn btn-primary" id="plugin-confirm-accept" type="button"></button>
+                    </div>
+                </section>
+            </div>
         </div>
     </div>
 

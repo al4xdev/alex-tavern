@@ -133,27 +133,35 @@ def install_curated(plugin_id: str, version: str | None = None) -> dict[str, Any
 
 
 def installed_plugins() -> list[dict[str, Any]]:
-    result: list[dict[str, Any]] = []
-    if not PLUGIN_CACHE_DIR.exists():
-        return result
-    for manifest_path in PLUGIN_CACHE_DIR.glob("*/*/*/plugin.toml"):
-        package = manifest_path.parent
-        try:
-            manifest = validate_package(package)
-        except _MANIFEST_ERRORS:
-            continue
-        result.append(
-            {
-                "manifest": manifest.public_dict(),
-                "sha256": package.name,
-                "path": str(package),
-                "active": activation_path(manifest.plugin_id).exists(),
-            }
+    with _lock:
+        result: list[dict[str, Any]] = []
+        if not PLUGIN_CACHE_DIR.exists():
+            return result
+        pointers = {pointer.get("plugin_id"): pointer for pointer in active_pointers()}
+        for manifest_path in PLUGIN_CACHE_DIR.glob("*/*/*/plugin.toml"):
+            package = manifest_path.parent
+            try:
+                manifest = validate_package(package)
+            except _MANIFEST_ERRORS:
+                continue
+            pointer = pointers.get(manifest.plugin_id)
+            active = bool(
+                pointer
+                and pointer.get("version") == manifest.version
+                and pointer.get("sha256") == package.name
+            )
+            result.append(
+                {
+                    "manifest": manifest.public_dict(),
+                    "sha256": package.name,
+                    "path": str(package),
+                    "active": active,
+                }
+            )
+        return sorted(
+            result,
+            key=lambda item: (item["manifest"]["plugin_id"], item["manifest"]["version"]),
         )
-    return sorted(
-        result,
-        key=lambda item: (item["manifest"]["plugin_id"], item["manifest"]["version"]),
-    )
 
 
 def activation_path(plugin_id: str) -> Path:
@@ -205,18 +213,67 @@ def deactivate(plugin_id: str) -> bool:
         return True
 
 
-def active_pointers() -> list[dict[str, Any]]:
-    if not PLUGIN_STARTED_DIR.exists():
-        return []
-    result: list[dict[str, Any]] = []
-    for path in sorted(PLUGIN_STARTED_DIR.glob("*.json")):
+def uninstall(plugin_id: str, version: str, sha256: str) -> dict[str, Any]:
+    """Remove one immutable cache entry and its matching active pointer, if any."""
+    with _lock:
+        root = PLUGIN_CACHE_DIR.resolve()
+        destination = (PLUGIN_CACHE_DIR / plugin_id / version / sha256).resolve()
+        if root not in destination.parents or not destination.is_dir():
+            raise PluginInstallError(f"Installed package not found: {plugin_id}@{version}#{sha256}")
         try:
-            pointer = json.loads(path.read_text(encoding="utf-8"))
-        except _JSON_READ_ERRORS:
-            continue
-        if isinstance(pointer, dict):
-            result.append(pointer)
-    return sorted(result, key=lambda pointer: (int(pointer.get("order", 0)), pointer["plugin_id"]))
+            manifest = validate_package(destination)
+        except _MANIFEST_ERRORS as error:
+            raise PluginInstallError(f"Installed package is invalid: {error}") from error
+        selection_matches = (
+            manifest.plugin_id == plugin_id
+            and manifest.version == version
+            and destination.name == sha256
+        )
+        if not selection_matches:
+            raise PluginInstallError("Installed package selection does not match its manifest")
+
+        pointer = next(
+            (item for item in active_pointers() if item.get("plugin_id") == plugin_id),
+            None,
+        )
+        deactivated = bool(
+            pointer
+            and pointer.get("version") == version
+            and pointer.get("sha256") == sha256
+        )
+        if deactivated:
+            activation_path(plugin_id).unlink(missing_ok=True)
+        shutil.rmtree(destination)
+        for parent in (destination.parent, destination.parent.parent):
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+        emit("uninstalled", plugin_id, version=version, sha256=sha256, deactivated=deactivated)
+        return {
+            "plugin_id": plugin_id,
+            "version": version,
+            "sha256": sha256,
+            "deactivated": deactivated,
+        }
+
+
+def active_pointers() -> list[dict[str, Any]]:
+    with _lock:
+        if not PLUGIN_STARTED_DIR.exists():
+            return []
+        result: list[dict[str, Any]] = []
+        for path in sorted(PLUGIN_STARTED_DIR.glob("*.json")):
+            try:
+                pointer = json.loads(path.read_text(encoding="utf-8"))
+            except _JSON_READ_ERRORS:
+                continue
+            if isinstance(pointer, dict):
+                result.append(pointer)
+        return sorted(
+            result,
+            key=lambda pointer: (int(pointer.get("order", 0)), pointer["plugin_id"]),
+        )
 
 
 def rebuild_environment(pointers: list[dict[str, Any]] | None = None) -> dict[str, Any]:

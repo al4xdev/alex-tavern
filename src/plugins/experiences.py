@@ -10,7 +10,13 @@ from typing import Any
 
 from src.paths import EXPERIENCES_DIR
 from src.plugins.sdk import PluginConfig, _atomic_json
-from src.plugins.store import activate, active_pointers, deactivate, installed_plugins
+from src.plugins.store import (
+    activate,
+    active_pointers,
+    deactivate,
+    install_curated,
+    installed_plugins,
+)
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
 _activation_lock = threading.RLock()
@@ -116,12 +122,27 @@ def activate_experience(experience_id: str) -> dict[str, Any]:
             experience = parse_experience(json.loads(path.read_text(encoding="utf-8")))
         except (json.JSONDecodeError, OSError) as error:
             raise ExperienceError(f"Cannot load Experience {experience_id}: {error}") from error
-        installed_ids = {item["manifest"]["plugin_id"] for item in installed_plugins()}
-        missing = [
-            item.plugin_id for item in experience.plugins if item.plugin_id not in installed_ids
-        ]
-        if missing:
-            raise ExperienceError(f"Experience requires uninstalled plugins: {', '.join(missing)}")
+        cached = installed_plugins()
+        installed: list[dict[str, Any]] = []
+        for item in experience.plugins:
+            available = any(
+                cached_item["manifest"]["plugin_id"] == item.plugin_id
+                and (
+                    item.version is None
+                    or cached_item["manifest"]["version"] == item.version
+                )
+                for cached_item in cached
+            )
+            if available:
+                continue
+            try:
+                installed_item = install_curated(item.plugin_id, item.version)
+            except ValueError as error:
+                raise ExperienceError(
+                    f"Cannot install Experience dependency {item.plugin_id}: {error}"
+                ) from error
+            installed.append(installed_item)
+            cached.append(installed_item)
         desired = {item.plugin_id for item in experience.plugins}
         for pointer in active_pointers():
             if pointer["plugin_id"] not in desired:
@@ -130,4 +151,9 @@ def activate_experience(experience_id: str) -> dict[str, Any]:
         for order, item in enumerate(experience.plugins):
             activated.append(activate(item.plugin_id, item.version, order=order))
             PluginConfig(item.plugin_id).write(item.config)
-        return {"experience": experience.public_dict(), "activated": activated, "restart": True}
+        return {
+            "experience": experience.public_dict(),
+            "installed": installed,
+            "activated": activated,
+            "restart": True,
+        }

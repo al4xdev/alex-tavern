@@ -7,6 +7,7 @@ import json
 import shutil
 import tomllib
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -24,6 +25,7 @@ from src.plugins.store import (
     install_curated,
     install_zip,
     installed_plugins,
+    uninstall,
 )
 from src.runner import Runner
 from src.store.sessions import load_game
@@ -173,6 +175,98 @@ def test_experience_switches_the_physical_active_set(tmp_path: Path) -> None:
     assert [item["plugin_id"] for item in active_pointers()] == ["dev.alex-tavern.grammar-tools"]
     config_path = PLUGINS_DIR / "config" / "dev.alex-tavern.grammar-tools.json"
     assert json.loads(config_path.read_text(encoding="utf-8"))["replacements"] == {"--": ","}
+
+
+def test_experience_installs_missing_curated_dependency(tmp_path: Path) -> None:
+    artifacts = PLUGIN_HUB_DIR / "artifacts"
+    artifacts.mkdir(parents=True)
+    artifact = _pack(EXAMPLES / "grammar_tools", artifacts / "grammar.zip")
+    sha256 = hashlib.sha256(artifact.read_bytes()).hexdigest()
+    (PLUGIN_HUB_DIR / "catalog.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "plugins": [
+                    {
+                        "id": "dev.alex-tavern.grammar-tools",
+                        "version": "1.0.0",
+                        "artifact": "artifacts/grammar.zip",
+                        "sha256": sha256,
+                    }
+                ],
+                "experiences": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_experience(
+        {
+            "schema_version": 1,
+            "id": "auto-install",
+            "name": "Auto install",
+            "description": "Installs its dependency.",
+            "image": "",
+            "plugins": [
+                {
+                    "id": "dev.alex-tavern.grammar-tools",
+                    "version": "1.0.0",
+                    "config": {},
+                }
+            ],
+        }
+    )
+
+    result = activate_experience("auto-install")
+
+    assert [item["manifest"]["plugin_id"] for item in result["installed"]] == [
+        "dev.alex-tavern.grammar-tools"
+    ]
+    assert [pointer["plugin_id"] for pointer in active_pointers()] == [
+        "dev.alex-tavern.grammar-tools"
+    ]
+
+
+def test_uninstall_removes_cache_and_matching_activation(tmp_path: Path) -> None:
+    installed = install_zip(_pack(EXAMPLES / "grammar_tools", tmp_path / "grammar.zip"))
+    activate("dev.alex-tavern.grammar-tools")
+
+    result = uninstall(
+        "dev.alex-tavern.grammar-tools",
+        installed["manifest"]["version"],
+        installed["sha256"],
+    )
+
+    assert result["deactivated"] is True
+    assert installed_plugins() == []
+    assert active_pointers() == []
+    with pytest.raises(PluginInstallError, match="not found"):
+        uninstall(
+            "dev.alex-tavern.grammar-tools",
+            installed["manifest"]["version"],
+            installed["sha256"],
+        )
+
+
+def test_concurrent_uninstall_leaves_one_clean_result(tmp_path: Path) -> None:
+    installed = install_zip(_pack(EXAMPLES / "grammar_tools", tmp_path / "grammar.zip"))
+    selection = (
+        "dev.alex-tavern.grammar-tools",
+        installed["manifest"]["version"],
+        installed["sha256"],
+    )
+
+    def remove() -> str:
+        try:
+            uninstall(*selection)
+            return "removed"
+        except PluginInstallError:
+            return "missing"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = sorted(pool.map(lambda _: remove(), range(2)))
+
+    assert outcomes == ["missing", "removed"]
+    assert installed_plugins() == []
 
 
 @pytest.mark.asyncio
