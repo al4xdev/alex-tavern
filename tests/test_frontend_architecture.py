@@ -51,7 +51,7 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v8" in service_worker
+    assert "rpt-shell-v9" in service_worker
 
 
 def test_setup_modal_is_always_dismissible() -> None:
@@ -76,6 +76,18 @@ def test_plugin_center_syncs_catalog_before_listing_experiences() -> None:
     assert catalog_sync in source
     assert experience_fetch in source
     assert source.index(catalog_sync) < source.index(experience_fetch)
+
+
+def test_plugin_center_confirms_experiences_and_supports_uninstall() -> None:
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")
+    api_source = (STATIC / "api.js").read_text(encoding="utf-8")
+
+    assert 'id="plugin-confirm-layer"' in html
+    assert "showConfirmation({" in source
+    assert "api.activateExperience(experience.id)" in source
+    assert "api.uninstallPlugin(" in source
+    assert "uninstallPlugin(pluginId, version, sha256)" in api_source
 
 
 def test_frontend_adapter_registry_loads_both_provider_modules() -> None:

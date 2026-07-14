@@ -13,7 +13,15 @@ export const PluginCenter = (() => {
     const activity = document.getElementById('plugin-activity');
     const zipPath = document.getElementById('plugin-zip-path');
     const installBtn = document.getElementById('plugin-install-btn');
+    const confirmLayer = document.getElementById('plugin-confirm-layer');
+    const confirmTitle = document.getElementById('plugin-confirm-title');
+    const confirmDescription = document.getElementById('plugin-confirm-description');
+    const confirmList = document.getElementById('plugin-confirm-list');
+    const confirmCancel = document.getElementById('plugin-confirm-cancel');
+    const confirmAccept = document.getElementById('plugin-confirm-accept');
     let notify = () => {};
+    let pendingConfirmation = null;
+    let confirmationReturnFocus = null;
 
     function empty(container, key) {
         const element = document.createElement('p');
@@ -22,7 +30,66 @@ export const PluginCenter = (() => {
         container.replaceChildren(element);
     }
 
-    function experienceCard(experience) {
+    function confirmationItem(item) {
+        const row = document.createElement('li');
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = item.name;
+        const metadata = document.createElement('span');
+        metadata.textContent = item.version || t('plugins.latestVersion');
+        copy.append(title, metadata);
+        const status = document.createElement('span');
+        status.className = `plugin-confirm-status ${item.danger ? 'danger' : ''}`;
+        status.textContent = item.status;
+        row.append(copy, status);
+        return row;
+    }
+
+    function hideConfirmation({ restoreFocus = true } = {}) {
+        confirmLayer.hidden = true;
+        pendingConfirmation = null;
+        if (restoreFocus && confirmationReturnFocus?.isConnected) {
+            confirmationReturnFocus.focus({ preventScroll: true });
+        }
+        confirmationReturnFocus = null;
+    }
+
+    function showConfirmation({ title, description, items, acceptLabel, danger = false, action }) {
+        confirmationReturnFocus = document.activeElement;
+        confirmTitle.textContent = title;
+        confirmDescription.textContent = description;
+        confirmList.replaceChildren(...items.map(confirmationItem));
+        confirmAccept.textContent = acceptLabel;
+        confirmAccept.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        confirmAccept.disabled = false;
+        confirmCancel.disabled = false;
+        pendingConfirmation = action;
+        confirmLayer.hidden = false;
+        confirmAccept.focus({ preventScroll: true });
+    }
+
+    async function acceptConfirmation() {
+        if (!pendingConfirmation) return;
+        confirmAccept.disabled = true;
+        confirmCancel.disabled = true;
+        try {
+            const outcome = await pendingConfirmation();
+            hideConfirmation({ restoreFocus: false });
+            if (outcome.restart) {
+                notify(t('plugins.restarting'), 'success', 6000);
+                setTimeout(() => window.location.reload(), 1400);
+            } else {
+                await refresh();
+                notify(t(outcome.messageKey), 'success');
+            }
+        } catch (error) {
+            notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
+            confirmAccept.disabled = false;
+            confirmCancel.disabled = false;
+        }
+    }
+
+    function experienceCard(experience, catalog, installedKeys) {
         const card = document.createElement('article');
         card.className = 'experience-card';
         const visual = document.createElement('div');
@@ -40,25 +107,38 @@ export const PluginCenter = (() => {
         const activate = document.createElement('button');
         activate.className = 'btn btn-primary';
         activate.textContent = t('plugins.activateExperience');
-        activate.addEventListener('click', async () => {
-            activate.disabled = true;
-            try {
-                await api.activateExperience(experience.id);
-                notify(t('plugins.restarting'), 'success', 6000);
-                setTimeout(() => window.location.reload(), 1400);
-            } catch (error) {
-                notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
-                activate.disabled = false;
-            }
+        activate.addEventListener('click', () => {
+            const items = experience.plugins.map((plugin) => {
+                const available = catalog.find((entry) => (
+                    entry.id === plugin.id && (!plugin.version || entry.version === plugin.version)
+                ));
+                const version = plugin.version || available?.version || '';
+                const cached = installedKeys.has(`${plugin.id}@${version}`);
+                return {
+                    name: available?.name || plugin.id,
+                    version,
+                    status: t(cached ? 'plugins.willActivate' : 'plugins.willInstall'),
+                };
+            });
+            showConfirmation({
+                title: experience.name,
+                description: t('plugins.experienceConfirm', { name: experience.name }),
+                items,
+                acceptLabel: t('plugins.installAndActivate'),
+                action: async () => {
+                    await api.activateExperience(experience.id);
+                    return { restart: true };
+                },
+            });
         });
         copy.append(title, description, activate);
         card.append(visual, copy);
         return card;
     }
 
-    function pluginCard(item, loadedIds) {
+    function pluginCard(item) {
         const manifest = item.manifest;
-        const active = loadedIds.has(manifest.plugin_id) || item.active;
+        const active = item.active;
         const card = document.createElement('article');
         card.className = `plugin-card ${active ? 'active' : ''}`;
         const copy = document.createElement('div');
@@ -95,7 +175,33 @@ export const PluginCenter = (() => {
                 toggle.disabled = false;
             }
         });
-        card.append(copy, toggle);
+        const remove = document.createElement('button');
+        remove.className = 'btn btn-mini btn-danger-ghost';
+        remove.textContent = t('plugins.remove');
+        remove.addEventListener('click', () => {
+            showConfirmation({
+                title: t('plugins.removeTitle', { name: manifest.name }),
+                description: t('plugins.removeConfirm', { name: manifest.name }),
+                items: [{
+                    name: manifest.name,
+                    version: `${manifest.version} · ${item.sha256.slice(0, 12)}`,
+                    status: t(active ? 'plugins.removeActive' : 'plugins.removeCached'),
+                    danger: true,
+                }],
+                acceptLabel: t('plugins.remove'),
+                danger: true,
+                action: async () => {
+                    const result = await api.uninstallPlugin(
+                        manifest.plugin_id, manifest.version, item.sha256,
+                    );
+                    return { restart: result.restart, messageKey: 'plugins.removed' };
+                },
+            });
+        });
+        const actions = document.createElement('div');
+        actions.className = 'plugin-card-actions';
+        actions.append(toggle, remove);
+        card.append(copy, actions);
         return card;
     }
 
@@ -138,17 +244,19 @@ export const PluginCenter = (() => {
         const [experiences, status, events] = await Promise.all([
             api.listExperiences(), api.getPlugins(), api.getPluginEvents(),
         ]);
-        if (experiences.length) experienceGrid.replaceChildren(...experiences.map(experienceCard));
-        else empty(experienceGrid, 'plugins.noExperiences');
-        const loadedIds = new Set((status.loaded || []).map((plugin) => plugin.plugin_id));
         const installedKeys = new Set(status.installed.map((item) => (
             `${item.manifest.plugin_id}@${item.manifest.version}`
         )));
+        if (experiences.length) {
+            experienceGrid.replaceChildren(...experiences.map((experience) => (
+                experienceCard(experience, catalog.plugins, installedKeys)
+            )));
+        } else empty(experienceGrid, 'plugins.noExperiences');
         if (catalog.plugins.length) {
             catalogStack.replaceChildren(...catalog.plugins.map((item) => catalogCard(item, installedKeys)));
         } else empty(catalogStack, 'plugins.noCatalog');
         if (status.installed.length) {
-            pluginStack.replaceChildren(...status.installed.map((item) => pluginCard(item, loadedIds)));
+            pluginStack.replaceChildren(...status.installed.map(pluginCard));
         } else empty(pluginStack, 'plugins.noPlugins');
         if (events.length) {
             activity.replaceChildren(...events.reverse().map((event) => {
@@ -180,9 +288,20 @@ export const PluginCenter = (() => {
             try { await refresh(); }
             catch (error) { notify(t('plugins.operationError', { error: error.message }), 'error'); }
         });
-        closeBtn.addEventListener('click', () => overlay.classList.remove('active'));
+        closeBtn.addEventListener('click', () => {
+            if (!confirmLayer.hidden) hideConfirmation();
+            else overlay.classList.remove('active');
+        });
         overlay.addEventListener('click', (event) => {
             if (event.target === overlay) overlay.classList.remove('active');
+        });
+        confirmCancel.addEventListener('click', () => hideConfirmation());
+        confirmAccept.addEventListener('click', acceptConfirmation);
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape' || !overlay.classList.contains('active')) return;
+            event.preventDefault();
+            if (!confirmLayer.hidden) hideConfirmation();
+            else overlay.classList.remove('active');
         });
         document.querySelectorAll('[data-plugin-tab]').forEach((tab) => {
             tab.addEventListener('click', () => selectTab(tab.dataset.pluginTab));

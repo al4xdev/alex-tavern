@@ -626,6 +626,30 @@ def deactivate_plugin(plugin_id: str, background_tasks: BackgroundTasks) -> dict
     return {"deactivated": changed, "environment": environment, "restart": changed}
 
 
+@app.delete("/plugins/{plugin_id}/installations/{version}/{sha256}")
+def uninstall_plugin(
+    plugin_id: str,
+    version: str,
+    sha256: str,
+    background_tasks: BackgroundTasks,
+) -> dict[str, Any]:
+    from src.plugins.store import PluginInstallError, rebuild_environment, uninstall
+    from src.supervisor import request_restart
+
+    try:
+        result = uninstall(plugin_id, version, sha256)
+        environment = rebuild_environment() if result["deactivated"] else None
+    except (PluginInstallError, OSError, RuntimeError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    if result["deactivated"]:
+        background_tasks.add_task(request_restart)
+    return {
+        "uninstalled": result,
+        "environment": environment,
+        "restart": result["deactivated"],
+    }
+
+
 @app.get("/plugins/assets/{plugin_id}/{relative_path:path}")
 def plugin_asset(plugin_id: str, relative_path: str) -> FileResponse:
     path = _runtime().plugins.asset(plugin_id, relative_path)

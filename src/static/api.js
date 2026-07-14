@@ -162,6 +162,15 @@ export const api = {
         return apiFetch(`/plugins/${encodeURIComponent(pluginId)}/deactivate`, { method: 'POST' });
     },
 
+    uninstallPlugin(pluginId, version, sha256) {
+        const id = encodeURIComponent(pluginId);
+        const selectedVersion = encodeURIComponent(version);
+        const selectedHash = encodeURIComponent(sha256);
+        return apiFetch(`/plugins/${id}/installations/${selectedVersion}/${selectedHash}`, {
+            method: 'DELETE',
+        });
+    },
+
     getPluginEvents() {
         return apiFetch('/plugins/events');
     },
