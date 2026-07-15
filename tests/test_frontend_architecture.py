@@ -369,6 +369,23 @@ def test_plugin_center_confirms_experiences_and_supports_uninstall() -> None:
     assert "uninstallPlugin(pluginId, version, sha256)" in api_source
 
 
+def test_plugin_center_batches_active_changes_until_every_close_path() -> None:
+    source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")
+    api_source = (STATIC / "api.js").read_text(encoding="utf-8")
+
+    assert "let restartPending = false;" in source
+    assert "restartPending = true;" in source
+    assert "await api.restartPlugins();" in source
+    assert "restartPlugins()" in api_source
+    assert "apiFetch('/plugins/restart', { method: 'POST' })" in api_source
+    assert source.count("window.location.reload()") == 1
+    assert "else close();" in source
+    assert "if (event.target === overlay) close();" in source
+    assert "const result = await api.activatePlugin" in source
+    assert "const result = await api.deactivatePlugin" in source
+    assert "await settleOutcome(result);" in source
+
+
 def test_plugin_center_groups_releases_and_exposes_reviewed_updates() -> None:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")

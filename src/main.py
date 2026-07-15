@@ -933,16 +933,13 @@ def install_curated_plugin(plugin_id: str, version: str | None = None) -> dict[s
 def update_curated_plugin(
     plugin_id: str,
     body: PluginUpdateRequest,
-    background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     from src.plugins.store import PluginInstallError, update_curated
-    from src.supervisor import request_restart
 
     try:
         result = update_curated(plugin_id, body.version, body.sha256)
     except (PluginInstallError, OSError, RuntimeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    background_tasks.add_task(request_restart)
     return result
 
 
@@ -950,28 +947,22 @@ def update_curated_plugin(
 def activate_plugin(
     plugin_id: str,
     body: PluginActivationRequest,
-    background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     from src.plugins.store import PluginInstallError, switch_activation
-    from src.supervisor import request_restart
 
     try:
         result = switch_activation(plugin_id, body.version, body.sha256)
     except (PluginInstallError, OSError, RuntimeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    background_tasks.add_task(request_restart)
     return {**result, "restart": True}
 
 
 @app.post("/plugins/{plugin_id}/deactivate")
-def deactivate_plugin(plugin_id: str, background_tasks: BackgroundTasks) -> dict[str, Any]:
+def deactivate_plugin(plugin_id: str) -> dict[str, Any]:
     from src.plugins.store import deactivate, rebuild_environment
-    from src.supervisor import request_restart
 
     changed = deactivate(plugin_id)
     environment = rebuild_environment()
-    if changed:
-        background_tasks.add_task(request_restart)
     return {"deactivated": changed, "environment": environment, "restart": changed}
 
 
@@ -980,23 +971,28 @@ def uninstall_plugin(
     plugin_id: str,
     version: str,
     sha256: str,
-    background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     from src.plugins.store import PluginInstallError, rebuild_environment, uninstall
-    from src.supervisor import request_restart
 
     try:
         result = uninstall(plugin_id, version, sha256)
         environment = rebuild_environment() if result["deactivated"] else None
     except (PluginInstallError, OSError, RuntimeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    if result["deactivated"]:
-        background_tasks.add_task(request_restart)
     return {
         "uninstalled": result,
         "environment": environment,
         "restart": result["deactivated"],
     }
+
+
+@app.post("/plugins/restart")
+def restart_plugins(background_tasks: BackgroundTasks) -> dict[str, bool]:
+    """Apply the persisted active set by replacing the supervised server process."""
+    from src.supervisor import request_restart
+
+    background_tasks.add_task(request_restart)
+    return {"restart": True}
 
 
 @app.get("/plugins/assets/{plugin_id}/{relative_path:path}")
@@ -1040,18 +1036,16 @@ def put_experience(experience_id: str, body: dict[str, Any]) -> dict[str, Any]:
 
 @app.post("/experiences/{experience_id}/activate")
 def activate_experience_endpoint(
-    experience_id: str, background_tasks: BackgroundTasks
+    experience_id: str,
 ) -> dict[str, Any]:
     from src.plugins.experiences import ExperienceError, activate_experience
     from src.plugins.store import rebuild_environment
-    from src.supervisor import request_restart
 
     try:
         result = activate_experience(experience_id)
         result["environment"] = rebuild_environment()
     except (ExperienceError, OSError, RuntimeError) as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    background_tasks.add_task(request_restart)
     return result
 
 

@@ -288,6 +288,10 @@ export const api = {
         return apiFetch(`/plugins/${encodeURIComponent(pluginId)}/deactivate`, { method: 'POST' });
     },
 
+    restartPlugins() {
+        return apiFetch('/plugins/restart', { method: 'POST' });
+    },
+
     uninstallPlugin(pluginId, version, sha256) {
         const id = encodeURIComponent(pluginId);
         const selectedVersion = encodeURIComponent(version);

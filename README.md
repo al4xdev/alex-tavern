@@ -694,8 +694,11 @@ The interface is dependency-free and built from native ES modules. Current behav
 
 The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
 configuration and preview. Individual plugins can also be cached and activated independently.
-Changing the active set rebuilds its uv dependency target and asks the supervisor to replace both
-the Python child and browser runtime.
+Changing the active set rebuilds its uv dependency target immediately, but batches process
+replacement while the Plugin Center remains open. Closing it with the close button, Escape, or a
+click outside asks the supervisor to replace the Python child and reloads the browser runtime once,
+so several activations, deactivations, version switches, or Experience changes can be composed
+before the new set takes effect.
 
 Packages use a strict `plugin.toml`, immutable `id/version/SHA-256` cache, physical activation
 pointers under `.data/plugins/started`, plugin-owned config, and an append-only access/crash journal.

@@ -187,6 +187,38 @@ def test_zip_install_activation_and_backend_boot(tmp_path: Path) -> None:
     assert runtime.disabled_for_boot == {}
 
 
+def test_plugin_restart_waits_for_explicit_endpoint(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    package = _pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip")
+    installed = install_zip(package)
+    restart_requests: list[bool] = []
+    monkeypatch.setattr(
+        "src.supervisor.request_restart",
+        lambda: restart_requests.append(True) or True,
+    )
+    monkeypatch.setattr(store_module, "rebuild_environment", lambda pointers=None: {"locked": []})
+    activated = main.activate_plugin(
+        "dev.alex-tavern.turn-counter",
+        main.PluginActivationRequest(
+            version=installed["manifest"]["version"], sha256=installed["sha256"]
+        ),
+    )
+    deactivated = main.deactivate_plugin("dev.alex-tavern.turn-counter")
+
+    assert activated["restart"] is True
+    assert deactivated["restart"] is True
+    assert restart_requests == []
+
+    background_tasks = main.BackgroundTasks()
+    restarted = main.restart_plugins(background_tasks)
+    assert restarted == {"restart": True}
+    assert len(background_tasks.tasks) == 1
+    background_tasks.tasks[0].func()
+    assert restart_requests == [True]
+
+
 def test_zip_rejects_path_traversal(tmp_path: Path) -> None:
     malicious = tmp_path / "malicious.zip"
     with zipfile.ZipFile(malicious, "w") as archive:

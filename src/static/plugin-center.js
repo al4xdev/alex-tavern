@@ -30,6 +30,8 @@ export const PluginCenter = (() => {
     let confirmationReturnFocus = null;
     let activeTab = 0;
     let gesture = null;
+    let restartPending = false;
+    let closing = false;
 
     function empty(container, key) {
         const element = document.createElement('p');
@@ -87,17 +89,25 @@ export const PluginCenter = (() => {
         try {
             const outcome = await pendingConfirmation();
             hideConfirmation({ restoreFocus: false });
-            if (outcome.restart) {
-                notify(t('plugins.restarting'), 'success', 6000);
-                setTimeout(() => window.location.reload(), 1400);
-            } else {
-                await refresh();
-                notify(t(outcome.messageKey), 'success');
-            }
+            await settleOutcome(outcome);
         } catch (error) {
             notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
             confirmAccept.disabled = false;
             confirmCancel.disabled = false;
+        }
+    }
+
+    async function settleOutcome(outcome) {
+        if (outcome.restart) {
+            restartPending = true;
+            notify(t('plugins.restartPending'), 'success');
+        } else if (outcome.messageKey) {
+            notify(t(outcome.messageKey), 'success');
+        }
+        try {
+            await refresh();
+        } catch (error) {
+            notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
         }
     }
 
@@ -161,8 +171,7 @@ export const PluginCenter = (() => {
                 items,
                 acceptLabel: t('plugins.installAndActivate'),
                 action: async () => {
-                    await api.activateExperience(experience.id);
-                    return { restart: true };
+                    return api.activateExperience(experience.id);
                 },
             });
         });
@@ -283,10 +292,9 @@ export const PluginCenter = (() => {
             acceptLabel: t('plugins.updateAndActivate'),
             action: async () => {
                 const candidate = plugin.curated;
-                await api.updateCuratedPlugin(
+                return api.updateCuratedPlugin(
                     plugin.plugin_id, candidate.manifest.version, candidate.sha256,
                 );
-                return { restart: true };
             },
         });
     }
@@ -316,12 +324,11 @@ export const PluginCenter = (() => {
     async function activateInstallation(installation, button) {
         button.disabled = true;
         try {
-            await api.activatePlugin(installation.manifest.plugin_id, {
+            const result = await api.activatePlugin(installation.manifest.plugin_id, {
                 version: installation.manifest.version,
                 sha256: installation.sha256,
             });
-            notify(t('plugins.restarting'), 'success', 6000);
-            setTimeout(() => window.location.reload(), 1400);
+            await settleOutcome(result);
         } catch (error) {
             notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
             button.disabled = false;
@@ -448,9 +455,8 @@ export const PluginCenter = (() => {
             deactivate.addEventListener('click', async () => {
                 deactivate.disabled = true;
                 try {
-                    await api.deactivatePlugin(plugin.plugin_id);
-                    notify(t('plugins.restarting'), 'success', 6000);
-                    setTimeout(() => window.location.reload(), 1400);
+                    const result = await api.deactivatePlugin(plugin.plugin_id);
+                    await settleOutcome(result);
                 } catch (error) {
                     notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
                     deactivate.disabled = false;
@@ -676,10 +682,10 @@ export const PluginCenter = (() => {
         openBtn.addEventListener('click', open);
         closeBtn.addEventListener('click', () => {
             if (!confirmLayer.hidden) hideConfirmation();
-            else overlay.classList.remove('active');
+            else close();
         });
         overlay.addEventListener('click', (event) => {
-            if (event.target === overlay) overlay.classList.remove('active');
+            if (event.target === overlay) close();
         });
         confirmCancel.addEventListener('click', () => hideConfirmation());
         confirmAccept.addEventListener('click', acceptConfirmation);
@@ -687,7 +693,7 @@ export const PluginCenter = (() => {
             if (event.key === 'Escape' && overlay.classList.contains('active')) {
                 event.preventDefault();
                 if (!confirmLayer.hidden) hideConfirmation();
-                else overlay.classList.remove('active');
+                else close();
                 return;
             }
             if (!tabs.includes(document.activeElement)) return;
@@ -733,11 +739,31 @@ export const PluginCenter = (() => {
         });
     }
 
+    async function close() {
+        if (closing) return;
+        if (!restartPending) {
+            overlay.classList.remove('active');
+            return;
+        }
+        closing = true;
+        try {
+            await api.restartPlugins();
+            restartPending = false;
+            overlay.classList.remove('active');
+            notify(t('plugins.restarting'), 'success', 6000);
+            setTimeout(() => window.location.reload(), 1400);
+        } catch (error) {
+            notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
+        } finally {
+            closing = false;
+        }
+    }
+
     async function open() {
         overlay.classList.add('active');
         try { await refresh(); }
         catch (error) { notify(t('plugins.operationError', { error: error.message }), 'error'); }
     }
 
-    return { init, refresh, open };
+    return { init, refresh, open, close };
 })();
