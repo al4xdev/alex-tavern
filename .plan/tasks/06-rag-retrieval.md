@@ -25,6 +25,10 @@
 
 ## Dependencies on other open tasks
 
+- Task 27, `27-isolated-plugin-sdk-and-curation-pipeline.md`, must be explored and accepted before
+  RAG implementation begins. RAG should be the first large plugin developed in its own source
+  repository through the isolated SDK, template, CI/CD, and curation-submission workflow; it should
+  not add new source to the current hub-local authoring layout.
 - `/rag` is intended to be the first consumer of the general slash-command tool system;
   see `07-slash-command-tools.md`.
 
