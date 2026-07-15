@@ -1013,7 +1013,7 @@ class TestRunnerLogic:
                 "mood_updates": None,
             }
 
-        async def fake_character(game, character_id, context, turn_number):  # noqa: ANN001, ANN202
+        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["character_id"] = character_id
             captured["context"] = context
             return {"speech": "I answer.", "thought": None}
@@ -1247,7 +1247,7 @@ class TestCompactSession:
                 "mood_updates": None,
             }
 
-        async def fake_character(game, character_id, context, turn_number):  # noqa: ANN001, ANN202
+        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["note"] = game.character_notes.get(character_id, "")
             captured["context"] = context
             return {"speech": "I remember this gate.", "thought": None}
@@ -2105,7 +2105,7 @@ class TestEdgeCases:
         runner._update_scene(game, None)
         assert game.scene.physical_facts["door"] == "closed"
 
-    def test_format_history_for_character_sees_public_speech_and_own_thought(self) -> None:
+    def test_format_history_for_character_sees_speech_actions_and_own_thought(self) -> None:
         from src.agents.character import _format_history_for_character
 
         scene = deepcopy_scene(DEFAULT_SCENE)
@@ -2154,7 +2154,7 @@ class TestEdgeCases:
             ),
         ]
         text = _format_history_for_character(history, DEFAULT_CHARACTERS, "C1", "C2")
-        assert "Thorn acena" not in text
+        assert "TYPE=ACTION | SPEAKER=Thorn: Thorn acena" in text  # ação testemunhada
         assert "porta range" not in text
         assert "Thorn: oi" in text  # "Player" traduzido pro nome do controlado
         assert "Player" not in text
@@ -2926,6 +2926,7 @@ class TestHttpBoundary:
             character_id,
             context,
             turn_number,  # noqa: ANN001, ANN202
+            **kwargs,  # noqa: ANN003
         ) -> dict:
             return {"speech": "Yes?", "thought": None}
 

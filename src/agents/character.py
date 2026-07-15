@@ -7,9 +7,18 @@ from typing import TypedDict
 
 import httpx
 
+from src.confidentiality import redact_tokens, secret_tokens_exposed_to, tokens
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
-from src.models import Character, TurnRecord, speaker_label, trim_history_by_tokens
+from src.llm.debug_log import log_whisper_output_guard
+from src.models import (
+    Character,
+    Scene,
+    TurnRecord,
+    record_visible_to,
+    speaker_label,
+    trim_history_by_tokens,
+)
 
 
 class CharacterOutput(TypedDict):
@@ -90,6 +99,20 @@ def _build_system_prompt(character: Character) -> str:
         "- Facts may come only from your Knowledge, What you remember, SCENE CONTEXT,\n"
         "  or RECENT EVENTS. If a detail is absent, omit it or clearly express doubt;\n"
         "  never invent a location, backstory, relationship, or prior event.\n"
+        "- Whisper discipline: RECENT EVENTS entries labeled WHISPERED are secrets\n"
+        "  known only to the characters who perceived them. Others present did NOT\n"
+        "  hear them. Never expose any detail from a whisper (names, code words,\n"
+        "  passwords, locations, plans) in speech that anyone outside that whisper\n"
+        "  could overhear, and never quote or paraphrase a secret while denying or\n"
+        "  discussing knowledge of it: a denial that repeats the secret reveals it.\n"
+        "  Deflect without repeating any detail. Your private thought may reference\n"
+        "  secrets freely.\n"
+        "- Whisper exception: when the turn prompt contains THIS TURN IS A WHISPER,\n"
+        "  your reply is itself whispered and stays within that same audience. Only\n"
+        "  the listed confidants perceive your speech, so speak shared secrets to\n"
+        "  them openly and completely, including repeating exact code words and\n"
+        "  full numbers when asked. Without that marker treat your speech as heard\n"
+        "  by everyone present.\n"
         "- Never repeat a complete sentence from RECENT EVENTS. Silently proofread\n"
         "  grammar and remove accidental duplicated words before answering.\n"
         "- Keep responses to 1-3 sentences.\n"
@@ -97,7 +120,13 @@ def _build_system_prompt(character: Character) -> str:
     )
 
 
-def _build_user_prompt(context: str, history_text: str, current_mood: str, notes: str) -> str:
+def _build_user_prompt(
+    context: str,
+    history_text: str,
+    current_mood: str,
+    notes: str,
+    whisper_note: str = "",
+) -> str:
     """Put append-only history before the Character's changing state and context."""
     memory = notes.strip() or "(none yet)"
     return (
@@ -110,8 +139,42 @@ def _build_user_prompt(context: str, history_text: str, current_mood: str, notes
         "\n"
         "SCENE CONTEXT (what you perceive right now):\n"
         f"{context}\n"
-        "\n"
-        "Return your audible speech and private thought in the requested fields."
+        "\n" + (f"{whisper_note}\n\n" if whisper_note else "")
+        + "Return your audible speech and private thought in the requested fields."
+    )
+
+
+def _whisper_turn_note(
+    reply_audience: list[str] | None,
+    characters: dict[str, Character],
+    controlled_id: str,
+    character_id: str,
+) -> str:
+    """Structural signal that this turn's speech is itself whispered.
+
+    A reply to a whispered turn inherits its audience (see ``runner``), so the
+    speech is confidential by construction: only the whisper author (the player's
+    controlled character) and the listed audience perceive it. Saying so explicitly
+    in the turn prompt removes the ambiguity that made characters withhold a
+    secret from their own confidant: "never say it aloud" caution belongs to
+    public speech, not to this reply.
+    """
+    if reply_audience is None:
+        return ""
+    confidants: list[str] = []
+    for cid in [controlled_id, *reply_audience]:
+        if cid == character_id or cid not in characters:
+            continue
+        name = characters[cid].mind.name
+        if name not in confidants:
+            confidants.append(name)
+    hearers = ", ".join(confidants) if confidants else "your confidant"
+    return (
+        "THIS TURN IS A WHISPER: your speech right now is confidential and is "
+        f"perceived only by {hearers}. Nobody else present hears any part of it, "
+        "and nothing you say now becomes public. With these confidants speak "
+        "whispered secrets plainly: when asked, state them fully and exactly, "
+        "including complete code words and complete numbers."
     )
 
 
@@ -125,25 +188,68 @@ def _format_history_for_character(
 ) -> str:
     """Formats the history as linear text for the character.
 
-    The character sees public dialogue and only its own private thoughts. It never
-    receives narration, actions, or another character's thoughts.
+    The character sees public dialogue, physical actions performed in front of it,
+    and only its own private thoughts. Whispered records (``audience`` set) are
+    visible only to their audience. It never receives narration (the Narrator's
+    omniscient reader-facing prose) or another character's thoughts.
     """
     hist = [
         rec
         for rec in history
-        if rec.content_type == "speech"
+        if (rec.content_type in ("speech", "action") and record_visible_to(rec, character_id))
         or (rec.content_type == "thought" and rec.speaker == character_id)
     ]
     if context_max is not None:
         hist = trim_history_by_tokens(hist, context_max, max_tokens_character)
     if not hist:
         return "(none)"
+    kind_labels = {"thought": "PRIVATE THOUGHT", "action": "ACTION"}
     lines: list[str] = []
     for rec in hist:
         label = speaker_label(rec.speaker, characters, controlled_id)
-        kind = "PRIVATE THOUGHT" if rec.content_type == "thought" else "SPEECH"
+        kind = kind_labels.get(rec.content_type, "SPEECH")
+        if rec.audience is not None and rec.content_type in ("speech", "action"):
+            kind = f"WHISPERED {kind} (confidential, not everyone present perceived this)"
         lines.append(f"Turn {rec.turn_number} | TYPE={kind} | SPEAKER={label}: {rec.content}")
     return "\n".join(lines)
+
+
+_PHYSICAL_ACTION_CORRECTION = (
+    "\nCORRECTION: Your previous response was invalid. Remove every physical "
+    "action or gesture. Return only audible dialogue and/or genuinely internal "
+    "thought.\n"
+)
+_WHISPER_LEAK_CORRECTION = (
+    "\nCORRECTION: Your previous speech exposed whispered confidential content "
+    "aloud where people outside the whisper could hear it. Rephrase your speech "
+    "without any detail from the whisper (no names, codes, numbers, or facts "
+    "from it); your private thought may keep them.\n"
+)
+
+
+def _leaked_secret_tokens(
+    speech: str | None,
+    history: list[TurnRecord],
+    characters: dict[str, Character],
+    controlled_id: str,
+    character_id: str,
+    reply_audience: list[str] | None,
+    scene: Scene | None,
+) -> set[str]:
+    """Secret tokens in ``speech`` that its recorded audience must not receive."""
+    if not speech or scene is None:
+        return set()
+    if reply_audience is not None:
+        exposed = set(reply_audience)
+    else:
+        exposed = {cid for cid in scene.present_characters if cid in characters}
+    exposed -= {character_id}
+    if not exposed:
+        return set()
+    secret = secret_tokens_exposed_to(
+        history, character_id, exposed, characters, scene, controlled_id=controlled_id
+    )
+    return secret & tokens(speech)
 
 
 async def act(
@@ -158,6 +264,8 @@ async def act(
     session_id: str = "",
     turn_number: int = 0,
     notes: str = "",
+    scene: Scene | None = None,
+    reply_audience: list[str] | None = None,
 ) -> CharacterOutput:
     """Build the Character prompt and return separate speech/thought fields.
 
@@ -177,9 +285,19 @@ async def act(
         turn_number: Passed to the raw call log.
         notes: This character's note (``game.character_notes[character_id]``,
                see ``runner.compact_session``) — never another character's.
+        scene: Current scene, required by the whisper output guard (present set +
+               known-fact whitelist). ``None`` disables the guard.
+        reply_audience: Audience the reply will be recorded with (``None`` =
+               public). The guard blocks whispered secrets from reaching anyone
+               this audience exposes that the secret's audience does not cover.
+               A non-None value also injects the THIS TURN IS A WHISPER note in
+               the turn prompt, so the character speaks secrets in full to its
+               confidants instead of hedging.
 
     Returns:
-        Nullable speech/thought fields, with at least one populated.
+        Nullable speech/thought fields, with at least one populated. Speech that
+        still leaked a whispered secret after one correction retry comes back
+        with those tokens redacted.
     """
     max_tokens_character = config.get("max_tokens_character", 1024)
     history_text = _format_history_for_character(
@@ -199,20 +317,20 @@ async def act(
                 history_text,
                 character.mind.current_mood,
                 notes,
+                whisper_note=_whisper_turn_note(
+                    reply_audience, characters, controlled_id, character_id
+                ),
             ),
         },
     ]
 
     last_error: ValueError | None = None
+    correction: str | None = None
     for attempt in range(2):
         attempt_messages = messages
-        if attempt:
+        if correction is not None:
             attempt_messages = [dict(message) for message in messages]
-            attempt_messages[-1]["content"] += (
-                "\nCORRECTION: Your previous response was invalid. Remove every physical "
-                "action or gesture. Return only audible dialogue and/or genuinely internal "
-                "thought.\n"
-            )
+            attempt_messages[-1]["content"] += correction
         result = await chat_completion_json(
             client,
             attempt_messages,
@@ -228,7 +346,48 @@ async def act(
             **llm_request_options(config),
         )
         try:
-            return _normalize_output(result)
+            output = _normalize_output(result)
         except ValueError as exc:
             last_error = exc
+            correction = _PHYSICAL_ACTION_CORRECTION
+            continue
+
+        # Deterministic whisper guard on the OUTPUT side (mirror of the Narrator
+        # context guard): whispered secrets the character knows must never enter a
+        # record whose audience does not cover them. One correction retry, then
+        # redaction as the guaranteed last resort — never a failed turn.
+        leaked = _leaked_secret_tokens(
+            output["speech"],
+            history,
+            characters,
+            controlled_id,
+            character_id,
+            reply_audience,
+            scene,
+        )
+        if not leaked:
+            return output
+        if attempt == 0:
+            if session_id:
+                log_whisper_output_guard(
+                    session_id,
+                    turn_number,
+                    character_id,
+                    outcome="retried",
+                    leaked_tokens=sorted(leaked),
+                    attempt_number=attempt + 1,
+                )
+            correction = _WHISPER_LEAK_CORRECTION
+            continue
+        if session_id:
+            log_whisper_output_guard(
+                session_id,
+                turn_number,
+                character_id,
+                outcome="redacted",
+                leaked_tokens=sorted(leaked),
+                attempt_number=attempt + 1,
+            )
+        assert output["speech"] is not None
+        return {"speech": redact_tokens(output["speech"], leaked), "thought": output["thought"]}
     raise ValueError(f"Invalid Character response after correction: {last_error}")

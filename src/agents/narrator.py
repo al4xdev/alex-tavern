@@ -7,9 +7,16 @@ from typing import Any
 
 import httpx
 
+from src.confidentiality import REDACTION_MARKER, hidden_whisper_tokens, redact_tokens
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
-from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
+from src.models import (
+    Character,
+    Scene,
+    TurnRecord,
+    speaker_label,
+    trim_history_by_tokens,
+)
 
 
 def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
@@ -53,6 +60,16 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  objective fact. Describe observable evidence and concrete perceptions only.\n"
         "- Dialogue is an attributed claim, not automatically world truth. A character's\n"
         "  action is an attempt until narration confirms its outcome. Preserve uncertainty.\n"
+        "- HISTORY entries marked [WHISPERED, perceived only by: ...] were perceived\n"
+        "  exclusively by the listed characters. Everyone else does not know that\n"
+        "  content: never let them react to it, reference it, or overhear it in your\n"
+        "  narration, and never put it in context_for_character for anyone outside\n"
+        "  the listed audience.\n"
+        "- Beware of denials that reveal. When telling an outsider that they did not\n"
+        "  perceive a whisper, never quote, spell out, or paraphrase the whispered\n"
+        "  content itself: no names, codes, passwords, numbers, or facts from it.\n"
+        '  Wrong: "You did not hear the password VIOLET-9 they whispered." Right:\n'
+        '  "You noticed a hushed exchange you could not make out."\n'
     )
     if narrator_directives.strip():
         prompt += (
@@ -180,8 +197,15 @@ def _build_user_prompt(
     if hist:
         for rec in hist:
             label = speaker_label(rec.speaker, characters, player_controlled_id)
+            audience_marker = ""
+            if rec.audience is not None:
+                hearers = ", ".join(
+                    characters[cid].mind.name if cid in characters else cid
+                    for cid in rec.audience
+                )
+                audience_marker = f" [WHISPERED, perceived only by: {hearers}]"
             lines.append(
-                f"  Turn {rec.turn_number} | TYPE={rec.content_type} | "
+                f"  Turn {rec.turn_number} | TYPE={rec.content_type}{audience_marker} | "
                 f"SPEAKER={label}: {rec.content}"
             )
     else:
@@ -225,6 +249,32 @@ def _build_user_prompt(
         lines.append("")
 
     return "\n".join(lines)
+
+
+# Kept as the historical import site; the shared implementation lives in
+# src.confidentiality so the Character output guard reuses the same primitives.
+_REDACTION_MARKER = REDACTION_MARKER
+
+
+def redact_whisper_leaks(
+    context: str,
+    history: list[TurnRecord],
+    speaker_id: str,
+    characters: dict[str, Character],
+    scene: Scene,
+) -> str:
+    """Strips whispered-only content from a context handed to a whisper outsider.
+
+    Deterministic safety net behind the system-prompt rule: the Narrator sees the
+    full history (whispers included) and occasionally leaks a secret while trying
+    to obey the rule ("you did not hear the password X" names X). Secrets are
+    derived from history (see ``src.confidentiality``); for characters inside the
+    whisper's audience nothing changes.
+    """
+    if not context:
+        return context
+    secret = hidden_whisper_tokens(history, speaker_id, characters, scene)
+    return redact_tokens(context, secret)
 
 
 def build_narrator_messages(

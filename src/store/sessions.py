@@ -13,7 +13,12 @@ from pathlib import Path
 from typing import Any
 from weakref import WeakValueDictionary
 
-from src.models import GameState, dict_to_game_state, game_state_to_dict
+from src.models import (
+    SESSION_SCHEMA_VERSION,
+    GameState,
+    dict_to_game_state,
+    game_state_to_dict,
+)
 from src.paths import SESSIONS_DIR
 
 _session_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
@@ -73,11 +78,33 @@ def save_game(game: GameState) -> None:
     _atomic_write_json(session_state_path(game.session_id), game_state_to_dict(game))
 
 
+class IncompatibleSessionError(ValueError):
+    """A persisted session's schema version does not match the current one.
+
+    This project deliberately does not migrate old sessions (alpha, no legacy):
+    an incompatible session can never be opened again — the backend refuses it
+    and the frontend flags it in the list. See ``SESSION_SCHEMA_VERSION``.
+    """
+
+    def __init__(self, session_id: str, found_version: int) -> None:
+        self.session_id = session_id
+        self.found_version = found_version
+        self.current_version = SESSION_SCHEMA_VERSION
+        super().__init__(
+            f"Session {session_id} uses schema version {found_version}; this build "
+            f"only opens version {SESSION_SCHEMA_VERSION}. Incompatible sessions "
+            "cannot be reopened."
+        )
+
+
 def load_game(session_id: str) -> GameState | None:
     path = session_state_path(session_id)
     if not path.exists():
         return None
     data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+    found_version = int(data.get("schema_version", 1))
+    if found_version != SESSION_SCHEMA_VERSION:
+        raise IncompatibleSessionError(session_id, found_version)
     return dict_to_game_state(data)
 
 
@@ -143,6 +170,34 @@ def list_sessions() -> list[dict[str, Any]]:
         path = directory / "state.json"
         try:
             data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        except _SESSION_READ_ERRORS:
+            continue
+        found_version = int(data.get("schema_version", 1) or 1)
+        if found_version != SESSION_SCHEMA_VERSION:
+            # Incompatible sessions stay listed (best-effort raw fields) but can
+            # never be opened — the frontend renders them locked.
+            raw_characters = data.get("characters")
+            names = []
+            if isinstance(raw_characters, dict):
+                for cdata in raw_characters.values():
+                    name = (cdata or {}).get("mind", {}).get("name")
+                    if isinstance(name, str):
+                        names.append({"name": name})
+            summaries.append(
+                {
+                    "session_id": data.get("session_id", directory.name),
+                    "characters": names,
+                    "scene_location": (data.get("scene") or {}).get("location", ""),
+                    "turn_count": len(data.get("history") or []),
+                    "created_at": data.get("created_at", ""),
+                    "revision": data.get("revision", 0),
+                    "compaction_depth": len(data.get("compaction_stack") or []),
+                    "schema_version": found_version,
+                    "compatible": False,
+                }
+            )
+            continue
+        try:
             game = dict_to_game_state(data)
         except _SESSION_READ_ERRORS:
             continue
@@ -157,6 +212,8 @@ def list_sessions() -> list[dict[str, Any]]:
                 "created_at": game.created_at,
                 "revision": game.revision,
                 "compaction_depth": len(game.compaction_stack),
+                "schema_version": game.schema_version,
+                "compatible": True,
             }
         )
     summaries.sort(key=lambda item: item["created_at"], reverse=True)

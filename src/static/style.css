@@ -890,6 +890,20 @@ select.text-input { cursor: pointer; }
     transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
     animation: cardIn var(--dur) var(--ease);
 }
+.session-card.incompatible {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+.session-incompatible-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35em;
+    font-size: 0.8em;
+    color: var(--danger, #e5484d);
+}
+
 .session-card:hover {
     border-color: var(--glass-border-hi);
     background: var(--surface);

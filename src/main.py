@@ -29,7 +29,12 @@ from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR
 from src.plugins.runtime import PluginRuntime
 from src.runner import PresenceRevisionConflictError, Runner
-from src.store.sessions import delete_session, fork_session, list_sessions
+from src.store.sessions import (
+    IncompatibleSessionError,
+    delete_session,
+    fork_session,
+    list_sessions,
+)
 
 MAX_READ_LIMIT = 1000
 
@@ -70,6 +75,27 @@ async def lifespan(app: FastAPI):  # noqa: ANN201
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(IncompatibleSessionError)
+async def incompatible_session_handler(
+    request: Request, exc: IncompatibleSessionError
+) -> JSONResponse:
+    """Refuse any operation on a session persisted with an outdated schema.
+
+    Deliberate no-migration policy (alpha): the session stays on disk, is listed
+    with ``compatible: false``, and can never be opened by this build.
+    """
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": "incompatible_session",
+            "detail": str(exc),
+            "session_id": exc.session_id,
+            "found_version": exc.found_version,
+            "current_version": exc.current_version,
+        },
+    )
 
 
 def _runtime() -> RuntimeState:
@@ -141,6 +167,8 @@ class PlayerTurnRequest(BaseModel):
     force_speaker: str | None = None
     narrator_hint: str = ""
     skip: bool = False
+    # Whisper: character IDs that perceive this turn's speech/action. None = public.
+    audience: list[str] | None = None
 
     @model_validator(mode="after")
     def require_content(self) -> PlayerTurnRequest:
@@ -152,6 +180,8 @@ class PlayerTurnRequest(BaseModel):
             value.strip() for value in (self.speech, self.thought, self.action, self.narrator_hint)
         ):
             raise ValueError("A turn needs speech, thought, action, or narrator_hint")
+        if self.audience is not None and not self.speech.strip() and not self.action.strip():
+            raise ValueError("audience (whisper) requires speech or action")
         return self
 
 
@@ -354,6 +384,7 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         force_speaker=body.force_speaker,
         narrator_hint=body.narrator_hint,
         skip=body.skip,
+        audience=body.audience,
     )
     return result
 

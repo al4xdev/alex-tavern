@@ -229,6 +229,35 @@ def log_llm_call(
     )
 
 
+def log_whisper_output_guard(
+    session_id: str,
+    turn_number: int,
+    character_id: str,
+    outcome: str,
+    leaked_tokens: list[str],
+    attempt_number: int,
+) -> None:
+    """Record the Character output guard acting on a whispered-secret leak.
+
+    ``outcome`` is "retried" (a correction was sent and the model got another
+    attempt) or "redacted" (last resort: secret tokens replaced in the recorded
+    speech).
+    """
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "whisper_output_guard",
+            "character_id": character_id,
+            "outcome": outcome,
+            "leaked_tokens": leaked_tokens,
+            "attempt_number": attempt_number,
+        },
+    )
+
+
 def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
     _append(
         session_id,

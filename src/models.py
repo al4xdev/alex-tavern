@@ -6,6 +6,16 @@ import copy
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+# Version of the persisted session schema. Bump it whenever GameState/TurnRecord
+# semantics change in a way old sessions cannot honor (new fields with behavioral
+# meaning, changed visibility rules, ...). Sessions persisted with a different
+# version are refused at load and flagged incompatible in listings — this project
+# deliberately does NOT migrate old sessions (alpha, no legacy): agents should
+# bump the version and move on instead of carrying compatibility shims.
+# History: 1 = pre-audience sessions (implicit, field absent); 2 = whisper
+# audience model on TurnRecord (Tasks 22/24/25).
+SESSION_SCHEMA_VERSION = 2
+
 
 @dataclass
 class CharacterMind:
@@ -63,6 +73,21 @@ class TurnRecord:
     input_transformed: bool = False
     mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
     plugin_state_snapshot: dict[str, Any] = field(default_factory=dict)
+    # Who perceives this record. None = everyone present (public). A list of
+    # character IDs makes the record whispered: only those characters (plus the
+    # speaker) ever see it in their context. Applies to speech/action records.
+    audience: list[str] | None = None
+
+
+def record_visible_to(record: TurnRecord, character_id: str) -> bool:
+    """Whether ``character_id`` perceives a speech/action record.
+
+    Public records (``audience is None``) are visible to everyone present; a
+    whispered record is visible only to its audience and to its own speaker.
+    """
+    if record.audience is None:
+        return True
+    return character_id in record.audience or record.speaker == character_id
 
 
 @dataclass(frozen=True)
@@ -115,6 +140,7 @@ class GameState:
     # Character -> native preset identity. Avatar bytes remain outside session state.
     character_preset_ids: dict[str, str] = field(default_factory=dict)
     presence_edit_stack: list[PresenceEditEntry] = field(default_factory=list)
+    schema_version: int = SESSION_SCHEMA_VERSION
 
 
 def trim_history_by_tokens(
@@ -244,6 +270,7 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
         input_transformed=data["input_transformed"],
         mood_snapshot=dict(data["mood_snapshot"]),
         plugin_state_snapshot=copy.deepcopy(data["plugin_state_snapshot"]),
+        audience=list(data["audience"]) if data.get("audience") is not None else None,
     )
 
 
@@ -310,4 +337,5 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         compaction_stack=compaction_stack,
         character_preset_ids=dict(data["character_preset_ids"]),
         presence_edit_stack=presence_edit_stack,
+        schema_version=int(data.get("schema_version", 1)),
     )

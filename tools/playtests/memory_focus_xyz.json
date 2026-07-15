@@ -1,0 +1,278 @@
+{
+  "name": "memory-focus-xyz",
+  "description": "Retenção de memória com foco narrativo alternado: X planta um fato exclusivo com Y (ORQUÍDEA-741, sussurrado), desvia o foco para Z com ruído denso e iscas (esconderijo GIRASSOL-222 sussurrado a Z), volta a Y e verifica recall. X, Y e Z permanecem presentes a sessão inteira; sem compactação, sem set_presence, sem reload. Com o modelo de audiência (Task 22), os 3 checks devem passar: Y lembra a senha, Y não conhece o esconderijo, Z não conhece a senha.",
+  "narrator_directives": "Cena calma numa taverna. Encaminhe a fala sempre ao personagem indicado. Nunca invente fatos, códigos ou senhas; apenas descreva a cena com sobriedade.",
+  "session_config": {
+    "controlled_character_id": "C1",
+    "characters": {
+      "C1": {
+        "mind": {
+          "name": "Dario",
+          "personality": "Dario é um mercador veterano, metódico e desconfiado. Fala com precisão e testa a memória dos seus parceiros antes de confiar neles.",
+          "knowledge": [
+            "A taverna do Velho Mork é território neutro",
+            "Vela e Rook são seus dois parceiros de negócios"
+          ],
+          "current_mood": "calculista"
+        },
+        "body": {
+          "name": "Dario",
+          "physical_description": "Meia-idade, barba grisalha curta, anel de sinete na mão direita",
+          "outfit": "Casaco de viagem escuro com bolsos internos"
+        }
+      },
+      "C2": {
+        "mind": {
+          "name": "Vela",
+          "personality": "Vela é uma escriba de memória afiada e discreta. Orgulha-se de nunca esquecer o que lhe confiam e responde com exatidão quando questionada.",
+          "knowledge": [
+            "Dario confia segredos apenas a quem prova memória",
+            "A taverna do Velho Mork é território neutro"
+          ],
+          "current_mood": "atenta"
+        },
+        "body": {
+          "name": "Vela",
+          "physical_description": "Jovem, olhos castanhos vivos, dedos manchados de tinta",
+          "outfit": "Vestido cinza simples com um estojo de penas no cinto"
+        }
+      },
+      "C3": {
+        "mind": {
+          "name": "Rook",
+          "personality": "Rook é um contrabandista falante que adora números, rotas e códigos. Mistura assuntos com facilidade e fala mais do que devia.",
+          "knowledge": [
+            "As rotas de caravana do sul mudam a cada estação",
+            "A taverna do Velho Mork é território neutro"
+          ],
+          "current_mood": "expansivo"
+        },
+        "body": {
+          "name": "Rook",
+          "physical_description": "Magro, sorriso torto, cicatriz fina na sobrancelha",
+          "outfit": "Colete de couro com dezenas de bolsos pequenos"
+        }
+      }
+    },
+    "scene": {
+      "location": "Taverna do Velho Mork — salão principal, luz baixa",
+      "time_of_day": "noite",
+      "present_characters": ["C1", "C2", "C3", "Player"],
+      "physical_facts": {
+        "iluminacao": "velas baixas",
+        "movimento": "meia dúzia de clientes distraídos"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "turn",
+      "speech": "Vela, chega mais perto. Preciso te confiar uma coisa que ninguém mais nesta taverna pode ouvir, nem mesmo o Rook.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Guarda isto com a vida: a senha do meu cofre é ORQUÍDEA-741. Repete na tua cabeça quantas vezes precisares, mas nunca em voz alta perto de estranhos.",
+      "action": "",
+      "force_speaker": "C2",
+      "audience": ["C1", "C2"]
+    },
+    {
+      "type": "turn",
+      "speech": "Promete que vais lembrar dessa senha mesmo daqui a muitos dias, aconteça o que acontecer nesta mesa.",
+      "action": "",
+      "force_speaker": "C2",
+      "audience": ["C1", "C2"]
+    },
+    {
+      "type": "turn",
+      "speech": "Ótimo. Confio na tua memória de escriba. Agora chega de segredos por ora, falemos de coisas banais.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Rook, vem cá tu agora. Assunto de trabalho, só entre nós dois: escondi as cartas de crédito debaixo da ponte GIRASSOL-222, no terceiro pilar contando da margem norte. Só tu sabes disso.",
+      "action": "",
+      "force_speaker": "C3",
+      "audience": ["C1", "C3"]
+    },
+    {
+      "type": "turn",
+      "speech": "E presta atenção nas rotas desta estação, Rook. A caravana de sal sai pela estrada do leste na segunda lua, passa pelo posto de pedágio velho e dorme na estalagem da encruzilhada. O condutor novo é primo do ferreiro e aceita carga extra se pagarmos adiantado em prata miúda, nunca em ouro marcado.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "O código do portão sul do armazém mudou de novo, agora é LÓTUS-999. Não confundas com o antigo, que era de tulipas, senão o vigia te enche de perguntas. E o vigia novo é surdo do ouvido esquerdo, fala sempre pelo lado direito dele.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Já o depósito de lã usa TULIPA-333 desde a enchente. O encarregado anota tudo num livro azul que ele esconde atrás dos barris de vinagre. Se um dia precisares entrar sem mim, mostra a moeda cortada e diz que vens da parte do mercador do anel, nada mais.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Sobre os números do último trimestre: vendemos quarenta e um fardos, perdemos sete no rio, e o seguro só cobre os que tinham selo duplo. O agente do seguro é lento, cobra três por cento e só trabalha nas manhãs de feira. Anota mentalmente, não escrevas nada.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "O tempo no passo da montanha está fechando cedo este ano. Os guias dizem que a neve chega antes da festa da colheita, então a última janela boa é daqui a doze dias. Depois disso, só pela costa, e a costa dobra o custo do frete e triplica o risco de inspeção.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Rook, e aquele teu contato no porto, o das barcas de fundo raso? Preciso saber se ele ainda cobra por viagem ou se passou a cobrar por peso. Da última vez ele misturou as contas e quase pagamos duas vezes pelo mesmo trajeto de volta.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Lembra também de trocar os lacres dos barris pequenos. O fiscal da barreira do norte já conhece o desenho antigo e começou a abrir os que têm cera vermelha. Usa cera parda e sem marca, e manda o aprendiz variar o nó da corda de cada barril.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Mais uma coisa: o cambista da praça está oferecendo taxa boa para prata do sul, mas só até a lua cheia. Se fecharmos com ele, fechamos discretos, de manhã cedo, e nunca os dois juntos na mesma banca. Combinado assim, Rook?",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Perfeito. Guarda tudo isso na cabeça, especialmente o que te disse sobre a ponte. Agora deixa eu voltar para a Vela antes que ela pense que a esqueci.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Vela, me perdoa a demora, negócios chatos. Conta-me: como vai o teu registro das flores do mercado? Soube que as orquídeas brancas dobraram de preço desde a geada.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Interessante. E as orquídeas roxas, ainda chegam pelo rio ou o floricultor passou a comprar da estufa do mosteiro? Dizem que o abade cobra caro mas entrega flor viva mesmo no inverno.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Preciso encomendar setecentas e quarenta e uma velas para o festival, imagina tu. O cerieiro riu quando ouviu o número, disse que nunca vendeu tanto de uma vez só. Consegues registrar essa encomenda no teu caderno amanhã?",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "E o teu irmão, conseguiu a vaga de copista no tribunal? Da última vez disseste que ele treinava a letra todas as noites, copiando éditos velhos até a vela acabar.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Fico contente. Gente de memória boa corre na tua família, pelo visto. Um dia ainda te peço para recitar de volta tudo o que já te confiei, palavra por palavra.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Por hoje chega de flores e velas. Descansa os ouvidos um pouco que eu ainda tenho contas a acertar com o Rook.",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Rook, de volta a nós. O armazém do cais leste trocou o código de novo, agora é JASMIM-108. O anterior queimou quando o escrivão fugiu com a filha do estivador, história longa, não perguntes. Decora e não anotes.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "E o celeiro da viúva usa DÁLIA-654 desde a colheita passada. Ela só abre para quem disser o código e mostrar a fivela de estanho. Se esqueceres, ela solta os cães primeiro e pergunta depois, já vi acontecer com o filho do moleiro.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Sobre a dívida do taberneiro: são noventa e duas moedas, vence na feira de outono, e ele vai tentar pagar em cerveja. Não aceites. Cerveja não atravessa a montanha e azeda antes da terceira légua, e nós não somos taberneiros.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "O guia novo do passo cobra por cabeça, não por carga, então desta vez compensa levar menos homens e mulas mais fortes. Fala com o alugador de mulas da rua dos curtidores, o gordo, não o irmão dele, que o irmão empresta bicho manco e cobra o mesmo.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Se o fiscal perguntar pela carga de lã, a resposta é sempre a mesma: doze fardos declarados, selo duplo, origem na feira do sul. Nem uma palavra a mais. Quem fala demais na barreira paga taxa dobrada, tu sabes disso melhor que ninguém.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Ah, e muda o ponto de encontro da entrega pequena: não é mais atrás da capela, agora é no chafariz seco, depois do toque das nove. O coroinha novo da capela é filho do guarda e repara em todo mundo que passa duas vezes.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Dos fornecedores de corda, fica só com o velho da banca torta. A corda do concorrente arrebentou duas vezes na mesma descida e quase perdemos um baú inteiro no barranco. Barato que sai caro não é economia, é aposta.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Anota mentalmente os prazos: sal na segunda lua, lã na feira de outono, prata antes da lua cheia, e a entrega pequena no chafariz seco às nove. Se algum desses furar, o resto desmonta como pilha de caixote molhado.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "E cuidado com o jogador de dados da mesa do canto. Ele perde de propósito duas rodadas para ganhar a terceira com dado chumbado. Já depenou o aprendiz do ferreiro semana passada, o rapaz saiu daqui sem as botas.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Por hoje é tudo contigo, Rook. Cabeça fria e boca fechada, como sempre. Vou terminar a noite com a Vela, que conversa de escriba acalma mais que essa tua aritmética de contrabando.",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "recall_check",
+      "speech": "Vela, chegou a hora do teste que te prometi. Diz-me exatamente, palavra e número, qual era a senha do cofre que te confiei no início desta noite.",
+      "force_speaker": "C2",
+      "audience": ["C1", "C2"],
+      "prompt_patterns": ["ORQU[ÍI]DEA-741"],
+      "reply_patterns": ["(?i)orqu[íi]dea[-. ]?741"],
+      "reply_forbidden_patterns": ["(?i)girassol", "(?i)l[óo]tus", "(?i)tulipa", "(?i)jasmim", "(?i)d[áa]lia"],
+      "required": true
+    },
+    {
+      "type": "recall_check",
+      "speech": "Vela, por curiosidade: fazes alguma ideia de onde escondi as minhas cartas de crédito?",
+      "force_speaker": "C2",
+      "prompt_forbidden_patterns": ["GIRASSOL-222"],
+      "reply_forbidden_patterns": ["(?i)girassol[-. ]?222"],
+      "required": true
+    },
+    {
+      "type": "recall_check",
+      "speech": "Rook, última pergunta da noite: por acaso conheces alguma senha de cofre minha? Pensa bem antes de responder.",
+      "force_speaker": "C3",
+      "prompt_forbidden_patterns": ["ORQU[ÍI]DEA-741"],
+      "reply_forbidden_patterns": ["(?i)orqu[íi]dea[-. ]?741"],
+      "required": true
+    }
+  ]
+}

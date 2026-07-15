@@ -56,6 +56,24 @@ deve aparecer incidentalmente dentro do parser atual.
 Remover o formato anterior por completo é preferível a transformar o código num conjunto de
 camadas de compatibilidade.
 
+### Versionamento de sessão: avance sem medo
+
+O mecanismo que torna a regra forward-only segura na prática é `SESSION_SCHEMA_VERSION`
+(`src/models.py`): toda sessão persiste a versão do schema com que foi gravada. Quando o
+schema de `GameState`/`TurnRecord` mudar de forma que sessões antigas não honram
+(campo novo com semântica comportamental, regra de visibilidade alterada, ...):
+
+1. **Incremente `SESSION_SCHEMA_VERSION` e documente a mudança no comentário do histórico.**
+2. Não escreva migração, fallback nem leitura dupla — o backend recusa sessões de versão
+   diferente (`IncompatibleSessionError` → HTTP 409 `incompatible_session`) e o frontend
+   lista essas sessões travadas com o símbolo de incompatível, sem permitir abri-las.
+3. Sessões antigas continuam no disco (podem ser apagadas pelo usuário), mas jamais são
+   abertas por um build incompatível — não existe o risco de conversa corrompida.
+
+Consequência para agentes: **não trave uma melhoria de core por medo de quebrar sessões
+existentes.** Quebrar compatibilidade de sessão é barato e previsto; basta subir a versão.
+O custo real está em carregar shims de compatibilidade, nunca em invalidá-las.
+
 ## 3. Invariantes de domínio
 
 ### Agência e imersão

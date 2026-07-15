@@ -18,7 +18,7 @@ import httpx
 
 from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
-from src.agents.narrator import build_narrator_messages, narrate
+from src.agents.narrator import build_narrator_messages, narrate, redact_whisper_leaks
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.summarizer import relevant_character_ids, summarize
 from src.compaction import (
@@ -300,6 +300,7 @@ class Runner:
         force_speaker: str | None = None,
         narrator_hint: str = "",
         skip: bool = False,
+        audience: list[str] | None = None,
     ) -> dict:
         """Processes a Player's turn.
 
@@ -325,6 +326,9 @@ class Runner:
             force_speaker: Manual trigger — ID of a present character or
                 "Narrator", to force who acts next instead of letting the
                 Narrator decide.
+            audience: Optional whisper — character IDs that perceive this turn's
+                speech/action (everyone else stays unaware). A character reply in
+                the same turn inherits the audience when the speaker belongs to it.
 
         Returns:
             Dict with: narration, character_response, next_speaker,
@@ -338,6 +342,21 @@ class Runner:
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}
+
+            if audience is not None:
+                if not speech.strip() and not action.strip():
+                    raise ValueError("audience (whisper) requires speech or action")
+                if not audience:
+                    raise ValueError("audience cannot be an empty list")
+                unknown = [cid for cid in audience if cid not in game.characters]
+                if unknown:
+                    raise ValueError(f"audience references unknown character IDs: {unknown}")
+                absent = [
+                    cid for cid in audience if cid not in game.scene.present_characters
+                ]
+                if absent:
+                    raise ValueError(f"audience references absent characters: {absent}")
+                audience = list(dict.fromkeys(audience))
 
             turn_input: dict[str, Any] = {
                 "speech": speech,
@@ -495,7 +514,13 @@ class Runner:
             if not skip:
                 if speech:
                     self._append_history(
-                        game, "Player", speech, "speech", step, "speech" in transformed_fields
+                        game,
+                        "Player",
+                        speech,
+                        "speech",
+                        step,
+                        "speech" in transformed_fields,
+                        audience=audience,
                     )
                 if thought:
                     self._append_history(
@@ -503,7 +528,13 @@ class Runner:
                     )
                 if action:
                     self._append_history(
-                        game, "Player", action, "action", step, "action" in transformed_fields
+                        game,
+                        "Player",
+                        action,
+                        "action",
+                        step,
+                        "action" in transformed_fields,
+                        audience=audience,
                     )
 
                 # A private thought has no observable event for the Narrator to
@@ -594,20 +625,33 @@ class Runner:
             # The Narrator is blind and can route to the controlled character —
             # in this case, the runner does NOT generate their speech; pauses and returns
             # control to the human (the UI decides what to do with next_speaker).
+            # A whispered exchange stays whispered: when the replying character is
+            # part of the turn's audience, its reply keeps the same audience.
+            reply_audience = audience if audience is not None and speaker in audience else None
             if (
                 speaker in game.characters
                 and speaker in game.scene.present_characters
                 and speaker != controlled
             ):
                 ctx = narrator_raw.get("context_for_character", "")
+                # Deterministic guard behind the Narrator's whisper rule: the
+                # "denial that reveals" pattern ("you did not hear the password X")
+                # occasionally leaks whispered content into the context of a
+                # character outside the whisper's audience. Strip it here, before
+                # the character ever sees it; audience members are unaffected.
+                ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
                 if self.plugins is None:
-                    character_response = await self._call_character(game, speaker, ctx, step)
+                    character_response = await self._call_character(
+                        game, speaker, ctx, step, reply_audience=reply_audience
+                    )
                 else:
                     character_game = game
                     assert character_game is not None
                     character_response = await self.plugins.hooks.call_wrapped(
                         "character.call",
-                        lambda: self._call_character(character_game, speaker, ctx, step),
+                        lambda: self._call_character(
+                            character_game, speaker, ctx, step, reply_audience=reply_audience
+                        ),
                         {
                             "game": character_game,
                             "character_id": speaker,
@@ -632,7 +676,12 @@ class Runner:
                     )
                 if character_response["speech"]:
                     self._append_history(
-                        game, speaker, character_response["speech"], "speech", step
+                        game,
+                        speaker,
+                        character_response["speech"],
+                        "speech",
+                        step,
+                        audience=reply_audience,
                     )
 
             # Update scene
@@ -1265,7 +1314,12 @@ class Runner:
         )
 
     async def _call_character(
-        self, game: GameState, character_id: str, context: str, turn_number: int
+        self,
+        game: GameState,
+        character_id: str,
+        context: str,
+        turn_number: int,
+        reply_audience: list[str] | None = None,
     ) -> CharacterOutput:
         """Calls Character agent with filtered context. Returns the content."""
         return await character_act(
@@ -1280,6 +1334,8 @@ class Runner:
             session_id=game.session_id,
             turn_number=turn_number,
             notes=game.character_notes.get(character_id, ""),
+            scene=game.scene,
+            reply_audience=reply_audience,
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
@@ -1327,6 +1383,7 @@ class Runner:
         content_type: str,
         turn_number: int,
         input_transformed: bool = False,
+        audience: list[str] | None = None,
     ) -> None:
         """Creates a TurnRecord with deepcopy of the Scene/moods and adds it to history.
 
@@ -1344,5 +1401,6 @@ class Runner:
             input_transformed=input_transformed,
             mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
             plugin_state_snapshot=copy.deepcopy(game.plugin_state),
+            audience=list(audience) if audience is not None else None,
         )
         game.history.append(record)

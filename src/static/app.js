@@ -287,6 +287,8 @@ function renderSessionList(sessions) {
     sessions.forEach((s) => {
         const card = document.createElement('div');
         card.className = 'session-card';
+        const incompatible = s.compatible === false;
+        if (incompatible) card.classList.add('incompatible');
         if (s.session_id === state.sessionId) card.classList.add('active');
 
         const sceneText = s.scene_location || '';
@@ -322,6 +324,18 @@ function renderSessionList(sessions) {
             extraItem.textContent = extra;
             meta.appendChild(extraItem);
         }
+        if (incompatible) {
+            const lock = document.createElement('div');
+            lock.className = 'session-incompatible-badge';
+            const symbol = document.createElement('span');
+            symbol.textContent = '⛔';
+            symbol.setAttribute('aria-hidden', 'true');
+            const label = document.createElement('span');
+            bindTranslation(label, 'sessions.incompatible');
+            bindTranslation(card, 'sessions.incompatible', {}, 'title');
+            lock.append(symbol, label);
+            meta.appendChild(lock);
+        }
         info.appendChild(meta);
         card.appendChild(info);
 
@@ -332,24 +346,31 @@ function renderSessionList(sessions) {
 
         const actions = document.createElement('div');
         actions.className = 'session-actions';
-        const forkBtn = document.createElement('button');
-        forkBtn.className = 'session-action-btn';
-        forkBtn.dataset.action = 'fork';
-        bindTranslation(forkBtn, 'sessions.fork', {}, 'title');
-        bindTranslation(forkBtn, 'sessions.fork', {}, 'ariaLabel');
-        forkBtn.textContent = '🔀';
+        if (!incompatible) {
+            const forkBtn = document.createElement('button');
+            forkBtn.className = 'session-action-btn';
+            forkBtn.dataset.action = 'fork';
+            bindTranslation(forkBtn, 'sessions.fork', {}, 'title');
+            bindTranslation(forkBtn, 'sessions.fork', {}, 'ariaLabel');
+            forkBtn.textContent = '🔀';
+            actions.append(forkBtn);
+        }
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'session-action-btn danger';
         deleteBtn.dataset.action = 'delete';
         bindTranslation(deleteBtn, 'common.delete', {}, 'title');
         bindTranslation(deleteBtn, 'common.delete', {}, 'ariaLabel');
         deleteBtn.textContent = '🗑️';
-        actions.append(forkBtn, deleteBtn);
+        actions.append(deleteBtn);
         card.appendChild(actions);
 
-        // Click to load
+        // Click to load; incompatible sessions can never be opened again.
         card.addEventListener('click', (e) => {
             if (e.target.closest('.session-actions')) return;
+            if (incompatible) {
+                toast(t('sessions.incompatibleToast', { found: s.schema_version }), 'error');
+                return;
+            }
             loadSession(s.session_id);
         });
 

@@ -23,7 +23,13 @@ import httpx
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 REAL_DATA_DIR = (REPOSITORY_ROOT / ".data").resolve()
 DEFAULT_SCENARIO_DIR = Path(__file__).resolve().parent / "playtests"
-SUPPORTED_EVENTS = {"turn", "suggest", "compact", "restore_compaction", "undo"}
+SUPPORTED_EVENTS = {"turn", "suggest", "compact", "restore_compaction", "undo", "recall_check"}
+RECALL_PATTERN_FIELDS = (
+    "prompt_patterns",
+    "prompt_forbidden_patterns",
+    "reply_patterns",
+    "reply_forbidden_patterns",
+)
 SECOND_PERSON_RE = re.compile(r"\b(?:you|your|yours|yourself)\b", re.IGNORECASE)
 CHARACTER_ACTION_RE = re.compile(
     r"\b(?:(?:I |eu )?(?:blink|stumble|lean|peer|stare|glance|grip|pull|raise|"
@@ -48,6 +54,7 @@ class Scenario:
     narrator_directives: str
     events: tuple[dict[str, Any], ...]
     source_path: str
+    session_config: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +97,19 @@ def _require_string(value: object, label: str, *, allow_empty: bool = False) -> 
     return value
 
 
+def _validated_audience(raw_event: dict[str, Any], label: str) -> list[str] | None:
+    audience = raw_event.get("audience")
+    if audience is None:
+        return None
+    if not isinstance(audience, list) or not audience or not all(
+        isinstance(cid, str) and cid for cid in audience
+    ):
+        raise PlaytestConfigurationError(
+            f"{label} audience must be a non-empty array of character IDs"
+        )
+    return list(audience)
+
+
 def load_scenario(path: Path) -> Scenario:
     """Load and validate one scenario JSON file."""
     try:
@@ -106,6 +126,9 @@ def load_scenario(path: Path) -> Scenario:
         f"{path}: narrator_directives",
         allow_empty=True,
     )
+    raw_session_config = value.get("session_config")
+    if raw_session_config is not None and not isinstance(raw_session_config, dict):
+        raise PlaytestConfigurationError(f"{path}: session_config must be an object")
     raw_events = value.get("events")
     if not isinstance(raw_events, list) or not raw_events:
         raise PlaytestConfigurationError(f"{path}: events must be a non-empty array")
@@ -143,6 +166,49 @@ def load_scenario(path: Path) -> Scenario:
                 "thought": thought,
                 "action": action,
                 "force_speaker": force_speaker,
+                "audience": _validated_audience(raw_event, f"{path}: turn event {index}"),
+            }
+        elif event_type == "recall_check":
+            speech = _require_string(event.get("speech"), f"{path}: recall_check {index} speech")
+            force_speaker = _require_string(
+                event.get("force_speaker"), f"{path}: recall_check {index} force_speaker"
+            )
+            patterns: dict[str, list[str]] = {}
+            for field_name in RECALL_PATTERN_FIELDS:
+                raw_patterns = event.get(field_name, [])
+                if not isinstance(raw_patterns, list) or not all(
+                    isinstance(pattern, str) and pattern for pattern in raw_patterns
+                ):
+                    raise PlaytestConfigurationError(
+                        f"{path}: recall_check {index} {field_name} must be an array of "
+                        "non-empty strings"
+                    )
+                for pattern in raw_patterns:
+                    try:
+                        re.compile(pattern)
+                    except re.error as exc:
+                        raise PlaytestConfigurationError(
+                            f"{path}: recall_check {index} has invalid regex {pattern!r}: {exc}"
+                        ) from exc
+                patterns[field_name] = list(raw_patterns)
+            if not any(patterns.values()):
+                raise PlaytestConfigurationError(
+                    f"{path}: recall_check {index} needs at least one pattern"
+                )
+            required = event.get("required", True)
+            if not isinstance(required, bool):
+                raise PlaytestConfigurationError(
+                    f"{path}: recall_check {index} required must be a boolean"
+                )
+            event = {
+                "type": "recall_check",
+                "speech": speech,
+                "thought": "",
+                "action": "",
+                "force_speaker": force_speaker,
+                "required": required,
+                "audience": _validated_audience(raw_event, f"{path}: recall_check {index}"),
+                **patterns,
             }
         events.append(event)
 
@@ -152,6 +218,7 @@ def load_scenario(path: Path) -> Scenario:
         narrator_directives=narrator_directives,
         events=tuple(events),
         source_path=str(path),
+        session_config=raw_session_config,
     )
 
 
@@ -177,6 +244,182 @@ def prepare_output_dir(output_dir: Path | None) -> Path:
     return run_dir
 
 
+def build_session_config(scenario: Scenario) -> dict[str, Any] | None:
+    """Convert the scenario's raw session_config into Runner.start_session input."""
+    session_config: dict[str, Any] = {}
+    if scenario.narrator_directives:
+        session_config["narrator_directives"] = scenario.narrator_directives
+    raw = scenario.session_config or {}
+    if "characters" in raw:
+        from src.models import dict_to_character
+
+        characters = raw["characters"]
+        if not isinstance(characters, dict) or not characters:
+            raise PlaytestConfigurationError(
+                f"{scenario.source_path}: session_config.characters must be a non-empty object"
+            )
+        session_config["characters"] = {
+            character_id: dict_to_character(data) for character_id, data in characters.items()
+        }
+    if "scene" in raw:
+        from src.models import Scene
+
+        scene_data = raw["scene"]
+        if not isinstance(scene_data, dict):
+            raise PlaytestConfigurationError(
+                f"{scenario.source_path}: session_config.scene must be an object"
+            )
+        session_config["scene"] = Scene(
+            location=scene_data["location"],
+            time_of_day=scene_data["time_of_day"],
+            present_characters=list(scene_data.get("present_characters", [])),
+            physical_facts=dict(scene_data.get("physical_facts", {})),
+        )
+    if "controlled_character_id" in raw:
+        session_config["controlled_character_id"] = raw["controlled_character_id"]
+    return session_config or None
+
+
+def evaluate_recall_check(
+    event: dict[str, Any], turn_number: int, debug_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Match the recall patterns against what the character actually saw and answered.
+
+    Prompt-level matches localize a loss before the provider (state/selection/prompt);
+    reply-level matches localize it at the provider/model. A turn without any character
+    call never passes — a routing failure must not read as successful recall.
+    """
+    character_records = [
+        record
+        for record in debug_records
+        if record.get("turn_number") == turn_number
+        and str(record.get("agent", "")).startswith("character:")
+        and isinstance(record.get("request"), dict)
+    ]
+    prompt_text = "\n".join(
+        str(message.get("content", ""))
+        for record in character_records
+        for message in record["request"].get("messages", [])
+        if isinstance(message, dict)
+    )
+    reply_parts: list[str] = []
+    for record in character_records:
+        response = record.get("response")
+        if not isinstance(response, str):
+            continue
+        try:
+            parsed = json.loads(response)
+        except json.JSONDecodeError:
+            reply_parts.append(response)
+            continue
+        if isinstance(parsed, dict):
+            reply_parts.extend(
+                value
+                for value in (parsed.get("speech"), parsed.get("thought"))
+                if isinstance(value, str)
+            )
+        else:
+            reply_parts.append(response)
+    reply_text = "\n".join(reply_parts)
+
+    prompt_matches = {
+        pattern: bool(re.search(pattern, prompt_text))
+        for pattern in event.get("prompt_patterns", [])
+    }
+    prompt_forbidden_hits = {
+        pattern: bool(re.search(pattern, prompt_text))
+        for pattern in event.get("prompt_forbidden_patterns", [])
+    }
+    reply_matches = {
+        pattern: bool(re.search(pattern, reply_text))
+        for pattern in event.get("reply_patterns", [])
+    }
+    reply_forbidden_hits = {
+        pattern: bool(re.search(pattern, reply_text))
+        for pattern in event.get("reply_forbidden_patterns", [])
+    }
+    prompt_passed = all(prompt_matches.values()) and not any(prompt_forbidden_hits.values())
+    reply_passed = all(reply_matches.values()) and not any(reply_forbidden_hits.values())
+    return {
+        "character_calls": len(character_records),
+        "prompt_matches": prompt_matches,
+        "prompt_forbidden_hits": prompt_forbidden_hits,
+        "reply_matches": reply_matches,
+        "reply_forbidden_hits": reply_forbidden_hits,
+        "prompt_passed": prompt_passed,
+        "reply_passed": reply_passed,
+        "passed": bool(character_records) and prompt_passed and reply_passed,
+    }
+
+
+def whisper_leak_records(game: Any) -> list[dict[str, Any]]:
+    """Character speech/action records that expose whispered-secret tokens.
+
+    Deterministic invariant behind the Character output guard: after the guard,
+    no character-produced record whose audience does not cover a whispered secret
+    may contain that secret's rare tokens. Player-typed records are exempt — the
+    player may spend their own secret aloud on purpose.
+    """
+    from src.confidentiality import secret_tokens_exposed_to, tokens
+
+    leaks: list[dict[str, Any]] = []
+    for index, record in enumerate(game.history):
+        if record.speaker not in game.characters:
+            continue
+        if record.content_type not in ("speech", "action"):
+            continue
+        snapshot = record.scene_snapshot
+        if record.audience is not None:
+            exposed = set(record.audience)
+        else:
+            exposed = {
+                cid for cid in snapshot.present_characters if cid in game.characters
+            }
+        exposed -= {record.speaker}
+        if not exposed:
+            continue
+        secret = secret_tokens_exposed_to(
+            game.history[:index],
+            record.speaker,
+            exposed,
+            game.characters,
+            snapshot,
+            controlled_id=game.player.controlled_character_id,
+        )
+        leaked = secret & tokens(record.content)
+        if leaked:
+            leaks.append(
+                {
+                    "turn_number": record.turn_number,
+                    "speaker": record.speaker,
+                    "content_type": record.content_type,
+                    "leaked_tokens": sorted(leaked),
+                }
+            )
+    return leaks
+
+
+def session_invariants(game: Any) -> list[str]:
+    """Prove no compaction, presence edit, or mid-session participant change happened."""
+    violations: list[str] = []
+    if game.compaction_stack:
+        violations.append("compaction_stack is not empty: a compaction happened")
+    if game.story_summary:
+        violations.append("story_summary is not empty: a compaction happened")
+    if game.presence_edit_stack:
+        violations.append("presence_edit_stack is not empty: an out-of-band presence edit happened")
+    snapshot_presences = {
+        tuple(record.scene_snapshot.present_characters) for record in game.history
+    }
+    if len(snapshot_presences) > 1:
+        violations.append(
+            f"present_characters changed during the session: {sorted(snapshot_presences)}"
+        )
+    if snapshot_presences and snapshot_presences != {tuple(game.scene.present_characters)}:
+        violations.append("final present_characters differs from the history snapshots")
+    return violations
+
+
 async def _snapshot(runner: Any, session_id: str) -> dict[str, Any]:
     game = await runner.get_state(session_id)
     if game is None:
@@ -195,13 +438,14 @@ async def _snapshot(runner: Any, session_id: str) -> dict[str, Any]:
 
 async def _run_event(runner: Any, session_id: str, event: dict[str, Any]) -> Any:
     event_type = event["type"]
-    if event_type == "turn":
+    if event_type in ("turn", "recall_check"):
         return await runner.player_turn(
             session_id,
             speech=event["speech"],
             thought=event["thought"],
             action=event["action"],
             force_speaker=event["force_speaker"],
+            audience=event.get("audience"),
         )
     if event_type == "suggest":
         return await runner.suggest_actions(session_id)
@@ -320,8 +564,26 @@ def analyze_debug_records(
         for record in calls
         if isinstance(record.get("prompt_chars"), int)
     ]
+    recall_results = [
+        event_result["recall"]
+        for event_result in event_results
+        if isinstance(event_result.get("recall"), dict)
+    ]
+    guard_events = [
+        record for record in records if record.get("agent") == "whisper_output_guard"
+    ]
     joined_raw = "\n".join(raw_texts)
     return {
+        "whisper_guard_retries": sum(
+            event.get("outcome") == "retried" for event in guard_events
+        ),
+        "whisper_guard_redactions": sum(
+            event.get("outcome") == "redacted" for event in guard_events
+        ),
+        "recall_checks": len(recall_results),
+        "recall_failures": sum(not recall["passed"] for recall in recall_results),
+        "recall_prompt_failures": sum(not recall["prompt_passed"] for recall in recall_results),
+        "recall_reply_failures": sum(not recall["reply_passed"] for recall in recall_results),
         "llm_calls": len(calls),
         "llm_errors": sum(record.get("error") is not None for record in calls),
         "retry_attempts": sum(
@@ -354,12 +616,10 @@ async def run_scenario(
     sessions_dir: Path,
 ) -> dict[str, Any]:
     """Execute one scenario sequentially inside its own real session."""
-    session_id = runner.start_session(
-        {"narrator_directives": scenario.narrator_directives}
-        if scenario.narrator_directives
-        else None
-    )
+    session_id = runner.start_session(build_session_config(scenario))
+    debug_path = sessions_dir / session_id / "debug.jsonl"
     event_results: list[dict[str, Any]] = []
+    recall_failures: list[str] = []
     for index, event in enumerate(scenario.events, start=1):
         before = await _snapshot(runner, session_id)
         started = time.perf_counter()
@@ -377,21 +637,26 @@ async def run_scenario(
                 }
             )
             raise
-        event_results.append(
-            {
-                "index": index,
-                "type": event["type"],
-                "input": event,
-                "before": before,
-                "after": await _snapshot(runner, session_id),
-                "duration_ms": round((time.perf_counter() - started) * 1000, 3),
-                "result": result,
-            }
-        )
+        event_result = {
+            "index": index,
+            "type": event["type"],
+            "input": event,
+            "before": before,
+            "after": await _snapshot(runner, session_id),
+            "duration_ms": round((time.perf_counter() - started) * 1000, 3),
+            "result": result,
+        }
+        if event["type"] == "recall_check":
+            turn_number = result.get("turn_number") if isinstance(result, dict) else None
+            records = _load_debug_records(debug_path) if debug_path.exists() else []
+            recall = evaluate_recall_check(event, turn_number, records)
+            event_result["recall"] = recall
+            if event["required"] and not recall["passed"]:
+                recall_failures.append(f"event {index}: {event['speech'][:60]!r}")
+        event_results.append(event_result)
 
-    debug_path = sessions_dir / session_id / "debug.jsonl"
     records = _load_debug_records(debug_path) if debug_path.exists() else []
-    return {
+    run_result = {
         "scenario": scenario.name,
         "description": scenario.description,
         "source_path": scenario.source_path,
@@ -401,6 +666,31 @@ async def run_scenario(
         "final_state": await _snapshot(runner, session_id),
         "analysis": analyze_debug_records(records, event_results),
     }
+    has_recall_checks = any(event["type"] == "recall_check" for event in scenario.events)
+    if has_recall_checks:
+        game = await runner.get_state(session_id)
+        if game is None:
+            raise RuntimeError(f"Session disappeared during playtest: {session_id}")
+        violations = session_invariants(game)
+        run_result["invariant_violations"] = violations
+        leaks = whisper_leak_records(game)
+        run_result["whisper_leak_records"] = leaks
+        failures: list[str] = []
+        if recall_failures:
+            failures.append(f"required recall checks failed: {'; '.join(recall_failures)}")
+        if violations:
+            failures.append(f"session invariants violated: {'; '.join(violations)}")
+        if leaks:
+            summary = "; ".join(
+                f"turn {leak['turn_number']} {leak['speaker']}: {leak['leaked_tokens']}"
+                for leak in leaks
+            )
+            failures.append(f"whispered secrets leaked into records: {summary}")
+        if failures:
+            # Keep the completed result (events, recall matrices, analysis) in the
+            # manifest while still failing the run and the process exit code.
+            run_result["error"] = f"RecallCheckFailed: {' | '.join(failures)}"
+    return run_result
 
 
 def aggregate_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -463,24 +753,27 @@ def build_markdown_report(manifest: dict[str, Any]) -> str:
         "## Runs",
         "",
         "| Scenario | Repeat | Session | Queue wait ms | Calls | Errors | Max prompt | "
-        "Character-action hits | Second-person narration | Nested physical_facts |",
-        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+        "Character-action hits | Second-person narration | Nested physical_facts | "
+        "Recall fails |",
+        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for run in manifest["runs"]:
-        if "error" in run:
+        if "analysis" not in run:
             lines.append(
                 f"| {run['scenario']} | {run['repetition']} | ERROR | "
-                f"{run.get('queue', {}).get('wait_ms', 0)} | - | - | - | - | - | - |"
+                f"{run.get('queue', {}).get('wait_ms', 0)} | - | - | - | - | - | - | - |"
             )
             continue
         analysis = run["analysis"]
+        session_cell = f"`{run['session_id']}`" + (" (FAILED)" if "error" in run else "")
         lines.append(
-            f"| {run['scenario']} | {run['repetition']} | `{run['session_id']}` | "
+            f"| {run['scenario']} | {run['repetition']} | {session_cell} | "
             f"{run['queue']['wait_ms']} | {analysis.get('llm_calls', '-')} | "
             f"{analysis.get('llm_errors', '-')} | {analysis.get('max_prompt_chars', '-')} | "
             f"{analysis.get('character_action_heuristic_hits', '-')} | "
             f"{analysis.get('second_person_narrations', '-')} | "
-            f"{analysis.get('nested_physical_facts_outputs', '-')} |"
+            f"{analysis.get('nested_physical_facts_outputs', '-')} | "
+            f"{analysis.get('recall_failures', '-')} |"
         )
     lines.extend(
         [
