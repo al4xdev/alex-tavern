@@ -26,9 +26,7 @@ from src.models import GameState, dict_to_game_state, speaker_label  # noqa: E40
 
 
 def load_state(session_dir: Path) -> GameState:
-    return dict_to_game_state(
-        json.loads((session_dir / "state.json").read_text(encoding="utf-8"))
-    )
+    return dict_to_game_state(json.loads((session_dir / "state.json").read_text(encoding="utf-8")))
 
 
 def render_session(game: GameState) -> str:
@@ -38,8 +36,7 @@ def render_session(game: GameState) -> str:
         f"# Sessão {game.session_id}",
         "",
         f"Local: {game.scene.location} — {game.scene.time_of_day}",
-        "Personagens: "
-        + ", ".join(character.mind.name for character in game.characters.values()),
+        "Personagens: " + ", ".join(character.mind.name for character in game.characters.values()),
         "",
         "---",
         "",
@@ -79,9 +76,7 @@ def _session_dirs(root: Path) -> list[Path]:
         return [root]
     sessions = root / "sessions"
     if sessions.is_dir():
-        return sorted(
-            path for path in sessions.iterdir() if (path / "state.json").exists()
-        )
+        return sorted(path for path in sessions.iterdir() if (path / "state.json").exists())
     raise SystemExit(f"No state.json or sessions/ found under {root}")
 
 

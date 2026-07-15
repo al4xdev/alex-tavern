@@ -200,8 +200,7 @@ def _build_user_prompt(
             audience_marker = ""
             if rec.audience is not None:
                 hearers = ", ".join(
-                    characters[cid].mind.name if cid in characters else cid
-                    for cid in rec.audience
+                    characters[cid].mind.name if cid in characters else cid for cid in rec.audience
                 )
                 audience_marker = f" [WHISPERED, perceived only by: {hearers}]"
             lines.append(

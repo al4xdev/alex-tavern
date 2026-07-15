@@ -101,8 +101,10 @@ def _validated_audience(raw_event: dict[str, Any], label: str) -> list[str] | No
     audience = raw_event.get("audience")
     if audience is None:
         return None
-    if not isinstance(audience, list) or not audience or not all(
-        isinstance(cid, str) and cid for cid in audience
+    if (
+        not isinstance(audience, list)
+        or not audience
+        or not all(isinstance(cid, str) and cid for cid in audience)
     ):
         raise PlaytestConfigurationError(
             f"{label} audience must be a non-empty array of character IDs"
@@ -331,8 +333,7 @@ def evaluate_recall_check(
         for pattern in event.get("prompt_forbidden_patterns", [])
     }
     reply_matches = {
-        pattern: bool(re.search(pattern, reply_text))
-        for pattern in event.get("reply_patterns", [])
+        pattern: bool(re.search(pattern, reply_text)) for pattern in event.get("reply_patterns", [])
     }
     reply_forbidden_hits = {
         pattern: bool(re.search(pattern, reply_text))
@@ -372,9 +373,7 @@ def whisper_leak_records(game: Any) -> list[dict[str, Any]]:
         if record.audience is not None:
             exposed = set(record.audience)
         else:
-            exposed = {
-                cid for cid in snapshot.present_characters if cid in game.characters
-            }
+            exposed = {cid for cid in snapshot.present_characters if cid in game.characters}
         exposed -= {record.speaker}
         if not exposed:
             continue
@@ -569,14 +568,10 @@ def analyze_debug_records(
         for event_result in event_results
         if isinstance(event_result.get("recall"), dict)
     ]
-    guard_events = [
-        record for record in records if record.get("agent") == "whisper_output_guard"
-    ]
+    guard_events = [record for record in records if record.get("agent") == "whisper_output_guard"]
     joined_raw = "\n".join(raw_texts)
     return {
-        "whisper_guard_retries": sum(
-            event.get("outcome") == "retried" for event in guard_events
-        ),
+        "whisper_guard_retries": sum(event.get("outcome") == "retried" for event in guard_events),
         "whisper_guard_redactions": sum(
             event.get("outcome") == "redacted" for event in guard_events
         ),
@@ -648,6 +643,8 @@ async def run_scenario(
         }
         if event["type"] == "recall_check":
             turn_number = result.get("turn_number") if isinstance(result, dict) else None
+            if not isinstance(turn_number, int):
+                raise RuntimeError("Recall check result is missing an integer turn_number")
             records = _load_debug_records(debug_path) if debug_path.exists() else []
             recall = evaluate_recall_check(event, turn_number, records)
             event_result["recall"] = recall

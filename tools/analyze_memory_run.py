@@ -239,9 +239,7 @@ def main(argv: list[str] | None = None) -> None:
         game = load_session_state(session_dir)
         debug_records = load_debug_records(session_dir)
         analyses = [
-            analyze_marker(
-                game, debug_records, marker, args.context_max, args.max_tokens_character
-            )
+            analyze_marker(game, debug_records, marker, args.context_max, args.max_tokens_character)
             for marker in args.markers
         ]
         output.append({"session_id": session_dir.name, "markers": analyses})

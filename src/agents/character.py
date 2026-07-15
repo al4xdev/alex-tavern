@@ -139,7 +139,8 @@ def _build_user_prompt(
         "\n"
         "SCENE CONTEXT (what you perceive right now):\n"
         f"{context}\n"
-        "\n" + (f"{whisper_note}\n\n" if whisper_note else "")
+        "\n"
+        + (f"{whisper_note}\n\n" if whisper_note else "")
         + "Return your audible speech and private thought in the requested fields."
     )
 

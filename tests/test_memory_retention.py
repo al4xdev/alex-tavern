@@ -171,12 +171,18 @@ class TestFocusSwitchWithoutTrim:
             _record(2, "C2", "Guardado, Dario."),
         ]
         seen_by_vela = _format_history_for_character(
-            history, THREE_CHARACTERS, "C1", "C2",
+            history,
+            THREE_CHARACTERS,
+            "C1",
+            "C2",
             context_max=NO_TRIM_CONFIG["context_max"],
             max_tokens_character=NO_TRIM_CONFIG["max_tokens_character"],
         )
         seen_by_rook = _format_history_for_character(
-            history, THREE_CHARACTERS, "C1", "C3",
+            history,
+            THREE_CHARACTERS,
+            "C1",
+            "C3",
             context_max=NO_TRIM_CONFIG["context_max"],
             max_tokens_character=NO_TRIM_CONFIG["max_tokens_character"],
         )
@@ -189,12 +195,18 @@ class TestFocusSwitchWithoutTrim:
         whispered.audience = ["C1", "C2"]
         history = [whispered, _record(2, "C2", "Entendido.")]
         assert MARKER in _format_history_for_character(
-            history, THREE_CHARACTERS, "C1", "C2",
+            history,
+            THREE_CHARACTERS,
+            "C1",
+            "C2",
             context_max=NO_TRIM_CONFIG["context_max"],
             max_tokens_character=NO_TRIM_CONFIG["max_tokens_character"],
         )
         assert MARKER not in _format_history_for_character(
-            history, THREE_CHARACTERS, "C1", "C3",
+            history,
+            THREE_CHARACTERS,
+            "C1",
+            "C3",
             context_max=NO_TRIM_CONFIG["context_max"],
             max_tokens_character=NO_TRIM_CONFIG["max_tokens_character"],
         )
@@ -203,7 +215,10 @@ class TestFocusSwitchWithoutTrim:
         whispered = _record(1, "C2", "Segredo que eu mesma disse.")
         whispered.audience = ["C1"]
         formatted = _format_history_for_character(
-            [whispered], THREE_CHARACTERS, "C1", "C2",
+            [whispered],
+            THREE_CHARACTERS,
+            "C1",
+            "C2",
             context_max=NO_TRIM_CONFIG["context_max"],
             max_tokens_character=NO_TRIM_CONFIG["max_tokens_character"],
         )
@@ -256,7 +271,10 @@ class TestFocusSwitchWithoutTrim:
         assert "Player" in speakers, "a fala sussurrada do jogador não guardou a audiência"
         assert "C2" in speakers, "a resposta do personagem não herdou a audiência do sussurro"
         rook_view = _format_history_for_character(
-            game.history, game.characters, "C1", "C3",
+            game.history,
+            game.characters,
+            "C1",
+            "C3",
             context_max=NO_TRIM_CONFIG["context_max"],
             max_tokens_character=NO_TRIM_CONFIG["max_tokens_character"],
         )
@@ -272,9 +290,7 @@ class TestFocusSwitchWithoutTrim:
                 self.sid, speech="oi", force_speaker="C2", audience=["C9"]
             )
         with pytest.raises(ValueError, match="requires speech or action"):
-            await self.runner.player_turn(
-                self.sid, thought="só pensando", audience=["C2"]
-            )
+            await self.runner.player_turn(self.sid, thought="só pensando", audience=["C2"])
 
     def test_action_facts_are_visible_to_present_characters(self) -> None:
         """Task 24: um fato que entra como ``action`` é testemunhado pelos presentes.
@@ -316,7 +332,8 @@ class TestFocusSwitchWithoutTrim:
 
     @pytest.mark.asyncio
     async def test_action_planted_fact_reaches_character_prompt_end_to_end(
-        self, monkeypatch  # noqa: ANN001
+        self,
+        monkeypatch,  # noqa: ANN001
     ) -> None:
         """Task 24 ponta a ponta: fato plantado via campo ``action`` do turno do
         jogador chega ao prompt real do personagem na mesma sessão."""
@@ -400,9 +417,7 @@ class TestWhisperLeakRedaction:
             "Você não ouviu o que foi sussurrado entre Dario e Vela; "
             f"a senha {MARKER} é desconhecida para você."
         )
-        redacted = redact_whisper_leaks(
-            context, self._history(), "C3", THREE_CHARACTERS, SCENE
-        )
+        redacted = redact_whisper_leaks(context, self._history(), "C3", THREE_CHARACTERS, SCENE)
         assert "ORQUÍDEA" not in redacted
         assert "741" not in redacted
         assert "[indistinct]" in redacted
@@ -414,18 +429,14 @@ class TestWhisperLeakRedaction:
         from src.agents.narrator import redact_whisper_leaks
 
         context = f"A senha {MARKER} é desconhecida para você."
-        redacted = redact_whisper_leaks(
-            context, self._history(), "C3", THREE_CHARACTERS, SCENE
-        )
+        redacted = redact_whisper_leaks(context, self._history(), "C3", THREE_CHARACTERS, SCENE)
         assert redacted.count("[indistinct]") == 1
 
     def test_redaction_is_case_insensitive(self) -> None:
         from src.agents.narrator import redact_whisper_leaks
 
         context = "Alguém murmura algo sobre uma orquídea."
-        redacted = redact_whisper_leaks(
-            context, self._history(), "C3", THREE_CHARACTERS, SCENE
-        )
+        redacted = redact_whisper_leaks(context, self._history(), "C3", THREE_CHARACTERS, SCENE)
         assert "orquídea" not in redacted.casefold()
 
     def test_audience_member_context_is_never_touched(self) -> None:
@@ -433,8 +444,7 @@ class TestWhisperLeakRedaction:
 
         context = f"Dario espera que você confirme a senha {MARKER} que ele sussurrou."
         assert (
-            redact_whisper_leaks(context, self._history(), "C2", THREE_CHARACTERS, SCENE)
-            == context
+            redact_whisper_leaks(context, self._history(), "C2", THREE_CHARACTERS, SCENE) == context
         )
 
     def test_whisper_speaker_context_is_never_touched(self) -> None:
@@ -442,18 +452,14 @@ class TestWhisperLeakRedaction:
 
         history = [_whispered(1, "C2", f"Só entre nós: {MARKER}.", ["C1"])]
         context = f"Você acabou de sussurrar {MARKER} a Dario."
-        assert (
-            redact_whisper_leaks(context, history, "C2", THREE_CHARACTERS, SCENE) == context
-        )
+        assert redact_whisper_leaks(context, history, "C2", THREE_CHARACTERS, SCENE) == context
 
     def test_history_without_whispers_returns_context_unchanged(self) -> None:
         from src.agents.narrator import redact_whisper_leaks
 
         history = [_record(1, "Player", PASSWORD_FACT)]
         context = f"Todos ouviram a senha {MARKER}."
-        assert (
-            redact_whisper_leaks(context, history, "C3", THREE_CHARACTERS, SCENE) == context
-        )
+        assert redact_whisper_leaks(context, history, "C3", THREE_CHARACTERS, SCENE) == context
 
     def test_empty_context_returns_empty(self) -> None:
         from src.agents.narrator import redact_whisper_leaks
@@ -467,8 +473,7 @@ class TestWhisperLeakRedaction:
         # e nenhum dígito: nunca viram alvo de redação.
         context = "Rook fala com Dario e ri do balcão."
         assert (
-            redact_whisper_leaks(context, self._history(), "C3", THREE_CHARACTERS, SCENE)
-            == context
+            redact_whisper_leaks(context, self._history(), "C3", THREE_CHARACTERS, SCENE) == context
         )
 
     def test_scene_facts_whitelist_tokens_the_character_can_see(self) -> None:
@@ -478,9 +483,7 @@ class TestWhisperLeakRedaction:
         scene = deepcopy_scene(SCENE)
         scene.physical_facts = {"flor_na_mesa": "orquídea murcha"}
         context = "Você repara na orquídea murcha sobre a mesa."
-        assert (
-            redact_whisper_leaks(context, history, "C3", THREE_CHARACTERS, scene) == context
-        )
+        assert redact_whisper_leaks(context, history, "C3", THREE_CHARACTERS, scene) == context
 
     def test_narration_leak_does_not_whitelist_the_secret(self) -> None:
         from src.agents.narrator import redact_whisper_leaks
@@ -723,9 +726,7 @@ class TestSecretPayloadDerivation:
     def test_whisper_without_anchor_has_no_guardable_payload(self) -> None:
         from src.confidentiality import secret_tokens_exposed_to
 
-        whispered = _record(
-            1, "Player", "Fica de olho no balcão e não comenta nada com ninguém."
-        )
+        whispered = _record(1, "Player", "Fica de olho no balcão e não comenta nada com ninguém.")
         whispered.audience = ["C3"]
         secret = secret_tokens_exposed_to(
             [whispered], "C3", {"C2"}, THREE_CHARACTERS, SCENE, controlled_id="C1"
@@ -742,22 +743,16 @@ class TestSecretPayloadDerivation:
     def test_narrator_guard_leaves_casual_words_intact_for_outsider(self) -> None:
         from src.agents.narrator import redact_whisper_leaks
 
-        context = (
-            "Rook resmunga alto sobre um negócio qualquer; "
-            "você não sabe do que ele fala."
-        )
+        context = "Rook resmunga alto sobre um negócio qualquer; você não sabe do que ele fala."
         assert (
-            redact_whisper_leaks(context, self._history(), "C2", THREE_CHARACTERS, SCENE)
-            == context
+            redact_whisper_leaks(context, self._history(), "C2", THREE_CHARACTERS, SCENE) == context
         )
 
     def test_narrator_guard_still_redacts_payload_for_outsider(self) -> None:
         from src.agents.narrator import redact_whisper_leaks
 
         context = "Você ouviu de relance algo sobre a ponte GIRASSOL-222."
-        redacted = redact_whisper_leaks(
-            context, self._history(), "C2", THREE_CHARACTERS, SCENE
-        )
+        redacted = redact_whisper_leaks(context, self._history(), "C2", THREE_CHARACTERS, SCENE)
         assert "girassol" not in redacted.casefold()
         assert "222" not in redacted
         assert "[indistinct]" in redacted
@@ -918,9 +913,7 @@ class TestCharacterOutputGuard:
             game = load_game(sid)
             assert game is not None
             public_speech = [
-                rec
-                for rec in game.history
-                if rec.speaker == "C2" and rec.content_type == "speech"
+                rec for rec in game.history if rec.speaker == "C2" and rec.content_type == "speech"
             ]
             assert public_speech, "a fala do personagem não foi gravada"
             assert all(MARKER not in rec.content for rec in public_speech)
@@ -965,7 +958,8 @@ class TestTrimCompactionGapFinding:
     )
     @pytest.mark.asyncio
     async def test_automatic_compaction_unblocked_under_context_pressure(
-        self, monkeypatch  # noqa: ANN001
+        self,
+        monkeypatch,  # noqa: ANN001
     ) -> None:
         session_id = generate_session_id()
         save_game(_make_game(session_id, _seed_focus_history(noise_pairs=10)))
