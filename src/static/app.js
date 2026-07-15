@@ -360,6 +360,19 @@ function renderSessionList(sessions) {
             bindTranslation(forkBtn, 'sessions.fork', {}, 'ariaLabel');
             forkBtn.textContent = '🔀';
             actions.append(forkBtn);
+            forkBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                card.classList.remove('show-actions');
+                try {
+                    const result = await api.forkSession(s.session_id);
+                    toast(t('sessions.forked', { id: result.session_id }), 'success', 3000);
+                    // Refresh list
+                    const list = await api.listSessions();
+                    renderSessionList(list);
+                } catch (err) {
+                    toast(t('sessions.forkError', { error: err.message }), 'error');
+                }
+            });
         }
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'session-action-btn danger';
@@ -392,19 +405,6 @@ function renderSessionList(sessions) {
         card.addEventListener('contextmenu', (e) => { e.preventDefault(); card.classList.toggle('show-actions'); });
 
         // Action buttons
-        forkBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            card.classList.remove('show-actions');
-            try {
-                const result = await api.forkSession(s.session_id);
-                toast(t('sessions.forked', { id: result.session_id }), 'success', 3000);
-                // Refresh list
-                const list = await api.listSessions();
-                renderSessionList(list);
-            } catch (err) {
-                toast(t('sessions.forkError', { error: err.message }), 'error');
-            }
-        });
         deleteBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             card.classList.remove('show-actions');

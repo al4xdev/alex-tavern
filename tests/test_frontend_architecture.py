@@ -131,6 +131,86 @@ def test_slash_registry_rejects_collisions_and_foreign_result_namespaces() -> No
     )
 
 
+def test_session_list_renders_compatible_and_incompatible_cards() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        import fs from 'node:fs';
+        import vm from 'node:vm';
+
+        class Classes {
+          constructor() { this.values = new Set(); }
+          add(...names) { names.forEach((name) => this.values.add(name)); }
+          remove(...names) { names.forEach((name) => this.values.delete(name)); }
+          toggle(name) {
+            if (this.values.has(name)) this.values.delete(name); else this.values.add(name);
+          }
+        }
+        class Element {
+          constructor(tag = 'div') {
+            this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {};
+            this.attributes = {}; this.listeners = {}; this.classList = new Classes();
+            this.className = ''; this.textContent = '';
+          }
+          set innerHTML(value) { if (value === '') this.children = []; }
+          addEventListener(name, handler) { (this.listeners[name] ||= []).push(handler); }
+          dispatchEvent(event) { (this.listeners[event.type] || []).forEach((handler) => handler(event)); }
+          append(...items) { this.children.push(...items); }
+          appendChild(item) { this.children.push(item); return item; }
+          setAttribute(name, value) { this.attributes[name] = String(value); }
+        }
+
+        const app = fs.readFileSync('./src/static/app.js', 'utf8');
+        const start = app.indexOf('function renderSessionList(sessions)');
+        const end = app.indexOf('/* Clears the chat log', start);
+        if (start < 0 || end < 0) throw new Error('renderSessionList source not found');
+
+        const sessionList = new Element();
+        const loaded = []; const forked = []; const notices = [];
+        const sessions = [
+          {session_id: 'current', compatible: true, characters: [{name: 'Lyra'}], turn_count: 2},
+          {session_id: 'legacy', compatible: false, schema_version: 1, characters: [{name: 'Nox'}]},
+        ];
+        const context = {
+          api: {
+            forkSession: async (sessionId) => { forked.push(sessionId); return {session_id: 'copy'}; },
+            listSessions: async () => sessions,
+          },
+          bindTranslation() {}, clearTimeout, confirm: () => false,
+          document: {createElement: (tag) => new Element(tag)}, lastSessionList: null,
+          loadSession: (sessionId) => loaded.push(sessionId), sessionList, setTimeout, state: {sessionId: null},
+          t: (key, values = {}) => key === 'sessions.turns' ? `${values.count} turns` : key,
+          timeAgo: () => 'now', toast: (message) => notices.push(message),
+        };
+        vm.createContext(context);
+        vm.runInContext(`${app.slice(start, end)}\nthis.renderSessionList = renderSessionList;`, context);
+        context.renderSessionList(sessions);
+
+        const assert = (value, message) => { if (!value) throw new Error(message); };
+        assert(sessionList.children.length === 2, 'both session cards must remain visible');
+        const actionNames = (card) => card.children.at(-1).children.map((button) => button.dataset.action);
+        assert(actionNames(sessionList.children[0]).join(',') === 'fork,delete',
+          'compatible session actions are wrong');
+        assert(actionNames(sessionList.children[1]).join(',') === 'delete',
+          'incompatible session must only allow deletion');
+        sessionList.children[1].dispatchEvent({type: 'click', target: {closest: () => null}});
+        assert(loaded.length === 0 && notices.at(-1) === 'sessions.incompatibleToast',
+          'incompatible session was not blocked');
+        const forkButton = sessionList.children[0].children.at(-1).children[0];
+        await forkButton.listeners.click[0]({stopPropagation() {}});
+        assert(forked.join(',') === 'current', 'compatible session did not keep its fork action');
+        assert(sessionList.children.length === 2, 'fork refresh did not render the complete list');
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_slash_palette_dom_harness_button_keyboard_form_and_renderer() -> None:
     node = shutil.which("node")
     if node is None:
