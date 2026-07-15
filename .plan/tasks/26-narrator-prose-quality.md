@@ -91,3 +91,27 @@ Blind continuity review of `plans/artifacts/memory_audience-run-v3-pos-ciclo2/`
   emptying, candles going out) — proving the model can do it.
 - **POV mixing** inside one narration paragraph (opens in Rook's eyes, ends on
   Vela's skin).
+
+## Additional Evidence (2026-07-15, Task 25 acceptance runs)
+
+Blind review of `plans/artifacts/memory_outputguard-run-v3-pos-ciclo1/` (3 sessions):
+
+- **Memory confabulation under interrogation** (now the dominant residual): asked
+  publicly about letters she never saw, Vela invents "estavam na gaveta do teu
+  escritório, atrás dos mapas" while her own private thought says the opposite
+  ("essa pergunta nova me cheira a armadilha") — invented memory contradicting the
+  thought layer (S2 `bf5a6902` T32).
+- **Impossible knowledge in the thought/narration layer**: an outsider's private
+  thought asserts a whisper's CONTENT ("isso foi dito em segredo a Rook" about the
+  letters) that the fiction says she never heard; speech stays clean, so only the
+  reader sees it (S3 `e6d5be7b` T32). Narration also declares knowledge states
+  mechanically ("Ela não ouviu Dario mencionar...").
+- **Staging drift**: the shared table splits into "mesas opostas do salão" by the
+  final act (S3); Rook oscillates bancos↔mesas (S1); a produced prop (embrulho de
+  pano, S2 T1) is never mentioned again; a hand rests on a shoulder for 5 turns.
+- **Verbatim duplication**: S3 T6 and T7 share an identical narration paragraph;
+  ambient boilerplate ("um gole, um pigarro, o crepitar de uma vela") repeats ~10
+  turns.
+- **Surface language**: "Doublaram" (anglicism), broken commas from lost dashes,
+  "prata meio enferrujada", world-inconsistent season talk (primavera + neve em 12
+  dias).

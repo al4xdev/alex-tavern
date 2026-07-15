@@ -4,11 +4,13 @@
 
 # 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Engine
 
-Alex Tavern is a multi-agent roleplay engine built around a blind Narrator: the game-master model
-never knows which character is controlled by a human. The Narrator owns physical reality and
-routing, independent Character agents produce only speech and private thought, and a stateless
-FastAPI Runner enforces player agency, persistence, and knowledge boundaries. It supports local
-llama.cpp inference and the DeepSeek API through provider adapters.
+Alex Tavern is a **rigid multi-agent kernel** for roleplay, built around a blind Narrator: the
+game-master model never knows which character is controlled by a human. The Narrator owns physical
+reality and routing, independent Character agents produce only speech and private thought, and a
+stateless FastAPI Runner enforces player agency, persistence, and knowledge boundaries — including
+a structural information boundary (whisper/audience model with deterministic anti-leak guards).
+The kernel owns narrative physics; roleplay mechanics and expansions belong to plugins. It
+supports local llama.cpp inference and the DeepSeek API through provider adapters.
 
 > [!NOTE]
 > **Context Compaction is implemented.** Manual and opt-in automatic actions fold older turns
@@ -28,6 +30,15 @@ llama.cpp inference and the DeepSeek API through provider adapters.
 > `ghcr.io/al4xdev/alex-tavern:latest`. An experimental Android APK is published through GitHub
 > Releases as the **Latest Debug APK**. Despite living on the Releases page, the APK is a rough
 > debug build for active development, not a production-ready mobile release.
+
+> [!NOTE]
+> **Knowledge boundaries are structural, not prompt promises.** Speech and actions can carry an
+> `audience` (a whisper): characters outside it never receive the content in any prompt, the
+> Narrator is guarded against quoting it into an outsider's context, and a deterministic output
+> guard blocks a character from leaking a whispered secret aloud (one corrective retry, then
+> in-fiction redaction). Sessions are schema-versioned (`SESSION_SCHEMA_VERSION`): when kernel
+> semantics change, old sessions are flagged incompatible and refused instead of migrated — see
+> the [memory and confidentiality case studies](docs/cases/README.md).
 
 > [!WARNING]
 > **Plugins are trusted code, not sandboxed extensions.** The Plugin Center can activate reviewed,
@@ -300,13 +311,39 @@ assembled.
 
 ---
 
+## 🧱 A rigid multi-agent kernel
+
+The project began as a "rigid kernel" for a single blind-narrator roleplay; delivering that
+original brief honestly forced the kernel itself to become a multi-agent system. The philosophy
+did not change — the **scope of what counts as narrative physics did**:
+
+- **Kernel-owned (rigid, structural, test-pinned):** the blind Narrator contract; independent
+  Character agents with typed `{speech, thought}` output; the Summarizer/compaction pipeline;
+  player agency in code; the **audience model** (whispers, witnessed actions, reply-audience
+  inheritance); **deterministic confidentiality guards** on both the Narrator's transient context
+  and the Characters' spoken output (secrets derived from history, never hardcoded — see
+  [`src/confidentiality.py`](src/confidentiality.py)); session persistence with
+  **forward-only schema versioning** (incompatible sessions are refused, never migrated).
+- **Plugin territory:** everything that shapes *a particular* roleplay — mechanics, commands,
+  experiences, content, presentation. Plugins extend through hooks and contracts; they never
+  patch kernel invariants.
+
+The dividing rule stays the one stated below: kernel mechanisms must solve structural problems
+that exist regardless of model quality. Whether a model is weak or strong, someone outside a
+whisper must not have it in their prompt — that is physics, so it lives in the kernel. How a
+smuggler *phrases* a deflection is behavior — that is the model's job, nudged by prompts, and
+mechanics beyond that belong to plugins. The full evolution is documented as
+[engineering case studies](docs/cases/README.md).
+
+---
+
 ## 👥 Role Model
 
 | Role | Can | Cannot | Receives in its prompt |
 |---|---|---|---|
 | **Human player** | Speak, think, and act through three independent inputs | — the human designs the scene at setup time | — |
 | **Narrator** | Everything physical: action, description, consequence, scene transitions, and deciding who speaks next | Cannot know which character is human-controlled or read private thoughts | Everything observable about the world: full personality and appearance (the `body`) of every character, the scene, the running public story summary, and the active public history window |
-| **Character** | Only speak or think, strictly first person | Cannot narrate, describe environment, or perform/describe physical action, including its own | Only its own mind, private accumulated note, Narrator-filtered context, public speech, and its own prior thoughts |
+| **Character** | Only speak or think, strictly first person; a reply inside a whispered turn stays whispered | Cannot narrate, describe environment, or perform/describe physical action, including its own; cannot receive (or leak) whispers outside its audience | Only its own mind, private accumulated note, Narrator-filtered context (whisper-guarded), public speech, physical actions it witnessed, whispers it perceived, and its own prior thoughts |
 
 Character output uses the structural contract `{speech: string|null, thought: string|null}`.
 Either field may be null, but both cannot be empty. History stores them as separate typed records,

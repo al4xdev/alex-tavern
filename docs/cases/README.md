@@ -19,6 +19,24 @@ the product contract.
 - [`explore-live-playtest-2026-07-12.md`](./explore-live-playtest-2026-07-12.md): post-remediation
   live exploration.
 
+## Memory and narrative continuity
+
+- [`multi-character-memory-retention-2026-07-14.md`](./multi-character-memory-retention-2026-07-14.md):
+  controlled reproduction attempt of a reported multi-character recall loss under alternating
+  narrative focus; the reported defect did not reproduce, and the experiment confirmed the absence
+  of an information boundary plus a latent trim/compaction gap. Follow-up work is tracked in
+  `.plan/tasks/22-*` through `26-*`.
+- [`speech-audience-model-2026-07-15.md`](./speech-audience-model-2026-07-15.md):
+  the remediation — witnessed actions (Task 24) and a whisper/audience model for speech
+  (Task 22), validated by two-level recall assertions, blind continuity review, and a
+  bias-controlled loop of uncontexted fixer subagents (2 cycles). Pipeline leak-free at
+  closure; behavioral residuals routed to Tasks 25/26.
+- [`character-output-guard-2026-07-15.md`](./character-output-guard-2026-07-15.md):
+  Task 25 — the deterministic output guard (retry-then-redact) that made secret
+  handling structural instead of prompt-based, with informational-payload secret
+  derivation and a whisper-turn marker designed by an uncontexted fixer agent. Zero
+  record-level leaks across all measured runs; residuals routed to Task 26.
+
 ## Provider architecture and model evaluation
 
 - [`deepseek-provider-integration-2026-07-12.md`](./deepseek-provider-integration-2026-07-12.md):

@@ -68,3 +68,58 @@ Vela was disciplined in all sessions (recognized decoys, refused public
 repetition, delivered the password only in the whispered test) — the behavior
 gap is concentrated in the garrulous-personality archetype, suggesting the fix
 must hold against personality pressure, not just neutral characters.
+
+---
+
+## Closure (2026-07-15)
+
+**Constraint honored (project owner's directive)**: no new preventive system-prompt
+rules — the solution is structural. Prompt rules from Task 22's cycle 1 remain as
+defense in depth only.
+
+**Implemented**:
+- Shared confidentiality module (`src/confidentiality.py`): secrets derived from
+  history, never hardcoded. After cycle 1, secrets come from the **informational
+  payload** of a whisper (`payload_tokens`): anchors (digit-bearing tokens,
+  all-caps code words, mid-sentence proper nouns) plus rare tokens within 7 word
+  positions of an anchor. Casual whispered phrasing generates no secrets; a
+  whisper with no anchor is not deterministically guarded (documented trade-off).
+- **Character output guard** in `act()` (`src/agents/character.py`): when a reply's
+  recorded audience does not cover a known whispered secret, one CORRECTION retry
+  (same pattern as the physical-action validation), then deterministic redaction
+  (`[indistinct]`) as guaranteed last resort — never a failed turn (user's choice).
+  Guard events logged (`whisper_output_guard`: retried/redacted + tokens).
+- **Whisper-turn marker** (`_whisper_turn_note`): when the reply inherits a whisper
+  audience, the turn prompt states "THIS TURN IS A WHISPER ... perceived only by
+  {confidants}", anchoring the whisper-exception rule to a deterministic signal.
+- Harness: `whisper_leak_records` invariant (character speech/action exposing
+  whispered payload = run failure; player spending own secret is exempt) plus
+  `whisper_guard_retries`/`whisper_guard_redactions` analysis counters.
+
+**Bias-controlled iteration (2 authorized, 1 used)**: initial acceptance showed the
+invariant holding (0 leaks) but 12-13 retries + 3 redactions per session garbling
+innocent lines ("para de falar tão [indistinct]" for "alto"), and one case of
+over-suppression (Vela describing "começa com sete e termina com um" to her own
+confidant). An uncontexted fixer subagent (given only those two reports) designed
+the payload derivation and the whisper-turn marker. Two acceptance-criteria
+adjustments were made by the main agent with raw-evidence justification: recall
+regex made separator-tolerant ("Orquídea 741" vs "-741").
+
+**Validation**:
+- Deterministic: 367 passed, 2 xfailed (payload derivation cases, guard retry/
+  redaction/confidant paths, end-to-end public-record invariant, harness counters).
+- Real-LLM (3 reps, DeepSeek): 9/9 recall checks green; `whisper_leak_records`
+  empty 3/3; guard activity 13→1-2 retries, 3→0-1 redactions per session — the
+  remaining events are REAL blocks (Vela attempting the password aloud at T4).
+- Blind continuity review: password exact in the whispered test 3/3; zero secret
+  quotes inside denials; the formerly leaky garrulous archetype (Rook) is now "the
+  most reliable character of the three sessions"; the 2 remaining [indistinct]
+  occurrences read as acceptable diegetic noise.
+
+**Residuals routed to Task 26**: memory confabulation under interrogation (Vela
+inventing "gaveta do escritório", S2 T32); impossible knowledge in the PRIVATE
+THOUGHT layer (an outsider's thought asserting a whisper's content, S3 T32 —
+thoughts are guard-exempt by design); staging drift (table splitting across the
+hall), verbatim-duplicated narration (S3 T6=T7), orphan props, "Doublaram".
+Infra note: DeepSeek returned malformed JSON killing ~1 in 3 harness runs
+(`retries=0` in agent calls) — harness robustness backlog.

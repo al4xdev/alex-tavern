@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "alex-tavern-debug": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "tools/mcp_server.py"
+      ],
+      "cwd": "/home/alex/git/my/roleplay"
+    },
+    "alex-tavern-plugin-author": {
+      "command": "uv",
+      "args": [
+        "run",
+        "python",
+        "mcp_server.py",
+        "--core-root",
+        "/home/alex/git/my/roleplay"
+      ],
+      "cwd": "/home/alex/git/my/alex-tavern-plugins"
+    }
+  }
+}
