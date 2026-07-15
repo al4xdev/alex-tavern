@@ -210,7 +210,7 @@ class Runner:
         """Run a plugin utility command under the session transaction lock.
 
         Commands receive an isolated state snapshot and cannot advance history,
-        revision, or any narrative state in schema version 1.
+        revision, or any narrative state.
         """
         from src.plugins.commands import CommandError
 
@@ -351,9 +351,7 @@ class Runner:
                 unknown = [cid for cid in audience if cid not in game.characters]
                 if unknown:
                     raise ValueError(f"audience references unknown character IDs: {unknown}")
-                absent = [
-                    cid for cid in audience if cid not in game.scene.present_characters
-                ]
+                absent = [cid for cid in audience if cid not in game.scene.present_characters]
                 if absent:
                     raise ValueError(f"audience references absent characters: {absent}")
                 audience = list(dict.fromkeys(audience))

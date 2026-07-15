@@ -8,24 +8,31 @@ Use estas ferramentas para controlar o fluxo da narrativa:
 
 ## Comandos com barra
 
-Digite `/` no campo **Fala** para ver as ferramentas oferecidas pelos plugins ativos. Continue
-digitando para filtrar, use ↑/↓ para escolher e Enter ou Tab para completar. Um comando reconhecido
-abre um cartão de ferramenta bem delimitado com os campos necessários.
+Digite `/` no campo **Fala** para abrir a paleta. A barra digitada vira o sigilo violeta ao lado do
+campo, mantendo limpa a busca do comando. Ela reúne ações do Alex Tavern e contribuições dos
+plugins ativos. Continue digitando para filtrar, use ↑/↓ para escolher, Tab para completar o nome
+canônico e Enter para ativar. Ferramentas backend abrem um cartão bem delimitado com todos os
+campos necessários.
+
+Os built-ins incluem `/help`, `/plugins`, `/settings`, `/sessions`, `/new`, `/suggest`, `/hint`,
+`/undo`, `/skip`, `/compact` e `/restore`, além de aliases em português. Ações indisponíveis
+continuam visíveis e explicam o motivo. Ferramentas e ações de plugins mostram sua origem.
 
 Comandos são utilitários, não falas do personagem. A entrada vai direto para a ferramenta e não
 cria turno, não chama o Narrador, não muda o histórico de undo e não aparece no chat. Um comando
 errado é interrompido com uma explicação, em vez de ser enviado como fala.
 
-Para o personagem dizer literalmente algo começando por `/`, digite `//`. A primeira barra funciona
-como escape e somente uma barra é enviada à história.
+Para o personagem dizer literalmente algo começando por `/`, digite `//`. A segunda barra fecha a
+paleta e o sigilo imediatamente, deixando uma única barra literal no campo de fala.
 
 ## Conversor de personagem
 
 Com o plugin curado **Character Converter** ativo, use:
 
-`/convert-character lyra-nightfall`
+`/convert-character`
 
-Depois, cole uma descrição ou escolha um Character Card aberto V1/V2/V3 em PNG/JSON. Não preencha
+Preencha o nome do preset no campo visível. Depois, cole uma descrição ou escolha um Character
+Card aberto V1/V2/V3 em PNG/JSON. Não preencha
 as duas fontes. Um PNG comum de avatar não contém a ficha e recebe um erro claro. A ferramenta não
 tenta adivinhar um personagem pelos pixels da imagem.
 

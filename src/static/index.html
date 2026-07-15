@@ -463,19 +463,33 @@
             </button>
             <div class="input-fields-container" id="input-fields-container">
             <div class="input-row">
+                <button class="slash-trigger" id="slash-trigger" type="button"
+                    aria-label="Open command palette" title="Open command palette"
+                    data-i18n-aria-label="commands.open" data-i18n-title="commands.open"
+                    aria-hidden="true" tabindex="-1" disabled>/</button>
                 <input type="text" class="input-field" id="input-speech"
-                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" autocomplete="off" disabled
+                    placeholder="💬 Speech..." data-i18n-placeholder="input.speech" autocomplete="off"
                     aria-autocomplete="list" aria-controls="slash-suggestions" aria-expanded="false">
             </div>
-            <div class="slash-suggestions" id="slash-suggestions" role="listbox" hidden></div>
-            <section class="command-panel" id="command-panel" aria-live="polite" hidden>
+            <div class="slash-suggestions" id="slash-suggestions" role="listbox"
+                aria-label="Command palette" data-i18n-aria-label="commands.palette" hidden></div>
+            <section class="command-panel" id="command-panel" aria-labelledby="command-panel-title" hidden>
                 <div class="command-panel-head">
                     <span class="command-sigil">/</span>
-                    <div><strong id="command-panel-title"></strong><p id="command-panel-summary"></p></div>
-                    <button class="icon-btn" id="command-panel-close" type="button" aria-label="Close command">✕</button>
+                    <div>
+                        <span class="command-origin" id="command-panel-origin"></span>
+                        <strong id="command-panel-title"></strong>
+                        <p id="command-panel-summary"></p>
+                    </div>
+                    <button class="icon-btn" id="command-panel-close" type="button"
+                        aria-label="Close command" data-i18n-aria-label="commands.close">✕</button>
                 </div>
                 <div class="command-fields" id="command-fields"></div>
                 <p class="command-error" id="command-error" role="alert"></p>
+                <div class="command-panel-actions">
+                    <button class="btn btn-primary" id="command-execute" type="button"
+                        data-i18n="commands.execute">Run tool</button>
+                </div>
             </section>
             <div class="input-row">
                 <input type="text" class="input-field" id="input-thought"
@@ -496,21 +510,37 @@
                         </div>
                         <div class="action-popup-secondary" id="action-popup-secondary">
                             <div class="action-popup-row">
-                                <button class="icon-btn action-btn" id="action-suggest-btn" title="Move suggestion" aria-label="Suggest a move" data-i18n-title="action.suggestTitle" data-i18n-aria-label="action.suggestAria">💡</button>
-                                <button class="icon-btn action-btn" id="action-hint-btn" title="Narrator event hint" aria-label="Suggest an event for the Narrator" data-i18n-title="action.hintTitle" data-i18n-aria-label="action.hintAria">📜</button>
+                                <button class="icon-btn action-btn" id="action-suggest-btn" title="Move suggestion" aria-label="Suggest a move" data-i18n-title="action.suggestTitle" data-i18n-aria-label="action.suggestAria">
+                                    <span class="action-btn-icon" aria-hidden="true">💡</span>
+                                    <span class="action-btn-label" data-i18n="action.suggestShort">Suggest</span>
+                                </button>
+                                <button class="icon-btn action-btn" id="action-hint-btn" title="Narrator event hint" aria-label="Suggest an event for the Narrator" data-i18n-title="action.hintTitle" data-i18n-aria-label="action.hintAria">
+                                    <span class="action-btn-icon" aria-hidden="true">📜</span>
+                                    <span class="action-btn-label" data-i18n="action.hintShort">Event</span>
+                                </button>
                             </div>
                             <div class="action-popup-row">
-                                <button class="icon-btn action-btn" id="action-undo-btn" title="Undo turn" aria-label="Undo last turn" data-i18n-title="action.undoTitle" data-i18n-aria-label="action.undoAria">↩</button>
-                                <button class="icon-btn action-btn" id="action-retry-btn" title="Try again" aria-label="Resend turn" data-i18n-title="action.retryTitle" data-i18n-aria-label="action.retryAria">↻</button>
+                                <button class="icon-btn action-btn" id="action-undo-btn" title="Undo turn" aria-label="Undo last turn" data-i18n-title="action.undoTitle" data-i18n-aria-label="action.undoAria">
+                                    <span class="action-btn-icon" aria-hidden="true">↩</span>
+                                    <span class="action-btn-label" data-i18n="action.undoShort">Undo</span>
+                                </button>
+                                <button class="icon-btn action-btn" id="action-retry-btn" title="Try again" aria-label="Resend turn" data-i18n-title="action.retryTitle" data-i18n-aria-label="action.retryAria">
+                                    <span class="action-btn-icon" aria-hidden="true">↻</span>
+                                    <span class="action-btn-label" data-i18n="action.retryShort">Retry</span>
+                                </button>
                                 <div class="action-btn-group">
                                     <button class="icon-btn action-btn action-compact-btn" id="action-compact-btn"
                                         title="Compact session (summarize old turns)" aria-label="Compact session history" data-i18n-title="action.compactTitle" data-i18n-aria-label="action.compactAria">
                                         <span class="compact-progress" id="compact-progress"></span>
-                                        <span class="compact-icon">🗜️</span>
+                                        <span class="action-btn-icon compact-icon" aria-hidden="true">🗜️</span>
+                                        <span class="action-btn-label" data-i18n="action.compactShort">Compact</span>
                                         <span class="sr-only" id="compact-progress-status" aria-live="polite"></span>
                                     </button>
                                     <button class="icon-btn action-btn" id="action-restore-compaction-btn"
-                                        title="Undo last compaction" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">🧯</button>
+                                        title="Undo last compaction" aria-label="Undo last compaction" data-i18n-title="action.restoreTitle" data-i18n-aria-label="action.restoreAria">
+                                        <span class="action-btn-icon" aria-hidden="true">🧯</span>
+                                        <span class="action-btn-label" data-i18n="action.restoreShort">Restore</span>
+                                    </button>
                                 </div>
                             </div>
                         </div>

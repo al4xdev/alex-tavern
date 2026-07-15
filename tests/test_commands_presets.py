@@ -55,12 +55,19 @@ def _descriptor(name: str = "convert-character") -> dict:
     localized = {"en": "Text", "pt-BR": "Texto"}
     return {
         "name": name,
+        "title": localized,
         "summary": localized,
-        "usage": f"/{name} <preset-name>",
-        "arguments": [
-            {"name": "preset-name", "required": True, "label": localized, "hint": localized}
-        ],
-        "fields": [
+        "icon": "✦",
+        "aliases": {"en": ["character"], "pt-BR": ["personagem"]},
+        "keywords": {"en": ["preset"], "pt-BR": ["converter"]},
+        "inputs": [
+            {
+                "name": "preset-name",
+                "type": "text",
+                "required": True,
+                "label": localized,
+                "hint": localized,
+            },
             {
                 "name": "source-file",
                 "type": "file",
@@ -69,17 +76,17 @@ def _descriptor(name: str = "convert-character") -> dict:
                 "hint": localized,
                 "accept": [".json"],
                 "max_bytes": 64,
-            }
+            },
         ],
-        "result_kind": "character_preset_draft",
+        "result_kind": "core/character-preset-draft",
     }
 
 
 def test_command_registry_rejects_collision_and_invalid_upload() -> None:
     registry = CommandRegistry()
-    registry.register("one", "1.0.0", _descriptor(), lambda value, context: {})
-    with pytest.raises(ValueError, match="already registered"):
-        registry.register("two", "1.0.0", _descriptor(), lambda value, context: {})
+    registry.register("one", "One", "1.0.0", _descriptor(), lambda value, context: {})
+    with pytest.raises(ValueError, match="already reserved"):
+        registry.register("two", "Two", "1.0.0", _descriptor(), lambda value, context: {})
 
     registration = registry.get("convert-character")
     assert registration is not None
@@ -87,8 +94,7 @@ def test_command_registry_rejects_collision_and_invalid_upload() -> None:
         registry._validated_payload(
             registration,
             {
-                "arguments": {"preset-name": "lyra"},
-                "fields": {},
+                "values": {"preset-name": "lyra"},
                 "files": {
                     "source-file": {
                         "name": "bad.json",
@@ -100,15 +106,57 @@ def test_command_registry_rejects_collision_and_invalid_upload() -> None:
         )
 
 
+def test_command_schema_v2_is_forward_only_namespaced_and_reserves_builtins() -> None:
+    registry = CommandRegistry()
+    legacy = {
+        "name": "legacy",
+        "summary": {"en": "Legacy", "pt-BR": "Legado"},
+        "usage": "/legacy",
+        "arguments": [],
+        "fields": [],
+        "result_kind": "legacy",
+    }
+    with pytest.raises(ValueError, match="schema v1 is unsupported"):
+        registry.register("test.plugin", "Test", "1.0.0", legacy, lambda value, context: {})
+
+    reserved = _descriptor("help")
+    with pytest.raises(ValueError, match="reserved by Alex Tavern"):
+        registry.register("test.plugin", "Test", "1.0.0", reserved, lambda value, context: {})
+
+    wrong_namespace = _descriptor()
+    wrong_namespace["result_kind"] = "another.plugin/result"
+    with pytest.raises(ValueError, match="result_kind must use"):
+        registry.register(
+            "test.plugin", "Test", "1.0.0", wrong_namespace, lambda value, context: {}
+        )
+
+
+def test_command_aliases_share_the_global_namespace_and_payload_rejects_unknown_values() -> None:
+    registry = CommandRegistry()
+    registry.register("one", "One", "1.0.0", _descriptor(), lambda value, context: {})
+    colliding = _descriptor("other-command")
+    colliding["aliases"] = {"en": ["character"], "pt-BR": []}
+    with pytest.raises(ValueError, match="/character"):
+        registry.register("two", "Two", "1.0.0", colliding, lambda value, context: {})
+
+    registration = registry.get("convert-character")
+    assert registration is not None
+    with pytest.raises(CommandError, match="unknown value"):
+        registry._validated_payload(
+            registration,
+            {"values": {"preset-name": "lyra", "hidden": "no"}, "files": {}},
+        )
+
+
 @pytest.mark.asyncio
 async def test_command_is_locked_logged_and_does_not_mutate_narrative_state() -> None:
     plugins = PluginRuntime()
 
     async def handler(payload, context):  # noqa: ANN001, ANN202
         context["game"].revision = 999
-        return {"character": _character(), "preset_name": payload["arguments"]["preset-name"]}
+        return {"character": _character(), "preset_name": payload["values"]["preset-name"]}
 
-    plugins.commands.register("test.plugin", "1.0.0", _descriptor(), handler)
+    plugins.commands.register("test.plugin", "Test Plugin", "1.0.0", _descriptor(), handler)
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, plugins)
         session_id = runner.start_session()
@@ -117,11 +165,11 @@ async def test_command_is_locked_logged_and_does_not_mutate_narrative_state() ->
         result = await runner.execute_command(
             session_id,
             "convert-character",
-            {"arguments": {"preset-name": "lyra"}, "fields": {}, "files": {}},
+            {"values": {"preset-name": "lyra"}, "files": {}},
         )
     after = load_game(session_id)
     assert after is not None
-    assert result["result_kind"] == "character_preset_draft"
+    assert result["result_kind"] == "core/character-preset-draft"
     assert after.revision == before.revision
     assert after.history == before.history
     entries = [

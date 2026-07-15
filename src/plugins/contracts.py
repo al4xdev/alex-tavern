@@ -173,6 +173,8 @@ PERMISSIONS = {
     "unsafe": "Reach or replace arbitrary runtime objects",
     "frontend.dom.mount": "Mount UI into a named frontend slot",
     "frontend.provider.register": "Register a browser-side provider adapter",
+    "frontend.action.register": "Register a browser-side slash action",
+    "frontend.command-renderer.register": "Render a plugin-namespaced command result",
 }
 
 SERVICES = {
@@ -210,16 +212,56 @@ SETTINGS = {
 
 COMMANDS = {
     "registration": "context.command(descriptor, handler)",
-    "scope": "session-bound utility; cannot mutate GameState in schema_version 1",
+    "schema_version": 2,
+    "scope": (
+        "session-bound utility; receives an isolated GameState and cannot mutate narrative state"
+    ),
     "descriptor": {
-        "required": ["name", "summary", "usage", "arguments", "fields", "result_kind"],
+        "required": [
+            "name",
+            "title",
+            "summary",
+            "icon",
+            "aliases",
+            "keywords",
+            "inputs",
+            "result_kind",
+        ],
         "locales": ["en", "pt-BR"],
-        "field_types": ["text", "textarea", "file"],
+        "input_types": ["text", "textarea", "file"],
+        "result_namespaces": ["core/*", "<plugin-id>/*"],
     },
     "handler": {
         "arguments": ["normalized_payload", "command_context"],
+        "payload": {"values": "text and textarea inputs", "files": "decoded file inputs"},
         "context": ["game", "turn_number", "runner", "operation_id"],
         "result": "JSON object",
+    },
+}
+
+FRONTEND_SLASH = {
+    "actions": {
+        "registration": "sdk.registerAction(descriptor, handler)",
+        "descriptor": {
+            "required": [
+                "name",
+                "title",
+                "summary",
+                "icon",
+                "aliases",
+                "keywords",
+                "scope",
+            ],
+            "locales": ["en", "pt-BR"],
+            "scopes": ["global", "session"],
+        },
+        "availability": "session actions require an open, idle session",
+        "namespace": "names and aliases are shared with core actions and backend tools",
+    },
+    "command_result_renderers": {
+        "registration": "sdk.registerCommandResultRenderer(kind, renderer)",
+        "namespace": "kind must start with <plugin-id>/; core/* is reserved",
+        "availability": "a backend tool without a renderer is disabled before execution",
     },
 }
 
@@ -232,6 +274,7 @@ def exported_contract() -> dict[str, Any]:
         "services": SERVICES,
         "settings": SETTINGS,
         "commands": COMMANDS,
+        "frontend_slash": FRONTEND_SLASH,
         "permissions": PERMISSIONS,
         "crash_policy": {
             "before_commit": "discard plugin draft, disable plugin for boot, continue clean",

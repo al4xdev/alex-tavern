@@ -203,8 +203,7 @@ class CommandFileInput(BaseModel):
 class CommandRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    arguments: dict[str, str] = Field(default_factory=dict)
-    fields: dict[str, str] = Field(default_factory=dict)
+    values: dict[str, str] = Field(default_factory=dict)
     files: dict[str, CommandFileInput] = Field(default_factory=dict)
 
 
@@ -392,7 +391,7 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
 @app.get("/commands")
 def get_commands() -> dict[str, Any]:
     """Return the executable command catalog for slash autocomplete and forms."""
-    return {"schema_version": 1, "commands": _runtime().plugins.commands.public_catalog()}
+    return {"schema_version": 2, "commands": _runtime().plugins.commands.public_catalog()}
 
 
 @app.post("/session/{session_id}/commands/{command_name}")

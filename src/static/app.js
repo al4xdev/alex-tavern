@@ -5,6 +5,10 @@ import { PluginCenter } from './plugin-center.js';
 import { Setup } from './setup.js';
 import { SlashCommands } from './slash-commands.js';
 import {
+    registerCoreAction,
+    registerCoreCommandResultRenderer,
+} from './slash-registry.js';
+import {
     bindTranslation,
     getLocale,
     onLocaleChange,
@@ -30,6 +34,7 @@ const state = {
     abortController: null,  // AbortController for current turn
     compactionAbortController: null,
     compactionDepth: 0,
+    busy: false,
     narratorHint: '',       // pending narrator event hint for next turn
     lastEchoMessage: null,  // optimistic player bubble updated with effective input
     avatarUrls: {},        // cid -> revisioned native preset avatar URL
@@ -118,8 +123,9 @@ function toast(message, type = 'info', ms = 4000) {
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 function setLoading(on) {
+    state.busy = on;
     const disable = on || !state.sessionId;
-    inputSpeech.disabled = disable;
+    inputSpeech.disabled = on;
     inputThought.disabled = disable;
     inputAction.disabled = disable;
     sendBtn.disabled = disable;
@@ -998,6 +1004,73 @@ async function restoreCompaction() {
     } finally {
         setLoading(false);
     }
+}
+
+function builtinAction(name, icon, scope, title, summary, aliases, keywords, handler, availability = null) {
+    registerCoreAction({
+        name,
+        icon,
+        scope,
+        title,
+        summary,
+        aliases,
+        keywords,
+        ...(availability ? { availability } : {}),
+    }, handler);
+}
+
+function registerBuiltinSlashEntries() {
+    const localized = (en, ptBR) => ({ en, 'pt-BR': ptBR });
+    const terms = (en = [], ptBR = []) => ({ en, 'pt-BR': ptBR });
+    builtinAction('help', '◇', 'global', localized('Help', 'Ajuda'),
+        localized('Open the Alex Tavern guides.', 'Abra os guias do Alex Tavern.'),
+        terms([], ['ajuda']), terms(['guide', 'shortcuts'], ['guia', 'atalhos']),
+        () => setHelp(true));
+    builtinAction('plugins', '✦', 'global', localized('Plugins', 'Plugins'),
+        localized('Open Experiences and active plugins.', 'Abra Experiences e plugins ativos.'),
+        terms(), terms(['extensions', 'experiences'], ['extensoes', 'experiencias']),
+        () => PluginCenter.open());
+    builtinAction('settings', '⚙', 'global', localized('Settings', 'Configurações'),
+        localized('Configure the adventure and AI engine.', 'Configure a aventura e o motor de IA.'),
+        terms([], ['configuracoes']), terms(['configure', 'engine'], ['configurar', 'motor']),
+        () => Setup.open());
+    builtinAction('sessions', '▤', 'global', localized('Sessions', 'Sessões'),
+        localized('Open, fork, or delete adventures.', 'Abra, bifurque ou apague aventuras.'),
+        terms([], ['sessoes']), terms(['adventures', 'history'], ['aventuras', 'historico']),
+        openSessionsModal);
+    builtinAction('new', '＋', 'global', localized('New adventure', 'Nova aventura'),
+        localized('Prepare a new adventure.', 'Prepare uma nova aventura.'),
+        terms([], ['novo']), terms(['start', 'create'], ['iniciar', 'criar']),
+        () => Setup.open());
+
+    builtinAction('suggest', '💡', 'session', localized('Suggest a move', 'Sugerir jogada'),
+        localized('Ask the Narrator for possible moves.', 'Peça ao Narrador possíveis jogadas.'),
+        terms([], ['sugestao']), terms(['move', 'idea'], ['jogada', 'ideia']), suggestForMe);
+    builtinAction('hint', '📜', 'session', localized('Narrator event', 'Evento do Narrador'),
+        localized('Queue an event hint for the Narrator.', 'Prepare uma dica de evento para o Narrador.'),
+        terms([], ['dica']), terms(['event', 'narrator'], ['evento', 'narrador']), openHintPopup);
+    builtinAction('undo', '↩', 'session', localized('Undo turn', 'Desfazer turno'),
+        localized('Remove the latest complete turn.', 'Remova o último turno completo.'),
+        terms([], ['desfazer']), terms(['back', 'revert'], ['voltar', 'reverter']), undoLastTurn,
+        (context) => context.canUndo || t('commands.nothingToUndo'));
+    builtinAction('skip', '⏭', 'session', localized('Skip turn', 'Pular turno'),
+        localized('Give the next beat directly to the Narrator.', 'Passe o próximo momento direto ao Narrador.'),
+        terms([], ['pular']), terms(['pass', 'continue'], ['passar', 'continuar']), skipTurn);
+    builtinAction('compact', '🗜', 'session', localized('Compact history', 'Compactar histórico'),
+        localized('Summarize older events into memory.', 'Resuma eventos antigos na memória.'),
+        terms([], ['compactar']), terms(['summarize', 'memory'], ['resumir', 'memoria']), compactSession);
+    builtinAction('restore', '🧯', 'session', localized('Restore compaction', 'Restaurar compactação'),
+        localized('Undo the latest compaction checkpoint.', 'Desfaça o checkpoint de compactação mais recente.'),
+        terms([], ['restaurar']), terms(['checkpoint', 'uncompact'], ['checkpoint', 'descompactar']),
+        restoreCompaction, (context) => context.compactionDepth > 0 || t('commands.noCheckpoint'));
+
+    registerCoreCommandResultRenderer('core/completion', async () => {});
+    registerCoreCommandResultRenderer('core/character-preset-draft', async (result, context) => {
+        const avatar = context.rawFiles['source-file'];
+        const avatarFile = avatar && (avatar.type === 'image/png' || avatar.name.toLowerCase().endsWith('.png'))
+            ? avatar : null;
+        await Setup.openPresetDraft(result.character, result.preset_name, avatarFile);
+    });
 }
 
 /* ── Debug drawer ─────────────────────────────────────────────────────── */
@@ -1922,14 +1995,19 @@ async function initializeApplication() {
         notify: toast,
     });
     SlashCommands.init({
-        getSessionId: () => state.sessionId,
+        getContext: () => ({
+            sessionId: state.sessionId,
+            busy: state.busy || state.compactionAbortController !== null,
+            canUndo: state.canUndo,
+            compactionDepth: state.compactionDepth,
+            state,
+        }),
         notify: toast,
-        onPresetDraft: (character, name, avatarFile) =>
-            Setup.openPresetDraft(character, name, avatarFile),
     });
     await PluginRuntime.runHook('app.ready', null, { state, toast });
 }
 
+registerBuiltinSlashEntries();
 initializeApplication();
 // openSessionsModal(); // show the sessions list on first load
 

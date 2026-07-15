@@ -2,6 +2,12 @@
 
 import { api } from './api.js';
 import { registerProviderAdapter } from './adapters/index.js';
+import {
+    registerPluginAction,
+    registerPluginCommandResultRenderer,
+    removePluginSlashRegistrations,
+    reserveBackendCommands,
+} from './slash-registry.js';
 
 const hooks = new Map();
 
@@ -14,13 +20,21 @@ function observe(pluginId, permission, details = {}) {
     }).catch(() => {});
 }
 
-function sdk(pluginId) {
+function sdk(pluginId, pluginName) {
     return Object.freeze({
         pluginId,
         api,
         registerProviderAdapter(adapter) {
             observe(pluginId, 'frontend.provider.register', { provider: adapter.id });
             registerProviderAdapter(adapter);
+        },
+        registerAction(descriptor, handler) {
+            registerPluginAction(pluginId, pluginName, descriptor, handler);
+            observe(pluginId, 'frontend.action.register', { action: descriptor?.name });
+        },
+        registerCommandResultRenderer(kind, renderer) {
+            registerPluginCommandResultRenderer(pluginId, kind, renderer);
+            observe(pluginId, 'frontend.command-renderer.register', { kind });
         },
         hook(name, handler) {
             const handlers = hooks.get(name) || [];
@@ -54,6 +68,7 @@ async function runHook(name, value, context = {}) {
 
 async function boot() {
     const status = await api.getPlugins();
+    reserveBackendCommands(status.commands || []);
     for (const plugin of status.loaded || []) {
         if (!plugin.frontend_url) continue;
         try {
@@ -61,9 +76,10 @@ async function boot() {
             if (typeof module.activate !== 'function') {
                 throw new Error('Frontend entrypoint must export activate(sdk)');
             }
-            await module.activate(sdk(plugin.plugin_id));
+            await module.activate(sdk(plugin.plugin_id, plugin.name));
             observe(plugin.plugin_id, 'frontend.loaded');
         } catch (error) {
+            removePluginSlashRegistrations(plugin.plugin_id);
             observe(plugin.plugin_id, 'frontend.crash', { error: String(error) });
         }
     }

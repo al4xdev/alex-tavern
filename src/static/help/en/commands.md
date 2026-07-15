@@ -8,24 +8,31 @@ Use these tools to control the flow of the narrative:
 
 ## Slash commands
 
-Type `/` in the **Speech** field to see the tools provided by active plugins. Keep typing to narrow
-the list, use ↑/↓ to choose, and press Enter or Tab to complete the command. A recognized command
-opens a clearly bordered tool card with the fields it needs.
+Type `/` in the **Speech** field to open the palette. The typed slash becomes the violet sigil beside
+the field, so the command query stays clean. It includes Alex Tavern actions and contributions from
+active plugins. Keep typing to narrow the list, use ↑/↓ to choose, Tab to complete the canonical
+name, and Enter to activate. Backend tools open a clearly bordered card showing every input they
+need.
+
+Useful built-ins include `/help`, `/plugins`, `/settings`, `/sessions`, `/new`, `/suggest`, `/hint`,
+`/undo`, `/skip`, `/compact`, and `/restore`. Unavailable actions stay visible and explain what is
+missing. Plugin tools and actions show their origin.
 
 Commands are utilities, not character dialogue. Their input goes directly to the selected tool and
 does not create a story turn, call the Narrator, change undo history, or appear in the chat. A wrong
 command is stopped with an explanation instead of being sent as speech.
 
-To make your character literally say something beginning with `/`, type `//`. The first slash is
-treated as an escape and only one slash is sent to the story.
+To make your character literally say something beginning with `/`, type `//`. The second slash
+closes the palette and sigil immediately, leaving one literal slash in the speech field.
 
 ## Character Converter
 
 When the curated **Character Converter** plugin is active, use:
 
-`/convert-character lyra-nightfall`
+`/convert-character`
 
-Then either paste one description or select one open Character Card V1/V2/V3 PNG/JSON. Do not fill
+Enter the preset name in the visible field. Then either paste one description or select one open
+Character Card V1/V2/V3 PNG/JSON. Do not fill
 both sources. An ordinary avatar PNG has no card definition and will be rejected clearly. The tool
 does not infer a character from image pixels.
 

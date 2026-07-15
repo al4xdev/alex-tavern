@@ -673,11 +673,7 @@ export const PluginCenter = (() => {
     function init(options = {}) {
         notify = options.notify || notify;
         selectTab(tabNames[0], { animate: false });
-        openBtn.addEventListener('click', async () => {
-            overlay.classList.add('active');
-            try { await refresh(); }
-            catch (error) { notify(t('plugins.operationError', { error: error.message }), 'error'); }
-        });
+        openBtn.addEventListener('click', open);
         closeBtn.addEventListener('click', () => {
             if (!confirmLayer.hidden) hideConfirmation();
             else overlay.classList.remove('active');
@@ -737,5 +733,11 @@ export const PluginCenter = (() => {
         });
     }
 
-    return { init, refresh };
+    async function open() {
+        overlay.classList.add('active');
+        try { await refresh(); }
+        catch (error) { notify(t('plugins.operationError', { error: error.message }), 'error'); }
+    }
+
+    return { init, refresh, open };
 })();

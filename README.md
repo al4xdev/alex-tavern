@@ -449,16 +449,22 @@ sensitive session data.
 
 ## ⌨️ Slash tools, character presets, and avatars
 
-Typing `/` in the Speech field opens the command catalog exported by active backend plugins.
-Autocomplete supports keyboard arrows, Enter/Tab, Escape, and pointer selection. A recognized
-command switches the composer into a descriptor-driven tool card; an unknown command is rejected
-locally and `//` escapes a literal leading slash. Command requests run under the same per-session
-lock as turns, but version 1 utilities receive an isolated state snapshot and cannot advance
+Typing `/` in the Speech field opens one palette for Alex Tavern actions, active frontend-plugin
+actions, and backend plugin tools. The leading slash becomes a violet sigil beside the field while
+the palette is open and disappears outside slash mode. Search is deterministic across
+names, aliases, localized titles, and keywords, with case and diacritics normalized. Arrow keys
+navigate, Tab completes the canonical name, Enter activates, and Escape closes and clears. A tool
+opens a descriptor-driven card containing every input; an unknown command is rejected locally.
+Typing a second slash closes the palette and leaves one literal `/` in the speech field. Command
+requests run under the same per-session lock as
+turns, receive an isolated state snapshot, and cannot advance
 history, revision, undo, Narrator, or Character execution. JSONL records operation identity and
 input sizes without persisting uploaded Base64.
 
-The first curated implementation is `dev.alex-tavern.character-converter` and its
-`/convert-character <preset-name>` command. It accepts exactly one free-text description or one
+Built-ins include `/help`, `/plugins`, `/settings`, `/sessions`, `/new`, `/suggest`, `/hint`,
+`/undo`, `/skip`, `/compact`, and `/restore`, with English and Brazilian Portuguese aliases. The
+first curated backend tool is `dev.alex-tavern.character-converter` and its
+`/convert-character` card. It accepts a visible preset name plus exactly one free-text description or one
 open Character Card V1/V2/V3 PNG/JSON. PNG chunks and CRCs are validated locally, `ccv3` metadata
 takes precedence over `chara`, and ordinary images fail clearly rather than invoking vision. The
 active structured provider maps untrusted card data into canonical `mind`/`body`; one semantic
@@ -740,6 +746,8 @@ contract:
 | `context.action` | Observe a lifecycle event or durable commit | Post-commit work is never replayed automatically |
 | `context.contribute` | Register providers, routes, settings, or panels | Shared registry with plugin provenance |
 | `context.command` | Register one executable slash utility and its localized form | Unique global name, session lock, typed input, no narrative mutation |
+| `sdk.registerAction` | Add a global or session-scoped frontend action to the slash palette | Shared name/alias namespace; active-plugin provenance and contextual availability |
+| `sdk.registerCommandResultRenderer` | Render a plugin-namespaced backend result | Missing renderer disables the tool before execution |
 | `context.config` | Read/write plugin-owned global configuration | Atomic JSON, separate from session state |
 | `game.plugin_state[plugin_id]` | Persist plugin-owned session state | Saved, snapshotted, compacted, and undone with the session |
 | `context.model.call_json` | Make a plugin-owned structured LLM call | Core-owned secrets, provider adaptation, schema validation, retries, and debug logging |
@@ -1451,7 +1459,7 @@ prompt. Two separate LLM layers sit between the vector search and the live conve
    JSON/log, alongside everything else in the
    [JSONL evidence](#-two-layer-observability).
 
-Retrieval would be triggered on demand via `/rag <keyword>` instead of keeping external material
+Retrieval would be triggered on demand via a `/rag` tool card with a visible keyword input instead of keeping external material
 permanently loaded in the live prompt.
 
 The general slash-command system is already implemented and first exercised by the curated

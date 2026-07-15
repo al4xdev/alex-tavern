@@ -199,7 +199,7 @@ class PluginContext:
     def command(self, descriptor: dict[str, Any], handler: Callable[..., Any]) -> None:
         """Register one executable utility command in the global slash namespace."""
         self.unsafe.runtime.commands.register(
-            self.plugin_id, self.manifest.version, descriptor, handler
+            self.plugin_id, self.manifest.name, self.manifest.version, descriptor, handler
         )
 
     def event(self, name: str, **details: Any) -> None:

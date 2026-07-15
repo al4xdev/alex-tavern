@@ -1,5 +1,7 @@
 """Static architecture checks for the dependency-free ES-module frontend."""
 
+# ruff: noqa: E501 -- embedded JavaScript harnesses remain readable at their native width.
+
 from __future__ import annotations
 
 import shutil
@@ -56,9 +58,10 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v14" in service_worker
+    assert "rpt-shell-v16" in service_worker
     assert "'/slash-commands.js'" in service_worker
     assert "'/slash-command-parser.js'" in service_worker
+    assert "'/slash-registry.js'" in service_worker
 
 
 def test_slash_parser_autocomplete_resolution_and_literal_escape() -> None:
@@ -67,15 +70,179 @@ def test_slash_parser_autocomplete_resolution_and_literal_escape() -> None:
         pytest.skip("Node.js is not installed")
     script = r"""
         const m = await import('./src/static/slash-command-parser.js');
-        const catalog = [{name: 'convert-character'}, {name: 'compare-scenes'}];
+        const terms = (en, pt) => ({en, 'pt-BR': pt});
+        const catalog = [
+          {name: 'convert-character', aliases: terms(['character'], ['personagem']),
+           title: terms('Convert character', 'Converter personagem'),
+           keywords: terms(['preset'], ['predefinição']), scope: 'session', available: true, order: 1},
+          {name: 'settings', aliases: terms([], ['configuracoes']),
+           title: terms('Settings', 'Configurações'), keywords: terms(['engine'], ['motor']),
+           scope: 'global', available: true, order: 0},
+        ];
         const assert = (value, message) => { if (!value) throw new Error(message); };
-        assert(m.matchingCommands('/con', catalog)[0].name === 'convert-character', 'autocomplete');
-        const resolved = m.resolveCommand('/convert-character lyra-nightfall', catalog);
+        assert(m.matchingCommands('/con', catalog, {locale: 'en'})[0].name === 'convert-character', 'name prefix');
+        assert(m.matchingCommands('/person', catalog, {locale: 'pt-BR'})[0].name === 'convert-character', 'alias prefix');
+        assert(m.matchingCommands('/predefinicao', catalog, {locale: 'pt-BR'})[0].name === 'convert-character', 'diacritic keyword');
+        assert(m.matchingCommands('/configurações', catalog, {locale: 'pt-BR'})[0].name === 'settings', 'diacritic alias');
+        const resolved = m.resolveCommand('/personagem', catalog);
         assert(resolved.command.name === 'convert-character', 'resolution');
-        assert(resolved.rest === 'lyra-nightfall', 'arguments');
+        assert(resolved.rest === '', 'no hidden arguments');
         assert(m.resolveCommand('/unknown', catalog) === null, 'unknown command');
         const literal = m.tokenizeSlash('//waves');
         assert(literal.kind === 'literal' && literal.speech === '/waves', 'literal escape');
+        assert(m.matchingCommands('/zzzz', catalog).length === 0, 'zero results');
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_slash_registry_rejects_collisions_and_foreign_result_namespaces() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        const m = await import('./src/static/slash-registry.js');
+        const descriptor = (name, alias = []) => ({
+          name, title: {en: 'Action', 'pt-BR': 'Ação'},
+          summary: {en: 'Summary', 'pt-BR': 'Resumo'}, icon: '✦',
+          aliases: {en: alias, 'pt-BR': []}, keywords: {en: [], 'pt-BR': []}, scope: 'global',
+        });
+        m.registerCoreAction(descriptor('help', ['guide']), () => {});
+        let collision = false;
+        try { m.registerPluginAction('dev.test', 'Test', descriptor('other', ['guide']), () => {}); }
+        catch (error) { collision = error.message.includes('/guide'); }
+        if (!collision) throw new Error('alias collision was accepted');
+        let namespace = false;
+        try { m.registerPluginCommandResultRenderer('dev.test', 'other/result', () => {}); }
+        catch (error) { namespace = error.message.includes('dev.test/'); }
+        if (!namespace) throw new Error('foreign result namespace was accepted');
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_slash_palette_dom_harness_button_keyboard_form_and_renderer() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        class Classes {
+          constructor() { this.values = new Set(); }
+          add(...names) { names.forEach((name) => this.values.add(name)); }
+          remove(...names) { names.forEach((name) => this.values.delete(name)); }
+          toggle(name, force) {
+            if (force === undefined ? !this.values.has(name) : force) this.values.add(name);
+            else this.values.delete(name);
+          }
+          contains(name) { return this.values.has(name); }
+        }
+        class Element {
+          constructor(tag = 'div', id = '') {
+            this.tagName = tag.toUpperCase(); this.id = id; this.hidden = false;
+            this.children = []; this.dataset = {}; this.attributes = {}; this.listeners = {};
+            this.classList = new Classes(); this.value = ''; this.files = []; this.textContent = '';
+          }
+          addEventListener(name, handler) { (this.listeners[name] ||= []).push(handler); }
+          dispatchEvent(event) { (this.listeners[event.type] || []).forEach((handler) => handler(event)); return true; }
+          click() { this.dispatchEvent({type: 'click', preventDefault() {}}); }
+          append(...items) { this.children.push(...items); }
+          appendChild(item) { this.children.push(item); return item; }
+          replaceChildren(...items) { this.children = items; }
+          setAttribute(name, value) { this.attributes[name] = String(value); }
+          getAttribute(name) { return this.attributes[name]; }
+          removeAttribute(name) { delete this.attributes[name]; }
+          focus() { document.activeElement = this; }
+          scrollIntoView() {}
+          querySelector(selector) {
+            const all = this.querySelectorAll(selector); return all[0] || null;
+          }
+          querySelectorAll(selector) {
+            const result = [];
+            const matches = (item) => {
+              if (selector === 'input, textarea') return ['INPUT', 'TEXTAREA'].includes(item.tagName);
+              if (selector === '[aria-invalid="true"]') return item.attributes['aria-invalid'] === 'true';
+              const id = selector.match(/^#(.+)$/); if (id) return item.id === id[1];
+              const data = selector.match(/^\[data-command-(field|error)="(.+)"\]$/);
+              if (data) return item.dataset[data[1] === 'field' ? 'commandField' : 'commandError'] === data[2];
+              if (selector === '.command-field-error') return item.className === 'command-field-error';
+              return false;
+            };
+            const visit = (item) => { if (matches(item)) result.push(item); item.children.forEach(visit); };
+            this.children.forEach(visit); return result;
+          }
+        }
+        const ids = ['input-speech', 'slash-trigger', 'slash-suggestions', 'command-panel',
+          'command-panel-title', 'command-panel-origin', 'command-panel-summary', 'command-fields',
+          'command-error', 'command-panel-close', 'command-execute', 'input-area'];
+        const elements = Object.fromEntries(ids.map((id) => [id, new Element('div', id)]));
+        elements['input-speech'].tagName = 'INPUT';
+        globalThis.document = {
+          activeElement: null, documentElement: {lang: ''},
+          getElementById: (id) => elements[id], createElement: (tag) => new Element(tag),
+          querySelectorAll: () => [],
+        };
+        globalThis.window = {location: {protocol: 'http:'}};
+        globalThis.CSS = {escape: (value) => value};
+        let executed = false; let rendered = false;
+        globalThis.fetch = async (url, options = {}) => ({
+          ok: true,
+          json: async () => options.method === 'POST'
+            ? {result_kind: 'core/test-result', result: {ok: true}}
+            : {schema_version: 2, commands: [{
+                name: 'tool', title: {en: 'Tool', 'pt-BR': 'Ferramenta'},
+                summary: {en: 'Run it', 'pt-BR': 'Execute'}, icon: '⚒',
+                aliases: {en: [], 'pt-BR': []}, keywords: {en: [], 'pt-BR': []},
+                inputs: [{name: 'value', type: 'text', required: true,
+                  label: {en: 'Value', 'pt-BR': 'Valor'}, hint: {en: 'Required', 'pt-BR': 'Obrigatório'}}],
+                result_kind: 'core/test-result', plugin_id: 'dev.tool', plugin_name: 'Tool Plugin',
+                plugin_version: '1.0.0',
+              }]},
+        });
+        const registry = await import('./src/static/slash-registry.js');
+        registry.registerCoreAction({name: 'help', title: {en: 'Help', 'pt-BR': 'Ajuda'},
+          summary: {en: 'Open help', 'pt-BR': 'Abrir ajuda'}, icon: '◇',
+          aliases: {en: [], 'pt-BR': ['ajuda']}, keywords: {en: [], 'pt-BR': []}, scope: 'global'},
+          () => { executed = true; });
+        registry.registerCoreCommandResultRenderer('core/test-result', () => { rendered = true; });
+        const {SlashCommands} = await import('./src/static/slash-commands.js');
+        SlashCommands.init({getContext: () => ({sessionId: 's1', busy: false}), notify: () => {}});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (!elements['slash-trigger'].disabled || elements['slash-trigger'].getAttribute('aria-hidden') !== 'true')
+          throw new Error('sigil is interactive before slash mode');
+        elements['input-speech'].value = '/';
+        elements['input-speech'].dispatchEvent({type: 'input'});
+        if (elements['input-speech'].value !== '' || elements['slash-trigger'].disabled || elements['slash-suggestions'].hidden)
+          throw new Error('first slash did not become the palette sigil');
+        elements['input-speech'].value = '/';
+        elements['input-speech'].dispatchEvent({type: 'input'});
+        if (elements['input-speech'].value !== '/' || !elements['slash-trigger'].disabled || !elements['slash-suggestions'].hidden)
+          throw new Error('second slash did not return to one literal slash');
+        elements['input-speech'].value = '/ajuda';
+        elements['input-speech'].dispatchEvent({type: 'input'});
+        SlashCommands.handleKeydown({key: 'Tab', preventDefault() {}});
+        if (elements['input-speech'].value !== 'help') throw new Error('Tab did not canonicalize alias');
+        SlashCommands.handleKeydown({key: 'Enter', preventDefault() {}});
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (!executed) throw new Error('Enter did not execute action');
+        elements['input-speech'].value = '/tool';
+        elements['input-speech'].dispatchEvent({type: 'input'});
+        SlashCommands.handleKeydown({key: 'Enter', preventDefault() {}});
+        const control = elements['command-fields'].querySelector('[data-command-field="value"]');
+        if (!control || elements['command-panel'].hidden) throw new Error('tool form did not open');
+        control.value = 'ready';
+        elements['command-execute'].click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (!rendered) throw new Error('result renderer was not dispatched');
     """
     subprocess.run(
         [node, "--no-warnings", "--input-type=module", "-e", script],
