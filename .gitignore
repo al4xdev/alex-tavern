@@ -8,3 +8,5 @@ dist/
 plans/
 .deepcode/
 unsloth_compiled_cache/
+output/
+z_image_universal.log
