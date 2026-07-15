@@ -10,11 +10,11 @@ reusable plugin capabilities it should force the platform to discover_
 | Supertask | S02 - Alex Tavern Celestial: Agentic Configuration Command Center and General Agent SDK |
 | Status | Open, exploration only |
 | Kind | Product vision, architectural investigation, and contract discovery |
-| Priority | Deferred; revisit near the end of the current architecture cycle |
+| Priority | Deferred; begin only after current tasks close and the stability evidence gate is satisfied |
 | Created | 2026-07-15 |
 | Implementation authorized by this document | No |
 | Primary repositories | Core checkout, the sibling curated plugin hub for platform contracts, and a dedicated `alex-tavern-celestial` repository for this plugin |
-| Depends on | The live plugin contract at the time this exploration resumes |
+| Depends on | Closed current task set, beta-user evidence, expanded narrative/plugin benchmarks, and the live plugin contract at the time this exploration resumes |
 
 > [!IMPORTANT]
 > **Long-term product intent, not current scope:** this plugin may eventually ship as part of the
@@ -37,6 +37,14 @@ reusable plugin capabilities it should force the platform to discover_
 > substantially before work starts. The first action when resuming S02 is to re-read `AGENTS.md`,
 > all open Supertasks, the live core contract exported through the hub MCP, and the current source.
 > Examples and candidate surfaces in this document preserve intent; they are not frozen APIs.
+
+> [!IMPORTANT]
+> **Evidence gate before Celestial:** do not begin Celestial merely because the calendar or backlog
+> reaches S02. First close or explicitly supersede all tasks that are open in the current cycle,
+> exercise the stabilized product with the planned beta user, expand the narrative benchmarks well
+> beyond today's debug cases, and establish plugin-specific benchmarks for the important extension
+> contracts. Celestial begins only after those signals show that the existing foundation is stable
+> enough to be challenged deliberately.
 
 ## 1. Product vision
 
@@ -108,6 +116,36 @@ should understand generic dependency, lifecycle, capability-discovery, and servi
 contracts. Celestial should own the domain-specific extension API built on top of them. Satellite
 plugins should be able to target Celestial without Alex Tavern core learning their identities or
 business logic.
+
+### 2.1 Celestial as a deliberate foundation challenge
+
+Celestial is not intended as an escape from the existing scope or as a race to accumulate and
+scale features. It is a capstone designed to challenge the platform's most basic assumptions after
+the ordinary foundation has been stabilized with evidence.
+
+The sequence matters:
+
+1. close the current task set and consolidate its resulting contracts;
+2. use a beta user to expose usability, workflow, and narrative failures that repository-local
+   tests cannot predict;
+3. create larger narrative benchmarks than the current debug fixtures, with longer horizons and
+   concepts that are intentionally harder to preserve;
+4. add benchmarks for individual plugins and for plugin composition, including state ownership,
+   failure, ordering, isolation, undo/replay behavior, provider calls, and observability;
+5. use independent model-based evaluation, including the existing Claude skill that delegates a
+   history-only consistency judgment to a sub-agent, as one signal among deterministic assertions,
+   human review, beta-user evidence, and other evaluators;
+6. only then resume S02 and use Celestial to pressure the stable SDK at its architectural limits.
+
+The model judge must not become the sole definition of quality. Restricting an evaluator to the
+generated history is useful for reducing implementation leakage and measuring story consistency,
+but the project must avoid overfitting its prompts and benchmarks to one model's preferences.
+
+The name **Celestial** is intentionally an allusion to a godlike scale of difficulty. It describes
+the challenge the plugin poses and the architectural evolution it is expected to cause. It does
+not mean Celestial receives divine privileges, private core branches, or exemptions from the
+public SDK. Its strongest proof is precisely that something this demanding can remain an ordinary,
+declared plugin and host other ordinary plugins through generic contracts.
 
 ## 3. Non-negotiable invariants
 
@@ -664,6 +702,17 @@ one repository.
 If those tasks are completed or replaced before S02 begins, use their resulting source and closed
 records rather than preserving assumptions from this document.
 
+S02 must also consume, as input evidence rather than parallel work:
+
+- the closure record of every task open when this Supertask was created, or an explicit record of
+  what superseded it;
+- findings from the planned beta-user cycle;
+- expanded narrative benchmark results covering harder and longer-lived concepts than the current
+  debug fixtures;
+- plugin-specific and plugin-composition benchmark results;
+- deterministic assertions, human evaluation, and model-based consistency judgments kept as
+  distinguishable signals rather than collapsed into one opaque score.
+
 ## 16. Exploration deliverables
 
 S02 is complete as an exploration only when it produces current, evidence-backed artifacts for all
@@ -697,7 +746,10 @@ of the following:
 14. **Repository and distribution report:** ownership across core, hub, and
     `alex-tavern-celestial`; independent CI/releases; content-addressed catalog integration; and no
     duplicated source of truth.
-15. **Implementation decomposition:** only after the exploration is accepted, create smaller
+15. **Entry-evidence review:** task-closure status, beta-user findings, expanded narrative
+    benchmark evidence, plugin-specific benchmark evidence, known stability limits, and the exact
+    reasons the foundation is considered ready for the Celestial challenge.
+16. **Implementation decomposition:** only after the exploration is accepted, create smaller
     implementation tasks with dependencies and boundary tests. Do not turn this document itself
     into an ever-growing implementation checklist.
 
@@ -706,6 +758,16 @@ prototypes when needed to answer a question. None should become production sourc
 
 ## 17. Exploration acceptance criteria
 
+- [ ] Every task that was open in the current cycle is closed or has an explicit superseding
+  decision before active Celestial exploration begins.
+- [ ] At least one planned beta-user cycle has produced documented evidence that is reviewed before
+  Celestial contracts are proposed.
+- [ ] Narrative benchmarks extend beyond the current debug fixtures with longer, more complex, and
+  deliberately difficult consistency cases.
+- [ ] Important plugins have dedicated success, failure, and composition benchmarks before
+  Celestial is used to generalize their extension boundaries.
+- [ ] Model-based story-consistency evaluation remains a separately reported signal and is not the
+  sole quality gate or benchmark oracle.
 - [ ] Work begins with a fresh reading of `AGENTS.md`, open Supertasks, current source, hub docs,
   and the live MCP-exported plugin contract.
 - [ ] The report explicitly distinguishes actual MCP transport from MCP-inspired schemas.
