@@ -190,7 +190,14 @@ class TestRunnerWiring:
             return {
                 "narration": "A sala vibra.",
                 "next_speakers": ["C2"],
-                "context_for_character": "Você vê Alex parado perto de C1 na entrada.",
+                "perception_events": [
+                    {
+                        "event_kind": "observation",
+                        "subject_id": "C1",
+                        "content": "Você vê Alex parado perto de C1 na entrada.",
+                        "witness_ids": ["C2", "C3"],
+                    }
+                ],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -246,7 +253,7 @@ class TestRunnerWiring:
             return {
                 "narration": "Segue a noite.",
                 "next_speakers": ["C2"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }

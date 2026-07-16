@@ -23,9 +23,9 @@ from src.agents.narrator import suggest as narrator_suggest
 from src.agents.perspective import (
     initialize_perspective,
     needs_identity_update,
-    project_text_for_viewer,
     update_identity,
 )
+from src.perception import eligible_witnesses, render_events_for_viewer
 from src.agents.summarizer import relevant_character_ids, summarize
 from src.compaction import (
     CompactionDraft,
@@ -651,20 +651,31 @@ class Runner:
                 reply_audience = (
                     audience if audience is not None and speaker in audience else None
                 )
-                # context_for_character belongs to the FIRST routed speaker only;
-                # later speakers react to the fresh history instead of a context
-                # the Narrator wrote before their exchange existed.
-                ctx = narrator_raw.get("context_for_character", "") if position == 0 else ""
+                await self._ensure_perspective(game, speaker, step)
+                # Each speaker receives only the typed perception events they
+                # witness (zone-clamped upstream), projected through their own
+                # identity ledger — the free-prose context_for_character is gone.
+                ctx = render_events_for_viewer(
+                    narrator_raw["perception_events"],
+                    speaker,
+                    game.characters,
+                    game.character_perspectives.get(speaker),
+                )
+                if not ctx.strip():
+                    # An empty perception void invites the model to hallucinate a
+                    # stimulus (an isolated character greeted a visitor that does
+                    # not exist). State the deterministic fact instead: nothing
+                    # new reached this character's senses.
+                    ctx = (
+                        "Nothing new reaches your senses right now; you are "
+                        "alone with your current activity and thoughts."
+                    )
                 # Deterministic guard behind the Narrator's whisper rule: the
                 # "denial that reveals" pattern ("you did not hear the password X")
-                # occasionally leaks whispered content into the context of a
-                # character outside the whisper's audience. Strip it here, before
-                # the character ever sees it; audience members are unaffected.
+                # occasionally leaks whispered content into an event rendered for
+                # a character outside the whisper's audience. Strip it here,
+                # before the character ever sees it; audience members unaffected.
                 ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
-                await self._ensure_perspective(game, speaker, step)
-                ctx = project_text_for_viewer(
-                    ctx, game.characters, game.character_perspectives.get(speaker)
-                )
                 if self.plugins is None:
                     character_response = await self._call_character(
                         game, speaker, ctx, step, reply_audience=reply_audience
@@ -1461,7 +1472,30 @@ class Runner:
         (human speech/thought/action, narration, Character speech) share the
         same number and the same snapshot, a pre-requisite for undo to revert
         the entire step (scene and moods).
+
+        With a zone graph, perception is structural: a speech/action record's
+        effective audience is computed from who can physically perceive the
+        speaker's zone. A supplied whisper audience is intersected with it (you
+        cannot whisper to someone who cannot hear you); a public record that not
+        everyone can perceive becomes zone-scoped by construction, reusing the
+        whisper visibility machinery end to end.
         """
+        if game.scene.zones and content_type in ("speech", "action"):
+            subject = (
+                game.player.controlled_character_id if speaker == "Player" else speaker
+            )
+            if subject in game.characters:
+                eligible = eligible_witnesses(game.scene, game.characters, subject)
+                others = {
+                    cid
+                    for cid in game.scene.present_characters
+                    if cid in game.characters and cid != subject
+                }
+                if audience is None:
+                    if eligible != others:
+                        audience = sorted(eligible)
+                else:
+                    audience = sorted(set(audience) & (eligible | {subject}))
         record = TurnRecord(
             turn_number=turn_number,
             speaker=speaker,

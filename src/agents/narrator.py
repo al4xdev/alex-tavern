@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from src.confidentiality import REDACTION_MARKER, hidden_whisper_tokens, redact_tokens
+from src.perception import describe_zones_for_narrator, validate_perception_events
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
 from src.models import (
@@ -43,10 +44,18 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  - List a character only when they have a real, present reason to speak now.\n"
         '  - Use ["Narrator"] when you need to describe something before anyone speaks\n'
         "    (e.g., an environmental event), or when no reaction is needed yet.\n"
-        '- "context_for_character": a string with filtered information for the FIRST\n'
-        "  entry of next_speakers. Include only what THAT character would perceive.\n"
-        '  If next_speakers is ["Narrator"], use empty string. If an UPCOMING EVENT was\n'
-        "  provided, include it here when that speaker would witness it.\n"
+        '- "perception_events": typed record of what JUST happened in your narration,\n'
+        "  for the engine to distribute to the right characters. Each event:\n"
+        '  {"event_kind": one of "observation" | "audible_speech" | "identity_claim" |\n'
+        '  "physical_outcome" | "scene_change"; "subject_id": the acting character\'s\n'
+        "  ID (or \"Narrator\" for environmental events); \"content\": ONE short sentence\n"
+        "  describing the event exactly as a witness would perceive it (no inner\n"
+        "  thoughts, no facts a witness could not sense); \"witness_ids\": the IDs of\n"
+        "  every present character who could genuinely perceive it given the zones,\n"
+        "  distance, and noise. Never include someone who could not perceive it.}\n"
+        "  1 to 6 events; make the FIRST events cover what the next speakers need\n"
+        "  to react to. An UPCOMING EVENT, if provided, must appear here for those\n"
+        "  who witness it.\n"
         '- "scene_update": object with changes to the current scene (e.g.,\n'
         '  {"location": "Old Watchtower", "door": "open"}). "location" and\n'
         '  "time_of_day" are reserved Scene fields. Every other key is a physical\n'
@@ -69,8 +78,8 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "- HISTORY entries marked [WHISPERED, perceived only by: ...] were perceived\n"
         "  exclusively by the listed characters. Everyone else does not know that\n"
         "  content: never let them react to it, reference it, or overhear it in your\n"
-        "  narration, and never put it in context_for_character for anyone outside\n"
-        "  the listed audience.\n"
+        "  narration, and never put whispered content in a perception_event whose\n"
+        "  witness_ids include anyone outside the listed audience.\n"
         "- Beware of denials that reveal. When telling an outsider that they did not\n"
         "  perceive a whisper, never quote, spell out, or paraphrase the whispered\n"
         "  content itself: no names, codes, passwords, numbers, or facts from it.\n"
@@ -120,7 +129,34 @@ def build_narrator_json_schema(
                     "minItems": 1,
                     "maxItems": MAX_SPEAKERS_PER_TURN,
                 },
-                "context_for_character": {"type": "string"},
+                "perception_events": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 6,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "event_kind": {
+                                "type": "string",
+                                "enum": [
+                                    "observation",
+                                    "audible_speech",
+                                    "identity_claim",
+                                    "physical_outcome",
+                                    "scene_change",
+                                ],
+                            },
+                            "subject_id": {"type": "string"},
+                            "content": {"type": "string"},
+                            "witness_ids": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                        "required": ["event_kind", "subject_id", "content", "witness_ids"],
+                        "additionalProperties": False,
+                    },
+                },
                 "scene_update": {
                     "type": ["object", "null"],
                     "properties": {
@@ -138,7 +174,7 @@ def build_narrator_json_schema(
             "required": [
                 "narration",
                 "next_speakers",
-                "context_for_character",
+                "perception_events",
                 "scene_update",
                 "mood_updates",
                 *(extra_required or []),
@@ -228,6 +264,8 @@ def _build_user_prompt(
     lines.append(f"  Location: {scene.location}")
     lines.append(f"  Time: {scene.time_of_day}")
     lines.append(f"  Physical facts: {json.dumps(scene.physical_facts, ensure_ascii=False)}")
+    for zone_line in describe_zones_for_narrator(scene, characters):
+        lines.append(f"  {zone_line}")
     lines.append("")
 
     lines.append("CURRENT MOODS:")
@@ -249,12 +287,10 @@ def _build_user_prompt(
     if forced_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
         lines.append(f'  next_speakers is fixed as ["{forced_speaker}"].')
-        if forced_speaker == "Narrator":
-            lines.append("  context_for_character must be an empty string.")
-        else:
+        if forced_speaker != "Narrator":
             lines.append(
-                "  context_for_character must contain only what "
-                f"{forced_speaker} perceives right now."
+                "  perception_events must include what "
+                f"{forced_speaker} needs to react to right now."
             )
         lines.append("")
 
@@ -366,7 +402,7 @@ async def narrate(
     the ``narrator.result`` hook.
 
     Returns:
-        Dict with keys: narration, next_speakers, context_for_character,
+        Dict with keys: narration, next_speakers, perception_events,
         scene_update, mood_updates, plus any plugin-contributed keys.
 
     Raises:
@@ -409,7 +445,7 @@ async def narrate(
     )
 
     # Validate required fields
-    required = ["narration", "next_speakers", "context_for_character"]
+    required = ["narration", "next_speakers", "perception_events"]
     missing = [k for k in required if k not in result]
     if missing:
         raise ValueError(
@@ -424,8 +460,6 @@ async def narrate(
     valid_speakers = set(present_ids) | {"Narrator"}
     if forced_speaker in valid_speakers:
         result["next_speakers"] = [forced_speaker]
-        if forced_speaker == "Narrator":
-            result["context_for_character"] = ""
     else:
         raw_queue = result.get("next_speakers")
         queue: list[str] = []
@@ -440,9 +474,14 @@ async def narrate(
     result.setdefault("scene_update", None)
     result.setdefault("mood_updates", None)
 
-    for field in ("narration", "context_for_character"):
-        if isinstance(result.get(field), str):
-            result[field] = normalize_generated_text(result[field])
+    result["perception_events"] = validate_perception_events(
+        result.get("perception_events"), scene, characters
+    )
+    for event in result["perception_events"]:
+        event["content"] = normalize_generated_text(event["content"])
+
+    if isinstance(result.get("narration"), str):
+        result["narration"] = normalize_generated_text(result["narration"])
     for field in ("scene_update", "mood_updates"):
         values = result.get(field)
         if isinstance(values, dict):

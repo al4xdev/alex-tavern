@@ -14,8 +14,10 @@ from typing import Any
 # bump the version and move on instead of carrying compatibility shims.
 # History: 1 = pre-audience sessions (implicit, field absent); 2 = whisper
 # audience model on TurnRecord (Tasks 22/24/25); 3 = per-character perspective
-# ledger (viewer-relative identity) with per-record snapshots (Task 29.2).
-SESSION_SCHEMA_VERSION = 3
+# ledger (viewer-relative identity) with per-record snapshots (Task 29.2);
+# 4 = zone graph on Scene + typed perception events replacing
+# context_for_character (Task 29.2, increment 2).
+SESSION_SCHEMA_VERSION = 4
 
 
 @dataclass
@@ -60,6 +62,13 @@ class Scene:
     time_of_day: str
     present_characters: list[str]  # ["C1", "C2", "Player"]
     physical_facts: dict[str, str]  # {"weather": "chuva", "door": "aberta"}
+    # Zone graph v1 (Task 29.2 inc. 2): zones maps a zone id to the OTHER zone
+    # ids audible from it (directed edges; same-zone perception is implicit).
+    # positions maps character ids to their zone. Empty dicts mean one shared
+    # space where everyone perceives everything (previous behavior). Positions
+    # are static in v1; movement belongs to a future Resolver increment.
+    zones: dict[str, list[str]] = field(default_factory=dict)
+    positions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -323,6 +332,8 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
             time_of_day=snap["time_of_day"],
             present_characters=list(snap["present_characters"]),
             physical_facts=dict(snap["physical_facts"]),
+            zones={zone: list(audible) for zone, audible in snap.get("zones", {}).items()},
+            positions=dict(snap.get("positions", {})),
         ),
         input_transformed=data["input_transformed"],
         mood_snapshot=dict(data["mood_snapshot"]),
@@ -353,6 +364,8 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         time_of_day=scene_data["time_of_day"],
         present_characters=list(scene_data["present_characters"]),
         physical_facts=dict(scene_data["physical_facts"]),
+        zones={zone: list(audible) for zone, audible in scene_data.get("zones", {}).items()},
+        positions=dict(scene_data.get("positions", {})),
     )
 
     history = [dict_to_turn_record(item) for item in data["history"]]

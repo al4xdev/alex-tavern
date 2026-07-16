@@ -52,11 +52,17 @@ def render_session(game: GameState) -> str:
             label = speaker_label(record.speaker, game.characters, controlled_id)
         whisper = ""
         if record.audience is not None:
-            hearers = ", ".join(
-                game.characters[cid].mind.name if cid in game.characters else cid
-                for cid in record.audience
-            )
-            whisper = f" (sussurrado — só {hearers} percebem)"
+            if record.audience:
+                hearers = ", ".join(
+                    game.characters[cid].mind.name if cid in game.characters else cid
+                    for cid in record.audience
+                )
+                verb = "percebe" if len(record.audience) == 1 else "percebem"
+                # A scoped ACTION is limited perception, not a whisper.
+                kind = "sussurrado — " if record.content_type == "speech" else ""
+                whisper = f" ({kind}só {hearers} {verb})"
+            else:
+                whisper = " (ninguém além dele percebe)"
         if record.content_type == "narration":
             lines.append(f"*{record.content}*")
         elif record.content_type == "speech":

@@ -20,6 +20,7 @@ from src.models import (
     speaker_label,
     trim_history_by_tokens,
 )
+from src.perception import eligible_witnesses
 
 
 class CharacterOutput(TypedDict):
@@ -246,7 +247,10 @@ def _leaked_secret_tokens(
     if reply_audience is not None:
         exposed = set(reply_audience)
     else:
-        exposed = {cid for cid in scene.present_characters if cid in characters}
+        # Public reply: only characters who can physically perceive the speaker
+        # are exposed. Without zones this is everyone present (unchanged); with
+        # zones, acoustically isolated characters must not count as listeners.
+        exposed = eligible_witnesses(scene, characters, character_id)
     exposed -= {character_id}
     if not exposed:
         return set()

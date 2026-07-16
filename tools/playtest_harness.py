@@ -276,6 +276,8 @@ def build_session_config(scenario: Scenario) -> dict[str, Any] | None:
             time_of_day=scene_data["time_of_day"],
             present_characters=list(scene_data.get("present_characters", [])),
             physical_facts=dict(scene_data.get("physical_facts", {})),
+            zones={z: list(a) for z, a in scene_data.get("zones", {}).items()},
+            positions=dict(scene_data.get("positions", {})),
         )
     if "controlled_character_id" in raw:
         session_config["controlled_character_id"] = raw["controlled_character_id"]

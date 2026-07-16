@@ -142,6 +142,8 @@ class SceneInput(BaseModel):
     time_of_day: str = ""
     present_characters: list[str] = Field(default_factory=list)
     physical_facts: dict[str, str] = Field(default_factory=dict)
+    zones: dict[str, list[str]] = Field(default_factory=dict)
+    positions: dict[str, str] = Field(default_factory=dict)
 
 
 class StartSessionRequest(BaseModel):
@@ -327,6 +329,8 @@ async def start_session(req: StartSessionRequest) -> dict:
             time_of_day=req.scene.time_of_day,
             present_characters=list(req.scene.present_characters),
             physical_facts=dict(req.scene.physical_facts),
+            zones={z: list(a) for z, a in req.scene.zones.items()},
+            positions=dict(req.scene.positions),
         )
     elif "scene" in scenario_data:
         sdata = scenario_data["scene"]
@@ -335,6 +339,8 @@ async def start_session(req: StartSessionRequest) -> dict:
             time_of_day=sdata["time_of_day"],
             present_characters=list(sdata.get("present_characters", [])),
             physical_facts=dict(sdata.get("physical_facts", {})),
+            zones={z: list(a) for z, a in sdata.get("zones", {}).items()},
+            positions=dict(sdata.get("positions", {})),
         )
 
     directives = ""
