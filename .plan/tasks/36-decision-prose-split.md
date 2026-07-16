@@ -75,3 +75,17 @@ merge order on completion (results keyed and applied in canonical order), and
 the Prose call still waits for the validated Decision (hard dependency).
 Zone-parallelism from the map also applies (parallel across zones, sequential
 within one).
+
+## Status (2026-07-16)
+
+- **36.1 DELIVERED** (commit d7a3783): Director decision call + blind prose
+  renderer + async beat-boundary topology. Cycle-1 blind critic found 6+
+  dialogue-in-narration instances -> uncontexted fixer removed spoken words
+  from ALL prose inputs by construction -> deterministic cycle-2 verification:
+  0/4 instances, identity/isolation without regression.
+- **OPEN CHECKPOINT**: the cycle-2 SUBJECTIVE blind-critic pass is pending
+  (subagent API returned 529 three times). Run it on
+  `plans/artifacts/split-smoke2` + `split-partition2` transcripts when the
+  server recovers, before closing the task.
+- Next: 36.2 — character `action_intent` (attempt physics gains an owner) +
+  zone movement adjudicated by the Director.
