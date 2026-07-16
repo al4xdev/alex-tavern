@@ -63,3 +63,15 @@ it" and executes the user's directive to SHRINK the Narrator and delegate.
   zones + movement; before/after delta published.
 - [ ] Blind critic ×2: dialogue-inside-narration class must drop to zero by
   construction (the renderer never sees unspoken replies).
+
+## Async topology note (user, 2026-07-16)
+
+Run the Director/Resolver call CONCURRENTLY with the characters' internal
+variable updates (perspective/ledger updates): both consume the same committed
+prior state and have no data dependency on each other, so the latency
+concentrates only at the moments that reorder the narration (the beat
+boundaries), instead of serializing every turn. Constraints: deterministic
+merge order on completion (results keyed and applied in canonical order), and
+the Prose call still waits for the validated Decision (hard dependency).
+Zone-parallelism from the map also applies (parallel across zones, sequential
+within one).

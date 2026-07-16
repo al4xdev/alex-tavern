@@ -24,7 +24,8 @@ closes or the sequence changes.
 | **3** | **36 — Decision/Prose split + action_intent + Resolver** | the architecture core (Director/Resolver); supertask, full critic protocol; zone movement lands here | 29.2 inc. 1-2 (done) |
 | **4** | **37 — Bounded autonomous loop** | needs the Director/Resolver boxes; owns undo/transaction/latency decisions | 36 |
 | **5** | **38 — Roteiro + typed beat contracts + algorithmic replan** | consumed by the Director; replanning is code, never model self-assessment | 36 (37 helps) |
-| **6** | **29.3 exit rounds** | after 35 and each of 36-38: re-run xfailed3, append delta; strict xfail removed only per §15 repeated-run criteria | each increment |
+| **6** | **39 — Ledger memory dimension (remove character_notes)** | one memory authority; fixes the no-rapport gap and the 35 trade-off | 35 (done); better after 36 |
+| **7** | **29.3 exit rounds** | after 35 and each of 36-38: re-run xfailed3, append delta; strict xfail removed only per §15 repeated-run criteria | each increment |
 
 ## Parallel lane (independent, any time)
 
@@ -38,8 +39,7 @@ closes or the sequence changes.
 
 ## Deferred decisions (owned by a task, not open-ended)
 
-- Remove `character_notes`/private compaction entirely → decided inside 35's
-  follow-up once the ledger grows a memory dimension (29.2 doc §8).
+- Remove `character_notes`/private compaction → now owned by Task 39.
 - K-speakers as core vs plugin boundary → 36.
 - Undo across autonomous bursts → 37.
 - Multi-model benchmarking → explicitly excluded (user, 2026-07-15).
