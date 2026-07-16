@@ -98,6 +98,19 @@ def _make_game(session_id: str, history: list[TurnRecord]) -> GameState:
 NO_TRIM_CONFIG = {"context_max": 524288, "max_tokens_character": 2048}
 
 
+def _perception_event(
+    content: str,
+    *witness_ids: str,
+    subject_id: str = "Narrator",
+) -> dict[str, object]:
+    return {
+        "event_kind": "observation",
+        "subject_id": subject_id,
+        "content": content,
+        "witness_ids": list(witness_ids),
+    }
+
+
 @pytest.fixture(autouse=True)
 def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep retention tests focused on history/confidentiality behavior."""
@@ -151,7 +164,9 @@ class TestFocusSwitchWithoutTrim:
             return {
                 "narration": "A taverna murmura ao redor da mesa.",
                 "next_speakers": ["C2"],
-                "context_for_character": "Dario aguarda a resposta de Vela.",
+                "perception_events": [
+                    _perception_event("Dario aguarda a resposta de Vela.", "C2")
+                ],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -277,7 +292,7 @@ class TestFocusSwitchWithoutTrim:
             return {
                 "narration": "Dario se inclina e sussurra algo a Vela.",
                 "next_speakers": ["C2"],
-                "context_for_character": "Dario sussurra para você.",
+                "perception_events": [_perception_event("Dario sussurra para você.", "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -376,7 +391,7 @@ class TestFocusSwitchWithoutTrim:
             return {
                 "narration": "O pergaminho brilha à luz das velas.",
                 "next_speakers": ["C2"],
-                "context_for_character": "Dario mostra algo a Vela.",
+                "perception_events": [_perception_event("Dario mostra algo a Vela.", "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -432,7 +447,7 @@ class TestWhisperLeakRedaction:
 
     O Narrador às vezes entrega o segredo exatamente ao negá-lo ("a senha
     ORQUÍDEA-741 é desconhecida para você"). ``redact_whisper_leaks`` remove do
-    ``context_for_character`` de quem está FORA da audiência qualquer token que
+    contexto de percepção de quem está FORA da audiência qualquer token que
     só exista em sussurros invisíveis a ele.
     """
 
@@ -571,11 +586,14 @@ class TestWhisperLeakGuardEndToEnd:
             return {
                 "narration": "Rook coça a nuca, alheio ao que foi murmurado.",
                 "next_speakers": ["C3"],
-                "context_for_character": (
-                    "Dario pergunta se conheces alguma senha de cofre dele. "
-                    "Você não ouviu o que foi sussurrado entre Dario e Vela; "
-                    f"a senha {MARKER} é desconhecida para você."
-                ),
+                "perception_events": [
+                    _perception_event(
+                        "Dario pergunta se conheces alguma senha de cofre dele. "
+                        "Você não ouviu o que foi sussurrado entre Dario e Vela; "
+                        f"a senha {MARKER} é desconhecida para você.",
+                        "C3",
+                    )
+                ],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -609,7 +627,7 @@ class TestWhisperLeakGuardEndToEnd:
             return {
                 "narration": "Vela inclina a cabeça, atenta.",
                 "next_speakers": ["C2"],
-                "context_for_character": context_in,
+                "perception_events": [_perception_event(context_in, "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -926,7 +944,9 @@ class TestCharacterOutputGuard:
             return {
                 "narration": "A taverna murmura.",
                 "next_speakers": ["C2"],
-                "context_for_character": "Rook pergunta em voz alta sobre segredos.",
+                "perception_events": [
+                    _perception_event("Rook pergunta em voz alta sobre segredos.", "C2")
+                ],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1015,7 +1035,7 @@ class TestTrimCompactionGapFinding:
             return {
                 "narration": "A taverna murmura.",
                 "next_speakers": ["C2"],
-                "context_for_character": "Dario aguarda.",
+                "perception_events": [_perception_event("Dario aguarda.", "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }

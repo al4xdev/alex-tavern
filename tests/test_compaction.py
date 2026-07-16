@@ -94,7 +94,7 @@ def _narrator_result() -> dict[str, Any]:
     return {
         "narration": "The road answers.",
         "next_speakers": ["C1"],
-        "context_for_character": "",
+        "perception_events": [],
         "scene_update": None,
         "mood_updates": None,
     }
@@ -255,7 +255,7 @@ async def test_effective_plugin_input_drives_probe(monkeypatch) -> None:  # noqa
 
     assert result["effective_input"]["speech"] == "PLUGIN_EXPANDED_SPEECH"
     assert result["automatic_compaction"]["status"] == "compacted"
-    assert probes and "short" not in probes[0]
+    assert probes and "SPEAKER=Thorn: short" not in probes[0]
     await runner.client.aclose()
 
 

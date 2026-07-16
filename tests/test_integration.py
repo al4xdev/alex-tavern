@@ -159,6 +159,19 @@ def delete_session(session_id: str) -> None:
         shutil.rmtree(directory)
 
 
+def _perception_event(
+    content: str,
+    *witness_ids: str,
+    subject_id: str = "Narrator",
+) -> dict[str, object]:
+    return {
+        "event_kind": "observation",
+        "subject_id": subject_id,
+        "content": content,
+        "witness_ids": list(witness_ids),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Testes Unitários — Models
 # ═══════════════════════════════════════════════════════════════════════════
@@ -774,7 +787,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"narration": "ok", "next_speakers": ["Narrator"], "context_for_character": ""}
+            return {"narration": "ok", "next_speakers": ["Narrator"], "perception_events": []}
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -793,7 +806,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"narration": "ok", "next_speakers": ["Narrator"], "context_for_character": ""}
+            return {"narration": "ok", "next_speakers": ["Narrator"], "perception_events": []}
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -855,7 +868,7 @@ class TestRunnerLogic:
             return {
                 "narration": "ok",
                 "next_speakers": ["Narrator"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -897,7 +910,7 @@ class TestRunnerLogic:
             return {
                 "narration": "C2 leaves the room.",
                 "next_speakers": ["Narrator"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
                 "presence_update": {"present_character_ids": ["C1"]},
@@ -945,7 +958,7 @@ class TestRunnerLogic:
             return {
                 "narration": "The room empties.",
                 "next_speakers": ["Narrator"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
                 "presence_update": {"present_character_ids": ["C2"]},  # drops controlled C1
@@ -980,7 +993,7 @@ class TestRunnerLogic:
             return {
                 "narration": "Silence.",
                 "next_speakers": ["C2"],  # hallucinated/absent — must be gated
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1018,7 +1031,7 @@ class TestRunnerLogic:
             return {
                 "narration": "ok",
                 "next_speakers": ["Narrator"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1040,7 +1053,9 @@ class TestRunnerLogic:
             return {
                 "narration": "The room stills.",
                 "next_speakers": ["C1"],
-                "context_for_character": f"Context filtered for {forced_speaker}",
+                "perception_events": [
+                    _perception_event(f"Context filtered for {forced_speaker}", "C2")
+                ],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1274,7 +1289,9 @@ class TestCompactSession:
             return {
                 "narration": "The gate hums.",
                 "next_speakers": ["C2"],
-                "context_for_character": "The sealed gate is visible.",
+                "perception_events": [
+                    _perception_event("The sealed gate is visible.", "C2")
+                ],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1602,7 +1619,7 @@ class TestPresenceAdmin:
             return {
                 "narration": "A door creaks open.",
                 "next_speakers": ["Narrator"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1735,7 +1752,7 @@ class TestCustomSessionAndDebug:
             return {
                 "narration": "Algo acontece.",
                 "next_speakers": ["C3"],
-                "context_for_character": "ctx",
+                "perception_events": [_perception_event("ctx", "C3")],
             }
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
@@ -1764,7 +1781,7 @@ class TestCustomSessionAndDebug:
             return {
                 "narration": "Algo acontece.",
                 "next_speakers": ["Fantasma"],
-                "context_for_character": "",
+                "perception_events": [],
             }
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
@@ -1795,7 +1812,9 @@ class TestCustomSessionAndDebug:
             return {
                 "narration": "Something happens.",
                 "next_speakers": ["C1"],
-                "context_for_character": "Only C2 can perceive this.",
+                "perception_events": [
+                    _perception_event("Only C2 can perceive this.", "C2")
+                ],
             }
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
@@ -1823,18 +1842,18 @@ class TestCustomSessionAndDebug:
         messages = captured["messages"]
         assert isinstance(messages, list)
         assert 'next_speakers is fixed as ["C2"]' in messages[1]["content"]
-        assert "what C2 perceives" in messages[1]["content"]
+        assert "what C2 needs to react to" in messages[1]["content"]
         assert result["next_speakers"] == ["C2"]
 
     @pytest.mark.asyncio
-    async def test_forced_narrator_always_clears_character_context(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_forced_narrator_collapses_queue(self, monkeypatch) -> None:  # noqa: ANN001
         from src.agents import narrator as narrator_mod
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "narration": "Something happens.",
                 "next_speakers": ["C1"],
-                "context_for_character": "Stale character context.",
+                "perception_events": [],
             }
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
@@ -1849,7 +1868,7 @@ class TestCustomSessionAndDebug:
         )
 
         assert result["next_speakers"] == ["Narrator"]
-        assert result["context_for_character"] == ""
+        assert result["perception_events"] == []
 
     @pytest.mark.asyncio
     async def test_debug_log_records_llm_calls(self, monkeypatch) -> None:  # noqa: ANN001
@@ -1867,7 +1886,9 @@ class TestCustomSessionAndDebug:
                     {
                         "narration": "A cripta range.",
                         "next_speakers": ["C1"],
-                        "context_for_character": "Você ouve um rangido.",
+                        "perception_events": [
+                            _perception_event("Você ouve um rangido.", "C1")
+                        ],
                         "scene_update": None,
                         "mood_updates": None,
                     }
@@ -2456,7 +2477,7 @@ class TestEdgeCases:
             return {
                 "narration": "The storm rolls in.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2490,7 +2511,7 @@ class TestEdgeCases:
             return {
                 "narration": "A gust of wind tousles the grass.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2601,7 +2622,7 @@ class TestHttpBoundary:
             return {
                 "narration": "The wind stirs.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2653,7 +2674,7 @@ class TestHttpBoundary:
             return {
                 "narration": "Time passes.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2702,7 +2723,7 @@ class TestHttpBoundary:
             return {
                 "narration": "He swings.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2842,7 +2863,7 @@ class TestHttpBoundary:
             return {
                 "narration": "The storm passes.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2893,7 +2914,7 @@ class TestHttpBoundary:
             return {
                 "narration": "Rain begins to fall.",
                 "next_speakers": ["C1"],
-                "context_for_character": "",
+                "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -2947,7 +2968,7 @@ class TestHttpBoundary:
             return {
                 "narration": "Lyra steps forward.",
                 "next_speakers": ["C1"],
-                "context_for_character": "Lyra approaches you.",
+                "perception_events": [_perception_event("Lyra approaches you.", "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }
