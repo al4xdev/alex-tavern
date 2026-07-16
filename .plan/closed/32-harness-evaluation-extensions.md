@@ -51,3 +51,16 @@ taxonomy, and external evaluator. This task only extends the *generic* harness
 - [ ] One real-LLM run of a scenario containing at least two natural-routing
   probes, with the routing outcomes and costs recorded in the run artifacts.
 - [ ] No multi-model matrix anywhere in the deliverable.
+
+> **CLOSED 2026-07-16.** Delivered: `routing_check` event (natural routing,
+> force_speaker forbidden, expected-speaker set, localization
+> no_character_call vs routed_elsewhere), per-check cost attribution
+> (`turn_usage`: prompt/completion/cache tokens per checked turn), per-run
+> usage totals + routing counters in the analysis, token/cache/routing columns
+> in the markdown report, PT second person added to the narration metric, and
+> the analyzer adapted to the post-split agents (director/prose; legacy
+> narrator label still read). Real measurement: 6/6 natural-routing probes
+> passed across 3 repeats (by-name and by-competence addressing), with visible
+> prefix-cache warm-up (2.1k -> 6.8k -> 7.5k hit tokens) — recontextualizing
+> the WT-08 benchmark signal as scenario-specific, now rate-measurable. 9 unit
+> tests. Multi-model matrix explicitly absent (user decision).

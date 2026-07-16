@@ -23,14 +23,22 @@ import httpx
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 REAL_DATA_DIR = (REPOSITORY_ROOT / ".data").resolve()
 DEFAULT_SCENARIO_DIR = Path(__file__).resolve().parent / "playtests"
-SUPPORTED_EVENTS = {"turn", "suggest", "compact", "restore_compaction", "undo", "recall_check"}
+SUPPORTED_EVENTS = {
+    "turn",
+    "suggest",
+    "compact",
+    "restore_compaction",
+    "undo",
+    "recall_check",
+    "routing_check",
+}
 RECALL_PATTERN_FIELDS = (
     "prompt_patterns",
     "prompt_forbidden_patterns",
     "reply_patterns",
     "reply_forbidden_patterns",
 )
-SECOND_PERSON_RE = re.compile(r"\b(?:you|your|yours|yourself)\b", re.IGNORECASE)
+SECOND_PERSON_RE = re.compile(r"\b(?:you|your|yours|yourself|voc[êe]s?)\b", re.IGNORECASE)
 CHARACTER_ACTION_RE = re.compile(
     r"\b(?:(?:I |eu )?(?:blink|stumble|lean|peer|stare|glance|grip|pull|raise|"
     r"hold|step|turn|arrumo|inclino|ergo|abaixo|toco|seguro|agarro|puxo|empurro|"
@@ -222,6 +230,49 @@ def load_scenario(path: Path) -> Scenario:
                 "audience": _validated_audience(raw_event, f"{path}: recall_check {index}"),
                 **patterns,
             }
+        if event_type == "routing_check":
+            speech = event.get("speech", "")
+            thought = event.get("thought", "")
+            action = event.get("action", "")
+            if not all(isinstance(value, str) for value in (speech, thought, action)):
+                raise PlaytestConfigurationError(
+                    f"{path}: routing_check {index} speech/thought/action must be strings"
+                )
+            if not speech and not thought and not action:
+                raise PlaytestConfigurationError(
+                    f"{path}: routing_check {index} needs speech, thought, or action"
+                )
+            if event.get("force_speaker") is not None:
+                raise PlaytestConfigurationError(
+                    f"{path}: routing_check {index} must not force a speaker — it "
+                    "measures natural routing"
+                )
+            expected = event.get("expected_speakers")
+            if (
+                not isinstance(expected, list)
+                or not expected
+                or not all(isinstance(cid, str) and cid for cid in expected)
+            ):
+                raise PlaytestConfigurationError(
+                    f"{path}: routing_check {index} expected_speakers must be a "
+                    "non-empty array of character IDs"
+                )
+            required = event.get("required", True)
+            if not isinstance(required, bool):
+                raise PlaytestConfigurationError(
+                    f"{path}: routing_check {index} required must be a boolean"
+                )
+            event = {
+                "type": "routing_check",
+                "speech": speech,
+                "thought": thought,
+                "action": action,
+                "force_speaker": None,
+                "skip": False,
+                "required": required,
+                "expected_speakers": list(expected),
+                "audience": _validated_audience(raw_event, f"{path}: routing_check {index}"),
+            }
         events.append(event)
 
     return Scenario(
@@ -365,6 +416,58 @@ def evaluate_recall_check(
     }
 
 
+def evaluate_routing_check(
+    event: dict[str, Any], result: dict[str, Any]
+) -> dict[str, Any]:
+    """Judge natural routing: did the story reach one of the expected speakers?
+
+    Localization mirrors the recall matrix: ``no_character_call`` (the Director
+    returned narration-only routing) is distinguished from ``routed_elsewhere``
+    (characters spoke, none of them expected).
+    """
+    responded = [
+        entry.get("character_id")
+        for entry in result.get("character_responses", [])
+        if isinstance(entry, dict)
+    ]
+    expected = list(event.get("expected_speakers", []))
+    matched = [cid for cid in responded if cid in expected]
+    if matched:
+        localization = "expected_speaker_responded"
+    elif responded:
+        localization = "routed_elsewhere"
+    else:
+        localization = "no_character_call"
+    return {
+        "expected_speakers": expected,
+        "responded": responded,
+        "queue": list(result.get("next_speakers", [])),
+        "passed": bool(matched),
+        "localization": localization,
+    }
+
+
+def turn_usage(records: list[dict[str, Any]], turn_number: int) -> dict[str, int]:
+    """Aggregate provider usage for every call of one turn (cost attribution)."""
+    totals = {"prompt_tokens": 0, "completion_tokens": 0, "cache_hit_tokens": 0,
+              "cache_miss_tokens": 0, "calls": 0}
+    for record in records:
+        if record.get("turn_number") != turn_number or not isinstance(
+            record.get("request"), dict
+        ):
+            continue
+        totals["calls"] += 1
+        usage = record.get("usage") or {}
+        if isinstance(usage, dict):
+            totals["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
+            totals["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+        cache = record.get("prompt_cache") or {}
+        if isinstance(cache, dict):
+            totals["cache_hit_tokens"] += int(cache.get("hit_tokens") or 0)
+            totals["cache_miss_tokens"] += int(cache.get("miss_tokens") or 0)
+    return totals
+
+
 def whisper_leak_records(game: Any) -> list[dict[str, Any]]:
     """Character speech/action records that expose whispered-secret tokens.
 
@@ -449,7 +552,7 @@ async def _snapshot(runner: Any, session_id: str) -> dict[str, Any]:
 
 async def _run_event(runner: Any, session_id: str, event: dict[str, Any]) -> Any:
     event_type = event["type"]
-    if event_type in ("turn", "recall_check"):
+    if event_type in ("turn", "recall_check", "routing_check"):
         return await runner.player_turn(
             session_id,
             speech=event["speech"],
@@ -514,18 +617,29 @@ def analyze_debug_records(
         if record.get("error") is None and isinstance(record.get("response"), str)
     ]
     narrator_outputs: list[tuple[dict[str, Any], dict[str, Any]]] = []
+    prose_narrations: list[str] = []
     character_texts: list[str] = []
     raw_texts: list[str] = []
     for record in successful:
         response = str(record["response"])
         raw_texts.append(response)
-        if record.get("agent") == "narrator":
+        # Post Decision/Prose split: "director" carries structure (routing,
+        # scene, moods), "prose" carries the narration text. The legacy
+        # "narrator" label keeps working for pre-split artifacts.
+        if record.get("agent") in ("narrator", "director"):
             try:
                 parsed = json.loads(response)
             except json.JSONDecodeError:
                 continue
             if isinstance(parsed, dict):
                 narrator_outputs.append((record, parsed))
+        elif record.get("agent") == "prose":
+            try:
+                parsed = json.loads(response)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict) and isinstance(parsed.get("narration"), str):
+                prose_narrations.append(parsed["narration"])
         elif str(record.get("agent", "")).startswith("character:"):
             character_texts.append(response)
 
@@ -548,6 +662,9 @@ def analyze_debug_records(
     nested_physical_facts = 0
     second_person_narrations = 0
     narration_texts: list[str] = []
+    for narration in prose_narrations:
+        narration_texts.append(narration)
+        second_person_narrations += bool(SECOND_PERSON_RE.search(narration))
     for record, output in narrator_outputs:
         narration = output.get("narration")
         if isinstance(narration, str):
@@ -581,6 +698,22 @@ def analyze_debug_records(
         for event_result in event_results
         if isinstance(event_result.get("recall"), dict)
     ]
+    routing_results = [
+        event_result["routing"]
+        for event_result in event_results
+        if isinstance(event_result.get("routing"), dict)
+    ]
+    usage_totals = {"prompt_tokens": 0, "completion_tokens": 0, "cache_hit_tokens": 0,
+                    "cache_miss_tokens": 0}
+    for record in calls:
+        usage = record.get("usage") or {}
+        if isinstance(usage, dict):
+            usage_totals["prompt_tokens"] += int(usage.get("prompt_tokens") or 0)
+            usage_totals["completion_tokens"] += int(usage.get("completion_tokens") or 0)
+        cache = record.get("prompt_cache") or {}
+        if isinstance(cache, dict):
+            usage_totals["cache_hit_tokens"] += int(cache.get("hit_tokens") or 0)
+            usage_totals["cache_miss_tokens"] += int(cache.get("miss_tokens") or 0)
     guard_events = [record for record in records if record.get("agent") == "whisper_output_guard"]
     joined_raw = "\n".join(raw_texts)
     return {
@@ -590,6 +723,15 @@ def analyze_debug_records(
         ),
         "recall_checks": len(recall_results),
         "recall_failures": sum(not recall["passed"] for recall in recall_results),
+        "routing_checks": len(routing_results),
+        "routing_failures": sum(not routing["passed"] for routing in routing_results),
+        "routing_no_character_call": sum(
+            routing["localization"] == "no_character_call" for routing in routing_results
+        ),
+        "total_prompt_tokens": usage_totals["prompt_tokens"],
+        "total_completion_tokens": usage_totals["completion_tokens"],
+        "cache_hit_tokens": usage_totals["cache_hit_tokens"],
+        "cache_miss_tokens": usage_totals["cache_miss_tokens"],
         "recall_prompt_failures": sum(not recall["prompt_passed"] for recall in recall_results),
         "recall_reply_failures": sum(not recall["reply_passed"] for recall in recall_results),
         "llm_calls": len(calls),
@@ -661,8 +803,22 @@ async def run_scenario(
             records = _load_debug_records(debug_path) if debug_path.exists() else []
             recall = evaluate_recall_check(event, turn_number, records)
             event_result["recall"] = recall
+            event_result["usage"] = turn_usage(records, turn_number)
             if event["required"] and not recall["passed"]:
                 recall_failures.append(f"event {index}: {event['speech'][:60]!r}")
+        if event["type"] == "routing_check":
+            turn_number = result.get("turn_number") if isinstance(result, dict) else None
+            if not isinstance(turn_number, int):
+                raise RuntimeError("Routing check result is missing an integer turn_number")
+            routing = evaluate_routing_check(event, result if isinstance(result, dict) else {})
+            event_result["routing"] = routing
+            records = _load_debug_records(debug_path) if debug_path.exists() else []
+            event_result["usage"] = turn_usage(records, turn_number)
+            if event["required"] and not routing["passed"]:
+                recall_failures.append(
+                    f"event {index} (routing): expected {routing['expected_speakers']}, "
+                    f"got {routing['responded'] or 'no character call'}"
+                )
         event_results.append(event_result)
 
     records = _load_debug_records(debug_path) if debug_path.exists() else []
@@ -676,7 +832,9 @@ async def run_scenario(
         "final_state": await _snapshot(runner, session_id),
         "analysis": analyze_debug_records(records, event_results),
     }
-    has_recall_checks = any(event["type"] == "recall_check" for event in scenario.events)
+    has_recall_checks = any(
+        event["type"] in ("recall_check", "routing_check") for event in scenario.events
+    )
     if has_recall_checks:
         game = await runner.get_state(session_id)
         if game is None:
@@ -763,15 +921,15 @@ def build_markdown_report(manifest: dict[str, Any]) -> str:
         "## Runs",
         "",
         "| Scenario | Repeat | Session | Queue wait ms | Calls | Errors | Max prompt | "
-        "Character-action hits | Second-person narration | Nested physical_facts | "
-        "Recall fails |",
-        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "Prompt tokens | Cache hit | Character-action hits | Second-person narration | "
+        "Nested physical_facts | Recall fails | Routing fails |",
+        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for run in manifest["runs"]:
         if "analysis" not in run:
             lines.append(
                 f"| {run['scenario']} | {run['repetition']} | ERROR | "
-                f"{run.get('queue', {}).get('wait_ms', 0)} | - | - | - | - | - | - | - |"
+                f"{run.get('queue', {}).get('wait_ms', 0)} | - | - | - | - | - | - | - | - | - | - |"
             )
             continue
         analysis = run["analysis"]
@@ -780,10 +938,11 @@ def build_markdown_report(manifest: dict[str, Any]) -> str:
             f"| {run['scenario']} | {run['repetition']} | {session_cell} | "
             f"{run['queue']['wait_ms']} | {analysis.get('llm_calls', '-')} | "
             f"{analysis.get('llm_errors', '-')} | {analysis.get('max_prompt_chars', '-')} | "
+            f"{analysis.get('total_prompt_tokens', '-')} | {analysis.get('cache_hit_tokens', '-')} | "
             f"{analysis.get('character_action_heuristic_hits', '-')} | "
             f"{analysis.get('second_person_narrations', '-')} | "
             f"{analysis.get('nested_physical_facts_outputs', '-')} | "
-            f"{analysis.get('recall_failures', '-')} |"
+            f"{analysis.get('recall_failures', '-')} | {analysis.get('routing_failures', '-')} |"
         )
     lines.extend(
         [
