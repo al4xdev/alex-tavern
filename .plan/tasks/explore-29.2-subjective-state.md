@@ -151,19 +151,75 @@ Archived at `plans/artifacts/session-091b11c6-live-findings/`. Items that bear o
   skip turns nor reliably stays out of character speech. The user's assessment: the
   Narrator is the weakest link. **Expanded mandate from the user**: the blind-narrator
   *concept* stays, but the architecture around it may be reworked freely ("é tudo MVP
-  ainda") — this raises the priority of the Decision/Prose split hypothesis (§2.5 of the
-  29.2 doc) from fallback to first-class candidate in the exploration.
-- **Product direction under consideration**: giving Characters the capacity to act
-  physically (today action belongs exclusively to the Narrator). If adopted, Character
-  output becomes {speech, thought, action-proposal} with deterministic validation, which
-  interacts directly with the Decision-layer question and the perception-event contract.
-  Not decided; must be weighed during the 29.2 exploration.
+  ainda"), and the explicit direction is to SHRINK the Narrator's responsibilities and
+  delegate more ("devemos diminuir as funções dele e delegar mais", 2026-07-16). Today
+  one call owns prose + routing + per-viewer context + scene deltas + moods + event
+  generation; the exploration should treat unbundling it (Decision/Prose split of §2.5,
+  perception events, character action proposals) as the primary hypothesis rather than a
+  fallback.
+- **Product direction, user leaning yes (2026-07-16)**: give Characters the capacity to
+  act physically, decentralizing the Narrator (today action belongs exclusively to it).
+  Rationale: character calls are the cheapest in the pipeline and cache-dominated, so the
+  marginal cost is low, while the Narrator is the measured weakest link. If adopted,
+  Character output becomes {speech, thought, action-proposal} with deterministic
+  validation and Narrator/Decision confirmation of outcomes ("an action is an attempt
+  until confirmed" already exists as a rule). This interacts directly with the
+  Decision-layer question and the perception-event contract; design it inside the 29.2
+  exploration, not as an isolated patch.
 - **Response budgets**: 24k narrator / 12k character measurably improved quality;
   defaults raised. Cost evidence from the session: 1.80M tokens total, 1.49M input
   cache-hit vs 0.28M miss, 38k output — provider-native prefix caching absorbs most of
   the cost, supporting 29.2's cache-first prompt shaping (§7 of the 29.2 doc).
 
-## 9. Relationship to the program
+## 9. User architecture hypothesis (2026-07-16): Director/Resolver split + bounded autonomous loop
+
+Recorded verbatim in spirit; the user labels it "só teoria minha" — treat as the primary
+candidate to test in the 29.2 exploration, not a decision.
+
+**Diagnosis** (matches all measured evidence): today ONE Narrator call owns event
+selection, routing, NPC action invention, consequence resolution, world updates, prose,
+per-viewer private context, and next-speaker choice — which explains why it is the
+weakest link.
+
+**Proposed decomposition:**
+
+```text
+Character  -> speech + thought + action_intent   (intent, never outcome)
+Resolver   -> validates intent, adjudicates real consequences (single physical authority)
+Blind Prose Narrator -> renders ONLY confirmed public facts into prose
+```
+
+A character may return "Avançar com a lança e bloquear a passagem" as intent; it may
+never assert "atravessa o coração do troll e o mata" — the kill belongs to the Resolver.
+This formalizes the existing latent rule "an action is an attempt until narration
+confirms it".
+
+**Bounded autonomous loop** (attacks the passivity findings directly): Director picks an
+event/next agent → Character produces speech/thought/intent → Resolver adjudicates →
+blind renderer narrates → repeat until a stop condition: the player is addressed or
+reacts, a strategic choice appears, the player is in danger, a dramatic beat ends, an
+autonomous-action budget is hit, or the player interrupts/forces someone.
+
+**Leak posture**: the prose renderer receives only public physical outcomes — no
+thoughts, no full sheets, no internal IDs — so the C6-style and impossible-knowledge
+leak classes are removed by construction (selection-before-call, the principle already
+proven by the E1a projection experiment at 0/13).
+
+**Cost argument**: session evidence shows cache-hit-dominated cost (1.49M hit / 0.28M
+miss) and cheap output tokens; more, smaller calls with stable prefixes are affordable.
+
+**Assessment (Claude, honest):** strong and consistent with every measurement; the two
+real risks are (1) latency per visible beat (3 sequential calls ≈ 6-8s, multiplied by
+the autonomous loop — needs progressive rendering or beat batching, must be measured in
+the exploration), and (2) the Resolver quietly re-accumulating jobs until it becomes a
+second overloaded narrator — its contract must be strictly "typed intent → typed outcome
++ typed perception events", never prose, viewer context, or moods. The autonomous loop
+also changes the product's turn/undo/transaction model (what does undo mean across an
+autonomous burst?) and should be staged as its own task on top of the split, not bundled
+into 29.2's first delivery. E3 already gives partial supporting evidence: the narrator
+emits valid typed events at zero latency cost when `context_for_character` is removed.
+
+## 10. Relationship to the program
 
 - Task 29.1 should encode E0's *rate-based* measurement style: single-run pass/fail on
   stochastic leaks produces false confidence (0/3 then 7/10 here).
