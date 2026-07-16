@@ -1,0 +1,65 @@
+# Task 36 — Decision/Prose Split, Character Action Intents, and the Resolver
+
+**Type:** Supertask (the core of the Director/Resolver architecture,
+`.plan/tasks/explore-29.2-architecture-map.md` §Decision layer). Runs under the
+full protocol: implementation increments, real-run validation, blind critic ×2
+with an uncontexted fixer between cycles.
+
+## Goal
+
+Unbundle the combined Narrator into single-authority boxes:
+
+```text
+Character  -> speech + thought + action_intent   (intent, never outcome)
+Resolver   -> validates intent, adjudicates consequences, emits typed
+              perception_events + state deltas    (single physical authority)
+Prose renderer (blind) -> renders ONLY confirmed public facts into narration
+```
+
+A character may return "Avançar com a lança e bloquear a passagem" as intent;
+it may never assert the outcome — the kill belongs to the Resolver. This
+formalizes the existing rule "an action is an attempt until narration confirms
+it" and executes the user's directive to SHRINK the Narrator and delegate.
+
+## Why now (evidence)
+
+- The Narrator is the measured weakest link: passivity, role violations,
+  dialogue duplicated inside narration (Tasks 26 evidence, sessions 091b11c6,
+  ef6b5b90, perspective/partition smokes).
+- Prose leaks (thoughts, IDs, sheets) end structurally when the renderer
+  receives only confirmed public facts — the selection-before-call principle
+  measured at 0/13 vs 7/13.
+- The foundation exists: typed perception_events with deterministic witness
+  clamping (29.2 inc. 2) are exactly the Resolver's output format; the
+  multi-speaker queue (task 34) is the routing seed.
+- Character action was green-lit by the user ("dar aos personagens capacidade
+  de agir, descentralizando o narrador"): character calls are the cheapest and
+  cache-dominated.
+
+## Scope notes
+
+- **Zone movement lands here**: a movement intent is adjudicated by the
+  Resolver into a typed position delta (removes the static-zones limitation
+  recorded in 29.3 round 1).
+- The Resolver contract is strictly "typed intent → typed outcome + events +
+  deltas": no prose, no viewer context, no moods. Guard against it becoming a
+  second overloaded narrator (recorded risk, exploration §9).
+- Prompt-cache shape: Decision and Prose calls share the stable prefix; the
+  Prose request appends the validated decision (29.2 doc §7 hypothesis —
+  measure hit rates before freezing).
+
+## Acceptance Criteria (headline)
+
+- [ ] Character schema gains `action_intent`; runner never persists an intent
+  as an outcome.
+- [ ] Resolver adjudication is a structured call whose output passes
+  deterministic validation (presence, zones, agency) before anything commits.
+- [ ] Prose renderer receives only validated public facts: no thoughts, no
+  sheets, no IDs, no roteiro material in its request (assertable from
+  debug.jsonl).
+- [ ] Movement intents change `Scene.positions` transactionally and are
+  undo-safe.
+- [ ] xfailed3 re-run (29.3 round 2) with the partition case now typed via
+  zones + movement; before/after delta published.
+- [ ] Blind critic ×2: dialogue-inside-narration class must drop to zero by
+  construction (the renderer never sees unspoken replies).

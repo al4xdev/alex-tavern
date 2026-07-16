@@ -40,3 +40,10 @@ múltiplos personagens falarem em sequência sem o narrador").
   their speech.
 - [ ] Existing agency/presence/whisper guards unchanged (suite green).
 - [ ] Real-LLM smoke run showing a multi-speaker exchange in one turn.
+
+> **CLOSED 2026-07-16** (commit ae0e001). Delivered: next_speakers queue (1-3,
+> ordered), sequential execution with fresh-history perception between
+> speakers, agency stop at the controlled character, force collapse under
+> plugin filters. Real-run evidence: narrator routed [C3,C2,C4] in one turn
+> with genuine interplay (plans/artifacts/task34-smoke). Residual test-fake
+> updates delegated to the test-fixing model.
