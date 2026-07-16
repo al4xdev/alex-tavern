@@ -14,7 +14,7 @@ import httpx
 
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
-from src.models import Character, TurnRecord, speaker_label
+from src.models import Character, TurnRecord, record_visible_to, speaker_label
 
 
 def _build_system_prompt(narrator_directives: str = "") -> str:
@@ -148,12 +148,32 @@ def build_private_memory_messages(
         "TYPE=speech is an attributed claim. TYPE=action is an attempt until confirmed\n"
         "by TYPE=narration. TYPE=thought is private and belongs only to this character.\n"
     )
-    if narrator_directives.strip():
-        rules += f"\nWORLD DIRECTIVES:\n{narrator_directives.strip()}\n"
+    # World directives are narrator-side authority and may define secrets as
+    # world truth (measured: the campaign bible carried the whispered
+    # instrument into every private-historian prompt). A private note compresses
+    # ONE character's lived experience; it never receives world directives.
+    del narrator_directives
     lines = [f"CURRENT PRIVATE NOTE:\n  {current_note or '(none yet)'}", "", "EVENTS:"]
     for record in evicted_turns:
         if (
             record.content_type == "thought"
+            and _private_owner(record, controlled_id) != character_id
+        ):
+            continue
+        # Private memory honors the perception boundary (Task 35; the 29.3
+        # comparison traced a five-stage confidentiality cascade to exactly
+        # this missing filter):
+        # - narration is reader-facing omniscient prose a character never
+        #   perceives live, and it can retell whispers (measured at T21 of the
+        #   post-29.2 run) — it never enters a private note;
+        # - whispered/zone-scoped records outside this character's perception
+        #   stay out; the record's own speaker keeps theirs ("Player" records
+        #   belong to the controlled character).
+        if record.content_type == "narration":
+            continue
+        if (
+            record.content_type in ("speech", "action")
+            and not record_visible_to(record, character_id)
             and _private_owner(record, controlled_id) != character_id
         ):
             continue

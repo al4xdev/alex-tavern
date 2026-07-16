@@ -14,12 +14,12 @@ closes or the sequence changes.
 | 29.2 inc. 1 | Perspective ledger + viewer projection | identity leaks 7/13 → 0/13 |
 | 29.2 inc. 2 | Typed perception events + zone graph | partition structural 2/2 |
 | 29.3 r.1 | Before/after comparison | identity family → 0; Historian cascade quantified |
+| 35 | Historian perception boundary (3 layers) | secret family 26 → 0; full tier at 2 stochastic |
 
 ## Main sequence (strict order)
 
 | Ordem | Task | Why this position | Depends on |
 |---|---|---|---|
-| **1** | **35 — Historian audience filtering** | one fix collapses the 26-instance confidentiality cascade (29.3 finding); small | — |
 | **2** | **33 — Auto-suggest hazard scheduler** | smallest Drive win, attacks measured passivity; independent of the split | — |
 | **3** | **36 — Decision/Prose split + action_intent + Resolver** | the architecture core (Director/Resolver); supertask, full critic protocol; zone movement lands here | 29.2 inc. 1-2 (done) |
 | **4** | **37 — Bounded autonomous loop** | needs the Director/Resolver boxes; owns undo/transaction/latency decisions | 36 |

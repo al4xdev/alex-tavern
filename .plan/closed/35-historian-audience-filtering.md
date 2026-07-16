@@ -38,3 +38,14 @@ all from this root.
   delta appended to `output29/comparison-29.3.md`.
 - [ ] Existing summarizer tests stay green (world summary is narrator-side and
   keeps seeing every non-thought record — unchanged by design).
+
+> **CLOSED 2026-07-16.** Three-layer fix in `build_private_memory_messages`:
+> record visibility (`record_visible_to` + Player→controlled ownership),
+> narration exclusion (narrator prose retold the whisper at T21), and
+> world-directives exclusion (the canon bible defines the secret as WT-11).
+> Benchmark cascade: 26 → 17 → 13 → **0** secret instances across three
+> full-tier re-runs; final state 25 (baseline) → 2 violations, both stochastic
+> semantic probes. 7 unit tests in `tests/test_historian_audience.py`. Suite:
+> 433 passed. Note-quality trade-off recorded: notes lose narration-borne
+> outcome memory; the proper future source is persisted perception events
+> (ledger memory dimension, 29.2 §8).
