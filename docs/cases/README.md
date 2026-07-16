@@ -51,9 +51,10 @@ the product contract.
 - [`09-prompt-caching.md`](./09-prompt-caching.md): versioned positive and
   negative cache proof for DeepSeek and llama.cpp, including raw usage counters and limitations.
 - [`token-economics-agentic-architecture-2026-07-16.md`](./token-economics-agentic-architecture-2026-07-16.md):
-  provider-billing case study showing how a 91.85% input cache-hit ratio changed the economic
-  trade-off for explicit Director, Prose, Character, Perspective, Historian, and Drive boundaries;
-  includes the no-cache counterfactual, limitations, and the V1.0 update protocol.
+  provider-billing case study using V4 Flash account activity as an explicit upper bound on project
+  spend; its 89.57% input cache-hit ratio changes the economic trade-off for Director, Prose,
+  Character, Perspective, Historian, and Drive boundaries. Includes no-cache and alternative-
+  provider counterfactuals, attribution limitations, and the V1.0 update protocol.
 
 ## Test architecture
 

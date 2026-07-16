@@ -13,12 +13,14 @@ Historian, and development-only critics or evaluators. This is more complex than
 prompt, but it makes authority, privacy, validation, replay, and failure attribution explicit.
 
 The economic premise is that provider-native prefix caching makes large stable contexts cheap
-enough that token count is not the first optimization target. The project-window portion of the
-billing export contains **120,799,221 tokens across 4,897 requests for USD 2.8913**. Of
-119,506,958 input tokens, **109,770,752 were cache hits (91.85%)**. Applying the prices recorded in
-the export, the same input volume charged entirely at cache-miss rates would have produced an
-estimated total cost of **USD 31.07**, including the unchanged output cost. The observed total was
-about 9.31% of that counterfactual.
+enough that token count is not the first optimization target. During the project-aligned billing
+window, the account's DeepSeek V4 Flash activity contains **73,755,780 tokens across 4,176 requests
+for USD 1.5172**. This is an **upper bound**, not an exact Alex Tavern total, because the provider
+export aggregates all applications using the account. Of 72,786,759 Flash input tokens,
+**65,191,552 were cache hits (89.57%)**. Applying the prices recorded in the export, the same Flash
+input volume charged entirely at its cache-miss rate would have produced an estimated total cost of
+**USD 10.46**, including unchanged output. The observed Flash total was about 14.50% of that
+counterfactual.
 
 This does not prove that additional agents are free or always beneficial. It supports a narrower
 decision: for this workload and provider, collapsing semantic responsibilities merely to save
@@ -56,6 +58,14 @@ time of day. The project window therefore begins at the complete 2026-07-11 UTC 
 in the export belong to activity before this repository existed and are excluded from the primary
 result.
 
+Date filtering alone does not establish application attribution. Surviving Alex Tavern
+`debug.jsonl` records use `deepseek-v4-flash`, and no runtime evidence shows the project calling
+`deepseek-v4-pro`. A separate repository-local coding-tool configuration selects V4 Pro, consistent
+with the user's recollection that Pro usage came from development tooling rather than Alex Tavern.
+V4 Pro is therefore excluded from the project's primary workload. Even the remaining Flash rows
+may include unrelated account activity, so their USD 1.5172 total is reported only as a ceiling on
+project-attributable provider spend. The exact project total cannot be recovered from this export.
+
 The raw archive is **not committed** because it contains account and redacted credential metadata.
 This case study retains only aggregates. Costs were recomputed as:
 
@@ -82,43 +92,41 @@ sent unchanged or that provider pricing will remain stable.
 
 ### 3.1 Volume and observed cost
 
-| Model | Cache-hit input | Cache-miss input | Output | Requests | Observed cost |
+| Project-attribution scope | Cache-hit input | Cache-miss input | Output | Requests | Observed cost |
 |---|---:|---:|---:|---:|---:|
-| DeepSeek V4 Flash | 65,191,552 | 7,595,207 | 969,021 | 4,176 | USD 1.5172 |
-| DeepSeek V4 Pro | 44,579,200 | 2,140,999 | 323,242 | 721 | USD 1.3742 |
-| **Total** | **109,770,752** | **9,736,206** | **1,292,263** | **4,897** | **USD 2.8913** |
+| **V4 Flash account activity, project ceiling** | **65,191,552** | **7,595,207** | **969,021** | **4,176** | **USD 1.5172** |
 
-Cache hits represented 91.85% of all input tokens and 90.87% of all billed tokens including
-output.
+Cache hits represented 89.57% of the Flash input tokens and 88.39% of its billed tokens including
+output. The same account window contains another 47,043,441 V4 Pro tokens across 721 requests for
+USD 1.3742. That usage is attributed to separate development tooling and excluded here.
 
 ### 3.2 Where the money went
 
-| Cost component | DeepSeek V4 Flash | DeepSeek V4 Pro | Total |
-|---|---:|---:|---:|
-| Cache-hit input | USD 0.1825 | USD 0.1616 | USD 0.3441 |
-| Cache-miss input | USD 1.0633 | USD 0.9313 | USD 1.9947 |
-| Output | USD 0.2713 | USD 0.2812 | USD 0.5525 |
-| **Observed** | **USD 1.5172** | **USD 1.3742** | **USD 2.8913** |
+| Cost component | V4 Flash project ceiling |
+|---|---:|
+| Cache-hit input | USD 0.1825 |
+| Cache-miss input | USD 1.0633 |
+| Output | USD 0.2713 |
+| **Observed** | **USD 1.5172** |
 
 The colloquial observation that “around one hundred million tokens cost cents” is directionally
 correct only for a cache-hit-dominated slice. At the prices captured in this export, 100 million
-cache-hit input tokens alone would cost approximately USD 0.28 on V4 Flash or USD 0.3625 on V4
-Pro. In the measured project window, 109.77 million cache-hit tokens cost approximately USD
-0.3441. It is not correct for an arbitrary mixture of cache misses and generated output.
+cache-hit input tokens alone would cost approximately USD 0.28 on V4 Flash. In the
+project-aligned window, 65.19 million Flash cache-hit tokens cost approximately USD 0.1825. It is
+not correct for an arbitrary mixture of cache misses and generated output.
 
 ### 3.3 Counterfactual without cache pricing
 
 | Model | Observed | All input at miss price | Difference |
 |---|---:|---:|---:|
-| DeepSeek V4 Flash | USD 1.5172 | USD 10.4615 | USD 8.9443 (85.50%) |
-| DeepSeek V4 Pro | USD 1.3742 | USD 20.6045 | USD 19.2304 (93.33%) |
-| **Total** | **USD 2.8913** | **USD 31.0660** | **USD 28.1746 (90.69%)** |
+| V4 Flash project ceiling | USD 1.5172 | USD 10.4615 | USD 8.9443 (85.50%) |
 
 ### 3.4 Alternative-provider counterfactual
 
 Provider choice materially changes the conclusion even when cache reuse is held constant. The
 following counterfactual applies each provider's published standard API prices to the same
-109,770,752 cache-hit input tokens, 9,736,206 cache-miss input tokens, and 1,292,263 output tokens.
+65,191,552 cache-hit input tokens, 7,595,207 cache-miss input tokens, and 969,021 output tokens from
+the Flash ceiling.
 It does not assume that the alternative model would achieve the same quality, latency, or output
 length.
 
@@ -131,13 +139,13 @@ alternative-provider cost =
 
 | Model and price snapshot | Input | Cached input | Output | Estimated cost | Multiple of observed DeepSeek |
 |---|---:|---:|---:|---:|---:|
-| **Observed DeepSeek mixture** | export prices | export prices | export prices | **USD 2.89** | **1.00x** |
-| GPT-5.6 Luna | USD 1.00/M | USD 0.10/M | USD 6.00/M | USD 28.47 | 9.85x |
-| GLM-5.2 | USD 1.40/M | USD 0.26/M | USD 4.40/M | USD 47.86 | 16.55x |
-| Claude Sonnet 5, introductory price through 2026-08-31 | USD 2.00/M | USD 0.20/M | USD 10.00/M | USD 54.35 | 18.80x |
-| GPT-5.6 Terra | USD 2.50/M | USD 0.25/M | USD 15.00/M | USD 71.17 | 24.61x |
-| Claude Sonnet 5, standard price from 2026-09-01 | USD 3.00/M | USD 0.30/M | USD 15.00/M | USD 81.52 | 28.20x |
-| GPT-5.6 Sol | USD 5.00/M | USD 0.50/M | USD 30.00/M | USD 142.33 | 49.23x |
+| **Observed V4 Flash ceiling** | export prices | export prices | export prices | **USD 1.52** | **1.00x** |
+| GPT-5.6 Luna | USD 1.00/M | USD 0.10/M | USD 6.00/M | USD 19.93 | 13.14x |
+| GLM-5.2 | USD 1.40/M | USD 0.26/M | USD 4.40/M | USD 31.85 | 20.99x |
+| Claude Sonnet 5, introductory price through 2026-08-31 | USD 2.00/M | USD 0.20/M | USD 10.00/M | USD 37.92 | 24.99x |
+| GPT-5.6 Terra | USD 2.50/M | USD 0.25/M | USD 15.00/M | USD 49.82 | 32.84x |
+| Claude Sonnet 5, standard price from 2026-09-01 | USD 3.00/M | USD 0.30/M | USD 15.00/M | USD 56.88 | 37.49x |
+| GPT-5.6 Sol | USD 5.00/M | USD 0.50/M | USD 30.00/M | USD 99.64 | 65.68x |
 
 The source prices are snapshots from the official
 [OpenAI GPT-5.6 announcement](https://openai.com/index/gpt-5-6/),
@@ -158,13 +166,13 @@ This normalized comparison is useful for budget sensitivity, but it is not a ven
 - cache eligibility, retention, explicit breakpoint behavior, and eviction differ by provider;
 - reasoning effort, generated length, retries, tool fees, batch discounts, subscriptions, and
   provider-specific long-context modifiers are excluded;
-- the observed DeepSeek figure is a real mixture of two models, whereas each alternative assumes
-  that the complete workload is served by one model.
+- the DeepSeek baseline is an account-level Flash ceiling rather than an exact project total,
+  whereas each alternative applies one model's prices to that entire ceiling.
 
 The result sharpens the architectural claim: caching makes the separated design affordable on
 every priced alternative shown, but DeepSeek's cache economics are unusually favorable for this
 specific high-prefix-reuse workload. At the same measured volume, changing providers without
-changing token shape could raise the bill from about USD 2.89 to roughly USD 28-142. Provider
+changing token shape could raise the ceiling from about USD 1.52 to roughly USD 20-100. Provider
 abstraction remains strategically useful, but provider selection is part of the architecture's
 economic envelope rather than an interchangeable detail.
 
