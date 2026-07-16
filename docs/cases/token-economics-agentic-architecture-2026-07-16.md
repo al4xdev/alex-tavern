@@ -1,7 +1,7 @@
 # Token economics as an architectural enabler
 
 **Captured:** 2026-07-16  
-**Evidence window:** 2026-06-18 through 2026-07-16 UTC  
+**Evidence window:** 2026-07-11 through 2026-07-16 UTC
 **Provider export:** DeepSeek usage and cost CSVs generated on 2026-07-17  
 **Status:** Interim V1 case study; update through the Alex Tavern 1.0 release
 
@@ -13,12 +13,12 @@ Historian, and development-only critics or evaluators. This is more complex than
 prompt, but it makes authority, privacy, validation, replay, and failure attribution explicit.
 
 The economic premise is that provider-native prefix caching makes large stable contexts cheap
-enough that token count is not the first optimization target. The billing export examined here
-contains **511,961,017 tokens across 8,240 requests for USD 7.9055**. Of 509,511,887 input tokens,
-**493,134,592 were cache hits (96.79%)**. Applying the prices recorded in the export, the same input
-volume charged entirely at cache-miss rates would have produced an estimated total cost of
-**USD 198.02**, including the unchanged output cost. The observed total was about 4% of that
-counterfactual.
+enough that token count is not the first optimization target. The project-window portion of the
+billing export contains **120,799,221 tokens across 4,897 requests for USD 2.8913**. Of
+119,506,958 input tokens, **109,770,752 were cache hits (91.85%)**. Applying the prices recorded in
+the export, the same input volume charged entirely at cache-miss rates would have produced an
+estimated total cost of **USD 31.07**, including the unchanged output cost. The observed total was
+about 9.31% of that counterfactual.
 
 This does not prove that additional agents are free or always beneficial. It supports a narrower
 decision: for this workload and provider, collapsing semantic responsibilities merely to save
@@ -50,6 +50,12 @@ The source archive was downloaded from the provider dashboard as
 - request counts;
 - the per-token price applied to each category.
 
+The repository's first commit is dated 2026-07-10 23:02:07 in America/Sao_Paulo, which is
+2026-07-11 02:02:07 UTC. Provider billing rows are aggregated by UTC date and cannot be split by
+time of day. The project window therefore begins at the complete 2026-07-11 UTC row. Earlier rows
+in the export belong to activity before this repository existed and are excluded from the primary
+result.
+
 The raw archive is **not committed** because it contains account and redacted credential metadata.
 This case study retains only aggregates. Costs were recomputed as:
 
@@ -78,34 +84,96 @@ sent unchanged or that provider pricing will remain stable.
 
 | Model | Cache-hit input | Cache-miss input | Output | Requests | Observed cost |
 |---|---:|---:|---:|---:|---:|
-| DeepSeek V4 Flash | 76,880,512 | 8,305,039 | 1,056,848 | 4,489 | USD 1.6739 |
-| DeepSeek V4 Pro | 416,254,080 | 8,072,256 | 1,392,282 | 3,751 | USD 6.2316 |
-| **Total** | **493,134,592** | **16,377,295** | **2,449,130** | **8,240** | **USD 7.9055** |
+| DeepSeek V4 Flash | 65,191,552 | 7,595,207 | 969,021 | 4,176 | USD 1.5172 |
+| DeepSeek V4 Pro | 44,579,200 | 2,140,999 | 323,242 | 721 | USD 1.3742 |
+| **Total** | **109,770,752** | **9,736,206** | **1,292,263** | **4,897** | **USD 2.8913** |
 
-Cache hits represented 96.79% of all input tokens and 96.32% of all billed tokens including
+Cache hits represented 91.85% of all input tokens and 90.87% of all billed tokens including
 output.
 
 ### 3.2 Where the money went
 
 | Cost component | DeepSeek V4 Flash | DeepSeek V4 Pro | Total |
 |---|---:|---:|---:|
-| Cache-hit input | USD 0.2153 | USD 1.5089 | USD 1.7242 |
-| Cache-miss input | USD 1.1627 | USD 3.5114 | USD 4.6741 |
-| Output | USD 0.2959 | USD 1.2113 | USD 1.5072 |
-| **Observed** | **USD 1.6739** | **USD 6.2316** | **USD 7.9055** |
+| Cache-hit input | USD 0.1825 | USD 0.1616 | USD 0.3441 |
+| Cache-miss input | USD 1.0633 | USD 0.9313 | USD 1.9947 |
+| Output | USD 0.2713 | USD 0.2812 | USD 0.5525 |
+| **Observed** | **USD 1.5172** | **USD 1.3742** | **USD 2.8913** |
 
 The colloquial observation that “around one hundred million tokens cost cents” is directionally
 correct only for a cache-hit-dominated slice. At the prices captured in this export, 100 million
 cache-hit input tokens alone would cost approximately USD 0.28 on V4 Flash or USD 0.3625 on V4
-Pro. It is not correct for an arbitrary mixture of cache misses and generated output.
+Pro. In the measured project window, 109.77 million cache-hit tokens cost approximately USD
+0.3441. It is not correct for an arbitrary mixture of cache misses and generated output.
 
 ### 3.3 Counterfactual without cache pricing
 
 | Model | Observed | All input at miss price | Difference |
 |---|---:|---:|---:|
-| DeepSeek V4 Flash | USD 1.6739 | USD 12.2219 | USD 10.5480 (86.30%) |
-| DeepSeek V4 Pro | USD 6.2316 | USD 185.7932 | USD 179.5616 (96.65%) |
-| **Total** | **USD 7.9055** | **USD 198.0151** | **USD 190.1096 (96.01%)** |
+| DeepSeek V4 Flash | USD 1.5172 | USD 10.4615 | USD 8.9443 (85.50%) |
+| DeepSeek V4 Pro | USD 1.3742 | USD 20.6045 | USD 19.2304 (93.33%) |
+| **Total** | **USD 2.8913** | **USD 31.0660** | **USD 28.1746 (90.69%)** |
+
+### 3.4 Alternative-provider counterfactual
+
+Provider choice materially changes the conclusion even when cache reuse is held constant. The
+following counterfactual applies each provider's published standard API prices to the same
+109,770,752 cache-hit input tokens, 9,736,206 cache-miss input tokens, and 1,292,263 output tokens.
+It does not assume that the alternative model would achieve the same quality, latency, or output
+length.
+
+```text
+alternative-provider cost =
+    observed cache-hit input x published cache-read price
+  + observed cache-miss input x published uncached-input price
+  + observed output x published output price
+```
+
+| Model and price snapshot | Input | Cached input | Output | Estimated cost | Multiple of observed DeepSeek |
+|---|---:|---:|---:|---:|---:|
+| **Observed DeepSeek mixture** | export prices | export prices | export prices | **USD 2.89** | **1.00x** |
+| GPT-5.6 Luna | USD 1.00/M | USD 0.10/M | USD 6.00/M | USD 28.47 | 9.85x |
+| GLM-5.2 | USD 1.40/M | USD 0.26/M | USD 4.40/M | USD 47.86 | 16.55x |
+| Claude Sonnet 5, introductory price through 2026-08-31 | USD 2.00/M | USD 0.20/M | USD 10.00/M | USD 54.35 | 18.80x |
+| GPT-5.6 Terra | USD 2.50/M | USD 0.25/M | USD 15.00/M | USD 71.17 | 24.61x |
+| Claude Sonnet 5, standard price from 2026-09-01 | USD 3.00/M | USD 0.30/M | USD 15.00/M | USD 81.52 | 28.20x |
+| GPT-5.6 Sol | USD 5.00/M | USD 0.50/M | USD 30.00/M | USD 142.33 | 49.23x |
+
+The source prices are snapshots from the official
+[OpenAI GPT-5.6 announcement](https://openai.com/index/gpt-5-6/),
+[Claude Platform pricing](https://platform.claude.com/docs/en/about-claude/pricing), and
+[Z.AI model pricing](https://docs.z.ai/guides/overview/pricing), accessed on 2026-07-16. OpenAI
+publishes a 90% cache-read discount for GPT-5.6. Anthropic publishes cache reads at 0.1x base input
+price and explicitly lists Sonnet 5 cache-read prices of USD 0.20/M during the introductory period
+and USD 0.30/M afterward. Z.AI directly lists USD 0.26/M cached input for GLM-5.2.
+
+This normalized comparison is useful for budget sensitivity, but it is not a vendor benchmark:
+
+- tokenizers differ; Anthropic states that Sonnet 5's tokenizer can produce approximately 30%
+  more tokens than its earlier tokenizer, and no cross-provider token-count equivalence is assumed;
+- the calculation treats observed cache hits as reads and observed misses as ordinary uncached
+  input; it excludes GPT-5.6's 1.25x cache-write charge and Anthropic's 1.25x five-minute or 2x
+  one-hour cache-write charges because the aggregate DeepSeek export does not reveal an equivalent
+  write lifecycle;
+- cache eligibility, retention, explicit breakpoint behavior, and eviction differ by provider;
+- reasoning effort, generated length, retries, tool fees, batch discounts, subscriptions, and
+  provider-specific long-context modifiers are excluded;
+- the observed DeepSeek figure is a real mixture of two models, whereas each alternative assumes
+  that the complete workload is served by one model.
+
+The result sharpens the architectural claim: caching makes the separated design affordable on
+every priced alternative shown, but DeepSeek's cache economics are unusually favorable for this
+specific high-prefix-reuse workload. At the same measured volume, changing providers without
+changing token shape could raise the bill from about USD 2.89 to roughly USD 28-142. Provider
+abstraction remains strategically useful, but provider selection is part of the architecture's
+economic envelope rather than an interchangeable detail.
+
+### 3.5 Broader archive context
+
+The complete provider archive begins on 2026-06-18, before Alex Tavern's first commit. Across that
+broader account window it contains 511,961,017 tokens and USD 7.9055 of cost. Those totals are not
+used to claim project expenditure; they are retained only to explain the source archive and why a
+naive whole-file aggregation overstates Alex Tavern's measured cost.
 
 The result is consistent with Alex Tavern's controlled cache probes, which separately verified
 positive repeated-prefix reuse and a changed-prefix negative control. See
@@ -238,4 +306,3 @@ contains account identifiers and credential labels.
 - [Multi-character memory retention](./multi-character-memory-retention-2026-07-14.md)
 - [Speech audience model](./speech-audience-model-2026-07-15.md)
 - [Character output guard](./character-output-guard-2026-07-15.md)
-
