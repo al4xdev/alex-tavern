@@ -262,6 +262,44 @@ The user asked to organize the accumulated hypotheses. One coherent map, by laye
 4. **The auto-suggest scheduler is shippable now**, independent of the 29.2 core: the
    suggest pipeline exists and was validated manually. Smallest useful drive win.
 
+### "When to swap the roteiro?" (user question, 2026-07-16) — answerable by code
+
+The roteiro is NOT fixed; the design question is the replan trigger. Answer: make the
+roteiro generator emit **typed beat contracts**, so drift detection is deterministic:
+
+```json
+{
+  "beat_id": "act1-beat3",
+  "intent": "Van Helsing pressiona a delegacao a abrir o corredor solar",
+  "expected_actors": ["C6", "C8"],
+  "expected_anchors": ["corredor solar", "venezianas"],
+  "exit_condition": "a delegacao decide sobre as venezianas",
+  "budget_turns": 6
+}
+```
+
+Replan signals, in order of preference: (1) exit condition met → advance beat (normal);
+(2) beat turn-budget exhausted without anchor coverage → stalled, replan rolling beat;
+(3) actor/location/anchor overlap with recent events below threshold for M consecutive
+turns → drifted, replan rolling beat; (4) act-level exit broken hard → regenerate act
+skeleton. Hysteresis everywhere: sustained divergence, cooldown after each replan, so
+the Director does not thrash. Only the rolling beat is rewritten routinely; the premise
+and act skeleton stay stable (cache-friendly, spoiler-contained).
+
+### Repetition detection via similarity (user question, 2026-07-16) — tiered
+
+Measured on the real Sofia T2/T3 duplicated-thought pair: `difflib` ratio 0.79 and
+token-set jaccard 0.44, versus 0.23/0.0 for an unrelated control sentence. Cheap fuzzy
+similarity separates the paraphrase-repetition class cleanly with zero dependencies.
+Tiers: (1) harness/Task 26 metric first (same-speaker fuzzy similarity over a sliding
+window — catches what `_exact_sentence_duplicates` misses); (2) embeddings only if
+disjoint-vocabulary paraphrases escape tier 1 (note: DeepSeek exposes no embeddings
+endpoint; it would be a local model or llama.cpp embedding mode); (3) runtime
+retry-guard only if metrics prove prompting cannot fix it — same lesson as the whisper
+guard v1: over-triggering garbles natural dialogue, and legitimate speech repeats
+("Oi", names). The same similarity machinery doubles as the fuzzy fallback for roteiro
+drift (signal 3 above).
+
 ## 11. Relationship to the program
 
 - Task 29.1 should encode E0's *rate-based* measurement style: single-run pass/fail on
