@@ -21,8 +21,8 @@ class LlamaCppAdapter:
         "api_base": "http://localhost:8888/v1",
         "model": "",
         "context_max": 98304,
-        "max_tokens_narrator": 4096,
-        "max_tokens_character": 2048,
+        "max_tokens_narrator": 24576,
+        "max_tokens_character": 12288,
         "summarizer_max_tokens": 2048,
         "llm_timeout_seconds": 60.0,
     }
