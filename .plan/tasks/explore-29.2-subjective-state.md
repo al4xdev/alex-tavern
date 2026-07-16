@@ -219,7 +219,50 @@ autonomous burst?) and should be staged as its own task on top of the split, not
 into 29.2's first delivery. E3 already gives partial supporting evidence: the narrator
 emits valid typed events at zero latency cost when `context_for_character` is removed.
 
-## 10. Relationship to the program
+## 10. Idea board (2026-07-16): unified architecture map
+
+The user asked to organize the accumulated hypotheses. One coherent map, by layer:
+
+| Layer | Question it answers | Ideas on the table | Status/evidence |
+|---|---|---|---|
+| **State** | who knows/believes what | perspective ledger; initializer compiling priors + relationship map in act 1; lazy batched revision | E2 9/9; Fernanda ambiguous-priors case; 29.2 core |
+| **Decision** | what actually happens | Director (event/routing) on demand; Resolver adjudicating `action_intent`; characters gain intent output | user hypothesis §9; supported by all live findings |
+| **Rendering** | how it reads | blind prose renderer receiving only confirmed public facts; deterministic viewer-safe projection | E1a 0/13; E3b latency-neutral |
+| **Drive** | why anything happens | pre-generated roteiro (story direction) + drift-triggered re-planning; escalating-probability auto-suggest injecting randomness | user tested suggest manually: "muda tudo completamente" |
+| **Infra** | does it run reliably | unified retry (done, 31); raised budgets (done); 29.1/29.3 benchmark as the measuring stick | 31 closed; 29.1 in construction |
+
+### Drive layer refinement (user, 2026-07-16)
+
+- The **roteiro** is generated before the first word (same move as pre-initializing
+  character variables: compile once, consume many turns). The Narrator/Director requests
+  a NEW roteiro only when the story drifts too far — lazy re-planning, not per-turn.
+- Ledger revision is co-scheduled with specific narrator calls (accepted latency spikes
+  at chosen moments instead of every turn).
+- The randomness "picada": reuse the EXISTING suggest mechanism, fired automatically by
+  an algorithmic scheduler — each turn without an event raises the firing probability
+  (hazard function), reset on fire; queued so it never collides with a player-initiated
+  suggest.
+
+### Honest caveats recorded with the ideas
+
+1. **Drift detection must be algorithmic, not narrator self-assessment.** Asking the
+   overloaded/passive agent to decide when it needs help reproduces the passivity bug at
+   the meta level. Code owns scheduling (beat counters, turns-since-plan, roteiro
+   checklist coverage, the hazard function); models own semantics. This matches the
+   kernel philosophy already in README.
+2. **Roteiro granularity**: a full one-shot script will be invalidated quickly by an
+   unpredictable human co-author. Hierarchical shape survives contact: stable premise +
+   act skeleton, rolling next-beat detail, replan only the rolling part. Also
+   cache-friendly (stable prefix) and spoiler-safe (roteiro goes ONLY to Director-side
+   calls, never to character prompts or the prose renderer).
+3. **Ledger staleness window**: batching semantic revisions is right for cost, but
+   identity events (a name learned mid-scene) must land before the viewer's next reply
+   (E2 covers this case). Hybrid: cheap deterministic appends per turn, full semantic
+   revision batched at the chosen moments.
+4. **The auto-suggest scheduler is shippable now**, independent of the 29.2 core: the
+   suggest pipeline exists and was validated manually. Smallest useful drive win.
+
+## 11. Relationship to the program
 
 - Task 29.1 should encode E0's *rate-based* measurement style: single-run pass/fail on
   stochastic leaks produces false confidence (0/3 then 7/10 here).
