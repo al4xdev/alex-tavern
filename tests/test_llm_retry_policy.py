@@ -32,9 +32,11 @@ CHARACTERS = {
     ),
 }
 
-VALID_CONTENT = json.dumps({"speech": "Oi.", "thought": "Ele parece tranquilo."})
+VALID_CONTENT = json.dumps(
+    {"speech": "Oi.", "thought": "Ele parece tranquilo.", "action_intent": None}
+)
 PHYSICAL_ACTION_CONTENT = json.dumps(
-    {"speech": None, "thought": "Arrumo um tufo de cabelo atrás da orelha."}
+    {"speech": None, "thought": "Arrumo um tufo de cabelo atrás da orelha.", "action_intent": None}
 )
 
 
@@ -90,7 +92,7 @@ class TestUnifiedRetryPolicy:
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
             output = await _act(client)
-        assert output == {"speech": "Oi.", "thought": "Ele parece tranquilo."}
+        assert output == {"speech": "Oi.", "thought": "Ele parece tranquilo.", "action_intent": None}
         assert len(calls) == 2
 
     @pytest.mark.asyncio

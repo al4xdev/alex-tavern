@@ -26,6 +26,7 @@ from src.perception import eligible_witnesses
 class CharacterOutput(TypedDict):
     speech: str | None
     thought: str | None
+    action_intent: str | None
 
 
 _PHYSICAL_ACTION_RE = re.compile(
@@ -50,8 +51,9 @@ def build_character_json_schema() -> dict:
             "properties": {
                 "speech": {"type": ["string", "null"]},
                 "thought": {"type": ["string", "null"]},
+                "action_intent": {"type": ["string", "null"]},
             },
-            "required": ["speech", "thought"],
+            "required": ["speech", "thought", "action_intent"],
             "additionalProperties": False,
         },
     }
@@ -71,11 +73,20 @@ def _normalize_output(result: dict) -> CharacterOutput:
         if isinstance(thought_value, str) and thought_value.strip()
         else None
     )
-    if speech is None and thought is None:
-        raise ValueError("Character response must contain speech, thought, or both")
+    intent_value = result.get("action_intent")
+    action_intent = (
+        normalize_generated_text(intent_value.strip())
+        if isinstance(intent_value, str) and intent_value.strip()
+        else None
+    )
+    if speech is None and thought is None and action_intent is None:
+        raise ValueError("Character response must contain speech, thought, or an action intent")
     if any(text is not None and _PHYSICAL_ACTION_RE.search(text) for text in (speech, thought)):
-        raise ValueError("Character response appears to describe a physical action")
-    return {"speech": speech, "thought": thought}
+        raise ValueError(
+            "Character response places physical action in speech/thought; it belongs "
+            "in action_intent"
+        )
+    return {"speech": speech, "thought": thought, "action_intent": action_intent}
 
 
 def _build_system_prompt(character: Character) -> str:
@@ -97,7 +108,11 @@ def _build_system_prompt(character: Character) -> str:
         "  ear' is forbidden; 'His voice sounds unusually soft to me' is valid.\n"
         "- Put audible first-person dialogue in speech. Put only your private internal\n"
         "  reaction, opinion, or feeling in thought. Do not use markdown wrappers.\n"
-        "  Either field may be null, but they cannot both be null or empty.\n"
+        '- "action_intent": what your body ATTEMPTS to do right now (move, grab,\n'
+        "  open, strike), stated as an attempt in the third person infinitive\n"
+        '  ("caminhar ate a porta e abri-la"). The world decides the outcome:\n'
+        "  never state results, impacts, or others\' reactions. null when you\n"
+        "  only speak or think. At least one of the three fields must be filled.\n"
         "- Facts may come only from your Knowledge, What you remember, SCENE CONTEXT,\n"
         "  or RECENT EVENTS. If a detail is absent, omit it or clearly express doubt;\n"
         "  never invent a location, backstory, relationship, or prior event.\n"
@@ -220,9 +235,9 @@ def _format_history_for_character(
 
 
 _PHYSICAL_ACTION_CORRECTION = (
-    "\nCORRECTION: Your previous response was invalid. Remove every physical "
-    "action or gesture. Return only audible dialogue and/or genuinely internal "
-    "thought.\n"
+    "\nCORRECTION: Your previous response was invalid. Physical actions and "
+    "gestures belong ONLY in the action_intent field, stated as an attempt. "
+    "speech carries audible dialogue; thought carries internal reaction.\n"
 )
 _WHISPER_LEAK_CORRECTION = (
     "\nCORRECTION: Your previous speech exposed whispered confidential content "

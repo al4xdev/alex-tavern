@@ -764,12 +764,32 @@ class Runner:
                         step,
                         audience=reply_audience,
                     )
+                if character_response.get("action_intent"):
+                    # An intent is an ATTEMPT: it becomes an action record (the
+                    # existing physics — resolved by the next beat's Director),
+                    # never an outcome. Zone-scoped audience is computed by
+                    # _append_history like any physical act.
+                    self._append_history(
+                        game,
+                        speaker,
+                        character_response["action_intent"],
+                        "action",
+                        step,
+                    )
                 character_responses.append({"character_id": speaker, **character_response})
 
             # Update scene
             scene_up = narrator_raw.get("scene_update")
             if scene_up:
                 self._update_scene(game, scene_up)
+
+            # Zone movement adjudicated by the Director (validated upstream):
+            # arrival takes effect on the NEXT beat's perception computations.
+            zone_moves = narrator_raw.get("zone_moves") or {}
+            for moved_id, zone in zone_moves.items():
+                game.scene.positions[moved_id] = zone
+            for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
+                game.scene.zones[zone] = list(audible)
 
             # Update characters' moods
             mood_updates = narrator_raw.get("mood_updates")

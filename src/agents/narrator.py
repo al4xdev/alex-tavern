@@ -65,6 +65,13 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         '- "mood_updates": null OR an object mapping character_id to their new mood,\n'
         "  only after a meaningful emotional transition. Mood is persistent state,\n"
         "  not a pose or momentary synonym. Omit unchanged characters.\n"
+        '- "zone_moves": null OR an object mapping character_id to the zone they\n'
+        "  physically moved to THIS beat (only when the scene has zones and an\n"
+        "  attempted movement succeeds). Movement takes effect next beat.\n"
+        '- "zone_link_updates": null OR an object remapping a zone to the FULL list\n'
+        "  of zones now audible from it, when a physical change connects or seals\n"
+        "  spaces (a partition opens: each side starts hearing the other; a door\n"
+        "  closes: remap back to []). Takes effect next beat.\n"
         "\n"
         "RULES:\n"
         "- Resolve the immediate consequence of the final HISTORY event before adding\n"
@@ -172,6 +179,14 @@ def build_narrator_json_schema(
                     "type": ["object", "null"],
                     "additionalProperties": {"type": "string"},
                 },
+                "zone_moves": {
+                    "type": ["object", "null"],
+                    "additionalProperties": {"type": "string"},
+                },
+                "zone_link_updates": {
+                    "type": ["object", "null"],
+                    "additionalProperties": {"type": "array", "items": {"type": "string"}},
+                },
                 **(extra_properties or {}),
             },
             "required": [
@@ -179,6 +194,8 @@ def build_narrator_json_schema(
                 "perception_events",
                 "scene_update",
                 "mood_updates",
+                "zone_moves",
+                "zone_link_updates",
                 *(extra_required or []),
             ],
             "additionalProperties": False,
@@ -490,6 +507,29 @@ async def narrate(
     result["perception_events"] = validate_perception_events(
         result.get("perception_events"), scene, characters
     )
+    raw_moves = result.get("zone_moves")
+    moves: dict[str, str] = {}
+    if isinstance(raw_moves, dict) and scene.zones:
+        for cid, zone in raw_moves.items():
+            if (
+                isinstance(zone, str)
+                and cid in characters
+                and cid in scene.present_characters
+                and zone in scene.zones
+            ):
+                moves[cid] = zone
+    result["zone_moves"] = moves
+    raw_links = result.get("zone_link_updates")
+    links: dict[str, list[str]] = {}
+    if isinstance(raw_links, dict) and scene.zones:
+        for zone, audible in raw_links.items():
+            if zone in scene.zones and isinstance(audible, list):
+                links[zone] = [
+                    other
+                    for other in dict.fromkeys(audible)
+                    if isinstance(other, str) and other in scene.zones and other != zone
+                ]
+    result["zone_link_updates"] = links
     for event in result["perception_events"]:
         event["content"] = normalize_generated_text(event["content"])
 

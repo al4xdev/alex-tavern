@@ -235,6 +235,7 @@ class CharacterTurnEntry(BaseModel):
     character_id: str
     speech: str | None = None
     thought: str | None = None
+    action_intent: str | None = None
 
 
 class PlayerTurnResponse(BaseModel):
