@@ -40,3 +40,19 @@ invents events or manually triggers suggestions.
 - [ ] Debug log records every scheduler decision.
 - [ ] Real-LLM playtest: a scenario with several skip turns shows injected events
   advancing the scene (compare against a scheduler-disabled control run).
+
+> **CLOSED 2026-07-16.** Delivered as `src/drive.py`: deterministic hazard
+> (p = min(base + growth × quiet_turns, cap), seeded per session+turn),
+> firing only on bare skip turns (never overrides a manual hint), injecting a
+> WORLD-event seed (`drive:event_seed` structured call) as narrator_hint —
+> never a player move (agency invariant; this is the one deliberate deviation
+> from "reuse the suggest pipeline"). Config keys optional-with-defaults so
+> stored configs keep loading; schema v5 adds the quiet-turn counter; every
+> decision logged as `drive_scheduler` in debug.jsonl; harness gained skip
+> turns. A/B real run (plans/artifacts/drive-ab): ON = 2 injections in 4 skips
+> (stone through the window, carriage arriving) with narration visibly
+> reacting; OFF = four turns of circular ambience, nothing happens. The A/B
+> also caught a real robustness bug: the skip-turn narrowed enum made the
+> local validator reject responses 3× before the lenient normalization could
+> absorb them — exclusion is now normalization policy, full enum guides the
+> model. 7+2 tests; suite 440 passed.

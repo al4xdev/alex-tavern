@@ -50,6 +50,12 @@ def _boolean(value: object, label: str) -> bool:
     return value
 
 
+def _unit_interval(value: object, label: str) -> float:
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and 0.0 <= value <= 1.0:
+        return float(value)
+    raise ConfigValidationError(f"{label} must be a number between 0 and 1")
+
+
 def _percentage(value: object, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 100:
         raise ConfigValidationError(f"{label} must be an integer from 1 to 100")
@@ -84,6 +90,19 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         "automatic_compaction_threshold_percent": _percentage(
             value.get("automatic_compaction_threshold_percent"),
             "automatic_compaction_threshold_percent",
+        ),
+        "auto_event_enabled": _boolean(
+            value.get("auto_event_enabled", True), "auto_event_enabled"
+        ),
+        "auto_event_base_probability": _unit_interval(
+            value.get("auto_event_base_probability", 0.05), "auto_event_base_probability"
+        ),
+        "auto_event_growth_per_quiet_turn": _unit_interval(
+            value.get("auto_event_growth_per_quiet_turn", 0.12),
+            "auto_event_growth_per_quiet_turn",
+        ),
+        "auto_event_max_probability": _unit_interval(
+            value.get("auto_event_max_probability", 0.85), "auto_event_max_probability"
         ),
         "providers": {},
     }
@@ -210,6 +229,10 @@ def resolve_active_config(value: dict[str, Any]) -> dict[str, Any]:
         "automatic_compaction_threshold_percent": canonical[
             "automatic_compaction_threshold_percent"
         ],
+        "auto_event_enabled": canonical["auto_event_enabled"],
+        "auto_event_base_probability": canonical["auto_event_base_probability"],
+        "auto_event_growth_per_quiet_turn": canonical["auto_event_growth_per_quiet_turn"],
+        "auto_event_max_probability": canonical["auto_event_max_probability"],
     }
 
 

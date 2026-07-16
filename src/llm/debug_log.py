@@ -300,6 +300,33 @@ def log_compact(
     )
 
 
+def log_drive_decision(
+    session_id: str,
+    turn_number: int,
+    *,
+    fired: bool,
+    probability: float,
+    quiet_turns: int,
+    roll: float,
+    event_seed: str = "",
+) -> None:
+    """One autonomous-event scheduler decision (Task 33), fired or not."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "drive_scheduler",
+            "fired": fired,
+            "probability": probability,
+            "quiet_turns": quiet_turns,
+            "roll": roll,
+            "event_seed": event_seed,
+        },
+    )
+
+
 def log_compaction_status(
     session_id: str,
     turn_number: int,

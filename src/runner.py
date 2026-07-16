@@ -25,6 +25,7 @@ from src.agents.perspective import (
     needs_identity_update,
     update_identity,
 )
+from src.drive import evaluate_event_hazard, generate_event_seed
 from src.perception import eligible_witnesses, render_events_for_viewer
 from src.agents.summarizer import relevant_character_ids, summarize
 from src.compaction import (
@@ -46,6 +47,7 @@ from src.llm.debug_log import (
     log_effective_turn_input,
     log_presence_change,
     log_presence_undo,
+    log_drive_decision,
     log_restore_compaction,
     log_turn_input,
     log_undo,
@@ -570,6 +572,30 @@ class Runner:
                         "automatic_compaction": automatic_compaction,
                     }
 
+            # Drive scheduler (Task 33): on a skip turn without a manual hint,
+            # CODE decides whether the world receives an autonomous event; a
+            # small structured call only writes WHAT the event is. The seed is
+            # always an external world event for the blind Narrator — never a
+            # move for the human's character.
+            injected_event = False
+            if skip and not narrator_hint.strip():
+                decision = evaluate_event_hazard(game, self.config)
+                event_seed = ""
+                if decision.fired:
+                    event_seed = await generate_event_seed(self.client, game, self.config, step)
+                    if event_seed:
+                        narrator_hint = event_seed
+                        injected_event = True
+                log_drive_decision(
+                    game.session_id,
+                    step,
+                    fired=injected_event,
+                    probability=decision.probability,
+                    quiet_turns=decision.quiet_turns,
+                    roll=decision.roll,
+                    event_seed=event_seed,
+                )
+
             # Call Narrator — extra_context/extra_schema let plugins add read-only
             # prompt lines and an optional output key (narrator.context/narrator.schema)
             # without a provider- or plugin-specific branch here.
@@ -745,6 +771,9 @@ class Runner:
                 game = await self.plugins.hooks.filter(
                     "turn.before_commit", game, {"kind": "turn", "runner": self}
                 )
+            game.turns_since_injected_event = (
+                0 if injected_event else game.turns_since_injected_event + 1
+            )
             game.revision += 1
             save_game(game)
             if self.plugins is not None:

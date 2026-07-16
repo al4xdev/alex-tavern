@@ -150,13 +150,22 @@ def load_scenario(path: Path) -> Scenario:
             thought = event.get("thought", "")
             action = event.get("action", "")
             force_speaker = event.get("force_speaker")
+            skip = event.get("skip", False)
+            if not isinstance(skip, bool):
+                raise PlaytestConfigurationError(
+                    f"{path}: turn event {index} skip must be a boolean"
+                )
             if not all(isinstance(value, str) for value in (speech, thought, action)):
                 raise PlaytestConfigurationError(
                     f"{path}: turn event {index} speech/thought/action must be strings"
                 )
-            if not speech and not thought and not action:
+            if skip and (speech or thought or action):
                 raise PlaytestConfigurationError(
-                    f"{path}: turn event {index} needs speech, thought, or action"
+                    f"{path}: turn event {index} skip cannot carry speech/thought/action"
+                )
+            if not skip and not speech and not thought and not action:
+                raise PlaytestConfigurationError(
+                    f"{path}: turn event {index} needs speech, thought, action, or skip"
                 )
             if force_speaker is not None and not isinstance(force_speaker, str):
                 raise PlaytestConfigurationError(
@@ -168,6 +177,7 @@ def load_scenario(path: Path) -> Scenario:
                 "thought": thought,
                 "action": action,
                 "force_speaker": force_speaker,
+                "skip": skip,
                 "audience": _validated_audience(raw_event, f"{path}: turn event {index}"),
             }
         elif event_type == "recall_check":
@@ -447,6 +457,7 @@ async def _run_event(runner: Any, session_id: str, event: dict[str, Any]) -> Any
             action=event["action"],
             force_speaker=event["force_speaker"],
             audience=event.get("audience"),
+            skip=event.get("skip", False),
         )
     if event_type == "suggest":
         return await runner.suggest_actions(session_id)

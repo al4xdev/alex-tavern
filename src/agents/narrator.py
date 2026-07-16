@@ -116,7 +116,13 @@ def build_narrator_json_schema(
     if forced_speaker in all_speakers:
         speakers = [forced_speaker]
     else:
-        speakers = [s for s in all_speakers if s != exclude_speaker]
+        # exclude_speaker is a routing POLICY, not a schema constraint: a
+        # narrowed enum makes the provider-side validator reject responses the
+        # lenient normalization was designed to absorb (measured: 3 straight
+        # schema failures on a stalled skip turn). The full enum guides the
+        # model; normalization drops the excluded entry deterministically.
+        del exclude_speaker
+        speakers = all_speakers
     return {
         "name": "narrator_turn",
         "schema": {
@@ -195,6 +201,7 @@ def _build_user_prompt(
     forced_speaker: str | None = None,
     narrator_hint: str = "",
     extra_context: list[str] | None = None,
+    exclude_speaker: str | None = None,
 ) -> str:
     """Builds the user prompt with scene, characters, and history.
 
@@ -284,6 +291,13 @@ def _build_user_prompt(
             lines.append(f"  {line}")
         lines.append("")
 
+    if forced_speaker is None and exclude_speaker is not None:
+        lines.append("ROUTING CONSTRAINT:")
+        lines.append(
+            f"  Do not include {exclude_speaker} in next_speakers this turn; "
+            "they just spoke or passed."
+        )
+        lines.append("")
     if forced_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
         lines.append(f'  next_speakers is fixed as ["{forced_speaker}"].')
@@ -335,6 +349,7 @@ def build_narrator_messages(
     forced_speaker: str | None = None,
     narrator_hint: str = "",
     extra_context: list[str] | None = None,
+    exclude_speaker: str | None = None,
 ) -> list[dict]:
     """Assembles the Narrator messages (system + user) — pure, without calling the LLM.
 
@@ -359,6 +374,7 @@ def build_narrator_messages(
                 forced_speaker=forced_speaker,
                 narrator_hint=narrator_hint,
                 extra_context=extra_context,
+                exclude_speaker=exclude_speaker,
             ),
         },
     ]
@@ -422,6 +438,7 @@ async def narrate(
         forced_speaker=forced_speaker,
         narrator_hint=narrator_hint,
         extra_context=extra_context,
+        exclude_speaker=exclude_speaker,
     )
 
     result = await chat_completion_json(
@@ -466,7 +483,7 @@ async def narrate(
         for entry in raw_queue if isinstance(raw_queue, list) else []:
             if entry == "Narrator":
                 break
-            if entry in valid_speakers and entry not in queue:
+            if entry in valid_speakers and entry != exclude_speaker and entry not in queue:
                 queue.append(entry)
         result["next_speakers"] = queue[:MAX_SPEAKERS_PER_TURN] or ["Narrator"]
 

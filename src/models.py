@@ -16,8 +16,9 @@ from typing import Any
 # audience model on TurnRecord (Tasks 22/24/25); 3 = per-character perspective
 # ledger (viewer-relative identity) with per-record snapshots (Task 29.2);
 # 4 = zone graph on Scene + typed perception events replacing
-# context_for_character (Task 29.2, increment 2).
-SESSION_SCHEMA_VERSION = 4
+# context_for_character (Task 29.2, increment 2); 5 = autonomous event
+# scheduler counter (Task 33).
+SESSION_SCHEMA_VERSION = 5
 
 
 @dataclass
@@ -206,6 +207,9 @@ class GameState:
     # {viewer_id: CharacterPerspective} — each character's subjective identity
     # ledger. Absent until that viewer first needs it (lazy initialization).
     character_perspectives: dict[str, CharacterPerspective] = field(default_factory=dict)
+    # Completed narrating turns since the drive scheduler last injected an
+    # event (Task 33 hazard function input). Reset to 0 on injection.
+    turns_since_injected_event: int = 0
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -412,5 +416,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
             viewer_id: dict_to_perspective(item)
             for viewer_id, item in data.get("character_perspectives", {}).items()
         },
+        turns_since_injected_event=int(data.get("turns_since_injected_event", 0)),
         schema_version=int(data.get("schema_version", 1)),
     )
