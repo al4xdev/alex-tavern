@@ -33,7 +33,11 @@ from src.store.sessions import (
 
 
 @pytest.fixture(autouse=True)
-def _remove_created_sessions():  # noqa: ANN202
+def _remove_created_sessions(monkeypatch: pytest.MonkeyPatch):  # noqa: ANN202
+    async def fake_render_narration(*args, **kwargs) -> str:  # noqa: ANN002, ANN003
+        return "The road answers."
+
+    monkeypatch.setattr(Runner, "_render_narration", fake_render_narration)
     before = {path.name for path in SESSIONS_DIR.iterdir()} if SESSIONS_DIR.exists() else set()
     yield
     if SESSIONS_DIR.exists():

@@ -137,8 +137,12 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_update(*args, **kwargs) -> None:  # noqa: ANN002, ANN003
         return None
 
+    async def fake_render_narration(*args, **kwargs) -> str:  # noqa: ANN002, ANN003
+        return "A taverna murmura."
+
     monkeypatch.setattr(runner_mod, "initialize_perspective", fake_initialize)
     monkeypatch.setattr(runner_mod, "update_identity", fake_update)
+    monkeypatch.setattr(Runner, "_render_narration", fake_render_narration)
 
 
 class TestFocusSwitchWithoutTrim:

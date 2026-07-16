@@ -109,7 +109,7 @@ DEFAULT_SCENE = Scene(
 
 @pytest.fixture(autouse=True)
 def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep legacy Runner tests isolated from the perspective LLM boundary."""
+    """Keep legacy Runner tests isolated from new internal LLM boundaries."""
     import src.runner as runner_mod
     from src.models import CharacterPerspective, PersonView
 
@@ -134,8 +134,12 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_update(*args, **kwargs) -> None:  # noqa: ANN002, ANN003
         return None
 
+    async def fake_render_narration(*args, **kwargs) -> str:  # noqa: ANN002, ANN003
+        return "Rendered narration."
+
     monkeypatch.setattr(runner_mod, "initialize_perspective", fake_initialize)
     monkeypatch.setattr(runner_mod, "update_identity", fake_update)
+    monkeypatch.setattr(Runner, "_render_narration", fake_render_narration)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────
@@ -967,7 +971,7 @@ class TestRunnerLogic:
         monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
         result = await runner.player_turn(sid, speech="Oi.")
 
-        assert result["narration"] == "The room empties."
+        assert result["narration"] == "Rendered narration."
         game = await runner.get_state(sid)
         assert game is not None
         assert game.scene.present_characters == ["C1", "C2", "Player"]  # unchanged
@@ -1884,7 +1888,6 @@ class TestCustomSessionAndDebug:
             if schema_name == "narrator_turn":
                 content = json_module.dumps(
                     {
-                        "narration": "A cripta range.",
                         "next_speakers": ["C1"],
                         "perception_events": [
                             _perception_event("Você ouve um rangido.", "C1")
@@ -1929,7 +1932,7 @@ class TestCustomSessionAndDebug:
         assert entries[1]["agent"] == "turn_input_effective"
         assert entries[1]["input"]["speech"] == "oi"
         assert entries[1]["transformed_fields"] == []
-        assert entries[2]["agent"] == "narrator"
+        assert entries[2]["agent"] == "director"
         assert entries[2]["response"] is not None
         assert entries[3]["agent"] == "character:Solo"
         assert json_module.loads(entries[3]["response"]) == {
