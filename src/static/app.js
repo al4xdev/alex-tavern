@@ -221,8 +221,8 @@ async function skipTurn() {
         if (state.debug) refreshDebugLog();
         if (!historyWasReconciled) {
             if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-            if (data.character_response) {
-                addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+            for (const entry of (data.character_responses || [])) {
+                addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
             }
         }
         if (data.scene_update) {
@@ -1400,8 +1400,8 @@ async function sendTurn(isRetry = false) {
 
         if (!historyWasReconciled) {
             if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-            if (data.character_response) {
-                addMessage(data.next_speaker || 'Narrator', data.character_response, 'response', { animate: true });
+            for (const entry of (data.character_responses || [])) {
+                addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
             }
         }
 

@@ -19,6 +19,9 @@ from src.models import (
 )
 
 
+MAX_SPEAKERS_PER_TURN = 3
+
+
 def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
     speakers = ", ".join([*character_ids, "Narrator"])
     prompt = (
@@ -33,14 +36,17 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  write it in third person, focusing on the characters themselves. Favor vivid,\n"
         "  immersive prose over a quick summary; take as many sentences as the moment\n"
         "  deserves, don't rush the scene.\n"
-        f'- "next_speaker": who should speak/act next. One of: {speakers}.\n'
-        "  - Use a character id when that character should react.\n"
-        '  - Use "Narrator" when you need to describe something before anyone speaks\n'
+        f'- "next_speakers": ordered list (1 to 3) of who reacts next. Each entry is one of: {speakers}.\n'
+        "  - List several characters, in speaking order, when the moment calls for an\n"
+        "    exchange (a question and its answer, a reaction chain); each later speaker\n"
+        "    will have heard the earlier ones before speaking.\n"
+        "  - List a character only when they have a real, present reason to speak now.\n"
+        '  - Use ["Narrator"] when you need to describe something before anyone speaks\n'
         "    (e.g., an environmental event), or when no reaction is needed yet.\n"
-        '- "context_for_character": a string with filtered information for the next\n'
-        "  speaker. Include only what THAT character would perceive. If next_speaker\n"
-        "  is Narrator, use empty string. If an UPCOMING EVENT was provided,\n"
-        "  include it here when the next speaker would witness it.\n"
+        '- "context_for_character": a string with filtered information for the FIRST\n'
+        "  entry of next_speakers. Include only what THAT character would perceive.\n"
+        '  If next_speakers is ["Narrator"], use empty string. If an UPCOMING EVENT was\n'
+        "  provided, include it here when that speaker would witness it.\n"
         '- "scene_update": object with changes to the current scene (e.g.,\n'
         '  {"location": "Old Watchtower", "door": "open"}). "location" and\n'
         '  "time_of_day" are reserved Scene fields. Every other key is a physical\n'
@@ -108,7 +114,12 @@ def build_narrator_json_schema(
             "type": "object",
             "properties": {
                 "narration": {"type": "string"},
-                "next_speaker": {"type": "string", "enum": speakers},
+                "next_speakers": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": speakers},
+                    "minItems": 1,
+                    "maxItems": MAX_SPEAKERS_PER_TURN,
+                },
                 "context_for_character": {"type": "string"},
                 "scene_update": {
                     "type": ["object", "null"],
@@ -126,7 +137,7 @@ def build_narrator_json_schema(
             },
             "required": [
                 "narration",
-                "next_speaker",
+                "next_speakers",
                 "context_for_character",
                 "scene_update",
                 "mood_updates",
@@ -237,7 +248,7 @@ def _build_user_prompt(
 
     if forced_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
-        lines.append(f"  next_speaker is fixed as {forced_speaker}.")
+        lines.append(f'  next_speakers is fixed as ["{forced_speaker}"].')
         if forced_speaker == "Narrator":
             lines.append("  context_for_character must be an empty string.")
         else:
@@ -355,7 +366,7 @@ async def narrate(
     the ``narrator.result`` hook.
 
     Returns:
-        Dict with keys: narration, next_speaker, context_for_character,
+        Dict with keys: narration, next_speakers, context_for_character,
         scene_update, mood_updates, plus any plugin-contributed keys.
 
     Raises:
@@ -398,7 +409,7 @@ async def narrate(
     )
 
     # Validate required fields
-    required = ["narration", "next_speaker", "context_for_character"]
+    required = ["narration", "next_speakers", "context_for_character"]
     missing = [k for k in required if k not in result]
     if missing:
         raise ValueError(
@@ -406,16 +417,24 @@ async def narrate(
             f"Recebido: {json.dumps(result, ensure_ascii=False)[:300]}"
         )
 
-    # Validate next_speaker — only present characters (plus Narrator) are valid;
+    # Normalize next_speakers — only present characters (plus Narrator) are valid;
     # an absent character can never be routed to, whether hallucinated or forced.
+    # "Narrator" means "no one reacts", so nothing meaningfully speaks after it:
+    # the queue is truncated there, deduplicated in order, and capped.
     valid_speakers = set(present_ids) | {"Narrator"}
     if forced_speaker in valid_speakers:
-        result["next_speaker"] = forced_speaker
+        result["next_speakers"] = [forced_speaker]
         if forced_speaker == "Narrator":
             result["context_for_character"] = ""
-    elif result["next_speaker"] not in valid_speakers:
-        # Fallback: normalize to Narrator (the Narrator does not know "Player")
-        result["next_speaker"] = "Narrator"
+    else:
+        raw_queue = result.get("next_speakers")
+        queue: list[str] = []
+        for entry in raw_queue if isinstance(raw_queue, list) else []:
+            if entry == "Narrator":
+                break
+            if entry in valid_speakers and entry not in queue:
+                queue.append(entry)
+        result["next_speakers"] = queue[:MAX_SPEAKERS_PER_TURN] or ["Narrator"]
 
     # scene_update and mood_updates can be None
     result.setdefault("scene_update", None)

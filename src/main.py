@@ -223,21 +223,22 @@ class PresetPutRequest(BaseModel):
     replace: bool = False
 
 
-class CharacterResponse(BaseModel):
-    speech: str | None = None
-    thought: str | None = None
-
-
 class EffectiveTurnInput(BaseModel):
     speech: str
     thought: str
     action: str
 
 
+class CharacterTurnEntry(BaseModel):
+    character_id: str
+    speech: str | None = None
+    thought: str | None = None
+
+
 class PlayerTurnResponse(BaseModel):
     narration: str | None = None
-    character_response: CharacterResponse | None = None
-    next_speaker: str | None = None
+    character_responses: list[CharacterTurnEntry] = Field(default_factory=list)
+    next_speakers: list[str] = Field(default_factory=list)
     scene_update: dict | None = None
     turn_number: int | None = None
     effective_input: EffectiveTurnInput | None = None

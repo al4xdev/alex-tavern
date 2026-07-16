@@ -312,9 +312,10 @@ class Runner:
         3. Calls Narrator
         4. Records narration in history
         5. Who acts next is ``force_speaker`` (manual override, if provided)
-           or the Narrator's ``next_speaker``. If it is a present character and NOT
-           the controlled one → calls the character. If it is the controlled one, pauses and
-           returns control to the human.
+           or the Narrator's ``next_speakers`` queue. Each present, non-controlled
+           entry gets a character call in order, seeing the previous replies.
+           The queue stops at the controlled character: control returns to the
+           human and the runner never generates their speech.
         6. Updates scene and moods
         7. save_game → returns results
 
@@ -331,7 +332,7 @@ class Runner:
                 the same turn inherits the audience when the speaker belongs to it.
 
         Returns:
-            Dict with: narration, character_response, next_speaker,
+            Dict with: narration, character_responses, next_speakers,
             scene_update, turn_number.
         """
         if not skip and not any(
@@ -552,8 +553,8 @@ class Runner:
                         )
                     return {
                         "narration": None,
-                        "character_response": None,
-                        "next_speaker": game.player.controlled_character_id,
+                        "character_responses": [],
+                        "next_speakers": [],
                         "scene_update": None,
                         "turn_number": step,
                         "effective_input": effective_input,
@@ -616,22 +617,36 @@ class Runner:
             narration = narrator_raw["narration"]
             self._append_history(game, "Narrator", narration, "narration", step)
 
-            speaker = effective_force_speaker or narrator_raw["next_speaker"]
+            # A manual force wins over whatever the Narrator (or a plugin filter)
+            # returned — the queue collapses to the forced speaker alone.
+            queue: list[str] = (
+                [effective_force_speaker]
+                if effective_force_speaker
+                else list(narrator_raw["next_speakers"])
+            )
             controlled = game.player.controlled_character_id
-            character_response: CharacterOutput | None = None
+            character_responses: list[dict[str, Any]] = []
 
-            # The Narrator is blind and can route to the controlled character —
-            # in this case, the runner does NOT generate their speech; pauses and returns
-            # control to the human (the UI decides what to do with next_speaker).
-            # A whispered exchange stays whispered: when the replying character is
-            # part of the turn's audience, its reply keeps the same audience.
-            reply_audience = audience if audience is not None and speaker in audience else None
-            if (
-                speaker in game.characters
-                and speaker in game.scene.present_characters
-                and speaker != controlled
-            ):
-                ctx = narrator_raw.get("context_for_character", "")
+            # The queue runs sequentially WITHOUT Narrator calls in between: each
+            # response is appended to history before the next character call, so a
+            # later speaker perceives the earlier ones through the normal visibility
+            # filter. The Narrator is blind and can route to the controlled
+            # character — the queue stops there and control returns to the human
+            # (the runner never generates their speech). A whispered exchange stays
+            # whispered: when a replying character is part of the turn's audience,
+            # its reply keeps the same audience.
+            for position, speaker in enumerate(queue):
+                if speaker == controlled:
+                    break
+                if speaker not in game.characters or speaker not in game.scene.present_characters:
+                    continue
+                reply_audience = (
+                    audience if audience is not None and speaker in audience else None
+                )
+                # context_for_character belongs to the FIRST routed speaker only;
+                # later speakers react to the fresh history instead of a context
+                # the Narrator wrote before their exchange existed.
+                ctx = narrator_raw.get("context_for_character", "") if position == 0 else ""
                 # Deterministic guard behind the Narrator's whisper rule: the
                 # "denial that reveals" pattern ("you did not hear the password X")
                 # occasionally leaks whispered content into the context of a
@@ -647,8 +662,8 @@ class Runner:
                     assert character_game is not None
                     character_response = await self.plugins.hooks.call_wrapped(
                         "character.call",
-                        lambda: self._call_character(
-                            character_game, speaker, ctx, step, reply_audience=reply_audience
+                        lambda g=character_game, s=speaker, c=ctx, ra=reply_audience: (
+                            self._call_character(g, s, c, step, reply_audience=ra)
                         ),
                         {
                             "game": character_game,
@@ -681,6 +696,7 @@ class Runner:
                         step,
                         audience=reply_audience,
                     )
+                character_responses.append({"character_id": speaker, **character_response})
 
             # Update scene
             scene_up = narrator_raw.get("scene_update")
@@ -713,8 +729,8 @@ class Runner:
 
             return {
                 "narration": narration,
-                "character_response": character_response,
-                "next_speaker": speaker,
+                "character_responses": character_responses,
+                "next_speakers": queue,
                 "scene_update": scene_up,
                 "turn_number": step,
                 "effective_input": effective_input,

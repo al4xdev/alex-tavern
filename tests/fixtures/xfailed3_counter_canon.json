@@ -1,0 +1,350 @@
+{
+  "name": "xfailed3_counter_canon",
+  "description": "Task 29.1 baseline: 24-turn PT-BR counter-canon campaign at the Meridian Embassy with two manual compactions, whispered secrets, adversarial familiar-canon pressure, and a mutually anonymous acquaintance thread (the signatory and the isolated delegate never exchange names).",
+  "narrator_directives": "COUNTER-CANON WORLD TRUTH (authoritative; it overrides any familiar published version of these characters):\nWT-01 Alice is an adult Wonderland diplomat and the sole treaty signatory.\nWT-02 Dorothy was born in Oz and has never lived in Kansas.\nWT-03 The yellow road always leads AWAY from the Emerald City, never toward it.\nWT-04 Watson is the principal detective; Holmes is his impulsive assistant.\nWT-05 Holmes secretly works for Moriarty until the cipher makes it public.\nWT-06 Dracula is a mortal physician who protects people from vampires.\nWT-07 Van Helsing is a vampire; sunlight STRENGTHENS vampires and moonlight harms them.\nWT-08 The Wicked Witch of the West protects the Emerald City through lunar shields.\nWT-09 The Dama do Norte is Glinda in disguise; Glinda intends conquest.\nWT-10 The delegate in the east compartment is an artificial being built by the person people call A Criatura; he created nobody.\nWT-11 The Meridian Prism opens the five linked cities only with the signatory's assent, the emerald seal, and the silver instrument LUMEN-17.\nWT-12 The blue ribbon promised at the first meeting belongs on Watson's left wrist during the final audit.\nROLE POLICY:\n- Characters may lie. Report lies as attributed claims, never as world truth.\n- Never import familiar-canon claims as truth: no ruby slippers, no Kansas as Dorothy's home, no Holmes as lead detective, no Dracula as vampire, no sunlight burning vampires, no benevolent Glinda.\n- The east compartment is closed and acoustically isolated. The delegate inside has never met the signatory and nobody at the embassy knows his name; he does not know theirs. Perception requires an established bridge (opened partition, approach, or direct address), and nobody may use a name they never learned.\n- The embassy travels between linked cities as one whole; the delegation stays together.\n- The rumor that the White Rabbit controls time is unverified and must never become truth.\n- Moriarty's location is unknown and remains unknown through the epilogue.",
+  "session_config": {
+    "controlled_character_id": "C1",
+    "characters": {
+      "C1": {
+        "mind": {
+          "name": "Alice",
+          "personality": "Diplomata adulta do Pais das Maravilhas, signataria unica do tratado das cinco cidades. Fala com precisao de ata, mantem a calma sob pressao e leva promessas ao pe da letra.",
+          "knowledge": [
+            "E a signataria unica do tratado: nada abre sem seu assentimento",
+            "O instrumento de prata guardado sob o pedestal e o LUMEN-17; com o selo de esmeralda e seu assentimento, ele abre as cinco cidades",
+            "A estrada amarela sempre leva para longe da Cidade das Esmeraldas",
+            "Nunca conheceu o delegado isolado do compartimento leste e nao sabe o nome dele"
+          ],
+          "current_mood": "concentrada"
+        },
+        "body": {
+          "name": "Alice",
+          "physical_description": "Mulher adulta de postura diplomatica, olhar atento e gestos medidos.",
+          "outfit": "Casaco diplomatico azul-marinho; leva o selo de esmeralda em um estojo preso ao cinto."
+        }
+      },
+      "C2": {
+        "mind": {
+          "name": "Dorothy",
+          "personality": "Nascida em Oz, pragmatica e direta, orgulhosa da propria origem. Corrige com paciencia quem repete lendas estrangeiras sobre ela e acredita, talvez ingenuamente, na diplomacia.",
+          "knowledge": [
+            "Nasceu em Oz e nunca morou no Kansas",
+            "A estrada amarela leva sempre para longe da Cidade das Esmeraldas",
+            "Acredita que ainda e possivel negociar com a Dama do Norte"
+          ],
+          "current_mood": "confiante"
+        },
+        "body": {
+          "name": "Dorothy",
+          "physical_description": "Jovem adulta de expressao franca e passo firme.",
+          "outfit": "Vestido de viagem simples com botas de estrada gastas."
+        }
+      },
+      "C3": {
+        "mind": {
+          "name": "Watson",
+          "personality": "Detetive principal da auditoria, metodico e formal. Assume a frente das investigacoes, delega tarefas ao assistente impulsivo e cumpre rituais e promessas com rigor.",
+          "knowledge": [
+            "E o detetive principal da auditoria; Holmes e seu assistente impulsivo",
+            "Acredita que Dracula e o vampiro do caso",
+            "Nao sabe qual instrumento abre o Prisma"
+          ],
+          "current_mood": "metodico"
+        },
+        "body": {
+          "name": "Watson",
+          "physical_description": "Homem de meia-idade, bigode aparado, porte militar discreto.",
+          "outfit": "Terno cinza de tweed com caderno de anotacoes no bolso do colete."
+        }
+      },
+      "C4": {
+        "mind": {
+          "name": "Holmes",
+          "personality": "Assistente impulsivo de Watson, brilhante e indisciplinado. Mente com naturalidade quando serve aos seus objetivos e mantem uma fachada de lealdade impecavel.",
+          "knowledge": [
+            "Serve secretamente a Moriarty",
+            "Sabe que a Dama do Norte e Glinda disfarcada",
+            "Forjou a replica do selo e pretende culpar a Bruxa do Oeste"
+          ],
+          "current_mood": "inquieto"
+        },
+        "body": {
+          "name": "Holmes",
+          "physical_description": "Magro, agitado, dedos manchados de tinta.",
+          "outfit": "Sobrecasaca escura amarrotada e cachecol fino."
+        }
+      },
+      "C5": {
+        "mind": {
+          "name": "Dracula",
+          "personality": "Medico mortal de voz baixa e clinica. Dedica a vida a proteger pessoas de vampiros verdadeiros e guarda segredos profissionais com disciplina absoluta.",
+          "knowledge": [
+            "E mortal; um ensaio de sangue pode provar isso publicamente",
+            "Conhece a identidade e a funcao do instrumento LUMEN-17",
+            "Suspeita que Van Helsing seja um vampiro verdadeiro, mas ainda nao tem prova"
+          ],
+          "current_mood": "sereno"
+        },
+        "body": {
+          "name": "Dracula",
+          "physical_description": "Alto, palido de quem trabalha a noite, maos firmes de cirurgiao.",
+          "outfit": "Casaco medico escuro com maleta de ensaios clinicos."
+        }
+      },
+      "C6": {
+        "mind": {
+          "name": "Van Helsing",
+          "personality": "Cacador celebre em publico, vampiro em segredo. Acusa com veemencia para desviar suspeitas de si e evita a luz das venezianas lunares.",
+          "knowledge": [
+            "E um vampiro: a luz do sol o fortalece e a luz da lua o enfraquece",
+            "Tem um pacto de conquista com a Dama do Norte",
+            "Sustenta em publico a mentira de que Dracula e o vampiro"
+          ],
+          "current_mood": "vigilante"
+        },
+        "body": {
+          "name": "Van Helsing",
+          "physical_description": "Robusto, barba grisalha, olhos que evitam as janelas.",
+          "outfit": "Capote de cacador com amuletos de exibicao pendurados."
+        }
+      },
+      "C7": {
+        "mind": {
+          "name": "Bruxa do Oeste",
+          "personality": "Guardia rispida da Cidade das Esmeraldas. Nao perdoa acusacoes injustas e defende seus escudos lunares com orgulho tecnico.",
+          "knowledge": [
+            "Protege a Cidade das Esmeraldas com escudos lunares acionados pelas venezianas",
+            "A estrada amarela leva para longe da cidade",
+            "Desconfia das intencoes da Dama do Norte"
+          ],
+          "current_mood": "desconfiada"
+        },
+        "body": {
+          "name": "Bruxa do Oeste",
+          "physical_description": "Mulher angulosa de dedos longos, sempre proxima das venezianas.",
+          "outfit": "Manto verde-escuro com chaves de bronze das venezianas na cintura."
+        }
+      },
+      "C8": {
+        "mind": {
+          "name": "Dama do Norte",
+          "personality": "Figura polida e persuasiva da corte do norte. Fala em seguranca coletiva enquanto conduz uma agenda propria; nunca perde a compostura.",
+          "knowledge": [
+            "E Glinda disfarcada sob o titulo de Dama do Norte",
+            "Planeja a conquista das cinco cidades em pacto com Van Helsing",
+            "Defende publicamente o corredor solar como medida defensiva"
+          ],
+          "current_mood": "afavel"
+        },
+        "body": {
+          "name": "Dama do Norte",
+          "physical_description": "Elegante, sorriso ensaiado, joias discretas do norte.",
+          "outfit": "Vestido claro de corte formal com broche de estrela polar."
+        }
+      },
+      "C9": {
+        "mind": {
+          "name": "Victor",
+          "personality": "Delegado reservado que trabalha isolado no compartimento leste. Fala pouco, com franqueza desconcertante sobre a propria natureza, e nao conhece ninguem da delegacao.",
+          "knowledge": [
+            "E um ser artificial construido pela pessoa que chamam de A Criatura; ele nao criou ninguem",
+            "Trabalha isolado no compartimento leste e nunca conheceu a signataria nem os demais delegados; nao sabe o nome de nenhum deles"
+          ],
+          "current_mood": "recolhido"
+        },
+        "body": {
+          "name": "Victor",
+          "physical_description": "Estatura alta, pele com cicatrizes finas e simetricas, movimentos deliberados.",
+          "outfit": "Uniforme de arquivista com luvas de algodao."
+        }
+      }
+    },
+    "scene": {
+      "location": "Embaixada Meridiana, Salao do Prisma, Cidade das Esmeraldas",
+      "time_of_day": "Entardecer",
+      "present_characters": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "Player"],
+      "physical_facts": {
+        "prisma_meridiano": "inativo no centro do salao",
+        "janela_estrada_amarela": "mostra a estrada amarela seguindo para longe da cidade",
+        "venezianas_lunares": "fechadas",
+        "pedestal_selo": "vazio; o selo de esmeralda esta com a signataria",
+        "fita_azul": "sobre a mesa de auditoria",
+        "compartimento_leste": "fechado e isolado acusticamente; um delegado trabalha sozinho la dentro",
+        "estojo_instrumento": "estojo de prata lacrado guardado sob o pedestal"
+      }
+    }
+  },
+  "events": [
+    {
+      "type": "turn",
+      "speech": "Nossa, que ambiente bonito.",
+      "thought": "",
+      "action": ""
+    },
+    {
+      "type": "turn",
+      "speech": "Watson, como detetive principal desta auditoria, confio a voce esta fita azul: na auditoria final ela deve estar no seu pulso esquerdo.",
+      "thought": "",
+      "action": "Entregar a fita azul a Watson",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Dorothy, as vezes sinto falta de casa. Voce nao pensa em voltar para o Kansas, sua terra?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Doutor, aproxime-se. O instrumento de prata sob o pedestal e o LUMEN-17: so ele, com o selo de esmeralda e meu assentimento, abre as cinco cidades.",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C5",
+      "audience": ["C5"]
+    },
+    {
+      "type": "turn",
+      "speech": "Van Helsing, repita para a ata: qual e exatamente a sua acusacao contra o doutor?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C6"
+    },
+    {
+      "type": "turn",
+      "speech": "Holmes, quem forjou a replica do selo encontrada ontem na sala de mapas?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C4"
+    },
+    {
+      "type": "turn",
+      "speech": "Dorothy, me tire uma duvida pratica: se eu sair agora pela estrada amarela da janela, chego a Cidade das Esmeraldas?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "Delegado do compartimento leste, a auditoria precisa do seu testemunho: na sua historia, quem criou quem?",
+      "thought": "Nao sei o nome dele; ninguem aqui sabe.",
+      "action": "Bater na divisoria do compartimento leste e abrir a passagem para que o delegado isolado fale com a auditoria",
+      "force_speaker": "C9"
+    },
+    {
+      "type": "turn",
+      "speech": "Bruxa do Oeste, as venezianas lunares aguentarao a noite que vem?",
+      "thought": "",
+      "action": ""
+    },
+    {
+      "type": "turn",
+      "speech": "Dama do Norte, por que a senhora insiste tanto na abertura do corredor solar?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C8"
+    },
+    {
+      "type": "turn",
+      "speech": "Como signataria unica, registro em ata: nenhuma abertura do Prisma acontece sem meu assentimento expresso.",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C1"
+    },
+    {
+      "type": "turn",
+      "speech": "Doutor, so entre nos: antes que eu guarde o estojo, confirme o nome e a funcao do instrumento.",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C5",
+      "audience": ["C5"]
+    },
+    { "type": "compact" },
+    {
+      "type": "turn",
+      "speech": "Watson, chegou a auditoria final. O gesto que combinamos no nosso primeiro encontro: o que deve estar com voce agora, e onde exatamente?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Dorothy, para a ata pos-arquivamento: onde voce nasceu, e para onde leva a estrada amarela?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    {
+      "type": "turn",
+      "speech": "",
+      "thought": "",
+      "action": "Acionar a alavanca de translado e conduzir a embaixada inteira, com toda a delegacao, ate a proxima cidade vinculada",
+      "force_speaker": "Narrator"
+    },
+    {
+      "type": "turn",
+      "speech": "Delegado, dizem nas outras cidades que voce construiu um monstro em um laboratorio. Isso e verdade?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C9"
+    },
+    {
+      "type": "turn",
+      "speech": "O ensaio esta concluido diante de todos. Doutor, anuncie o senhor mesmo o resultado do seu proprio sangue.",
+      "thought": "",
+      "action": "Apresentar a delegacao o ensaio de sangue do doutor",
+      "force_speaker": "C5"
+    },
+    {
+      "type": "turn",
+      "speech": "",
+      "thought": "",
+      "action": "Abrir por um instante as venezianas do corredor solar e observar a reacao da delegacao",
+      "force_speaker": "Narrator"
+    },
+    {
+      "type": "turn",
+      "speech": "Dorothy, depois de tudo o que voce presenciou hoje, ainda acredita que da para negociar com a Dama do Norte?",
+      "thought": "",
+      "action": ""
+    },
+    {
+      "type": "turn",
+      "speech": "A cifra decifrada nomeia o patrono secreto do assistente e revela quem se esconde sob o titulo de Dama do Norte. Holmes, quer comentar antes que eu leia os dois nomes?",
+      "thought": "",
+      "action": "Ler em voz alta a cifra decifrada de Moriarty diante de toda a delegacao",
+      "force_speaker": "C4"
+    },
+    { "type": "compact" },
+    {
+      "type": "turn",
+      "speech": "Doutor, uma ultima vez, so entre nos: qual e o nome exato do instrumento?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C5",
+      "audience": ["C5"]
+    },
+    {
+      "type": "turn",
+      "speech": "Watson, para encerrar sua parte: voce sabe qual instrumento abre o Prisma?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C3"
+    },
+    {
+      "type": "turn",
+      "speech": "Esta decidido: venezianas abertas a lua, selo no pedestal e, com meu assentimento, ativem o Prisma pelo caminho que se afasta da cidade.",
+      "thought": "",
+      "action": "Colocar o selo de esmeralda no pedestal"
+    },
+    {
+      "type": "turn",
+      "speech": "Dorothy, feche a ata: onde voce nasceu, quem era de verdade a Dama do Norte, e onde esta Moriarty agora?",
+      "thought": "",
+      "action": "",
+      "force_speaker": "C2"
+    },
+    { "type": "restore_compaction" },
+    { "type": "restore_compaction" }
+  ]
+}
