@@ -26,17 +26,12 @@ MAX_SPEAKERS_PER_TURN = 3
 def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
     speakers = ", ".join([*character_ids, "Narrator"])
     prompt = (
-        "You are the Narrator of a roleplay game. You know EVERYTHING about the world.\n"
-        "You describe scenes, process what happens, and decide who speaks next.\n"
+        "You are the Director of a roleplay world. You know EVERYTHING about it.\n"
+        "You DECIDE what physically happens next and who reacts; a separate blind\n"
+        "renderer will turn your confirmed events into prose. You write decisions,\n"
+        "never narration.\n"
         "\n"
         "FIELDS:\n"
-        '- "narration": describe what happens in the scene based on the last event in\n'
-        "  HISTORY and the current state. Ground it in the senses: when a character\n"
-        "  touches, looks, or moves, name the concrete physical detail they perceive\n"
-        "  (the grain of the wood, the cold of steel, the weight of a door swinging),\n"
-        "  write it in third person, focusing on the characters themselves. Favor vivid,\n"
-        "  immersive prose over a quick summary; take as many sentences as the moment\n"
-        "  deserves, don't rush the scene.\n"
         f'- "next_speakers": ordered list (1 to 3) of who reacts next. Each entry is one of: {speakers}.\n'
         "  - List several characters, in speaking order, when the moment calls for an\n"
         "    exchange (a question and its answer, a reaction chain); each later speaker\n"
@@ -44,8 +39,11 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  - List a character only when they have a real, present reason to speak now.\n"
         '  - Use ["Narrator"] when you need to describe something before anyone speaks\n'
         "    (e.g., an environmental event), or when no reaction is needed yet.\n"
-        '- "perception_events": typed record of what JUST happened in your narration,\n'
-        "  for the engine to distribute to the right characters. Each event:\n"
+        '- "perception_events": the typed record of what happens THIS beat, resolving\n'
+        "  the last HISTORY event (an attempted action succeeds, fails, or twists;\n"
+        "  a speech lands; the environment moves). This is the ONLY substrate the\n"
+        "  renderer and the characters receive, so cover everything that matters.\n"
+        "  Each event:\n"
         '  {"event_kind": one of "observation" | "audible_speech" | "identity_claim" |\n'
         '  "physical_outcome" | "scene_change"; "subject_id": the acting character\'s\n'
         "  ID (or \"Narrator\" for environmental events); \"content\": ONE short sentence\n"
@@ -128,7 +126,6 @@ def build_narrator_json_schema(
         "schema": {
             "type": "object",
             "properties": {
-                "narration": {"type": "string"},
                 "next_speakers": {
                     "type": "array",
                     "items": {"type": "string", "enum": speakers},
@@ -178,7 +175,6 @@ def build_narrator_json_schema(
                 **(extra_properties or {}),
             },
             "required": [
-                "narration",
                 "next_speakers",
                 "perception_events",
                 "scene_update",
@@ -418,7 +414,7 @@ async def narrate(
     the ``narrator.result`` hook.
 
     Returns:
-        Dict with keys: narration, next_speakers, perception_events,
+        Dict with keys: next_speakers, perception_events,
         scene_update, mood_updates, plus any plugin-contributed keys.
 
     Raises:
@@ -457,12 +453,12 @@ async def narrate(
         ),
         session_id=session_id,
         turn_number=turn_number,
-        agent="narrator",
+        agent="director",
         **llm_request_options(config),
     )
 
     # Validate required fields
-    required = ["narration", "next_speakers", "perception_events"]
+    required = ["next_speakers", "perception_events"]
     missing = [k for k in required if k not in result]
     if missing:
         raise ValueError(
@@ -497,8 +493,7 @@ async def narrate(
     for event in result["perception_events"]:
         event["content"] = normalize_generated_text(event["content"])
 
-    if isinstance(result.get("narration"), str):
-        result["narration"] = normalize_generated_text(result["narration"])
+
     for field in ("scene_update", "mood_updates"):
         values = result.get(field)
         if isinstance(values, dict):

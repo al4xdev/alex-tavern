@@ -199,3 +199,15 @@ in both; findings below are narrator/character prose):
 - Praise worth preserving as the target register: "O som não ultrapassa o
   espaço entre eles, dissipando-se no ar do salão antes de alcançar qualquer
   outro ouvido" — narration committing to the acoustic isolation.
+
+## Additional Evidence (2026-07-16, post Decision/Prose split 36.1)
+
+Deterministic measurement on 4 fresh runs: dialogue-in-narration = 0/4
+(structurally eliminated — spoken words no longer exist in any prose input).
+NEW dominant defect class: near-duplicate narration SENTENCES across turns in
+static scenes (6 and 15 instances in the party takes; 0 and 2 in the embassy
+takes). The renderer, seeing its own prior prose and a content-free transcript,
+re-describes the same tableau. Candidate mitigations for THIS task: fuzzy
+retry-guard on generated narration (>0.85 similarity to prior narration →
+one correction retry), and/or passing only the last 1-2 narrations as context.
+Measure before choosing.

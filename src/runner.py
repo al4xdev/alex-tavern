@@ -7,6 +7,7 @@ between concurrent sessions.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -20,6 +21,7 @@ from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate, redact_whisper_leaks
 from src.agents.narrator import suggest as narrator_suggest
+from src.agents.prose import render_narration
 from src.agents.perspective import (
     initialize_perspective,
     needs_identity_update,
@@ -647,11 +649,7 @@ class Runner:
                     {"game": game, "turn_number": step, "runner": self},
                 )
 
-            # Advance the turn
-            narration = narrator_raw["narration"]
-            self._append_history(game, "Narrator", narration, "narration", step)
-
-            # A manual force wins over whatever the Narrator (or a plugin filter)
+            # A manual force wins over whatever the Director (or a plugin filter)
             # returned — the queue collapses to the forced speaker alone.
             queue: list[str] = (
                 [effective_force_speaker]
@@ -660,6 +658,27 @@ class Runner:
             )
             controlled = game.player.controlled_character_id
             character_responses: list[dict[str, Any]] = []
+
+            # Decision -> Prose split (Task 36): the blind renderer turns the
+            # validated events into reader prose CONCURRENTLY with the routed
+            # speakers' ledger preparation (they share no data dependency; the
+            # latency concentrates at this beat boundary). Deterministic merge:
+            # the narration record is always appended before any character
+            # record, regardless of completion order.
+            prepare_ids = list(
+                dict.fromkeys(
+                    speaker
+                    for speaker in queue
+                    if speaker != controlled
+                    and speaker in game.characters
+                    and speaker in game.scene.present_characters
+                )
+            )
+            narration, *_ = await asyncio.gather(
+                self._render_narration(game, narrator_raw["perception_events"], step),
+                *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
+            )
+            self._append_history(game, "Narrator", narration, "narration", step)
 
             # The queue runs sequentially WITHOUT Narrator calls in between: each
             # response is appended to history before the next character call, so a
@@ -1381,6 +1400,25 @@ class Runner:
             extra_context=extra_context,
             extra_schema_properties=extra_schema_properties,
             extra_schema_required=extra_schema_required,
+        )
+
+    async def _render_narration(
+        self,
+        game: GameState,
+        events: list[dict[str, Any]],
+        turn_number: int,
+    ) -> str:
+        """Blind prose renderer boundary (Task 36) — injectable like the other agents."""
+        return await render_narration(
+            self.client,
+            game.scene,
+            game.characters,
+            game.player.controlled_character_id,
+            game.history,
+            events,
+            self.config,
+            session_id=game.session_id,
+            turn_number=turn_number,
         )
 
     async def _ensure_perspective(

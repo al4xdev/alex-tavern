@@ -23,6 +23,10 @@ from src.models import (
     deepcopy_scene,
 )
 
+async def _fake_prose() -> str:
+    return "Narracao de teste."
+
+
 CHARACTERS = {
     "C1": Character(
         mind=CharacterMind(name="Alex", personality="Direto.", knowledge=[], current_mood="neutro"),
@@ -221,6 +225,11 @@ class TestRunnerWiring:
                 }
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+            monkeypatch.setattr(
+                runner,
+                "_render_narration",
+                lambda game, events, turn_number: _fake_prose(),
+            )
             monkeypatch.setattr(runner, "_call_character", fake_character)
             result = await runner.player_turn(sid, speech="Oi, gente!")
             game = await runner.get_state(sid)
@@ -279,6 +288,11 @@ class TestRunnerWiring:
                 }
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+            monkeypatch.setattr(
+                runner,
+                "_render_narration",
+                lambda game, events, turn_number: _fake_prose(),
+            )
             monkeypatch.setattr(runner, "_call_character", fake_character)
 
             await runner.player_turn(sid, speech="Primeiro turno.")

@@ -21,6 +21,10 @@ from src.models import (
 )
 
 
+async def _fake_prose() -> str:
+    return "Narracao de teste."
+
+
 def _char(name: str) -> Character:
     return Character(
         mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
@@ -145,6 +149,11 @@ class TestRunnerInjection:
                 }
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+            monkeypatch.setattr(
+                runner,
+                "_render_narration",
+                lambda game, events, turn_number: _fake_prose(),
+            )
             try:
                 await runner.player_turn(sid, skip=True)
                 game = await runner.get_state(sid)
@@ -190,6 +199,11 @@ class TestRunnerInjection:
                 }
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+            monkeypatch.setattr(
+                runner,
+                "_render_narration",
+                lambda game, events, turn_number: _fake_prose(),
+            )
             try:
                 await runner.player_turn(sid, speech="Oi.")
                 await runner.player_turn(
