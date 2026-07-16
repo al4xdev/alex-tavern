@@ -20,6 +20,12 @@ from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate, redact_whisper_leaks
 from src.agents.narrator import suggest as narrator_suggest
+from src.agents.perspective import (
+    initialize_perspective,
+    needs_identity_update,
+    project_text_for_viewer,
+    update_identity,
+)
 from src.agents.summarizer import relevant_character_ids, summarize
 from src.compaction import (
     CompactionDraft,
@@ -52,7 +58,9 @@ from src.models import (
     PresenceEditEntry,
     TurnRecord,
     default_present_characters,
+    dict_to_perspective,
     dict_to_turn_record,
+    perspective_to_dict,
     validate_present_characters,
 )
 from src.store.sessions import (
@@ -653,6 +661,10 @@ class Runner:
                 # character outside the whisper's audience. Strip it here, before
                 # the character ever sees it; audience members are unaffected.
                 ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
+                await self._ensure_perspective(game, speaker, step)
+                ctx = project_text_for_viewer(
+                    ctx, game.characters, game.character_perspectives.get(speaker)
+                )
                 if self.plugins is None:
                     character_response = await self._call_character(
                         game, speaker, ctx, step, reply_audience=reply_audience
@@ -791,6 +803,10 @@ class Runner:
                 if cid in game.characters:
                     game.characters[cid].mind.current_mood = mood
             game.plugin_state = copy.deepcopy(restore.plugin_state_snapshot)
+            game.character_perspectives = {
+                viewer_id: dict_to_perspective(item)
+                for viewer_id, item in restore.perspective_snapshot.items()
+            }
 
             if self.plugins is not None:
                 game = await self.plugins.hooks.filter(
@@ -1327,6 +1343,45 @@ class Runner:
             extra_schema_required=extra_schema_required,
         )
 
+    async def _ensure_perspective(
+        self,
+        game: GameState,
+        viewer_id: str,
+        turn_number: int,
+    ) -> None:
+        """Initialize/refresh one viewer's identity ledger inside the turn draft.
+
+        Lazy and transactional: the ledger is compiled from the viewer's priors
+        the first time this viewer is about to speak, and the small identity
+        updater runs only when the deterministic predicate says it can matter
+        (strangers remain AND new speech became visible to the viewer). Both
+        calls commit with the turn or not at all.
+        """
+        perspective = game.character_perspectives.get(viewer_id)
+        if perspective is None:
+            perspective = await initialize_perspective(
+                self.client,
+                viewer_id,
+                game.characters,
+                game.player.controlled_character_id,
+                self.config,
+                session_id=game.session_id,
+                turn_number=turn_number,
+            )
+            game.character_perspectives[viewer_id] = perspective
+        if needs_identity_update(game.history, viewer_id, perspective):
+            await update_identity(
+                self.client,
+                viewer_id,
+                perspective,
+                game.history,
+                game.characters,
+                game.player.controlled_character_id,
+                self.config,
+                session_id=game.session_id,
+                turn_number=turn_number,
+            )
+
     async def _call_character(
         self,
         game: GameState,
@@ -1350,6 +1405,7 @@ class Runner:
             notes=game.character_notes.get(character_id, ""),
             scene=game.scene,
             reply_audience=reply_audience,
+            viewer_perspective=game.character_perspectives.get(character_id),
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
@@ -1416,5 +1472,9 @@ class Runner:
             mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
             plugin_state_snapshot=copy.deepcopy(game.plugin_state),
             audience=list(audience) if audience is not None else None,
+            perspective_snapshot={
+                viewer_id: perspective_to_dict(perspective)
+                for viewer_id, perspective in game.character_perspectives.items()
+            },
         )
         game.history.append(record)

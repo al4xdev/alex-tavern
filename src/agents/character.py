@@ -7,6 +7,7 @@ from typing import TypedDict
 
 import httpx
 
+from src.agents.perspective import viewer_speaker_label
 from src.confidentiality import redact_tokens, secret_tokens_exposed_to, tokens
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
@@ -150,6 +151,7 @@ def _whisper_turn_note(
     characters: dict[str, Character],
     controlled_id: str,
     character_id: str,
+    viewer_perspective=None,
 ) -> str:
     """Structural signal that this turn's speech is itself whispered.
 
@@ -166,7 +168,7 @@ def _whisper_turn_note(
     for cid in [controlled_id, *reply_audience]:
         if cid == character_id or cid not in characters:
             continue
-        name = characters[cid].mind.name
+        name = viewer_speaker_label(cid, characters, controlled_id, viewer_perspective)
         if name not in confidants:
             confidants.append(name)
     hearers = ", ".join(confidants) if confidants else "your confidant"
@@ -186,6 +188,7 @@ def _format_history_for_character(
     character_id: str,
     context_max: int | None = None,
     max_tokens_character: int = 1024,
+    viewer_perspective=None,
 ) -> str:
     """Formats the history as linear text for the character.
 
@@ -207,7 +210,7 @@ def _format_history_for_character(
     kind_labels = {"thought": "PRIVATE THOUGHT", "action": "ACTION"}
     lines: list[str] = []
     for rec in hist:
-        label = speaker_label(rec.speaker, characters, controlled_id)
+        label = viewer_speaker_label(rec.speaker, characters, controlled_id, viewer_perspective)
         kind = kind_labels.get(rec.content_type, "SPEECH")
         if rec.audience is not None and rec.content_type in ("speech", "action"):
             kind = f"WHISPERED {kind} (confidential, not everyone present perceived this)"
@@ -267,6 +270,7 @@ async def act(
     notes: str = "",
     scene: Scene | None = None,
     reply_audience: list[str] | None = None,
+    viewer_perspective=None,
 ) -> CharacterOutput:
     """Build the Character prompt and return separate speech/thought fields.
 
@@ -308,6 +312,7 @@ async def act(
         character_id,
         context_max=config.get("context_max"),
         max_tokens_character=max_tokens_character,
+        viewer_perspective=viewer_perspective,
     )
     messages = [
         {"role": "system", "content": _build_system_prompt(character)},
@@ -319,7 +324,11 @@ async def act(
                 character.mind.current_mood,
                 notes,
                 whisper_note=_whisper_turn_note(
-                    reply_audience, characters, controlled_id, character_id
+                    reply_audience,
+                    characters,
+                    controlled_id,
+                    character_id,
+                    viewer_perspective=viewer_perspective,
                 ),
             ),
         },

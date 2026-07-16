@@ -13,8 +13,9 @@ from typing import Any
 # deliberately does NOT migrate old sessions (alpha, no legacy): agents should
 # bump the version and move on instead of carrying compatibility shims.
 # History: 1 = pre-audience sessions (implicit, field absent); 2 = whisper
-# audience model on TurnRecord (Tasks 22/24/25).
-SESSION_SCHEMA_VERSION = 2
+# audience model on TurnRecord (Tasks 22/24/25); 3 = per-character perspective
+# ledger (viewer-relative identity) with per-record snapshots (Task 29.2).
+SESSION_SCHEMA_VERSION = 3
 
 
 @dataclass
@@ -62,6 +63,56 @@ class Scene:
 
 
 @dataclass
+class PersonView:
+    """What ONE viewer currently believes about ONE other person's identity.
+
+    ``known_name`` is the viewer's belief, not canonical truth: it stays ``None``
+    until the viewer learns a name through events they perceived, and it may hold
+    a false or partial name. ``reference`` is the viewer-relative description used
+    in that viewer's prompts while (or wherever) no name is known — canonical
+    names and internal IDs never reach a prompt through this structure.
+    """
+
+    known_name: str | None
+    reference: str
+    source_turn: int
+
+
+@dataclass
+class CharacterPerspective:
+    """Per-character subjective identity ledger (Task 29.2, increment 1).
+
+    Compiled ONCE from the character's own priors (mind.knowledge/personality)
+    when the viewer first needs it, then updated only from events the viewer
+    perceived. This is the single resolution of ambiguous priors: every prompt
+    surface renders from here instead of re-interpreting raw sheet text.
+    """
+
+    initialized_turn: int
+    processed_through_turn: int
+    people: dict[str, PersonView] = field(default_factory=dict)
+
+
+def perspective_to_dict(perspective: CharacterPerspective) -> dict[str, Any]:
+    return asdict(perspective)
+
+
+def dict_to_perspective(data: dict[str, Any]) -> CharacterPerspective:
+    return CharacterPerspective(
+        initialized_turn=int(data["initialized_turn"]),
+        processed_through_turn=int(data["processed_through_turn"]),
+        people={
+            subject_id: PersonView(
+                known_name=item["known_name"],
+                reference=str(item["reference"]),
+                source_turn=int(item["source_turn"]),
+            )
+            for subject_id, item in data["people"].items()
+        },
+    )
+
+
+@dataclass
 class TurnRecord:
     """An entry in the history — contains a copy of the scene/mood at that moment."""
 
@@ -77,6 +128,9 @@ class TurnRecord:
     # character IDs makes the record whispered: only those characters (plus the
     # speaker) ever see it in their context. Applies to speech/action records.
     audience: list[str] | None = None
+    # Perspective ledgers as they were when this record was created — the undo
+    # anchor for identity state (mirrors scene_snapshot/mood_snapshot).
+    perspective_snapshot: dict[str, Any] = field(default_factory=dict)
 
 
 def record_visible_to(record: TurnRecord, character_id: str) -> bool:
@@ -140,6 +194,9 @@ class GameState:
     # Character -> native preset identity. Avatar bytes remain outside session state.
     character_preset_ids: dict[str, str] = field(default_factory=dict)
     presence_edit_stack: list[PresenceEditEntry] = field(default_factory=list)
+    # {viewer_id: CharacterPerspective} — each character's subjective identity
+    # ledger. Absent until that viewer first needs it (lazy initialization).
+    character_perspectives: dict[str, CharacterPerspective] = field(default_factory=dict)
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -271,6 +328,7 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
         mood_snapshot=dict(data["mood_snapshot"]),
         plugin_state_snapshot=copy.deepcopy(data["plugin_state_snapshot"]),
         audience=list(data["audience"]) if data.get("audience") is not None else None,
+        perspective_snapshot=copy.deepcopy(data.get("perspective_snapshot", {})),
     )
 
 
@@ -337,5 +395,9 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         compaction_stack=compaction_stack,
         character_preset_ids=dict(data["character_preset_ids"]),
         presence_edit_stack=presence_edit_stack,
+        character_perspectives={
+            viewer_id: dict_to_perspective(item)
+            for viewer_id, item in data.get("character_perspectives", {}).items()
+        },
         schema_version=int(data.get("schema_version", 1)),
     )
