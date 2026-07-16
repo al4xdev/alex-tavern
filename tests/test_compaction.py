@@ -93,7 +93,7 @@ def _runner_config(**overrides: Any) -> dict[str, Any]:
 def _narrator_result() -> dict[str, Any]:
     return {
         "narration": "The road answers.",
-        "next_speaker": "C1",
+        "next_speakers": ["C1"],
         "context_for_character": "",
         "scene_update": None,
         "mood_updates": None,

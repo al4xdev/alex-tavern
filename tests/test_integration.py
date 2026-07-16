@@ -742,7 +742,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"narration": "ok", "next_speaker": "Narrator", "context_for_character": ""}
+            return {"narration": "ok", "next_speakers": ["Narrator"], "context_for_character": ""}
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -761,7 +761,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"narration": "ok", "next_speaker": "Narrator", "context_for_character": ""}
+            return {"narration": "ok", "next_speakers": ["Narrator"], "context_for_character": ""}
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -822,7 +822,7 @@ class TestRunnerLogic:
             captured["extra_schema_required"] = extra_schema_required
             return {
                 "narration": "ok",
-                "next_speaker": "Narrator",
+                "next_speakers": ["Narrator"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -864,7 +864,7 @@ class TestRunnerLogic:
         async def fake_call_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
                 "narration": "C2 leaves the room.",
-                "next_speaker": "Narrator",
+                "next_speakers": ["Narrator"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -912,7 +912,7 @@ class TestRunnerLogic:
         async def fake_call_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
                 "narration": "The room empties.",
-                "next_speaker": "Narrator",
+                "next_speakers": ["Narrator"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -947,7 +947,7 @@ class TestRunnerLogic:
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
                 "narration": "Silence.",
-                "next_speaker": "C2",  # hallucinated/absent — must be gated
+                "next_speakers": ["C2"],  # hallucinated/absent — must be gated
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -960,7 +960,7 @@ class TestRunnerLogic:
         monkeypatch.setattr(self.runner, "_call_character", forbidden_character)
 
         result = await self.runner.player_turn(sid, speech="Oi.")
-        assert result["character_response"] is None
+        assert result["character_responses"] == []
         delete_session(sid)
 
     @pytest.mark.asyncio
@@ -985,7 +985,7 @@ class TestRunnerLogic:
             assert forced_speaker is None  # C2 is absent, so the force is dropped
             return {
                 "narration": "ok",
-                "next_speaker": "Narrator",
+                "next_speakers": ["Narrator"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -993,7 +993,7 @@ class TestRunnerLogic:
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         result = await self.runner.player_turn(sid, speech="Oi.", force_speaker="C2")
-        assert result["next_speaker"] == "Narrator"
+        assert result["next_speakers"] == ["Narrator"]
         delete_session(sid)
 
     @pytest.mark.asyncio
@@ -1007,7 +1007,7 @@ class TestRunnerLogic:
             captured["forced_speaker"] = forced_speaker
             return {
                 "narration": "The room stills.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": f"Context filtered for {forced_speaker}",
                 "scene_update": None,
                 "mood_updates": None,
@@ -1027,7 +1027,7 @@ class TestRunnerLogic:
             force_speaker="C2",
         )
 
-        assert result["next_speaker"] == "C2"
+        assert result["next_speakers"] == ["C2"]
         assert captured == {
             "forced_speaker": "C2",
             "character_id": "C2",
@@ -1086,7 +1086,7 @@ class TestRunnerLogic:
         game = await self.runner.get_state(sid)
         assert game is not None
         assert result["narration"] is None
-        assert result["next_speaker"] == game.player.controlled_character_id
+        assert result["next_speakers"] == []
         assert [(record.content_type, record.content) for record in game.history] == [
             ("thought", "Não devo demonstrar preocupação.")
         ]
@@ -1241,7 +1241,7 @@ class TestCompactSession:
             captured["summary"] = game.story_summary
             return {
                 "narration": "The gate hums.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": "The sealed gate is visible.",
                 "scene_update": None,
                 "mood_updates": None,
@@ -1265,10 +1265,9 @@ class TestCompactSession:
         )
 
         assert compacted["compacted"] is True
-        assert result["character_response"] == {
-            "speech": "I remember this gate.",
-            "thought": None,
-        }
+        assert result["character_responses"] == [
+            {"character_id": "C2", "speech": "I remember this gate.", "thought": None}
+        ]
         assert captured == {
             "summary": "Durable world summary.",
             "note": "Lyra remembers the sealed gate.",
@@ -1570,7 +1569,7 @@ class TestPresenceAdmin:
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
                 "narration": "A door creaks open.",
-                "next_speaker": "Narrator",
+                "next_speakers": ["Narrator"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -1703,7 +1702,7 @@ class TestCustomSessionAndDebug:
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "narration": "Algo acontece.",
-                "next_speaker": "C3",
+                "next_speakers": ["C3"],
                 "context_for_character": "ctx",
             }
 
@@ -1722,7 +1721,7 @@ class TestCustomSessionAndDebug:
             history=[],
             config={},
         )
-        assert result["next_speaker"] == "C3"
+        assert result["next_speakers"] == ["C3"]
 
     @pytest.mark.asyncio
     async def test_valid_speakers_fallback_invalid(self, monkeypatch) -> None:  # noqa: ANN001
@@ -1732,7 +1731,7 @@ class TestCustomSessionAndDebug:
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "narration": "Algo acontece.",
-                "next_speaker": "Fantasma",
+                "next_speakers": ["Fantasma"],
                 "context_for_character": "",
             }
 
@@ -1750,7 +1749,7 @@ class TestCustomSessionAndDebug:
             history=[],
             config={},
         )
-        assert result["next_speaker"] == "Narrator"
+        assert result["next_speakers"] == ["Narrator"]
 
     @pytest.mark.asyncio
     async def test_forced_speaker_constrains_schema_and_context_target(self, monkeypatch) -> None:  # noqa: ANN001
@@ -1763,7 +1762,7 @@ class TestCustomSessionAndDebug:
             captured["json_schema"] = kwargs["json_schema"]
             return {
                 "narration": "Something happens.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "Only C2 can perceive this.",
             }
 
@@ -1785,13 +1784,15 @@ class TestCustomSessionAndDebug:
 
         schema = captured["json_schema"]
         assert isinstance(schema, dict)
-        next_speaker = schema["schema"]["properties"]["next_speaker"]
-        assert next_speaker["enum"] == ["C2"]
+        next_speakers = schema["schema"]["properties"]["next_speakers"]
+        assert next_speakers["items"]["enum"] == ["C2"]
+        assert next_speakers["minItems"] == 1
+        assert next_speakers["maxItems"] == 3
         messages = captured["messages"]
         assert isinstance(messages, list)
-        assert "next_speaker is fixed as C2" in messages[1]["content"]
+        assert 'next_speakers is fixed as ["C2"]' in messages[1]["content"]
         assert "what C2 perceives" in messages[1]["content"]
-        assert result["next_speaker"] == "C2"
+        assert result["next_speakers"] == ["C2"]
 
     @pytest.mark.asyncio
     async def test_forced_narrator_always_clears_character_context(self, monkeypatch) -> None:  # noqa: ANN001
@@ -1800,7 +1801,7 @@ class TestCustomSessionAndDebug:
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "narration": "Something happens.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "Stale character context.",
             }
 
@@ -1815,7 +1816,7 @@ class TestCustomSessionAndDebug:
             forced_speaker="Narrator",
         )
 
-        assert result["next_speaker"] == "Narrator"
+        assert result["next_speakers"] == ["Narrator"]
         assert result["context_for_character"] == ""
 
     @pytest.mark.asyncio
@@ -1833,7 +1834,7 @@ class TestCustomSessionAndDebug:
                 content = json_module.dumps(
                     {
                         "narration": "A cripta range.",
-                        "next_speaker": "C1",
+                        "next_speakers": ["C1"],
                         "context_for_character": "Você ouve um rangido.",
                         "scene_update": None,
                         "mood_updates": None,
@@ -1858,7 +1859,9 @@ class TestCustomSessionAndDebug:
         )
         self.created.append(sid)
         result = await self.runner.player_turn(sid, speech="oi")
-        assert result["character_response"] == {"speech": "Estou pronto.", "thought": None}
+        assert result["character_responses"] == [
+            {"character_id": "C1", "speech": "Estou pronto.", "thought": None}
+        ]
 
         debug_path = session_debug_path(sid)
         assert debug_path.exists()
@@ -2420,7 +2423,7 @@ class TestEdgeCases:
             captured["narrator_hint"] = narrator_hint
             return {
                 "narration": "The storm rolls in.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2454,7 +2457,7 @@ class TestEdgeCases:
             captured["narrator_hint"] = narrator_hint
             return {
                 "narration": "A gust of wind tousles the grass.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2565,7 +2568,7 @@ class TestHttpBoundary:
             captured["narrator_hint"] = narrator_hint
             return {
                 "narration": "The wind stirs.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2617,7 +2620,7 @@ class TestHttpBoundary:
             captured["called"] = True
             return {
                 "narration": "Time passes.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2666,7 +2669,7 @@ class TestHttpBoundary:
             captured["narrator_hint"] = narrator_hint
             return {
                 "narration": "He swings.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2806,7 +2809,7 @@ class TestHttpBoundary:
             captured["called"] = True
             return {
                 "narration": "The storm passes.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2857,7 +2860,7 @@ class TestHttpBoundary:
             captured["called"] = True
             return {
                 "narration": "Rain begins to fall.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "",
                 "scene_update": None,
                 "mood_updates": None,
@@ -2911,7 +2914,7 @@ class TestHttpBoundary:
             captured["narrator_hint"] = narrator_hint
             return {
                 "narration": "Lyra steps forward.",
-                "next_speaker": "C1",
+                "next_speakers": ["C1"],
                 "context_for_character": "Lyra approaches you.",
                 "scene_update": None,
                 "mood_updates": None,

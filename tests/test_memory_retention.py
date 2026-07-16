@@ -120,7 +120,7 @@ class TestFocusSwitchWithoutTrim:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {
                 "narration": "A taverna murmura ao redor da mesa.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": "Dario aguarda a resposta de Vela.",
                 "scene_update": None,
                 "mood_updates": None,
@@ -139,7 +139,7 @@ class TestFocusSwitchWithoutTrim:
             force_speaker="C2",
         )
 
-        assert result["character_response"]["speech"] == "Era a senha que me confiaste no início."
+        assert result["character_responses"][0]["speech"] == "Era a senha que me confiaste no início."
         assert len(captured) == 1
         user_prompt = captured[0][-1]["content"]
         assert MARKER in user_prompt, "o fato da Fase A sumiu do prompt do personagem"
@@ -243,7 +243,7 @@ class TestFocusSwitchWithoutTrim:
             )
             return {
                 "narration": "Dario se inclina e sussurra algo a Vela.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": "Dario sussurra para você.",
                 "scene_update": None,
                 "mood_updates": None,
@@ -342,7 +342,7 @@ class TestFocusSwitchWithoutTrim:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {
                 "narration": "O pergaminho brilha à luz das velas.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": "Dario mostra algo a Vela.",
                 "scene_update": None,
                 "mood_updates": None,
@@ -537,7 +537,7 @@ class TestWhisperLeakGuardEndToEnd:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {
                 "narration": "Rook coça a nuca, alheio ao que foi murmurado.",
-                "next_speaker": "C3",
+                "next_speakers": ["C3"],
                 "context_for_character": (
                     "Dario pergunta se conheces alguma senha de cofre dele. "
                     "Você não ouviu o que foi sussurrado entre Dario e Vela; "
@@ -575,7 +575,7 @@ class TestWhisperLeakGuardEndToEnd:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {
                 "narration": "Vela inclina a cabeça, atenta.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": context_in,
                 "scene_update": None,
                 "mood_updates": None,
@@ -892,7 +892,7 @@ class TestCharacterOutputGuard:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {
                 "narration": "A taverna murmura.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": "Rook pergunta em voz alta sobre segredos.",
                 "scene_update": None,
                 "mood_updates": None,
@@ -918,7 +918,7 @@ class TestCharacterOutputGuard:
             assert public_speech, "a fala do personagem não foi gravada"
             assert all(MARKER not in rec.content for rec in public_speech)
             assert any("[indistinct]" in rec.content for rec in public_speech)
-            assert MARKER not in (result["character_response"]["speech"] or "")
+            assert MARKER not in (result["character_responses"][0]["speech"] or "")
         finally:
             directory = session_dir(sid)
             if directory.exists():
@@ -981,7 +981,7 @@ class TestTrimCompactionGapFinding:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {
                 "narration": "A taverna murmura.",
-                "next_speaker": "C2",
+                "next_speakers": ["C2"],
                 "context_for_character": "Dario aguarda.",
                 "scene_update": None,
                 "mood_updates": None,

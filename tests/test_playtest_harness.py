@@ -134,7 +134,7 @@ def test_analysis_detects_observable_signals() -> None:
     narrator_response = json.dumps(
         {
             "narration": "You feel the air change.",
-            "next_speaker": "C2",
+            "next_speakers": ["C2"],
             "context_for_character": "Context",
             "scene_update": {"physical_facts": '{"door": "open"}'},
             "mood_updates": {"C2": "calm"},
