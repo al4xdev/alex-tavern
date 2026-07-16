@@ -158,3 +158,28 @@ User-reported (archived at `plans/artifacts/session-091b11c6-live-findings/`):
   fraco de todos".
 - Larger response budgets (24k narrator / 12k character) measurably improved
   output quality; defaults were raised accordingly (adapters, 2026-07-16).
+
+## Additional Evidence (2026-07-16, blind critic on perspective-smoke runs)
+
+Blind continuity review of 3 takes (`plans/artifacts/perspective-smoke/`,
+grades A-/B-/C+). Identity boundary (Task 29.2 inc. 1) passed 3/3; every
+finding below is narrator-prose territory:
+
+- **Dialogue leaking into narration (systemic, most reader-visible)**: the
+  narration quotes a full character reply inside the italic prose, then the
+  character's actual line answers AGAIN differently — double answers, near-
+  duplicate phrasing, one soft contradiction (Dona Maria vs. avó do Tom).
+  Same class as the "narration pre-empts the forced speaker" finding from
+  session ef6b5b90; in the target architecture this dissolves when prose
+  renders only confirmed facts (Decision/Prose split).
+- **Character re-introduces herself two beats after introducing herself**, and
+  re-asks a question the other person just answered ("Então você é amigo
+  dele?" right after "eu sou o Rafa, amigo do Tom!").
+- **Boilerplate across independent takes**: "Tom é um querido/um amor" in 3/3
+  runs; "brincos balançando" as stock gesture (fuzzy-similarity metric would
+  catch both).
+- **Thought contradicting narration**: Nina's thought claims "Ele me viu.
+  Desviou o olhar" while the narration shows only HER looking away.
+- **Silent character**: Nina (with a live secret) never routed to speak in any
+  take — reads as an inactive agent, not performed indifference (Drive-layer
+  evidence, Task 33).
