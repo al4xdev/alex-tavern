@@ -1,6 +1,8 @@
 # Exploration — Task 29.2 Topology Spike 01: Identity Leak and Call Placement
 
-**Status:** In progress (feeds the mandatory exploration gate of Task 29.2)
+**Status:** Increments 1 (identity ledger + projection, commit 4a034b5) and 2
+(typed perception events + zone graph, commit eef052c) DELIVERED with real-run
+validation and two blind-critic cycles each; next: 29.3 comparison
 **Date:** 2026-07-15
 **Method:** prototype prompts mutated from a *real* recorded production request, executed
 against the configured provider (DeepSeek `deepseek-v4-flash`), no runtime code changed.

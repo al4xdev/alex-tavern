@@ -183,3 +183,19 @@ finding below is narrator-prose territory:
 - **Silent character**: Nina (with a live secret) never routed to speak in any
   take — reads as an inactive agent, not performed indifference (Drive-layer
   evidence, Task 33).
+
+## Additional Evidence (2026-07-16, blind critic on partition-smoke2 runs)
+
+Partition scenario (zones), 2 takes, grades A-/C+ (information partition held
+in both; findings below are narrator/character prose):
+
+- **Character invents a stimulus under forced routing with empty perception**
+  (pre-fix take): isolated Vitor greeted a nonexistent visitor. The engine now
+  fills the perception void with a deterministic statement; residual pressure
+  (why route to an isolated character at all) is Drive-layer/Task 33 territory.
+- **Narration duplicating dialogue verbatim inside prose** (recurring class,
+  new instance: Alice's T3 line quoted twice in one turn).
+- **Malapropism**: "delegacia" where "delegação" is meant.
+- Praise worth preserving as the target register: "O som não ultrapassa o
+  espaço entre eles, dissipando-se no ar do salão antes de alcançar qualquer
+  outro ouvido" — narration committing to the acoustic isolation.
