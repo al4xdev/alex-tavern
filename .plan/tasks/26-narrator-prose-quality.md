@@ -139,3 +139,22 @@ routed to the 29.2 exploration, prose/flow findings belong here:
 - **Narrator asserts a character's inner sensations as fact**: "sentindo o
   hálito de bebida quente no rosto", "a pele quente sob o tecido" — violates the
   "observable evidence only" rule from its own prompt.
+
+## Additional Evidence (2026-07-16, live session `091b11c6`)
+
+User-reported (archived at `plans/artifacts/session-091b11c6-live-findings/`):
+
+- **Passive narrator / no narrative drive**: the Narrator never advances the
+  story on its own; on skip turns it still waits for the player to speak. The
+  user had to force events via suggestions or invent events manually because
+  the game state stalled. This adds a new defect class to this task: the
+  Narrator as *event generator*, not only as prose renderer.
+- **Internal ID leaked into prose**: someone addressed a character as "C6" in
+  reader-visible text (variable leak; also routed to the 29.2 exploration).
+- **Verbatim repetition in short messages**: characters repeated text even in
+  not-so-long replies.
+- **Role violations**: the Narrator spoke for characters ("furou várias vezes
+  narrando fala de personagem"). User assessment: "o narrador é o elo mais
+  fraco de todos".
+- Larger response budgets (24k narrator / 12k character) measurably improved
+  output quality; defaults were raised accordingly (adapters, 2026-07-16).

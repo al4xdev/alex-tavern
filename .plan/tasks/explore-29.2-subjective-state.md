@@ -136,7 +136,34 @@ architecturally:
    after compaction), so no rapport accumulates inside a session — the continuous
    ledger updates of 29.2 absorb exactly this gap (and reconcile with Task 23).
 
-## 8. Relationship to the program
+## 8. Live evidence round 2 (2026-07-16, session `091b11c6`) and expanded mandate
+
+Archived at `plans/artifacts/session-091b11c6-live-findings/`. Items that bear on the
+29.2 architecture (prose-level items routed to Task 26; force-speaker to Task 28):
+
+- **Knowledge leak confirmed at scale**: "do nada todos sabiam de um fato que só poucos
+  personagens sabiam" — the audience/whisper guards protect *whispered* records, but
+  ordinary knowledge still propagates through narration/context with no boundary. This
+  is the exact gap the perspective ledger closes.
+- **Internal ID `C6` leaked into reader-visible prose** — projection must strip IDs, not
+  only unknown names.
+- **Narrator passivity + role violations**: the Narrator neither generates events on
+  skip turns nor reliably stays out of character speech. The user's assessment: the
+  Narrator is the weakest link. **Expanded mandate from the user**: the blind-narrator
+  *concept* stays, but the architecture around it may be reworked freely ("é tudo MVP
+  ainda") — this raises the priority of the Decision/Prose split hypothesis (§2.5 of the
+  29.2 doc) from fallback to first-class candidate in the exploration.
+- **Product direction under consideration**: giving Characters the capacity to act
+  physically (today action belongs exclusively to the Narrator). If adopted, Character
+  output becomes {speech, thought, action-proposal} with deterministic validation, which
+  interacts directly with the Decision-layer question and the perception-event contract.
+  Not decided; must be weighed during the 29.2 exploration.
+- **Response budgets**: 24k narrator / 12k character measurably improved quality;
+  defaults raised. Cost evidence from the session: 1.80M tokens total, 1.49M input
+  cache-hit vs 0.28M miss, 38k output — provider-native prefix caching absorbs most of
+  the cost, supporting 29.2's cache-first prompt shaping (§7 of the 29.2 doc).
+
+## 9. Relationship to the program
 
 - Task 29.1 should encode E0's *rate-based* measurement style: single-run pass/fail on
   stochastic leaks produces false confidence (0/3 then 7/10 here).

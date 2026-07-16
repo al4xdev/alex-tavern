@@ -68,3 +68,11 @@ working.
   frontend/mobile boundary evidence, and real-LLM session/debug-log evidence here
   before moving this task to `.plan/closed/`.
 - Update the Force Speaker documentation if its actual user-visible contract changes.
+
+## Additional Evidence (2026-07-16, live session `091b11c6`)
+
+User replayed with the character-alteration plugin active and reports the bug
+persists: characters did not speak even when explicitly forced
+(`plans/artifacts/session-091b11c6-live-findings/`). Investigate whether the
+plugin's `turn.input` hook interferes with `force_speaker`, and compare
+`turn_input` vs `turn_input_effective` records in that session's debug log.
