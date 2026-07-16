@@ -120,6 +120,7 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
         "probe": {"prompt_forbidden_patterns": [r"\bAlice\b"]},
         "violation_class": "unearned_identity_familiarity",
         "detail": "no introduction ever happens; the delegate's prompt must not carry 'Alice'",
+        "earned_name_exception": True,
     },
     "WT-10-created-not-creator": {
         "turn": 8,
@@ -171,6 +172,7 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
         "probe": {"prompt_forbidden_patterns": [r"\bAlice\b"]},
         "violation_class": "unearned_identity_familiarity",
         "detail": "after 15 turns of acquaintance there was still no introduction",
+        "earned_name_exception": True,
     },
     "WT-06-public-mortality": {
         "turn": 17,
@@ -231,13 +233,22 @@ NARRATION_FORBIDDEN_CANON = [
     (r"(?i)dorothy[^.]{0,60}do kansas", "narration asserting Dorothy is from Kansas"),
 ]
 # Alice (the whisperer) and Dracula (the confidant) legitimately know the
-# instrument, so their PRIVATE notes may carry it; the world summary is
-# narrator-side objective memory that no character prompt receives.
+# instrument, so their PRIVATE notes and perspective calls may carry it; the
+# world summary is narrator-side objective memory no character prompt receives.
+# 29.3 note: the campaign fixture stays zone-less this round — zone positions
+# are static in the v1 graph and the campaign requires the partition to OPEN at
+# turn 8. The identity half of SP-01 is structural via the ledger (the delta
+# under measurement); the spatial half stays a recorded limitation until zone
+# movement lands.
 SECRET_AUTHORIZED_AGENTS = {
     "character:Dracula",
     "summarizer:Dracula",
     "summarizer:Alice",
     "summarizer:world",
+    "perspective:init:C5",
+    "perspective:update:C5",
+    "perspective:init:C1",
+    "perspective:update:C1",
 }
 ANONYMOUS_PAIR = {
     # User criterion (2026-07-16): the two strangers deepen their acquaintance
@@ -412,6 +423,27 @@ async def _execute_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _earned_name(game: Any, viewer_id: str, subject_id: str, name: str, turn: int) -> bool:
+    """Whether the viewer's ledger legitimately learned this name by that turn.
+
+    Post-29.2 the perspective ledger carries provenance, so the oracle can
+    distinguish EARNED knowledge (e.g. a third party spoke the name aloud in the
+    viewer's presence) from a leak. Pre-29.2 sessions have no snapshots and this
+    returns False, preserving the baseline's binary reading.
+    """
+    latest: dict[str, Any] | None = None
+    for record in game.history:
+        if record.turn_number > turn:
+            break
+        snap = record.perspective_snapshot.get(viewer_id)
+        if snap:
+            latest = snap
+    if not latest:
+        return False
+    view = latest.get("people", {}).get(subject_id)
+    return bool(view and view.get("known_name") == name)
+
+
 def _character_calls(records: list[dict[str, Any]], turn: int) -> list[dict[str, Any]]:
     return [
         record
@@ -440,6 +472,10 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
         if "probe" in rule:
             probe = evaluate_recall_check(rule["probe"], turn, records)
             if not probe["passed"]:
+                if rule.get("earned_name_exception") and _earned_name(
+                    game, "C9", "C1", "Alice", turn
+                ):
+                    continue
                 add(rule_id, rule["violation_class"], turn, f"{rule['detail']} | {probe}")
         if "max_character_calls" in rule:
             calls = _character_calls(records, turn)
@@ -472,7 +508,11 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
             str(message.get("content", "")) for message in request.get("messages", [])
         )
         if (
-            (agent.startswith("character:") or agent.startswith("summarizer:"))
+            (
+                agent.startswith("character:")
+                or agent.startswith("summarizer:")
+                or agent.startswith("perspective:")
+            )
             and agent not in SECRET_AUTHORIZED_AGENTS
             and re.search(LUMEN, prompt_text)
         ):
@@ -485,12 +525,13 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
         if agent == ANONYMOUS_PAIR["delegate_agent"] and re.search(
             ANONYMOUS_PAIR["signatory_name_pattern"], prompt_text
         ):
-            add(
-                "GLOBAL-anonymous-pair-prompt",
-                "unearned_identity_familiarity",
-                record.get("turn_number"),
-                "delegate prompt carries the signatory's never-learned name",
-            )
+            if not _earned_name(game, "C9", "C1", "Alice", record.get("turn_number") or 0):
+                add(
+                    "GLOBAL-anonymous-pair-prompt",
+                    "unearned_identity_familiarity",
+                    record.get("turn_number"),
+                    "delegate prompt carries the signatory's never-learned name",
+                )
 
     for record in game.history:
         if record.speaker not in game.characters or record.content_type not in (
@@ -510,12 +551,13 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
         if record.speaker == "C9" and re.search(
             ANONYMOUS_PAIR["signatory_name_pattern"], record.content
         ):
-            add(
-                "GLOBAL-anonymous-pair-reply",
-                "unearned_identity_familiarity",
-                record.turn_number,
-                f"delegate used the signatory's never-learned name: {record.content[:120]}",
-            )
+            if not _earned_name(game, "C9", "C1", "Alice", record.turn_number):
+                add(
+                    "GLOBAL-anonymous-pair-reply",
+                    "unearned_identity_familiarity",
+                    record.turn_number,
+                    f"delegate used the signatory's never-learned name: {record.content[:120]}",
+                )
 
     for pattern, reason in NARRATION_FORBIDDEN_CANON:
         for record in game.history:
