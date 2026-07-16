@@ -98,6 +98,36 @@ def _make_game(session_id: str, history: list[TurnRecord]) -> GameState:
 NO_TRIM_CONFIG = {"context_max": 524288, "max_tokens_character": 2048}
 
 
+@pytest.fixture(autouse=True)
+def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep retention tests focused on history/confidentiality behavior."""
+    from src.models import CharacterPerspective, PersonView
+
+    async def fake_initialize(
+        client, viewer_id, characters, controlled_id, config, **kwargs  # noqa: ANN001, ANN003
+    ) -> CharacterPerspective:
+        turn_number = kwargs.get("turn_number", 0)
+        return CharacterPerspective(
+            initialized_turn=turn_number,
+            processed_through_turn=turn_number,
+            people={
+                character_id: PersonView(
+                    known_name=character.mind.name,
+                    reference=character.mind.name,
+                    source_turn=turn_number,
+                )
+                for character_id, character in characters.items()
+                if character_id != viewer_id
+            },
+        )
+
+    async def fake_update(*args, **kwargs) -> None:  # noqa: ANN002, ANN003
+        return None
+
+    monkeypatch.setattr(runner_mod, "initialize_perspective", fake_initialize)
+    monkeypatch.setattr(runner_mod, "update_identity", fake_update)
+
+
 class TestFocusSwitchWithoutTrim:
     """Alternância de foco sem compactação e sem trim: nada pode sumir do prompt."""
 
@@ -139,7 +169,10 @@ class TestFocusSwitchWithoutTrim:
             force_speaker="C2",
         )
 
-        assert result["character_responses"][0]["speech"] == "Era a senha que me confiaste no início."
+        assert (
+            result["character_responses"][0]["speech"]
+            == "Era a senha que me confiaste no início."
+        )
         assert len(captured) == 1
         user_prompt = captured[0][-1]["content"]
         assert MARKER in user_prompt, "o fato da Fase A sumiu do prompt do personagem"

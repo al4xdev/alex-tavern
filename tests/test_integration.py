@@ -106,6 +106,38 @@ DEFAULT_SCENE = Scene(
     },
 )
 
+
+@pytest.fixture(autouse=True)
+def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep legacy Runner tests isolated from the perspective LLM boundary."""
+    import src.runner as runner_mod
+    from src.models import CharacterPerspective, PersonView
+
+    async def fake_initialize(
+        client, viewer_id, characters, controlled_id, config, **kwargs  # noqa: ANN001, ANN003
+    ) -> CharacterPerspective:
+        turn_number = kwargs.get("turn_number", 0)
+        return CharacterPerspective(
+            initialized_turn=turn_number,
+            processed_through_turn=turn_number,
+            people={
+                character_id: PersonView(
+                    known_name=character.mind.name,
+                    reference=character.mind.name,
+                    source_turn=turn_number,
+                )
+                for character_id, character in characters.items()
+                if character_id != viewer_id
+            },
+        )
+
+    async def fake_update(*args, **kwargs) -> None:  # noqa: ANN002, ANN003
+        return None
+
+    monkeypatch.setattr(runner_mod, "initialize_perspective", fake_initialize)
+    monkeypatch.setattr(runner_mod, "update_identity", fake_update)
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────
 
 
