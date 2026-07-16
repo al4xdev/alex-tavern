@@ -2680,7 +2680,7 @@ class TestHttpBoundary:
             }
 
         llm_client = httpx.AsyncClient()
-        runner = Runner(llm_client, {})
+        runner = Runner(llm_client, {"auto_event_enabled": False})
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         app.state.runtime = RuntimeState(
             stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
