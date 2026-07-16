@@ -340,7 +340,6 @@ async def act(
             max_tokens=max_tokens_character,
             timeout=resolve_llm_timeout(config),
             json_schema=build_character_json_schema(),
-            retries=0,
             session_id=session_id,
             turn_number=turn_number,
             agent=f"character:{character.mind.name}",

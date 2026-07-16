@@ -1,5 +1,21 @@
 # Task 31 — Structured-Output Robustness and Unified Retry Policy
 
+> **CLOSED 2026-07-15.** Delivered: `_is_unretryable` in `src/llm/client.py`
+> (definitive 4xx fails fast, 408/429 stay retryable, everything transient keeps
+> the backoff budget), removed the `retries=0` override in
+> `src/agents/character.py`, and `tests/test_llm_retry_policy.py` (7 tests:
+> malformed-once recovery, 4xx fail-fast, 408/429/503 retry, client-budget bound
+> of 3 provider calls, correction loop bound of 2 without multiplication).
+> Suite: 381 passed, 2 xfailed. Real acceptance
+> (`plans/artifacts/task31-acceptance/`, 3x `memory_focus_xyz`): 3/3 runs
+> completed, 9/9 recall checks green, zero `Falha ao obter JSON válido`; runs 2
+> and 3 each hit a previously-fatal flake (`character JSONSchemaValidationError`,
+> `narrator RemoteProtocolError`) and recovered on attempt 2 — the exact failure
+> class that used to kill ~1 in 3 runs. Per user decision the blind critic loop
+> was not used for this task (reserved for 29.2). Forward note: every future
+> structured call (e.g. the 29.2 perspective updater) inherits this policy by
+> construction because it lives in the client layer.
+
 ## Goal
 
 Stop losing real-LLM runs to single malformed-JSON responses, and unify the

@@ -218,7 +218,9 @@ async def chat_completion_json(
     ``{"type": "json_object"}``.
 
     Performs retries with exponential backoff if the returned JSON is malformed,
-    if the content is empty, or if the server returns an HTTP error (5xx).
+    if the content is empty, or if the server returns a transient HTTP error.
+    Definitive client errors (4xx except 408/429) fail fast: resending the same
+    request cannot fix them, so no retry budget is spent on them.
 
     Args:
         client: Shared httpx.AsyncClient.
@@ -246,7 +248,9 @@ async def chat_completion_json(
         else {"type": "json_object"}
     )
     last_error: Exception | None = None
+    attempts_made = 0
     for attempt in range(retries + 1):
+        attempts_made = attempt + 1
         try:
             content = await chat_completion(
                 client,
@@ -276,10 +280,24 @@ async def chat_completion_json(
             httpx.RequestError,
         ) as e:
             last_error = e
+            if _is_unretryable(e):
+                break
             if attempt < retries:
                 await asyncio.sleep(0.5 * (2**attempt))  # backoff: 0.5s, 1s
             continue
 
     raise ValueError(
-        f"Falha ao obter JSON válido após {retries + 1} tentativas. Último erro: {last_error}"
+        f"Falha ao obter JSON válido após {attempts_made} tentativas. Último erro: {last_error}"
     )
+
+
+def _is_unretryable(error: Exception) -> bool:
+    """A definitive client error: resending the identical request cannot fix it.
+
+    408 (request timeout) and 429 (rate limit) are transient by definition and
+    keep their retry budget; every other 4xx means the request itself is wrong.
+    """
+    if not isinstance(error, httpx.HTTPStatusError):
+        return False
+    status = error.response.status_code
+    return 400 <= status < 500 and status not in (408, 429)
