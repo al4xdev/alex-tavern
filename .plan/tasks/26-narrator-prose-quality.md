@@ -115,3 +115,27 @@ Blind review of `plans/artifacts/memory_outputguard-run-v3-pos-ciclo1/` (3 sessi
 - **Surface language**: "Doublaram" (anglicism), broken commas from lost dashes,
   "prata meio enferrujada", world-inconsistent season talk (primavera + neve em 12
   dias).
+
+## Additional Evidence (2026-07-15, interactive session `ef6b5b90`)
+
+User-reported unnaturalness in live play (archived at
+`plans/artifacts/sofia-alex-identity-leak/session-ef6b5b90/`); identity findings
+routed to the 29.2 exploration, prose/flow findings belong here:
+
+- **Direct question left unanswered**: T2, Alex asks "faz o que da vida?"; Sofia
+  replies "Haha, relaxa, tô de boa! Mas a pergunta foi boa, hein?" — a
+  non-sequitur that dodges the question she was routed to answer; she only
+  answers one turn later after being pressed.
+- **Near-duplicate private thoughts on adjacent turns** (already-tracked class,
+  new instance): T2 "Ele é ousado, gostei. A Fernanda viu, mas tô nem aí." →
+  T3 "Ele tá ousadinho, mas eu gosto. A Fernanda percebeu, mas tô nem aí."
+- **Narration pre-empts the forced speaker's reply**: T3 and T4 narration both
+  end with Sofia "responde num tom provocante" / "responde com um sorriso
+  provocante" *before* her speech exists — the narration promises a reply tone
+  the Character call has not produced yet.
+- **Second-person narration** (already-tracked class, new instance): first
+  attempt narration opened "Você entra na sala de estar..." addressing the
+  player instead of third person (user undid the turn).
+- **Narrator asserts a character's inner sensations as fact**: "sentindo o
+  hálito de bebida quente no rosto", "a pele quente sob o tecido" — violates the
+  "observable evidence only" rule from its own prompt.

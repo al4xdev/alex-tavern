@@ -113,7 +113,28 @@ flowchart TD
 - The E1 leak-path isolation (label vs context) needs N≥10 per arm if it ever matters;
   with full projection at 0/13 it likely does not.
 
-## 7. Relationship to the program
+## 7. Additional live evidence (2026-07-15, interactive session `ef6b5b90`)
+
+The user replayed the party scenario interactively (controlling Alex). Archived at
+`plans/artifacts/sofia-alex-identity-leak/session-ef6b5b90/`. Two findings matter
+architecturally:
+
+1. **The leak reproduces in live play.** Turn 3, Sofia with no introduction ever:
+   speech "Ai, **Alex**... só uma criadora de conteúdo mesmo." Same two entry points
+   (SPEAKER label + narrator context).
+2. **`context_for_character` errs in BOTH directions.** Fernanda's `knowledge` states
+   she is Alex's ex-girlfriend, yet the Narrator wrote to her: "Você **não conhece bem
+   nenhum deles**" — the omniscient Narrator *invented ignorance* for a viewer whose
+   sheet says otherwise (her generated thought correctly followed her Knowledge instead:
+   "Que estranho ver o Alex assim com outra..."). So the field grants unknown names AND
+   denies known relationships. Viewer-knowledge must be compiled from `mind.knowledge`
+   into a per-viewer ledger and rendered deterministically; the Narrator cannot be asked
+   to guess it per turn, in either direction.
+3. **"What you remember: (none yet)" persists across every turn** (notes only exist
+   after compaction), so no rapport accumulates inside a session — the continuous
+   ledger updates of 29.2 absorb exactly this gap (and reconcile with Task 23).
+
+## 8. Relationship to the program
 
 - Task 29.1 should encode E0's *rate-based* measurement style: single-run pass/fail on
   stochastic leaks produces false confidence (0/3 then 7/10 here).
