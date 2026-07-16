@@ -122,14 +122,16 @@ architecturally:
 1. **The leak reproduces in live play.** Turn 3, Sofia with no introduction ever:
    speech "Ai, **Alex**... só uma criadora de conteúdo mesmo." Same two entry points
    (SPEAKER label + narrator context).
-2. **`context_for_character` errs in BOTH directions.** Fernanda's `knowledge` states
-   she is Alex's ex-girlfriend, yet the Narrator wrote to her: "Você **não conhece bem
-   nenhum deles**" — the omniscient Narrator *invented ignorance* for a viewer whose
-   sheet says otherwise (her generated thought correctly followed her Knowledge instead:
-   "Que estranho ver o Alex assim com outra..."). So the field grants unknown names AND
-   denies known relationships. Viewer-knowledge must be compiled from `mind.knowledge`
-   into a per-viewer ledger and rendered deterministically; the Narrator cannot be asked
-   to guess it per turn, in either direction.
+2. **Ambiguous priors resolve differently per call surface.** (Corrected after user
+   clarification: the "knows nobody" line was authored in the sheet, not invented.)
+   Fernanda's `knowledge` contains BOTH "ex-namorada de Alex" AND "Ainda não conhece
+   ninguém além do Tony". The Narrator's `context_for_character` resolved that ambiguity
+   one way ("Você não conhece bem nenhum deles", including Alex), while her own
+   Character call resolved it the other way (thought: "Que estranho ver o Alex assim com
+   outra..."). Two model calls re-interpreting the same raw contradictory prose produced
+   divergent knowledge states in the same turn. This is direct evidence for the 29.2
+   initializer: scenario priors must be compiled ONCE into a per-viewer ledger, and every
+   surface must render from that single resolution instead of re-reading raw text.
 3. **"What you remember: (none yet)" persists across every turn** (notes only exist
    after compaction), so no rapport accumulates inside a session — the continuous
    ledger updates of 29.2 absorb exactly this gap (and reconcile with Task 23).
