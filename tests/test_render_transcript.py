@@ -63,3 +63,45 @@ class TestAudienceMarkers:
         rendered = render_session(_game([_speech([])]))
         assert "**Bruno (ninguém além dele percebe):** Escuta isto." in rendered
         assert "só  percebem" not in rendered
+
+
+def test_zone_scoped_speech_renders_without_whisper_wording() -> None:
+    from src.models import (
+        Character,
+        CharacterBody,
+        CharacterMind,
+        GameState,
+        Player,
+        Scene,
+        TurnRecord,
+    )
+    from tools.render_transcript import render_session
+
+    scene = Scene(
+        location="x", time_of_day="y", present_characters=["C1", "C2", "Player"],
+        physical_facts={},
+    )
+    chars = {
+        "C1": Character(
+            mind=CharacterMind(name="Alice", personality="p", knowledge=[], current_mood="m"),
+            body=CharacterBody(name="Alice", physical_description="d", outfit="o"),
+        ),
+        "C2": Character(
+            mind=CharacterMind(name="Bruno", personality="p", knowledge=[], current_mood="m"),
+            body=CharacterBody(name="Bruno", physical_description="d", outfit="o"),
+        ),
+    }
+    game = GameState(
+        session_id="t", characters=chars, player=Player(controlled_character_id="C1"),
+        scene=scene,
+    )
+    game.history.append(
+        TurnRecord(
+            turn_number=1, speaker="C1", content="Falei no salao.",
+            content_type="speech", scene_snapshot=scene,
+            audience=["C2"], audience_origin="zone",
+        )
+    )
+    rendered = render_session(game)
+    assert "(só Bruno percebe)" in rendered
+    assert "sussurrado" not in rendered

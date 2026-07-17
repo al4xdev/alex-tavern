@@ -17,8 +17,9 @@ from typing import Any
 # ledger (viewer-relative identity) with per-record snapshots (Task 29.2);
 # 4 = zone graph on Scene + typed perception events replacing
 # context_for_character (Task 29.2, increment 2); 5 = autonomous event
-# scheduler counter (Task 33).
-SESSION_SCHEMA_VERSION = 5
+# scheduler counter (Task 33); 6 = audience_origin on TurnRecord separating
+# intentional whispers (secrecy) from zone-computed scoping (physics).
+SESSION_SCHEMA_VERSION = 6
 
 
 @dataclass
@@ -135,9 +136,15 @@ class TurnRecord:
     mood_snapshot: dict[str, str] = field(default_factory=dict)  # {cid: current_mood}
     plugin_state_snapshot: dict[str, Any] = field(default_factory=dict)
     # Who perceives this record. None = everyone present (public). A list of
-    # character IDs makes the record whispered: only those characters (plus the
-    # speaker) ever see it in their context. Applies to speech/action records.
+    # character IDs limits perception to those characters (plus the speaker).
+    # Applies to speech/action records.
     audience: list[str] | None = None
+    # How a non-None audience originated. "whisper" = intentional confidence
+    # (player whisper or inherited reply): its rare tokens are SECRETS the
+    # guards protect. "zone" = physically computed scoping (who could hear):
+    # perception-only, never a secrecy source — repeating something you said
+    # in one room in front of a newcomer is not leaking a confidence.
+    audience_origin: str = "whisper"
     # Perspective ledgers as they were when this record was created — the undo
     # anchor for identity state (mirrors scene_snapshot/mood_snapshot).
     perspective_snapshot: dict[str, Any] = field(default_factory=dict)
@@ -343,6 +350,7 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
         mood_snapshot=dict(data["mood_snapshot"]),
         plugin_state_snapshot=copy.deepcopy(data["plugin_state_snapshot"]),
         audience=list(data["audience"]) if data.get("audience") is not None else None,
+        audience_origin=str(data.get("audience_origin", "whisper")),
         perspective_snapshot=copy.deepcopy(data.get("perspective_snapshot", {})),
     )
 

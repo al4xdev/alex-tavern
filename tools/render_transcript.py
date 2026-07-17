@@ -58,8 +58,14 @@ def render_session(game: GameState) -> str:
                     for cid in record.audience
                 )
                 verb = "percebe" if len(record.audience) == 1 else "percebem"
-                # A scoped ACTION is limited perception, not a whisper.
-                kind = "sussurrado — " if record.content_type == "speech" else ""
+                # Only an intentional whisper reads as "sussurrado"; a
+                # zone-computed audience (or a scoped action) is limited
+                # perception, not a confidence.
+                is_whisper = (
+                    record.content_type == "speech"
+                    and getattr(record, "audience_origin", "whisper") == "whisper"
+                )
+                kind = "sussurrado — " if is_whisper else ""
                 whisper = f" ({kind}só {hearers} {verb})"
             else:
                 whisper = " (ninguém além dele percebe)"

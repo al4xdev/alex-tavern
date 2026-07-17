@@ -290,6 +290,8 @@ class TestXfailed3Structural:
         assert len(config["characters"]) == 9
         assert config["controlled_character_id"] == "C1"
         assert config["scene"].present_characters[-1] == "Player"
+        assert config["scene"].zones == {"salao_prisma": [], "compartimento_leste": []}
+        assert config["scene"].positions["C9"] == "compartimento_leste"
         for character in config["characters"].values():
             assert character.mind.personality.strip()
             assert character.mind.knowledge
@@ -494,6 +496,26 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
                     and re.search(pattern, record.content)
                 ):
                     add(rule_id, rule["violation_class"], turn, record.content[:200])
+
+    # SP-01 structural: before the partition opens (end of turn 7), no salon
+    # speech/action may be visible to the isolated delegate. Post-29.2 the
+    # zone graph computes record audiences, so this is deterministic.
+    from src.models import record_visible_to
+
+    for record in game.history:
+        if record.turn_number > 7 or record.turn_number > executed_turns:
+            continue
+        if record.content_type not in ("speech", "action"):
+            continue
+        if record.speaker in ("C9", "Narrator"):
+            continue
+        if record_visible_to(record, "C9"):
+            add(
+                "SP-01-structural-isolation",
+                "spatial_continuity_error",
+                record.turn_number,
+                f"pre-open salon record visible to the delegate: {record.content[:80]}",
+            )
 
     # Whole-run invariants -------------------------------------------------
     for leak in whisper_leak_records(game):

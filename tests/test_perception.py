@@ -323,6 +323,9 @@ class TestZoneScopedRecords:
         # C2's reply is likewise zone-scoped away from C3.
         assert speech_records[1].speaker == "C2"
         assert speech_records[1].audience == ["C1"]
+        # Zone-computed scoping is physics, not confidence.
+        assert speech_records[0].audience_origin == "zone"
+        assert speech_records[1].audience_origin == "zone"
         from src.models import record_visible_to
 
         assert record_visible_to(speech_records[0], "C3") is False
@@ -392,3 +395,43 @@ class TestEmptyPerceptionVoid:
 
         assert "Nothing new reaches your senses" in captured["context"]
         assert "Alice fala" not in captured["context"]
+
+
+class TestAudienceOriginSecrecy:
+    """Zone-scoped records are perception-only; whispers remain secrets."""
+
+    def test_zone_scoped_record_is_not_a_secret_source(self) -> None:
+        from src.confidentiality import secret_tokens_exposed_to
+
+        record = TurnRecord(
+            turn_number=1,
+            speaker="C1",
+            content="O codigo do cofre e TULIPA-905.",
+            content_type="speech",
+            scene_snapshot=ZONED_SCENE,
+            audience=["C2"],
+            audience_origin="zone",
+        )
+        secret = secret_tokens_exposed_to(
+            [record], "C1", {"C3"}, CHARACTERS, ZONED_SCENE, controlled_id="C1"
+        )
+        assert secret == set()
+
+    def test_whisper_origin_record_remains_a_secret_source(self) -> None:
+        from src.confidentiality import secret_tokens_exposed_to
+
+        record = TurnRecord(
+            turn_number=1,
+            speaker="C1",
+            content="O codigo do cofre e TULIPA-905.",
+            content_type="speech",
+            scene_snapshot=ZONED_SCENE,
+            audience=["C2"],
+            audience_origin="whisper",
+        )
+        secret = secret_tokens_exposed_to(
+            [record], "C1", {"C3"}, CHARACTERS, ZONED_SCENE, controlled_id="C1"
+        )
+        assert "tulipa-905" in {token.lower() for token in secret} or any(
+            "905" in token for token in secret
+        )

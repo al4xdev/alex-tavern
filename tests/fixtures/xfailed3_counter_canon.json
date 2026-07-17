@@ -162,7 +162,18 @@
     "scene": {
       "location": "Embaixada Meridiana, Salao do Prisma, Cidade das Esmeraldas",
       "time_of_day": "Entardecer",
-      "present_characters": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "Player"],
+      "present_characters": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "C6",
+        "C7",
+        "C8",
+        "C9",
+        "Player"
+      ],
       "physical_facts": {
         "prisma_meridiano": "inativo no centro do salao",
         "janela_estrada_amarela": "mostra a estrada amarela seguindo para longe da cidade",
@@ -171,6 +182,21 @@
         "fita_azul": "sobre a mesa de auditoria",
         "compartimento_leste": "fechado e isolado acusticamente; um delegado trabalha sozinho la dentro",
         "estojo_instrumento": "estojo de prata lacrado guardado sob o pedestal"
+      },
+      "zones": {
+        "salao_prisma": [],
+        "compartimento_leste": []
+      },
+      "positions": {
+        "C1": "salao_prisma",
+        "C2": "salao_prisma",
+        "C3": "salao_prisma",
+        "C4": "salao_prisma",
+        "C5": "salao_prisma",
+        "C6": "salao_prisma",
+        "C7": "salao_prisma",
+        "C8": "salao_prisma",
+        "C9": "compartimento_leste"
       }
     }
   },
@@ -201,7 +227,9 @@
       "thought": "",
       "action": "",
       "force_speaker": "C5",
-      "audience": ["C5"]
+      "audience": [
+        "C5"
+      ]
     },
     {
       "type": "turn",
@@ -221,14 +249,14 @@
       "type": "turn",
       "speech": "Dorothy, me tire uma duvida pratica: se eu sair agora pela estrada amarela da janela, chego a Cidade das Esmeraldas?",
       "thought": "",
-      "action": "",
+      "action": "Abrir completamente a divisoria do compartimento leste, conectando o salao ao compartimento para que o delegado possa participar da auditoria",
       "force_speaker": "C2"
     },
     {
       "type": "turn",
       "speech": "Delegado do compartimento leste, a auditoria precisa do seu testemunho: na sua historia, quem criou quem?",
       "thought": "Nao sei o nome dele; ninguem aqui sabe.",
-      "action": "Bater na divisoria do compartimento leste e abrir a passagem para que o delegado isolado fale com a auditoria",
+      "action": "Aguardar na passagem aberta enquanto o delegado responde a auditoria",
       "force_speaker": "C9"
     },
     {
@@ -257,9 +285,13 @@
       "thought": "",
       "action": "",
       "force_speaker": "C5",
-      "audience": ["C5"]
+      "audience": [
+        "C5"
+      ]
     },
-    { "type": "compact" },
+    {
+      "type": "compact"
+    },
     {
       "type": "turn",
       "speech": "Watson, chegou a auditoria final. O gesto que combinamos no nosso primeiro encontro: o que deve estar com voce agora, e onde exatamente?",
@@ -315,14 +347,18 @@
       "action": "Ler em voz alta a cifra decifrada de Moriarty diante de toda a delegacao",
       "force_speaker": "C4"
     },
-    { "type": "compact" },
+    {
+      "type": "compact"
+    },
     {
       "type": "turn",
       "speech": "Doutor, uma ultima vez, so entre nos: qual e o nome exato do instrumento?",
       "thought": "",
       "action": "",
       "force_speaker": "C5",
-      "audience": ["C5"]
+      "audience": [
+        "C5"
+      ]
     },
     {
       "type": "turn",
@@ -344,7 +380,11 @@
       "action": "",
       "force_speaker": "C2"
     },
-    { "type": "restore_compaction" },
-    { "type": "restore_compaction" }
+    {
+      "type": "restore_compaction"
+    },
+    {
+      "type": "restore_compaction"
+    }
   ]
 }

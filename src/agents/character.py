@@ -228,7 +228,11 @@ def _format_history_for_character(
     for rec in hist:
         label = viewer_speaker_label(rec.speaker, characters, controlled_id, viewer_perspective)
         kind = kind_labels.get(rec.content_type, "SPEECH")
-        if rec.audience is not None and rec.content_type in ("speech", "action"):
+        if (
+            rec.audience is not None
+            and rec.content_type in ("speech", "action")
+            and getattr(rec, "audience_origin", "whisper") == "whisper"
+        ):
             kind = f"WHISPERED {kind} (confidential, not everyone present perceived this)"
         lines.append(f"Turn {rec.turn_number} | TYPE={kind} | SPEAKER={label}: {rec.content}")
     return "\n".join(lines)

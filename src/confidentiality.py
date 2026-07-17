@@ -150,6 +150,7 @@ def hidden_whisper_tokens(
         rec
         for rec in history
         if rec.audience is not None
+        and getattr(rec, "audience_origin", "whisper") == "whisper"
         and rec.content_type != "thought"
         and not record_visible_to(rec, viewer_id)
     ]
@@ -183,10 +184,14 @@ def secret_tokens_exposed_to(
         speaker = controlled_id if rec.speaker == "Player" and controlled_id else rec.speaker
         return set(rec.audience or []) | {speaker}
 
+    # Only INTENTIONAL whispers are confidences. A zone-computed audience is
+    # physics (who could hear), not secrecy: repeating what you said in one
+    # room in front of a newcomer is not leaking a confidence.
     confidential = [
         rec
         for rec in history
         if rec.audience is not None
+        and getattr(rec, "audience_origin", "whisper") == "whisper"
         and rec.content_type != "thought"
         and record_visible_to(rec, speaker_id)
         and not exposed_ids <= cover(rec)

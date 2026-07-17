@@ -1567,6 +1567,7 @@ class Runner:
         everyone can perceive becomes zone-scoped by construction, reusing the
         whisper visibility machinery end to end.
         """
+        audience_origin = "whisper" if audience is not None else "zone"
         if game.scene.zones and content_type in ("speech", "action"):
             subject = (
                 game.player.controlled_character_id if speaker == "Player" else speaker
@@ -1593,6 +1594,7 @@ class Runner:
             mood_snapshot={cid: ch.mind.current_mood for cid, ch in game.characters.items()},
             plugin_state_snapshot=copy.deepcopy(game.plugin_state),
             audience=list(audience) if audience is not None else None,
+            audience_origin=audience_origin,
             perspective_snapshot={
                 viewer_id: perspective_to_dict(perspective)
                 for viewer_id, perspective in game.character_perspectives.items()
