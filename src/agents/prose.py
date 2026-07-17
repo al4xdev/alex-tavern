@@ -163,6 +163,35 @@ def _repeats_prior_narration(new_text: str, history: list[TurnRecord]) -> bool:
     )
 
 
+def _strip_echoed_sentences(new_text: str, history: list[TurnRecord]) -> str:
+    """Drop sentences that near-verbatim echo prior narration; keep the rest.
+
+    Final deterministic backstop when the retry still repeats: splits on
+    sentence boundaries (keeping the delimiters) and removes any qualifying
+    sentence at/above the per-sentence echo bar. Returns the surviving prose,
+    or "" if nothing survives (the caller then keeps the model's draft).
+    """
+    prior_sentences = [
+        s
+        for record in history
+        if record.content_type == "narration"
+        for s in _qualifying_sentences(record.content)
+    ]
+    if not prior_sentences:
+        return new_text
+    parts = re.split(r"(?<=[.!?…])\s+", new_text)
+    kept: list[str] = []
+    for part in parts:
+        norm = _normalize_sentence(part)
+        if len(norm) >= _MIN_SENTENCE_CHARS and any(
+            difflib.SequenceMatcher(None, norm, prior).ratio() >= _PER_SENTENCE_ECHO_THRESHOLD
+            for prior in prior_sentences
+        ):
+            continue
+        kept.append(part)
+    return " ".join(p.strip() for p in kept if p.strip()).strip()
+
+
 def _staging_lines(
     scene: Scene, characters: dict[str, Character], controlled_id: str
 ) -> list[str]:
@@ -301,8 +330,15 @@ async def render_narration(
     if _repeats_prior_narration(narration, history):
         # Deterministic anti-repetition guard (measured failure: the same
         # paragraph rendered on consecutive turns). Retry ONCE with an explicit
-        # correction, then accept whatever comes back — never fail the turn.
+        # correction. deepseek sometimes reproduces the offending sentence even
+        # after the retry (a persistent world state re-narrated verbatim), so a
+        # final deterministic backstop strips any sentence that still echoes
+        # prior narration — dropping a verbatim repeat loses nothing the reader
+        # has not already read, and guarantees the lexical-variation invariant
+        # by construction rather than by instruction.
         retry_messages = messages + [{"role": "user", "content": REPETITION_CORRECTION}]
         result = await chat_completion_json(client, retry_messages, **request_kwargs)
         narration = str(result.get("narration", "")).strip()
+        if _repeats_prior_narration(narration, history):
+            narration = _strip_echoed_sentences(narration, history) or narration
     return normalize_generated_text(narration)

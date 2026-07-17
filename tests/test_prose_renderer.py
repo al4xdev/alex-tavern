@@ -251,13 +251,29 @@ class TestRepetitionRetry:
             "content": REPETITION_CORRECTION,
         }
 
-    async def test_repeated_twice_still_two_calls_and_second_accepted(
+    async def test_repeated_twice_all_echoes_keeps_draft(
         self, monkeypatch: Any
     ) -> None:
+        # Every sentence echoes prior narration: the backstop cannot strip the
+        # whole paragraph, so the draft is kept rather than emptied.
         fake = _FakeCompletion([NEAR_IDENTICAL_PARAGRAPH, NEAR_IDENTICAL_PARAGRAPH])
         result = await self._render(fake, monkeypatch)
         assert len(fake.calls) == 2
         assert result == NEAR_IDENTICAL_PARAGRAPH
+
+    async def test_retry_with_one_echoed_sentence_strips_only_that_sentence(
+        self, monkeypatch: Any
+    ) -> None:
+        # deepseek's real failure: the retry draft is mostly fresh but re-uses
+        # one verbatim sentence from prior narration. The backstop drops that
+        # sentence and keeps the fresh prose (guarantee by construction).
+        echoed = "Ninguém parece notar a sua chegada silenciosa."
+        second_draft = FRESH_PARAGRAPH + " " + echoed
+        fake = _FakeCompletion([NEAR_IDENTICAL_PARAGRAPH, second_draft])
+        result = await self._render(fake, monkeypatch)
+        assert len(fake.calls) == 2
+        assert echoed.lower() not in result.lower()
+        assert "Bruno equilibra dois copos" in result
 
     async def test_fresh_first_draft_makes_single_call(self, monkeypatch: Any) -> None:
         fake = _FakeCompletion([FRESH_PARAGRAPH])
