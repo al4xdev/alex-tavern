@@ -995,6 +995,20 @@ class Runner:
         emit("checking")
         keep_recent = self.config.get("compaction_keep_recent_turns", 200)
         turn_numbers = list(dict.fromkeys(record.turn_number for record in game.history))
+        if (
+            trigger == "automatic"
+            and estimated_context_tokens is not None
+            and threshold_tokens is not None
+            and estimated_context_tokens > threshold_tokens
+            and len(turn_numbers) <= keep_recent
+            and len(turn_numbers) > 8
+        ):
+            # Under real context pressure the configured retention window must
+            # not block the automatic compaction it exists to serve: shrink it
+            # adaptively to the most recent half (never below 4 turns), so the
+            # session compacts instead of silently trimming history away
+            # (Task 23 — trim/compaction gap).
+            keep_recent = max(4, len(turn_numbers) // 2)
         if len(turn_numbers) <= keep_recent:
             status = (
                 "blocked_by_retention_window"

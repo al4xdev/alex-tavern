@@ -53,3 +53,19 @@ Two strict xfail specification tests in `tests/test_memory_retention.py`
 - A playtest run with `--context-max 2048` on `memory_focus_xyz.json` passes recall
   check 1 via `character_notes`/`story_summary` even after the early turns leave the
   window.
+
+> **CLOSED 2026-07-16 (autonomous overnight).** Both strict-xfail spec tests
+> flipped to green as normal tests:
+> 1. **Code-anchor pinning in the character trim**: records carrying a
+>    code-like identifier (uppercase word fused to digits — ORQUÍDEA-741,
+>    LUMEN-17) are pinned through `trim_history_by_tokens` (capped at the last
+>    12), so recency discards atmosphere but never a confided code. Plain
+>    digits ("Rota 3") do not pin — noise stays trimmable.
+> 2. **Adaptive automatic retention**: when automatic compaction fires under
+>    real context pressure (estimate above threshold) and the configured
+>    `compaction_keep_recent_turns` would block it, the window shrinks to the
+>    most recent half (never below 4 turns, only above 8 total) so the session
+>    compacts instead of silently trimming. Manual compaction still honors the
+>    configured window untouched.
+> Suite: 495 passed, zero xfails remaining anywhere. The principled long-term
+> home for trimmed private memory remains Task 39 (ledger memory dimension).

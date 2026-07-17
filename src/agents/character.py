@@ -197,6 +197,14 @@ def _whisper_turn_note(
     )
 
 
+# Code-like identifiers (an uppercase word fused to digits: ORQUÍDEA-741,
+# LUMEN-17) are the least-compressible, highest-value tokens a session carries.
+# Records holding one are PINNED through the token trim: recency may discard
+# atmosphere, never a confided code (Task 23 — trim/compaction gap).
+_CODE_ANCHOR_RE = re.compile(r"\b[^\W\da-zà-ÿ]{2,}[-–. ]?\d+\b")
+_MAX_PINNED_RECORDS = 12
+
+
 def _format_history_for_character(
     history: list[TurnRecord],
     characters: dict[str, Character],
@@ -220,7 +228,16 @@ def _format_history_for_character(
         or (rec.content_type == "thought" and rec.speaker == character_id)
     ]
     if context_max is not None:
-        hist = trim_history_by_tokens(hist, context_max, max_tokens_character)
+        pinned = [
+            rec
+            for rec in hist
+            if rec.content_type in ("speech", "action")
+            and _CODE_ANCHOR_RE.search(rec.content)
+        ][-_MAX_PINNED_RECORDS:]
+        trimmed = trim_history_by_tokens(hist, context_max, max_tokens_character)
+        kept = set(map(id, trimmed))
+        merged = [rec for rec in hist if id(rec) in kept or rec in pinned]
+        hist = merged
     if not hist:
         return "(none)"
     kind_labels = {"thought": "PRIVATE THOUGHT", "action": "ACTION"}

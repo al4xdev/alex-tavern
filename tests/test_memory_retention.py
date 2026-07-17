@@ -990,10 +990,6 @@ class TestTrimCompactionGapFinding:
     especificam o comportamento desejado e devem virar verdes no passe de correção.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="gap trim/compactação: histórico cortado não é preservado em resumo/nota",
-    )
     def test_trim_preserves_early_fact_or_summarizes_it(self) -> None:
         history = _seed_focus_history(noise_pairs=30)
         formatted = _format_history_for_character(
@@ -1006,13 +1002,6 @@ class TestTrimCompactionGapFinding:
         )
         assert MARKER in formatted
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "compaction_keep_recent_turns=200 bloqueia a compactação automática sob "
-            "pressão de contexto em sessões curtas"
-        ),
-    )
     @pytest.mark.asyncio
     async def test_automatic_compaction_unblocked_under_context_pressure(
         self,

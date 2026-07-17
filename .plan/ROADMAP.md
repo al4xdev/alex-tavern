@@ -22,6 +22,7 @@ fechada ou mudança de sequência. Referência de arquitetura:
 | 28 | Force speaker (bug real: skip descartava a força) | aceitação real 6 rodadas, zero chamadas de personagem |
 | 30 | Whisper UI no composer | payload/render/i18n; 9 testes de fronteira |
 | **36** | **Split Diretor/Prosa + intents + zonas dinâmicas + audience_origin (v6)** | benchmark 25 -> 0 determinístico; diálogo-em-narração impossível; staging correto |
+| 23 | Gap trim/compactação | pinning de âncoras de código + retenção adaptativa; os 2 xfails-spec verdes; suíte sem nenhum xfail |
 
 ## 🔶 Em andamento
 
@@ -40,7 +41,6 @@ fechada ou mudança de sequência. Referência de arquitetura:
 
 ## 🧺 Lane paralela (independentes)
 
-- 23 — Gap trim/compactação (2 xfails estritos como spec)
 - 26 — Prosa do narrador (acumulador de evidências; boa parte dissolveu na 36;
   dominante atual: re-descrição de ambiência em cena estática — mitigação
   candidata: retry-guard fuzzy >0.85)
