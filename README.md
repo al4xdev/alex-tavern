@@ -4,13 +4,17 @@
 
 # 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Engine
 
-Alex Tavern is a **rigid multi-agent kernel** for roleplay, built around a blind Narrator: the
-game-master model never knows which character is controlled by a human. The Narrator owns physical
-reality and routing, independent Character agents produce only speech and private thought, and a
-stateless FastAPI Runner enforces player agency, persistence, and knowledge boundaries — including
-a structural information boundary (whisper/audience model with deterministic anti-leak guards).
-The kernel owns narrative physics; roleplay mechanics and expansions belong to plugins. It
-supports local llama.cpp inference and the DeepSeek API through provider adapters.
+Alex Tavern is a **rigid multi-agent kernel** for roleplay, built around blind agents: no model
+ever knows which character is controlled by a human. A blind **Director** decides what physically
+happens as typed events (with deterministic zone/witness clamps), a blind **prose renderer** turns
+only confirmed public facts into narration (it never sees minds, thoughts, or even the words
+characters spoke), independent **Character** agents produce speech, private thought, and physical
+*attempts* (never outcomes), and each character carries a private **perspective ledger** — who they
+know, by which name, learned only through events they perceived. A stateless FastAPI Runner
+enforces player agency, persistence, and the knowledge boundaries (whispers, acoustic zones,
+per-viewer identity) as code, not prompt promises. The kernel owns narrative physics; roleplay
+mechanics and expansions belong to plugins. It supports local llama.cpp inference and the DeepSeek
+API through provider adapters.
 
 > [!NOTE]
 > **Context Compaction is implemented.** Manual and opt-in automatic actions fold older turns
@@ -33,12 +37,14 @@ supports local llama.cpp inference and the DeepSeek API through provider adapter
 
 > [!NOTE]
 > **Knowledge boundaries are structural, not prompt promises.** Speech and actions can carry an
-> `audience` (a whisper): characters outside it never receive the content in any prompt, the
-> Narrator is guarded against quoting it into an outsider's context, and a deterministic output
-> guard blocks a character from leaking a whispered secret aloud (one corrective retry, then
-> in-fiction redaction). Sessions are schema-versioned (`SESSION_SCHEMA_VERSION`): when kernel
-> semantics change, old sessions are flagged incompatible and refused instead of migrated — see
-> the [memory and confidentiality case studies](docs/cases/README.md).
+> `audience` (a whisper) and scenes can carry an **acoustic zone graph**: who perceives a record is
+> computed from physics, characters outside it never receive the content in any prompt (live, in
+> notes, or in ledgers), and a deterministic output guard blocks a character from leaking a
+> whispered secret aloud. Identity is earned: a character addresses a stranger through a
+> viewer-relative reference until a name is learned from a perceived event, with provenance
+> recorded. Sessions are schema-versioned (`SESSION_SCHEMA_VERSION`): when kernel semantics
+> change, old sessions are flagged incompatible and refused instead of migrated — see the
+> [memory and confidentiality case studies](docs/cases/README.md).
 
 > [!WARNING]
 > **Plugins are trusted code, not sandboxed extensions.** The Plugin Center can activate reviewed,
@@ -209,38 +215,48 @@ is not required for correctness.
 graph TD
     A[Human submits speech, private thought, and/or action] --> B{Observable input?}
     B -->|Thought only| P[Persist private thought; no LLM call]
-    B -->|Speech or action| C[Narrator: reads scene, character sheets, public summary + public history]
-    C -->|"schema-constrained JSON"| D{next_speaker?}
-    D -->|Human-controlled character| E[Runner pauses — no LLM call. Turn back to human.]
-    D -->|NPC| F[Character agent: own mind + filtered context + own private memory]
-    D -->|Narrator| H
-    F -->|"schema-constrained speech/thought JSON"| G[Typed private thought and/or public speech]
-    C --> H[Scene deltas + mood updates applied]
-    G --> H
+    B -->|Skip with no hint| DS{Drive scheduler fires?}
+    DS -->|yes| DE[Event seed call: one external world event]
+    DS -->|no| C
+    DE --> C
+    B -->|Speech or action| C[Director: full world state -> typed decisions, zero prose]
+    C -->|"schema JSON"| V[Deterministic clamps: presence, zones, witnesses, moves]
+    V --> R[Blind prose renderer: confirmed public facts only]
+    V --> L[Perspective ledgers of the routed speakers]
+    R --> H
+    L --> Q{Speaker queue, 1-3 in order}
+    Q -->|Human-controlled| E[Runner pauses — control returns to the human]
+    Q -->|NPC| F[Character: own mind + ledger-projected view + witnessed events]
+    F --> G[speech / private thought / action INTENT]
+    G --> H[Scene deltas, moods, zone moves and links applied]
     P --> I
-    H --> I[(Session history + snapshot for undo)]
+    H --> I[(Session history + snapshots for undo)]
 ```
 
-An observable human turn can trigger up to two sequential LLM calls. A thought-only turn is
-persisted privately and stops without calling the Narrator, because there is no public event to
-resolve:
+A thought-only turn is persisted privately with no LLM call. An observable turn runs the
+Decision/Prose pipeline:
 
-1. **Narrator call** — reads the current scene, the full personality and appearance of every
-   present character, the running `story_summary` when one exists, and the active history
-   (trimmed by an estimated token budget, never by a fixed turn count or by character clipping).
-   Before the first compaction, that active history is the entire stored history; after
-   compaction, it is the retained verbatim window. Private `thought` records are removed before
-   token trimming, so they cannot re-enter through the budget path. There's no separate "player
-   input" block; public human speech/action records appear under the controlled character's name
-   like anyone else's. It answers with grammar-constrained JSON:
-   the narration text, who acts next, a context message filtered specifically for that next
-   speaker, any physical changes to the scene, and any mood updates (a missing key means
-   unchanged, `null` means the fact is removed from the scene entirely).
-2. **Character call**, only if the routed speaker is a present, non-human-controlled character.
-   Receives its own personality, knowledge, and current mood, the Narrator's filtered context
-   message, public speech, and only that Character's own private thoughts. Narration, actions,
-   and other Characters' thoughts are excluded. Replies as structured JSON with nullable
-   `speech` and `thought` fields; at least one must be populated.
+1. **Director call** — the world authority. Reads the current scene (including the zone graph
+   and positions), the full personality and appearance of every present character, the running
+   `story_summary`, and the active history (trimmed by token budget; private thoughts removed
+   first; human records appear under the controlled character's name like anyone else's). It
+   answers with typed decisions only, zero prose: `perception_events` (what happens this beat,
+   each with `witness_ids`), an ordered `next_speakers` queue (1-3), scene deltas, mood updates,
+   `zone_moves`, and `zone_link_updates` (opening or sealing acoustic paths). Code then CLAMPS
+   every proposal: witnesses are intersected with what the zone graph allows, moves and links
+   are validated against existing zones and presence — a model can narrow perception, never
+   widen it.
+2. **Blind prose renderer**, run concurrently with the routed speakers' ledger preparation.
+   Receives ONLY what a reader is entitled to: the public scene, cast appearance (no minds), a
+   reader-facing transcript whose spoken lines are content-free markers, and the confirmed
+   events (speech events staged without their words). Dialogue inside narration is impossible
+   by construction — the words are simply never loaded.
+3. **Character calls**, in queue order, each hearing the previous replies. A character receives
+   its own mind, its private compacted note, its **perspective-ledger projection** (a stranger
+   stays "o homem de camisa aberta" until a name is learned from a perceived event — false
+   names included), and only events/records it physically witnessed. It replies with nullable
+   `speech`, `thought`, and `action_intent` — an intent is an ATTEMPT recorded for the next
+   beat's Director to adjudicate, never a self-declared outcome.
 
 If the routed speaker is the human-controlled character (or forced to be, see
 [manual triggers](#-manual-trigger-system-force-speaker--suggestions)), the runner stops after
@@ -284,10 +300,10 @@ The trade-off is that a blind game master can route to the controlled character,
 human-controlled character exactly like every NPC when deciding who speaks or acts next. A
 fully model-driven implementation could then generate dialogue or action for the human.
 
-**The mitigation: player agency lives in code, not in the prompt.** The Narrator stays blind — it
-never sees the word "player" in any form, and its `next_speaker` field can only ever be a
-character id or `"Narrator"`, never a player token. But the backend runner *does* know which
-character id is human-controlled. When the Narrator routes to that character, the runner never
+**The mitigation: player agency lives in code, not in the prompt.** The Director stays blind — it
+never sees the word "player" in any form, and its `next_speakers` queue can only ever contain
+character ids or `"Narrator"`, never a player token. But the backend runner *does* know which
+character id is human-controlled. When the queue reaches that character, the runner never
 calls the Character agent — it just stops and hands control back to the human.
 
 Storage isn't the same as rendering. Internally, the human's input is still recorded with an
@@ -342,11 +358,13 @@ mechanics beyond that belong to plugins. The full evolution is documented as
 | Role | Can | Cannot | Receives in its prompt |
 |---|---|---|---|
 | **Human player** | Speak, think, and act through three independent inputs | — the human designs the scene at setup time | — |
-| **Narrator** | Everything physical: action, description, consequence, scene transitions, and deciding who speaks next | Cannot know which character is human-controlled or read private thoughts | Everything observable about the world: full personality and appearance (the `body`) of every character, the scene, the running public story summary, and the active public history window |
-| **Character** | Only speak or think, strictly first person; a reply inside a whispered turn stays whispered | Cannot narrate, describe environment, or perform/describe physical action, including its own; cannot receive (or leak) whispers outside its audience | Only its own mind, private accumulated note, Narrator-filtered context (whisper-guarded), public speech, physical actions it witnessed, whispers it perceived, and its own prior thoughts |
+| **Director** (blind) | Everything physical: decides typed events and outcomes, who reacts next (a 1-3 speaker queue), scene/mood deltas, zone movement, and opening/sealing acoustic links | Cannot know which character is human-controlled, read private thoughts, or write prose; its witness/move/link proposals are clamped by code | Everything observable about the world: full personality and appearance of every character, the scene with its zone graph and positions, the public story summary, and the active public history window |
+| **Prose renderer** (blind) | Turns the beat's confirmed events into reader-facing narration | Cannot see minds, thoughts, notes, whispers' content, or even the WORDS anyone spoke (speech arrives as content-free markers); cannot invent outcomes or dialogue | Public scene and zone-visible staging, cast appearance only, a content-free reader transcript, and the clamped events of this beat |
+| **Character** | Speak, think, and ATTEMPT physical actions (`action_intent`, adjudicated by the next beat's Director); a reply inside a whispered turn stays whispered | Cannot state action outcomes; cannot perceive across whispers or acoustic zones; addresses strangers by reference until a name is legitimately learned | Only its own mind, private note, perspective-ledger projection (viewer-relative identities), events it witnessed, speech/actions it perceived, and its own prior thoughts |
 
-Character output uses the structural contract `{speech: string|null, thought: string|null}`.
-Either field may be null, but both cannot be empty. History stores them as separate typed records,
+Character output uses the structural contract
+`{speech: string|null, thought: string|null, action_intent: string|null}`.
+Any field may be null, but at least one must be populated. History stores them as separate typed records,
 the UI renders `thought` directly, and prompts expose private thoughts only to their owner. Obvious
 action-like Character output is rejected once with a corrective retry. The frontend consumes only
 the canonical typed history representation and contains no markdown-era compatibility parser.
@@ -380,9 +398,9 @@ without guessing how many visible messages a step produced.
 The action menu next to Send provides two explicit routing controls:
 
 - **Force speaker** — an optional field on the turn request naming a present character id, or
-  the Narrator, that overrides whatever `next_speaker` the Narrator actually chose. If the
-  forced speaker is the human-controlled character, the runner still pauses instead of
-  generating for them — agency is never bypassed by this mechanism.
+  the Narrator, that collapses whatever `next_speakers` queue the Director actually chose down
+  to that one speaker. If the forced speaker is the human-controlled character, the runner still
+  pauses instead of generating for them — agency is never bypassed by this mechanism.
 - **Suggest** — a separate endpoint that asks the (still fully blind) Narrator for three
   candidate `{speech, action}` pairs for the human-controlled character, worded generically
   ("suggest three plausible next moves for C1"), never revealing that character is the human.
@@ -618,12 +636,14 @@ The exact real output from the leaking absent run included:
 > Ela saiu para buscar seu cajado e, ao retornar, não percebeu que Thorn abriu uma caixa e
 > encontrou um selo real de ouro com o brasão secreto do rei, que ele escondeu antes dela voltar.
 
-So prompt guidance reduced the leak but did not establish a knowledge boundary: the exact hidden
-fact leaked in **1/3** absent runs, while some information derived from the missed interval appeared
-in **3/3**. Thoughts remain structurally isolated; physical presence does not. A deterministic
-presence filter would first require canonical enter/leave state to be updated per history record,
-then exclude public records whose snapshots do not include that character before building their
-private compaction prompt.
+That probe motivated Task 35, which later made the boundary deterministic: the private
+Historian now includes a speech/action record only when `record_visible_to` says that character
+perceived it (whispers and zone-scoped records respect their computed audiences), narration never
+enters a private note (characters do not perceive narrator prose — and prose can retell a
+whisper), and world directives never enter (the campaign bible may define secrets as world
+truth). Measured effect on the counter-canon benchmark: the whispered-secret family went from 26
+instances to **0**. What remains model-judged is only the legacy flat-scene case with no zones
+and no audience, where every public record is genuinely perceivable.
 
 A normal turn undo operates on the active verbatim window. Compaction undo is separate: it
 rehydrates the evicted records from the newest active checkpoint while preserving every live turn
@@ -637,9 +657,10 @@ Current deliberate constraints and known gaps include:
 - **Per-character notes** (accumulated memory/relationships, distinct from the world-level
   rolling summary) are included from the start, scoped per character the same way personality
   already is — each character only ever sees its own notes, never anyone else's.
-- **Presence is not yet a deterministic memory boundary.** Private compactors receive the public
-  evicted slice and rely on model judgment about which events the character experienced. The live
-  probe above demonstrates why canonical presence tracking is the prerequisite for closing it.
+- **Perception IS a deterministic memory boundary since Task 35** for whispers and zone-scoped
+  records; expressing "left the room" as a zone position makes absence structural too. The
+  remaining gap is flat scenes without zones, where public records are treated as perceived by
+  everyone present.
 
 <place_6:screenshot of the compact-session button with its progress bar mid-animation>
 
@@ -889,7 +910,8 @@ publish without my explicit permission.
 ## ⚡ Multi-provider LLM architecture
 
 Alex Tavern supports multiple OpenAI-compatible inference backends without teaching the Runner,
-Narrator, Character, Suggestion, or Historian about individual vendors. The integration is split
+Director, prose renderer, Character, perspective/drive calls, Suggestion, or Historian about
+individual vendors. The integration is split
 between a shared client and small provider adapters:
 
 ```text
@@ -1070,13 +1092,17 @@ is:
   "compaction_keep_recent_turns": 200,
   "automatic_compaction_enabled": false,
   "automatic_compaction_threshold_percent": 80,
+  "auto_event_enabled": true,
+  "auto_event_base_probability": 0.05,
+  "auto_event_growth_per_quiet_turn": 0.12,
+  "auto_event_max_probability": 0.85,
   "providers": {
     "llama_cpp": {
       "api_base": "http://localhost:8888/v1",
       "model": "",
       "context_max": 98304,
-      "max_tokens_narrator": 2048,
-      "max_tokens_character": 1024,
+      "max_tokens_narrator": 24576,
+      "max_tokens_character": 12288,
       "summarizer_max_tokens": 1024,
       "llm_timeout_seconds": 60.0
     },
@@ -1086,8 +1112,8 @@ is:
       "model": "deepseek-v4-flash",
       "thinking_enabled": false,
       "context_max": 524288,
-      "max_tokens_narrator": 2048,
-      "max_tokens_character": 1024,
+      "max_tokens_narrator": 24576,
+      "max_tokens_character": 12288,
       "summarizer_max_tokens": 1024,
       "llm_timeout_seconds": 60.0
     }
@@ -1456,8 +1482,8 @@ prompt. Two separate LLM layers sit between the vector search and the live conve
 1. **Curation.** An LLM distills whatever the vector search actually returns into clean,
    relevant information, discarding near-duplicate or irrelevant hits.
 2. **Message generation.** A second pass turns that curated result into the actual invisible
-   context message — matching the same pattern the Narrator already uses for
-   `context_for_character` — that exists purely to feed the Character and Narrator prompts. It
+   context message — matching the typed perception-event pattern the Director already uses —
+   that exists purely to feed the Character and Director prompts. It
    is never shown to the human and never enters the visible chat, only the session's underlying
    JSON/log, alongside everything else in the
    [JSONL evidence](#-two-layer-observability).
