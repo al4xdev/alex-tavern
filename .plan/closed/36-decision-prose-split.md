@@ -98,3 +98,22 @@ within one).
   NONE, isolated thoughts physically correct. Suite 490 passed.
 - **REMAINING for full closure**: 29.3 round with the ZONED campaign fixture
   (re-author beats so the partition opens mid-campaign via zone_link_updates).
+
+## CLOSED 2026-07-16 (autonomous overnight session)
+
+All headline acceptance criteria delivered and measured:
+- [x] `action_intent` in the character contract; intents recorded as attempts,
+  never outcomes (36.2, live-validated with an emergent refusal).
+- [x] Resolver-side deterministic validation: witness clamps, zone moves,
+  dynamic zone links, all code-enforced (model narrows, never widens).
+- [x] Blind prose renderer with reader-entitled inputs only; dialogue inside
+  narration measured at 0 across every post-fix run (was 6+); anti-repetition
+  guard (6/15 near-dups -> 0/0); zone STAGING block (impossible staging -> 0).
+- [x] Movement transactional and undo-safe via scene snapshots.
+- [x] xfailed3 re-run with the zoned partition: 25 (baseline) -> 0/3/4 across
+  three runs, deterministic families all at zero; audience_origin (schema v6)
+  born from the round's false positives.
+- [x] Blind critic x2 with uncontexted fixers between cycles, all findings
+  either fixed-and-remeasured or routed (26).
+Deferred with owners: K-speakers core-vs-plugin boundary (revisit at 37);
+xfail exit clock (29.3, calibrated oracle).

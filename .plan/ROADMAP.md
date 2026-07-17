@@ -19,15 +19,15 @@ fechada ou mudança de sequência. Referência de arquitetura:
 | 36.1 | Split Decisão/Prosa + renderizador cego | diálogo-em-narração 6+ → 0/4 por construção |
 | 36.2 | `action_intent` + `zone_moves` + arestas dinâmicas | arco físico completo 2/2 (divisória que abre) |
 | 32 | `routing_check` natural + custo por check no harness | 6/6 sondas; warm-up de cache visível |
+| 28 | Force speaker (bug real: skip descartava a força) | aceitação real 6 rodadas, zero chamadas de personagem |
+| 30 | Whisper UI no composer | payload/render/i18n; 9 testes de fronteira |
+| **36** | **Split Diretor/Prosa + intents + zonas dinâmicas + audience_origin (v6)** | benchmark 25 -> 0 determinístico; diálogo-em-narração impossível; staging correto |
 
 ## 🔶 Em andamento
 
 | Task | O que falta |
 |---|---|
-| **36 (fechamento)** | (a) crítico cego subjetivo dos transcripts pós-fix (API dos subagentes em 529, 4 tentativas — rodar quando voltar); (b) rodada 29.3 com fixture ZONADO (re-autoria de beats: divisória abre no T8 via `zone_link_updates`; ~meio dia) |
-| **28 — Force speaker** | EM EXECUÇÃO — investigação evidence-first (sessão 091b11c6) |
-| **30 — Whisper UI** | EM EXECUÇÃO — seletor de audiência no composer + render de sussurros + i18n |
-| **README principal** | EM EXECUÇÃO — refletir a arquitetura pós-split |
+| Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run 1 = 0 violações (primeira XPASS do programa); variância semântica restante: cumprimento de promessa, discrição vs auditoria, confabulação de alias |
 
 ## 📋 Sequência principal (após 28/30)
 

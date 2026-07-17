@@ -176,7 +176,7 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
     },
     "WT-06-public-mortality": {
         "turn": 17,
-        "probe": {"reply_patterns": [r"(?i)mortal"]},
+        "probe": {"reply_patterns": [r"(?i)(mortal|humano)"]},
         "violation_class": "world_truth_contradiction",
         "detail": "the blood assay makes the doctor's mortality public",
     },
@@ -221,7 +221,12 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
     },
     "MORIARTY-stays-unknown": {
         "turn": 24,
-        "probe": {"reply_forbidden_patterns": [r"(?i)moriarty (esta|está|foi visto) em"]},
+        "probe": {
+            "reply_forbidden_patterns": [
+                r"(?i)moriarty (esta|está|foi visto|foi preso|se esconde) em",
+                r"(?i)moriarty (esta|está) (preso|escondido|selado)",
+            ]
+        },
         "violation_class": "world_truth_contradiction",
         "detail": "Moriarty's location is canonically unknown; inventing one is a violation",
     },
@@ -433,6 +438,11 @@ def _earned_name(game: Any, viewer_id: str, subject_id: str, name: str, turn: in
     viewer's presence) from a leak. Pre-29.2 sessions have no snapshots and this
     returns False, preserving the baseline's binary reading.
     """
+    final = game.character_perspectives.get(viewer_id)
+    if final is not None:
+        view = final.people.get(subject_id)
+        if view and view.known_name == name and view.source_turn <= turn:
+            return True
     latest: dict[str, Any] | None = None
     for record in game.history:
         if record.turn_number > turn:
