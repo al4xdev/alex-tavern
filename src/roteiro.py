@@ -30,6 +30,7 @@ ROTEIRO_DEFAULTS = {
 
 # Replan tuning (module constants; measured before ever becoming config).
 DRIFT_WINDOW_TURNS = 3  # M consecutive disengaged turns = drifted
+PARTIAL_ADVANCE_PATIENCE = 2  # turns before a near-covered beat advances anyway
 COOLDOWN_TURNS = 2  # replans blocked for this many turns after any replan
 ACT_REPLAN_THRESHOLD = 2  # stall/drift replans in one act before act rewrite
 MIN_BUDGET_TURNS = 2
@@ -197,6 +198,20 @@ def evaluate_roteiro(
     covered = not progress.anchors_missing and not progress.actors_missing
     if covered and (roteiro.beat.expected_anchors or roteiro.beat.expected_actors):
         return ReplanDecision(action="advance", reason="coverage_complete", progress=progress)
+
+    # Partial-coverage advance: a beat that has landed its actors and all but
+    # one stubborn anchor should MOVE ON rather than grind to a budget-stall on
+    # the holdout — holding identical beat text across many turns is what pins
+    # the scene into re-staged stimuli and re-injected lore (round-1 critic:
+    # a beat missing one anchor pinned the story for five turns). Drive over
+    # completeness: the roteiro is guidance, not a checklist.
+    substantial = (
+        not progress.actors_missing
+        and len(progress.anchors_hit) >= 1
+        and len(progress.anchors_missing) <= 1
+    )
+    if substantial and progress.turns_elapsed >= PARTIAL_ADVANCE_PATIENCE:
+        return ReplanDecision(action="advance", reason="coverage_sufficient", progress=progress)
 
     stalled = progress.turns_elapsed >= roteiro.beat.budget_turns
     drifted = (
@@ -442,6 +457,8 @@ def build_next_beat_messages(
     act = roteiro.acts[roteiro.act_index] if roteiro.act_index < len(roteiro.acts) else None
     status = {
         "advance": "The current beat COMPLETED (its actors and anchors all landed).",
+        "coverage_complete": "The current beat COMPLETED (its actors and anchors all landed).",
+        "coverage_sufficient": "The current beat is essentially DONE (actors and nearly all anchors landed); move the story on rather than dwell.",
         "stalled": "The current beat STALLED: its turn budget ran out without full coverage.",
         "drifted": "The story DRIFTED away from the current beat: recent turns touch neither its actors nor its anchors. Plan from where the story actually is.",
         "no_beat": "There is no current beat.",

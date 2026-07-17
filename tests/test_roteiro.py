@@ -202,6 +202,35 @@ class TestEvaluateRoteiro:
         decision = evaluate_roteiro(roteiro, [_record(1, "C3", "Oi.")], "C1", 2)
         assert decision.action is None
 
+    def test_partial_coverage_advances_after_patience(self) -> None:
+        # Actors covered, one anchor landed, one stubborn holdout: after the
+        # patience window the beat advances instead of grinding to a stall
+        # (the round-1 pinned-beat regression).
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["carta lacrada", "adaga"], budget_turns=10)
+        )
+        history = [_record(1, "C2", "Vi a carta lacrada."), _record(2, "C3", "Nada demais.")]
+        decision = evaluate_roteiro(roteiro, history, "C1", 3)
+        assert decision.action == "advance"
+        assert decision.reason == "coverage_sufficient"
+
+    def test_partial_coverage_waits_for_patience(self) -> None:
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["carta lacrada", "adaga"], budget_turns=10)
+        )
+        history = [_record(1, "C2", "Vi a carta lacrada.")]
+        decision = evaluate_roteiro(roteiro, history, "C1", 2)
+        assert decision.action is None
+        assert decision.reason == "in_progress"
+
+    def test_two_missing_anchors_is_not_substantial(self) -> None:
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["carta lacrada", "adaga", "selo"], budget_turns=10)
+        )
+        history = [_record(turn, "C2", "Vi a carta lacrada.") for turn in range(1, 4)]
+        decision = evaluate_roteiro(roteiro, history, "C1", 4)
+        assert decision.action is None  # two anchors still missing => keep going
+
     def test_budget_exhaustion_stalls(self) -> None:
         history = [_record(turn, "C3", "Conversa fiada.") for turn in range(1, 5)]
         decision = evaluate_roteiro(_roteiro(), history, "C1", 5)
