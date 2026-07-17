@@ -150,6 +150,40 @@ class TestBeatProgress:
         assert progress.disengaged_streak == 2
         assert progress.turns_elapsed == 3
 
+    def test_anchor_seen_via_evidence_counts_without_history_mention(self) -> None:
+        """The regression that stalled every beat: an anchor staged only as an
+        audible_speech event never reaches the prose/history, yet must count."""
+        roteiro = _roteiro(anchors_seen=["carta lacrada"])
+        # History says nothing about the anchor — it lived only in the event.
+        history = [_record(1, "C3", "Que noite comprida.")]
+        progress = measure_beat_progress(roteiro, history, "C1")
+        assert progress.anchors_hit == ("carta lacrada",)
+        assert progress.anchors_missing == ()
+
+
+class TestCollectBeatEvidence:
+    def test_collects_only_new_anchors(self) -> None:
+        from src.roteiro import collect_beat_evidence
+
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["carta lacrada", "adaga"]),
+            anchors_seen=["carta lacrada"],
+        )
+        found = collect_beat_evidence(roteiro, ["Ele saca a adaga do cinto."])
+        assert found == ["adaga"]
+
+    def test_matches_across_accents_and_inflection(self) -> None:
+        from src.roteiro import collect_beat_evidence
+
+        roteiro = _roteiro(beat=_beat(expected_anchors=["murmurio"]))
+        found = collect_beat_evidence(roteiro, ["Um murmúrio rouco escapa do ferido."])
+        assert found == ["murmurio"]
+
+    def test_no_beat_returns_empty(self) -> None:
+        from src.roteiro import collect_beat_evidence
+
+        assert collect_beat_evidence(_roteiro(beat=None), ["qualquer coisa"]) == []
+
 
 class TestEvaluateRoteiro:
     def test_in_progress_returns_no_action(self) -> None:
@@ -300,6 +334,51 @@ class TestReplanBookkeeping:
         assert [act.act_id for act in updated.acts] == ["act1", "act2r"]
         assert updated.beat_replans_in_act == 0
 
+    @pytest.mark.asyncio
+    async def test_act_rewrite_drops_restated_current_act(self, monkeypatch) -> None:  # noqa: ANN001
+        """The observed A/B defect: the model restates the current act as its
+        first 'new' one, which must not leave two identical acts in the plan."""
+        import src.roteiro as roteiro_mod
+
+        async def fake_llm(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
+            return {
+                "act_completed": False,
+                "acts": [
+                    {"act_id": "dup", "summary": "A carta chega",  # == current act1
+                     "exit_condition": "carta aberta"},
+                    {"act_id": "act2r", "summary": "O verdadeiro segundo ato",
+                     "exit_condition": "fim"},
+                ],
+                "beat": {"beat_id": "b", "intent": "x", "expected_actors": [],
+                         "expected_anchors": [], "exit_condition": "", "budget_turns": 3},
+            }
+
+        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        game = _game(roteiro=_roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD))
+        decision = ReplanDecision(action="replan_act", reason="stalled")
+        async with httpx.AsyncClient() as client:
+            updated = await replan_roteiro(client, game, decision, {}, 11)
+        summaries = [act.summary for act in updated.acts]
+        assert summaries == ["A carta chega", "O verdadeiro segundo ato"]
+
+    @pytest.mark.asyncio
+    async def test_replan_resets_anchors_seen(self, monkeypatch) -> None:  # noqa: ANN001
+        import src.roteiro as roteiro_mod
+
+        async def fake_llm(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
+            return {
+                "act_completed": False,
+                "beat": {"beat_id": "b2", "intent": "x", "expected_actors": [],
+                         "expected_anchors": ["novo"], "exit_condition": "", "budget_turns": 3},
+            }
+
+        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        game = _game(roteiro=_roteiro(anchors_seen=["carta lacrada"]))
+        decision = ReplanDecision(action="replan_beat", reason="stalled")
+        async with httpx.AsyncClient() as client:
+            updated = await replan_roteiro(client, game, decision, {}, 7)
+        assert updated.anchors_seen == []
+
 
 class TestPersistence:
     def test_roundtrip_preserves_roteiro(self) -> None:
@@ -330,6 +409,23 @@ class TestConfidentialityAndConsumption:
         assert "A carta some do balcao" in user_prompt
         assert "Marta" in user_prompt  # actor rendered by name, not internal ID
 
+    def test_director_block_lists_only_pending_anchors(self) -> None:
+        """An anchor already in play is not re-listed — that would invite the
+        Director to stage the same prop twice."""
+        seen = _roteiro(
+            beat=_beat(expected_anchors=["carta lacrada", "adaga"]),
+            anchors_seen=["carta lacrada"],
+        )
+        lines = "\n".join(describe_roteiro_for_director(seen, CHARACTERS))
+        assert "adaga" in lines
+        assert "carta lacrada" not in lines
+
+    def test_director_block_drops_pending_line_when_all_seen(self) -> None:
+        seen = _roteiro(beat=_beat(expected_anchors=["carta lacrada"]),
+                        anchors_seen=["carta lacrada"])
+        lines = "\n".join(describe_roteiro_for_director(seen, CHARACTERS))
+        assert "Not in play yet" not in lines
+
     def test_prose_and_character_builders_have_no_roteiro_surface(self) -> None:
         """Confidentiality is structural: the other prompt builders cannot even
         receive a roteiro — the parameter does not exist on their signatures."""
@@ -344,7 +440,7 @@ class TestConfidentialityAndConsumption:
 
 
 class TestRunnerWiring:
-    async def _turn(self, monkeypatch, config, game_roteiro=None, seed_history=None):  # noqa: ANN001, ANN202
+    async def _turn(self, monkeypatch, config, game_roteiro=None, seed_history=None, narrator_events=None):  # noqa: ANN001, ANN202
         import src.runner as runner_mod
         from src.runner import Runner
 
@@ -372,7 +468,7 @@ class TestRunnerWiring:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {
                 "next_speakers": ["Narrator"],
-                "perception_events": [],
+                "perception_events": list(narrator_events or []),
                 "scene_update": None,
                 "mood_updates": None,
                 "return_control": False,
@@ -437,3 +533,27 @@ class TestRunnerWiring:
         # anchor coverage -> the deterministic engine ordered one beat replan.
         assert calls["replan"] == 1
         assert game is not None and game.roteiro is not None
+
+    @pytest.mark.asyncio
+    async def test_anchor_from_event_accumulates_into_seen(self, monkeypatch) -> None:  # noqa: ANN001
+        """The regression fix, end to end: an anchor the Director stages only as
+        a typed audible_speech event (which never surfaces in the prose or any
+        history record) is still recorded as covered on the roteiro. The next
+        beat's evaluation will therefore see it — the stall that punished the
+        obedient Director is gone."""
+        config = {"auto_event_enabled": False, "roteiro_enabled": True}
+        beat = _beat(budget_turns=4, expected_actors=[], expected_anchors=["murmurio"])
+        roteiro = _roteiro(beat=beat, beat_started_turn=1)
+        event = {
+            "event_kind": "audible_speech",
+            "subject_id": "C2",
+            "content": "Um murmúrio rouco escapa do ferido.",
+            "witness_ids": ["C3"],
+        }
+        calls, game = await self._turn(
+            monkeypatch, config, game_roteiro=roteiro, narrator_events=[event]
+        )
+        assert game is not None and game.roteiro is not None
+        assert "murmurio" in game.roteiro.anchors_seen
+        # Budget not exhausted and the anchor is covered -> no replan.
+        assert calls["replan"] == 0

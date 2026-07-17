@@ -77,53 +77,65 @@ Resultados já auditados:
   replan_beat/stalled; t7-8 in_progress; t9 **replan_act**/stalled; t10
   in_progress. Zero self-assessment. Cooldown/histerese visíveis.
 
-### 2.2 DOIS DEFEITOS JÁ IDENTIFICADOS nos dados — corrigir ANTES do crítico
+### 2.2 DEFEITOS — DIAGNOSTICADOS E CORRIGIDOS (Opus, 2026-07-17)
 
-(a) **Splice do rewrite de ato duplica o ato corrente.** Estado final da run:
-`acts[0]` e `acts[1]` são o MESMO texto ("A noite tranquila é quebrada por um
-viajante ferido..."). Causa: em `replan_roteiro`,
-`acts = acts[: act_index + 1] + new_acts` preserva o ato corrente, mas o
-modelo re-inclui uma versão dele em `new_acts`. Fix estrutural: após o
-splice, dropar de `new_acts` qualquer ato cujo summary normalizado
-(`_normalize`) tenha SequenceMatcher ratio > 0.85 com um summary já mantido.
-Unit test: rewrite que re-inclui o ato corrente → lista final sem duplicata.
+Status: os dois fixes estruturais estão implementados, unit-testados e
+commitados (ver commit abaixo). Suíte 542 verde. **Ainda falta** o re-run A/B
+real + crítico cego (§2.3/§2.4) — precisa de cota de API, por isso ficou
+teed up, não executado.
 
-(b) **Zero advances em 10 turnos — todos os beats stallaram** (beat_log:
-"1: stalled; 2: stalled; 3: stalled"). Os beats gerados pedem eventos que só
-acontecem se o Diretor os ENCENAR (ex.: "viajante ferido" chega), mas o
-Diretor não os encenou. Investigação obrigatória antes de mexer:
-1. Abrir `plans/artifacts/roteiro-ab/roteiro/data/sessions/2f9bcceb/debug.jsonl`,
-   filtrar `agent=director`, confirmar que o bloco ROTEIRO está no user
-   prompt e comparar `perception_events` retornados vs âncoras do beat ativo.
-2. Diagnóstico esperado (confirme): o bloco diz "steer events toward it" mas
-   o Diretor trata como cenário de fundo, não como instrução de encenar as
-   âncoras via `perception_events`.
-Fixes candidatos (aplicar o mínimo que resolver, re-rodar A/B depois):
-   - Reforçar o bloco em `describe_roteiro_for_director`: os itens de
-     "Bring into play" devem ser introduzidos como eventos de percepção
-     CONCRETOS nos próximos turnos (sem revelar o roteiro, sem forçar
-     decisão de personagem).
-   - Regra no gerador (`_ARCHITECT_RULES`): âncoras precisam ser encenáveis
-     PELO MUNDO (objeto, som, chegada, mudança física) — nunca dependentes
-     de decisão do protagonista.
-   - Se ainda stallar: considerar passar `anchors_missing` do beat ativo como
-     linha extra do bloco ROTEIRO ("ainda não entraram em cena: X, Y").
-Critério de re-aceitação: em 10 turnos, ≥1 `advance`/`coverage_complete` no
-log, e beats que avançam por cobertura genuína (confira no transcript que a
-âncora realmente apareceu em cena).
+(a) **Splice do rewrite de ato duplicava o ato corrente** — CORRIGIDO. O
+modelo re-inclui o ato corrente como primeiro "novo" ato. Fix em
+`replan_roteiro`: dedupe defensivo — dropa de `new_acts` qualquer ato cujo
+summary normalizado tenha ratio > 0.85 com um summary já mantido. Também
+reforcei o prompt de `build_next_beat_messages` (scope=act): "rewrite the acts
+that come AFTER the current one ... do NOT restate them". Testes:
+`test_act_rewrite_drops_restated_current_act`.
+
+(b) **Zero advances / todo beat stallava** — CORRIGIDO, e a causa NÃO era a do
+palpite do handoff. O Diretor OBEDECIA: no debug.jsonl (sessão 2f9bcceb, que
+por um bug de isolamento do script caiu em `control/data/sessions/`), o beat 2
+pedia a âncora `murmurio` e o Diretor encenou "Um murmúrio rouco escapa do
+ferido" em T3/T4/T5 — sempre como evento `audible_speech`. `actors_missing`
+ficou VAZIO em 100% dos turnos. O bug era de MEDIÇÃO: `measure_beat_progress`
+só varria a HISTÓRIA (speech/action/narration), mas a Task 37 (corretamente)
+removeu `audible_speech` dos inputs da prosa — então o murmúrio encenado nunca
+virou registro de narração, e o motor punia o Diretor por obedecer.
+Fix estrutural: a cobertura de âncoras passa a ser medida na FONTE
+AUTORITATIVA (eventos tipados do Diretor + falas/ações dos personagens), não
+na prosa lossy. Novo campo `Roteiro.anchors_seen` (schema v7, acumulado no
+commit de cada beat via `collect_beat_evidence` no runner, resetado a cada
+replan). `describe_roteiro_for_director` agora lista só as âncoras PENDENTES
+("Not in play yet — introduce as concrete perception events: ...") em vez de
+re-listar as já encenadas. Testes: `TestCollectBeatEvidence`,
+`test_anchor_seen_via_evidence_counts_without_history_mention`,
+`test_anchor_from_event_accumulates_into_seen`,
+`test_director_block_lists_only_pending_anchors`.
+
+(b-extra) **Bug do script de aceitação** — CORRIGIDO. `src/paths.py` resolve
+`DATA_DIR` no import, então rodar os dois arms no mesmo processo mandava as
+duas sessões pro mesmo diretório. `tools/acceptance/roteiro_ab.py` foi
+reescrito: cada arm roda em subprocesso próprio (`--arm`), o scan em outro
+(`--scan`); o orchestrator (sem args) spawna os três com `ROLEPLAY_DATA_DIR`
+setado ANTES de qualquer import de src. Saída marcada (`ARM_SUMMARY`,
+`REPLAN_DECISIONS`, `CONFIDENTIALITY NONE`).
 
 (c) Cosmético, não bloqueia: beat_ids saíram "1","2","3" (modelo ignorou o
 formato act1-beatN). Se incomodar, prefixe o fallback no `_validate_beat`.
 
-### 2.3 Re-rodar a A/B após os fixes
+### 2.3 Re-rodar a A/B após os fixes (PENDENTE — precisa de cota)
 
 ```
 rm -rf plans/artifacts/roteiro-ab
 uv run python tools/acceptance/roteiro_ab.py
 ```
 (≈6-10 min, ~60 chamadas reais; rodar com run_in_background e esperar a
-notificação — NUNCA busy-loop.) Exigir de novo: CONFIDENTIALITY NONE +
-triggers todos determinísticos + o critério de advance de 2.2(b).
+notificação — NUNCA busy-loop.) O script novo já imprime `CONFIDENTIALITY`,
+`REPLAN_DECISIONS` (com anchors_missing/actors_missing por turno) e
+`SESSIONS`. Exigir: CONFIDENTIALITY NONE + todos os triggers determinísticos +
+o critério de advance de 2.2(b) — agora em ≥1 `advance`/`coverage_complete`
+no log, com a âncora tendo caído de fato (confira `anchors_seen` no summary do
+arm roteiro crescendo além de vazio).
 
 ### 2.4 Crítico cego comparativo (só depois de 2.2/2.3 verdes)
 

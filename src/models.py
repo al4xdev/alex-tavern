@@ -231,6 +231,12 @@ class Roteiro:
     act_index: int = 0
     beat: RoteiroBeat | None = None
     beat_started_turn: int = 0
+    # Anchors of the CURRENT beat already witnessed in play, accumulated from
+    # the authoritative evidence as it happens (the Director's typed events and
+    # the characters' own words/acts). Reset on every replan. Prose is a lossy
+    # downstream paraphrase and must never be the coverage surface: audible
+    # speech events, for one, never reach the renderer at all (Task 37).
+    anchors_seen: list[str] = field(default_factory=list)
     # Replans are blocked until this turn number (hysteresis after any replan).
     cooldown_until_turn: int = 0
     # Consecutive stall/drift replans inside the current act (act-replan input).
@@ -269,6 +275,7 @@ def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
             else None
         ),
         beat_started_turn=int(data.get("beat_started_turn", 0)),
+        anchors_seen=list(data.get("anchors_seen", [])),
         cooldown_until_turn=int(data.get("cooldown_until_turn", 0)),
         beat_replans_in_act=int(data.get("beat_replans_in_act", 0)),
         beat_log=list(data.get("beat_log", [])),

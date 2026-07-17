@@ -98,17 +98,38 @@ def _beat_records(
     ]
 
 
+def collect_beat_evidence(roteiro: Roteiro, texts: list[str]) -> list[str]:
+    """Anchors of the current beat newly witnessed in ``texts`` (never duplicated).
+
+    Called by the runner with the AUTHORITATIVE evidence of a beat: the typed
+    perception events the Director staged, plus what the characters themselves
+    said or did. Deliberately not the prose: the renderer paraphrases, and
+    audible speech never reaches it at all — measuring coverage there punished
+    the Director for obeying (a whole beat's murmur staged three times, unseen).
+    """
+    beat = roteiro.beat
+    if beat is None:
+        return []
+    return [
+        anchor
+        for anchor in beat.expected_anchors
+        if anchor not in roteiro.anchors_seen
+        and any(anchor_matched(anchor, text) for text in texts)
+    ]
+
+
 def measure_beat_progress(
     roteiro: Roteiro,
     history: list[TurnRecord],
     controlled_id: str,
 ) -> BeatProgress:
-    """Coverage of the rolling beat: which anchors/actors history has touched.
+    """Coverage of the rolling beat: which anchors/actors the story has touched.
 
-    An actor counts when they themselves spoke or acted since the beat began;
-    an anchor counts when any speech/action/narration record mentions it.
-    The disengaged streak counts trailing turn numbers where NOTHING touched
-    the beat (the drift signal's input).
+    Anchors come from ``roteiro.anchors_seen`` (accumulated from authoritative
+    evidence, see ``collect_beat_evidence``) plus this beat's history records,
+    so an anchor a character speaks about also counts. An actor counts when
+    they themselves spoke or acted since the beat began. The disengaged streak
+    counts trailing turn numbers where NOTHING touched the beat (drift input).
     """
     beat = roteiro.beat
     assert beat is not None
@@ -120,7 +141,8 @@ def measure_beat_progress(
     anchors_hit = {
         anchor
         for anchor in beat.expected_anchors
-        if any(anchor_matched(anchor, rec.content) for rec in records)
+        if anchor in roteiro.anchors_seen
+        or any(anchor_matched(anchor, rec.content) for rec in records)
     }
     actors_hit = {
         actor
@@ -210,8 +232,13 @@ def describe_roteiro_for_director(roteiro: Roteiro, characters: dict) -> list[st
     lines.append(f"  Current beat: {beat.intent}")
     if actor_names:
         lines.append(f"    Give stage time to: {actor_names}")
-    if beat.expected_anchors:
-        lines.append(f"    Bring into play: {', '.join(beat.expected_anchors)}")
+    pending = [a for a in beat.expected_anchors if a not in roteiro.anchors_seen]
+    if pending:
+        # Only what has NOT landed yet: an anchor already in play would just
+        # invite the Director to stage the same prop twice.
+        lines.append(
+            f"    Not in play yet — introduce as concrete perception events: {', '.join(pending)}"
+        )
     if beat.exit_condition:
         lines.append(f"    The beat ends when: {beat.exit_condition}")
     return lines
@@ -434,10 +461,11 @@ def build_next_beat_messages(
     lines.append(f"STATUS: {status}")
     if scope == "act":
         task = (
-            "The current act plan no longer fits the story. Rewrite the REMAINING\n"
-            "act skeleton (keep the premise; acts already played stay played) and\n"
-            "produce the next beat contract. Also return act_completed for whether\n"
-            "the current act's exit condition has been met."
+            "The current act plan no longer fits the story. Rewrite the acts that\n"
+            "come AFTER the current one (keep the premise; the current act and any\n"
+            "already played stay as they are — do NOT restate them). Then produce\n"
+            "the next beat contract. Also return act_completed for whether the\n"
+            "current act's exit condition has been met."
         )
     else:
         task = (
@@ -512,7 +540,20 @@ async def replan_roteiro(
         new_acts = _validate_acts(result.get("acts"))
         if new_acts:
             # Acts already played stay played: splice the rewrite after them.
-            acts = acts[: act_index + 1] + new_acts
+            # Defensive dedupe: the model tends to restate the current act as
+            # its first "new" one, which would leave two identical acts in the
+            # skeleton — drop any rewrite act that near-repeats a kept one.
+            kept = acts[: act_index + 1]
+            kept_summaries = [_normalize(a.summary) for a in kept]
+            deduped = [
+                act
+                for act in new_acts
+                if not any(
+                    SequenceMatcher(None, _normalize(act.summary), kept_summary).ratio() > 0.85
+                    for kept_summary in kept_summaries
+                )
+            ]
+            acts = kept + deduped
         replans_in_act = 0
     if bool(result.get("act_completed")) and act_index < len(acts) - 1:
         act_index += 1

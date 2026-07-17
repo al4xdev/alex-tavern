@@ -29,6 +29,7 @@ from src.agents.perspective import (
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
 from src.roteiro import (
+    collect_beat_evidence,
     describe_roteiro_for_director,
     evaluate_roteiro,
     generate_roteiro,
@@ -865,6 +866,24 @@ class Runner:
                 game.turns_since_injected_event = (
                     0 if injected_event else game.turns_since_injected_event + 1
                 )
+                # Roteiro coverage (Task 38): record which of the current beat's
+                # anchors this beat actually put in play, measured on the
+                # AUTHORITATIVE evidence — the Director's typed events and the
+                # characters' own words/acts — not the lossy prose. Audible
+                # speech never reaches the renderer, so the prose can never be
+                # the coverage surface without punishing the Director for obeying.
+                if game.roteiro is not None and game.roteiro.beat is not None:
+                    evidence_texts = [
+                        event["content"] for event in narrator_raw["perception_events"]
+                    ]
+                    for response in character_responses:
+                        if response.get("speech"):
+                            evidence_texts.append(response["speech"])
+                        if response.get("action_intent"):
+                            evidence_texts.append(response["action_intent"])
+                    newly_seen = collect_beat_evidence(game.roteiro, evidence_texts)
+                    if newly_seen:
+                        game.roteiro.anchors_seen.extend(newly_seen)
                 game.revision += 1
                 save_game(game)
                 if self.plugins is not None:

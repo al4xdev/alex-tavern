@@ -2,17 +2,28 @@
 
 Identical player inputs in both arms; the only difference is roteiro_enabled.
 Arm outputs go to plans/artifacts/roteiro-ab/{control,roteiro}/data.
-Also scans the roteiro arm's debug log: roteiro text must exist ONLY in
-director/roteiro payloads (confidentiality invariant, Task 38).
+
+IMPORTANT — arm isolation: ``src/paths.py`` resolves ROLEPLAY_DATA_DIR at
+import time, so both arms must NOT share one process (that put both sessions
+under the same data dir on the first run). The orchestrator spawns one
+subprocess per arm with the env var set before any src import; the
+confidentiality scan runs in its own subprocess for the same reason.
+
+Usage:
+  python tools/acceptance/roteiro_ab.py                 # orchestrate both arms
+  python tools/acceptance/roteiro_ab.py --arm roteiro --enabled 1   # one arm
+  python tools/acceptance/roteiro_ab.py --scan roteiro <sid>        # scan only
 """
+import argparse
 import asyncio
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/home/alex/git/my/roleplay")
-BASE = Path("/home/alex/git/my/roleplay/plans/artifacts/roteiro-ab")
+REPO = Path("/home/alex/git/my/roleplay")
+BASE = REPO / "plans/artifacts/roteiro-ab"
 
 CHARACTER_SPEC = {
     "C1": {
@@ -43,10 +54,8 @@ INPUTS = [
 ]
 
 
-async def run_arm(name: str, roteiro_enabled: bool) -> str:
-    os.environ["ROLEPLAY_DATA_DIR"] = str(BASE / name / "data")
-    # Fresh imports per arm would be ideal; the store reads the env var lazily
-    # per call in this codebase, so setting it before the runner works.
+async def run_arm(roteiro_enabled: bool) -> str:
+    """Run one arm in THIS process — env var must already be set by the caller."""
     import httpx
     from src.config import load_config, resolve_active_config
     from src.models import Character, CharacterBody, CharacterMind, Scene
@@ -59,7 +68,7 @@ async def run_arm(name: str, roteiro_enabled: bool) -> str:
         )
         for cid, spec in CHARACTER_SPEC.items()
     }
-    config = resolve_active_config(load_config(Path("/home/alex/git/my/roleplay/.data/config.json")))
+    config = resolve_active_config(load_config(REPO / ".data/config.json"))
     config.update({
         "autonomous_burst_max_beats": 1,
         "roteiro_enabled": roteiro_enabled,
@@ -84,7 +93,6 @@ async def run_arm(name: str, roteiro_enabled: bool) -> str:
                 await runner.player_turn(sid, skip=True)
         game = await runner.get_state(sid)
     summary = {
-        "arm": name,
         "session_id": sid,
         "turns": game.history[-1].turn_number if game.history else 0,
         "roteiro": None,
@@ -94,17 +102,18 @@ async def run_arm(name: str, roteiro_enabled: bool) -> str:
             "premise": game.roteiro.premise,
             "acts": [a.summary for a in game.roteiro.acts],
             "act_index": game.roteiro.act_index,
+            "anchors_seen": game.roteiro.anchors_seen,
             "beat": game.roteiro.beat.intent if game.roteiro.beat else None,
             "beat_log": game.roteiro.beat_log,
         }
-    print(json.dumps(summary, ensure_ascii=False))
+    print("ARM_SUMMARY " + json.dumps(summary, ensure_ascii=False))
     return sid
 
 
-def confidentiality_scan(name: str, sid: str) -> None:
-    from src.store.sessions import session_debug_path, load_game
+def confidentiality_scan(sid: str) -> None:
+    """Scan the roteiro arm's debug log — env var must already point at its dir."""
+    from src.store.sessions import load_game, session_debug_path
 
-    os.environ["ROLEPLAY_DATA_DIR"] = str(BASE / name / "data")
     game = load_game(sid)
     assert game is not None and game.roteiro is not None
     secret_strings = [game.roteiro.premise]
@@ -119,7 +128,7 @@ def confidentiality_scan(name: str, sid: str) -> None:
         record = json.loads(line)
         agent = record.get("agent", "")
         if agent == "roteiro_replan":
-            replans.append({k: record[k] for k in ("turn_number", "action", "reason", "beat_id")})
+            replans.append({k: record.get(k) for k in ("turn_number", "action", "reason", "beat_id", "anchors_missing", "actors_missing")})
         request = record.get("request")
         if not request:
             continue
@@ -127,15 +136,53 @@ def confidentiality_scan(name: str, sid: str) -> None:
         hit = [s for s in secret_strings if s in payload]
         if hit and agent != "director" and not agent.startswith("roteiro"):
             violations.append({"agent": agent, "turn": record.get("turn_number"), "hits": hit})
-    print("replan decisions:", json.dumps(replans, ensure_ascii=False))
-    print("CONFIDENTIALITY VIOLATIONS:", json.dumps(violations, ensure_ascii=False) if violations else "NONE")
+    print("REPLAN_DECISIONS " + json.dumps(replans, ensure_ascii=False))
+    print("CONFIDENTIALITY " + ("NONE" if not violations else json.dumps(violations, ensure_ascii=False)))
 
 
-async def main() -> None:
-    sid_control = await run_arm("control", roteiro_enabled=False)
-    sid_roteiro = await run_arm("roteiro", roteiro_enabled=True)
-    confidentiality_scan("roteiro", sid_roteiro)
-    print(json.dumps({"control": sid_control, "roteiro": sid_roteiro}))
+def _spawn(args: list[str], data_dir: Path) -> str:
+    """Run this script as a subprocess with an isolated data dir; return stdout."""
+    env = dict(os.environ, ROLEPLAY_DATA_DIR=str(data_dir))
+    proc = subprocess.run(
+        [sys.executable, __file__, *args],
+        env=env, cwd=str(REPO), capture_output=True, text=True,
+    )
+    sys.stdout.write(proc.stdout)
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr)
+        raise SystemExit(f"arm {args} failed (exit {proc.returncode})")
+    return proc.stdout
 
 
-asyncio.run(main())
+def _sid_from(stdout: str) -> str:
+    for line in stdout.splitlines():
+        if line.startswith("ARM_SUMMARY "):
+            return json.loads(line[len("ARM_SUMMARY "):])["session_id"]
+    raise SystemExit("no ARM_SUMMARY in arm output")
+
+
+def orchestrate() -> None:
+    control_out = _spawn(["--arm", "control", "--enabled", "0"], BASE / "control" / "data")
+    roteiro_out = _spawn(["--arm", "roteiro", "--enabled", "1"], BASE / "roteiro" / "data")
+    sid_control = _sid_from(control_out)
+    sid_roteiro = _sid_from(roteiro_out)
+    _spawn(["--scan", sid_roteiro], BASE / "roteiro" / "data")
+    print("SESSIONS " + json.dumps({"control": sid_control, "roteiro": sid_roteiro}))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--arm", choices=["control", "roteiro"])
+    parser.add_argument("--enabled", choices=["0", "1"])
+    parser.add_argument("--scan", metavar="SID")
+    args = parser.parse_args()
+    if args.scan:
+        confidentiality_scan(args.scan)
+    elif args.arm:
+        asyncio.run(run_arm(args.enabled == "1"))
+    else:
+        orchestrate()
+
+
+if __name__ == "__main__":
+    main()
