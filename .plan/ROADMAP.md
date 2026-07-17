@@ -1,7 +1,9 @@
 # Roadmap — estado atual e sequência (atualizado 2026-07-16)
 
 Fonte única de "onde estamos e o que vem". Atualize este arquivo a cada task
-fechada ou mudança de sequência. Referência de arquitetura:
+fechada ou mudança de sequência. **Handoff ativo: `HANDOFF-OPUS.md`** (fila
+detalhada + regras de commit para o Opus; Task 38 implementada, falta
+aceitação A/B). Referência de arquitetura:
 `tasks/explore-29.2-architecture-map.md`. Artefatos de benchmark: `output29/`.
 
 ## ✅ Fechadas (todas com evidência medida e commit)
