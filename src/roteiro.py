@@ -569,6 +569,7 @@ async def replan_roteiro(
         act_index=act_index,
         beat=beat,
         beat_started_turn=turn_number,
+        anchors_seen=[],  # new beat, coverage starts empty
         cooldown_until_turn=turn_number + COOLDOWN_TURNS,
         beat_replans_in_act=replans_in_act,
         beat_log=(roteiro.beat_log + [f"{old_id}: {outcome}"])[-20:],
