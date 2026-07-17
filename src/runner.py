@@ -703,11 +703,21 @@ class Runner:
                         and speaker in game.scene.present_characters
                     )
                 )
-                narration, *_ = await asyncio.gather(
-                    self._render_narration(game, narrator_raw["perception_events"], step),
-                    *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
-                )
-                self._append_history(game, "Narrator", narration, "narration", step)
+                if max_beats > 1 and not narrator_raw["perception_events"]:
+                    # A burst beat with zero novel events narrates NOTHING: the
+                    # atmospheric fallback would only re-describe the standing
+                    # tableau (a null recap turn). Routed characters still speak.
+                    narration = ""
+                    await asyncio.gather(
+                        *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids)
+                    )
+                else:
+                    narration, *_ = await asyncio.gather(
+                        self._render_narration(game, narrator_raw["perception_events"], step),
+                        *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
+                    )
+                if narration:
+                    self._append_history(game, "Narrator", narration, "narration", step)
 
                 # The queue runs sequentially WITHOUT Narrator calls in between: each
                 # response is appended to history before the next character call, so a

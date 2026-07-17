@@ -142,13 +142,21 @@ class TestBurst:
     @pytest.mark.asyncio
     async def test_empty_beat_settles_immediately(self, monkeypatch) -> None:  # noqa: ANN001
         """A narrator-only beat with zero novel events ends the burst at once."""
-        result, _ = await _run(
+        result, game = await _run(
             monkeypatch,
             BURST_CONFIG,
             [_beat(["C2"], events=[_event("Barulho.")]), _beat(["Narrator"]), _beat(["C2"])],
         )
         assert result["burst_stop_reason"] == "beat_settled"
         assert len(result["beats"]) == 2
+        # The empty beat writes NO narration record: nothing happened, so the
+        # prose renderer is never invited to re-describe the standing tableau.
+        assert game is not None
+        narration_turns = [
+            r.turn_number for r in game.history if r.content_type == "narration"
+        ]
+        assert narration_turns == [1]
+        assert result["beats"][1]["narration"] == ""
 
     @pytest.mark.asyncio
     async def test_duplicate_events_are_dropped_across_beats(self, monkeypatch) -> None:  # noqa: ANN001

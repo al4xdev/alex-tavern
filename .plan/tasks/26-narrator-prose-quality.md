@@ -211,3 +211,20 @@ re-describes the same tableau. Candidate mitigations for THIS task: fuzzy
 retry-guard on generated narration (>0.85 similarity to prior narration →
 one correction retry), and/or passing only the last 1-2 narrations as context.
 Measure before choosing.
+
+## Additional Evidence (2026-07-17, Task 37 burst live runs)
+
+Three autonomous-burst live runs (4 beats each, `plans/artifacts/burst-live*/`).
+The whole-narration fuzzy guard (>0.85, Task 36 closure) plus the burst event
+dedupe eliminated the *re-told event* class — but SENTENCE-level verbatim
+copying survives both: in run 3 (`burst-live3`), the T3 narration reproduced
+two full sentences of T2's narration verbatim ("O som distante de cascos de
+cavalo ecoa...", "Os cães começam a latir no quintal.") inside an otherwise
+novel paragraph — the whole-text ratio stays under 0.85, so no retry fires,
+and the event dedupe cannot help because the copied text comes from the prose
+model reading the transcript, not from a duplicated event. Also recurring:
+epithet recycling across beats ("lareira quase apagada" 3x, "barba rala" 3x in
+run 2) — template-like set-dressing tags in static scenes. Refined mitigation
+candidate: apply the fuzzy guard per SENTENCE (>=40 chars, >0.85 vs any prior
+narration sentence) instead of per narration; epithet recycling likely needs
+the context-narrowing option (pass only the last 1-2 narrations).

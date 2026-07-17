@@ -23,6 +23,7 @@ fechada ou mudança de sequência. Referência de arquitetura:
 | 30 | Whisper UI no composer | payload/render/i18n; 9 testes de fronteira |
 | **36** | **Split Diretor/Prosa + intents + zonas dinâmicas + audience_origin (v6)** | benchmark 25 -> 0 determinístico; diálogo-em-narração impossível; staging correto |
 | 23 | Gap trim/compactação | pinning de âncoras de código + retenção adaptativa; os 2 xfails-spec verdes; suíte sem nenhum xfail |
+| 37 | Loop autônomo limitado (rajada com paradas tipadas, undo por beat) | 3 runs ao vivo ×4 beats; parada `protagonist_decision` via `return_control`; crítico cego ×2 — classes estruturais zeradas por construção |
 
 ## 🔶 Em andamento
 
@@ -34,10 +35,10 @@ fechada ou mudança de sequência. Referência de arquitetura:
 
 | Ordem | Task | Depende de |
 |---|---|---|
-| 1 | 37 — Loop autônomo limitado (paradas, undo de rajada, render progressivo) | 36 |
-| 2 | 38 — Roteiro com contratos de beat tipados + replan algorítmico | 36 |
-| 3 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
-| 4 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
+| 1 | 38 — Roteiro com contratos de beat tipados + replan algorítmico | 36 ✅ |
+| 2 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
+| 3 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
+| — | Render progressivo da rajada (SSE por beat) — lane de UI; arquitetura já suporta | 37 ✅ |
 
 ## 🧺 Lane paralela (independentes)
 
@@ -50,6 +51,6 @@ fechada ou mudança de sequência. Referência de arquitetura:
 ## 📌 Decisões diferidas (com dono)
 
 - K-falantes core vs plugin → fechamento da 36
-- Undo através de rajada autônoma → 37
+- ~~Undo através de rajada autônoma~~ → DECIDIDA na 37: undo = 1 beat (cada beat é um turno commitado)
 - Roteiro nunca chega a personagem/prosa (spoilers) → 38 (regra já escrita)
 - Matriz multi-modelo → EXCLUÍDA (decisão do usuário, 2026-07-15)
