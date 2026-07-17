@@ -28,6 +28,12 @@ from src.agents.perspective import (
     update_identity,
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
+from src.roteiro import (
+    describe_roteiro_for_director,
+    evaluate_roteiro,
+    generate_roteiro,
+    replan_roteiro,
+)
 from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
 from src.agents.summarizer import relevant_character_ids, summarize
 from src.compaction import (
@@ -52,6 +58,7 @@ from src.llm.debug_log import (
     log_drive_decision,
     log_burst,
     log_restore_compaction,
+    log_roteiro_decision,
     log_turn_input,
     log_undo,
 )
@@ -613,6 +620,12 @@ class Runner:
                         roll=decision.roll,
                         event_seed=event_seed,
                     )
+
+                # Roteiro maintenance (Task 38): CODE decides whether the story
+                # direction needs a new rolling beat (coverage/budget/drift over
+                # history, with hysteresis); a structured call only writes WHAT
+                # the beat says. Runs per beat so bursts stay on-plan too.
+                await self._maintain_roteiro(game, step)
 
                 # Call Narrator — extra_context/extra_schema let plugins add read-only
                 # prompt lines and an optional output key (narrator.context/narrator.schema)
@@ -1474,6 +1487,36 @@ class Runner:
 
     # ── Private Methods ───────────────────────────────────────────────────
 
+    async def _maintain_roteiro(self, game: GameState, turn_number: int) -> None:
+        """Compile the roteiro on first need; replan when the code signals say so.
+
+        The replan TRIGGER is deterministic (``evaluate_roteiro``); the LLM only
+        writes beat content. Every evaluation is logged so acceptance runs can
+        audit that zero triggers came from model self-assessment.
+        """
+        if not bool(self.config.get("roteiro_enabled", False)):
+            return
+        next_turn = (game.history[-1].turn_number + 1) if game.history else 1
+        if game.roteiro is None:
+            game.roteiro = await generate_roteiro(self.client, game, self.config, turn_number)
+            return
+        decision = evaluate_roteiro(
+            game.roteiro, game.history, game.player.controlled_character_id, next_turn
+        )
+        log_roteiro_decision(
+            game.session_id,
+            turn_number,
+            action=decision.action or "none",
+            reason=decision.reason,
+            beat_id=game.roteiro.beat.beat_id if game.roteiro.beat else "none",
+            anchors_missing=list(decision.progress.anchors_missing) if decision.progress else [],
+            actors_missing=list(decision.progress.actors_missing) if decision.progress else [],
+        )
+        if decision.action:
+            game.roteiro = await replan_roteiro(
+                self.client, game, decision, self.config, turn_number
+            )
+
     async def _call_narrator(
         self,
         game: GameState,
@@ -1489,6 +1532,11 @@ class Runner:
         # from being chosen as the next speaker to prevent immediate dialogue loops.
         exclude_speaker = game.player.controlled_character_id
 
+        roteiro_lines = (
+            describe_roteiro_for_director(game.roteiro, game.characters)
+            if game.roteiro is not None
+            else None
+        )
         return await narrate(
             client=self.client,
             scene=game.scene,
@@ -1506,6 +1554,7 @@ class Runner:
             extra_context=extra_context,
             extra_schema_properties=extra_schema_properties,
             extra_schema_required=extra_schema_required,
+            roteiro_lines=roteiro_lines,
         )
 
     async def _render_narration(

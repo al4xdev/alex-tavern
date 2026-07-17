@@ -350,6 +350,33 @@ def log_burst(
     )
 
 
+def log_roteiro_decision(
+    session_id: str,
+    turn_number: int,
+    *,
+    action: str,
+    reason: str,
+    beat_id: str,
+    anchors_missing: list[str],
+    actors_missing: list[str],
+) -> None:
+    """One deterministic roteiro replan decision (Task 38) and its evidence."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "roteiro_replan",
+            "action": action,
+            "reason": reason,
+            "beat_id": beat_id,
+            "anchors_missing": anchors_missing,
+            "actors_missing": actors_missing,
+        },
+    )
+
+
 def log_compaction_status(
     session_id: str,
     turn_number: int,

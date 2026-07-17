@@ -107,6 +107,9 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         "autonomous_burst_max_beats": _positive_integer(
             value.get("autonomous_burst_max_beats", 1), "autonomous_burst_max_beats"
         ),
+        "roteiro_enabled": _boolean(
+            value.get("roteiro_enabled", False), "roteiro_enabled"
+        ),
         "providers": {},
     }
     for name in current_provider_names:
@@ -237,6 +240,7 @@ def resolve_active_config(value: dict[str, Any]) -> dict[str, Any]:
         "auto_event_growth_per_quiet_turn": canonical["auto_event_growth_per_quiet_turn"],
         "auto_event_max_probability": canonical["auto_event_max_probability"],
         "autonomous_burst_max_beats": canonical["autonomous_burst_max_beats"],
+        "roteiro_enabled": canonical["roteiro_enabled"],
     }
 
 

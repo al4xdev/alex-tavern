@@ -219,6 +219,7 @@ def _build_user_prompt(
     narrator_hint: str = "",
     extra_context: list[str] | None = None,
     exclude_speaker: str | None = None,
+    roteiro_lines: list[str] | None = None,
 ) -> str:
     """Builds the user prompt with scene, characters, and history.
 
@@ -297,6 +298,13 @@ def _build_user_prompt(
         lines.append(f"  ID={cid} | Mood: {characters[cid].mind.current_mood}")
     lines.append("")
 
+    # Director-only story direction (Task 38). Confidentiality invariant: this
+    # block exists in NO other agent's prompt — it contains future spoilers.
+    if roteiro_lines:
+        for roteiro_line in roteiro_lines:
+            lines.append(roteiro_line)
+        lines.append("")
+
     if narrator_hint.strip():
         lines.append("UPCOMING EVENT (incorporate this into your narration):")
         lines.append(f"  {narrator_hint.strip()}")
@@ -367,6 +375,7 @@ def build_narrator_messages(
     narrator_hint: str = "",
     extra_context: list[str] | None = None,
     exclude_speaker: str | None = None,
+    roteiro_lines: list[str] | None = None,
 ) -> list[dict]:
     """Assembles the Narrator messages (system + user) — pure, without calling the LLM.
 
@@ -392,6 +401,7 @@ def build_narrator_messages(
                 narrator_hint=narrator_hint,
                 extra_context=extra_context,
                 exclude_speaker=exclude_speaker,
+                roteiro_lines=roteiro_lines,
             ),
         },
     ]
@@ -414,6 +424,7 @@ async def narrate(
     extra_context: list[str] | None = None,
     extra_schema_properties: dict[str, Any] | None = None,
     extra_schema_required: list[str] | None = None,
+    roteiro_lines: list[str] | None = None,
 ) -> dict:
     """Builds the Narrator prompt, calls the LLM, and returns a validated dict.
 
@@ -456,6 +467,7 @@ async def narrate(
         narrator_hint=narrator_hint,
         extra_context=extra_context,
         exclude_speaker=exclude_speaker,
+        roteiro_lines=roteiro_lines,
     )
 
     result = await chat_completion_json(

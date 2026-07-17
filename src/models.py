@@ -18,8 +18,9 @@ from typing import Any
 # 4 = zone graph on Scene + typed perception events replacing
 # context_for_character (Task 29.2, increment 2); 5 = autonomous event
 # scheduler counter (Task 33); 6 = audience_origin on TurnRecord separating
-# intentional whispers (secrecy) from zone-computed scoping (physics).
-SESSION_SCHEMA_VERSION = 6
+# intentional whispers (secrecy) from zone-computed scoping (physics);
+# 7 = roteiro (premise + act skeleton + rolling beat contract) on GameState.
+SESSION_SCHEMA_VERSION = 7
 
 
 @dataclass
@@ -192,6 +193,89 @@ class PresenceEditEntry:
 
 
 @dataclass
+class RoteiroBeat:
+    """Rolling next-beat contract consumed by the Director (Task 38).
+
+    Typed and measurable: ``expected_actors``/``expected_anchors`` are what the
+    deterministic replan engine checks against history; ``exit_condition`` and
+    ``intent`` are creative guidance for the Director, never a trigger.
+    """
+
+    beat_id: str
+    intent: str
+    expected_actors: list[str] = field(default_factory=list)
+    expected_anchors: list[str] = field(default_factory=list)
+    exit_condition: str = ""
+    budget_turns: int = 6
+
+
+@dataclass
+class RoteiroAct:
+    """One act of the stable skeleton (rarely rewritten)."""
+
+    act_id: str
+    summary: str
+    exit_condition: str = ""
+
+
+@dataclass
+class Roteiro:
+    """Hierarchical story direction: stable premise/acts + one rolling beat.
+
+    Confidentiality invariant: this object reaches ONLY Director-side prompts —
+    never a character, never the prose renderer (it contains future secrets).
+    """
+
+    premise: str
+    acts: list[RoteiroAct] = field(default_factory=list)
+    act_index: int = 0
+    beat: RoteiroBeat | None = None
+    beat_started_turn: int = 0
+    # Replans are blocked until this turn number (hysteresis after any replan).
+    cooldown_until_turn: int = 0
+    # Consecutive stall/drift replans inside the current act (act-replan input).
+    beat_replans_in_act: int = 0
+    # "beat_id: outcome" entries, oldest first — context for the next-beat call.
+    beat_log: list[str] = field(default_factory=list)
+
+
+def roteiro_to_dict(roteiro: Roteiro) -> dict[str, Any]:
+    return asdict(roteiro)
+
+
+def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
+    beat_data = data.get("beat")
+    return Roteiro(
+        premise=str(data["premise"]),
+        acts=[
+            RoteiroAct(
+                act_id=str(item["act_id"]),
+                summary=str(item["summary"]),
+                exit_condition=str(item.get("exit_condition", "")),
+            )
+            for item in data.get("acts", [])
+        ],
+        act_index=int(data.get("act_index", 0)),
+        beat=(
+            RoteiroBeat(
+                beat_id=str(beat_data["beat_id"]),
+                intent=str(beat_data["intent"]),
+                expected_actors=list(beat_data.get("expected_actors", [])),
+                expected_anchors=list(beat_data.get("expected_anchors", [])),
+                exit_condition=str(beat_data.get("exit_condition", "")),
+                budget_turns=int(beat_data.get("budget_turns", 6)),
+            )
+            if beat_data
+            else None
+        ),
+        beat_started_turn=int(data.get("beat_started_turn", 0)),
+        cooldown_until_turn=int(data.get("cooldown_until_turn", 0)),
+        beat_replans_in_act=int(data.get("beat_replans_in_act", 0)),
+        beat_log=list(data.get("beat_log", [])),
+    )
+
+
+@dataclass
 class GameState:
     """Persists between turns in the session JSON."""
 
@@ -217,6 +301,9 @@ class GameState:
     # Completed narrating turns since the drive scheduler last injected an
     # event (Task 33 hazard function input). Reset to 0 on injection.
     turns_since_injected_event: int = 0
+    # Director-only story direction (Task 38). None when disabled or not yet
+    # generated; NEVER rendered into character or prose prompts.
+    roteiro: Roteiro | None = None
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -425,5 +512,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
             for viewer_id, item in data.get("character_perspectives", {}).items()
         },
         turns_since_injected_event=int(data.get("turns_since_injected_event", 0)),
+        roteiro=dict_to_roteiro(data["roteiro"]) if data.get("roteiro") else None,
         schema_version=int(data.get("schema_version", 1)),
     )
