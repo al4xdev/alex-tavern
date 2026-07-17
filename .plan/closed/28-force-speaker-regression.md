@@ -76,3 +76,25 @@ persists: characters did not speak even when explicitly forced
 (`plans/artifacts/session-091b11c6-live-findings/`). Investigate whether the
 plugin's `turn.input` hook interferes with `force_speaker`, and compare
 `turn_input` vs `turn_input_effective` records in that session's debug log.
+
+## Delivery Evidence — CLOSED 2026-07-16
+
+- **Root cause found by evidence**: the frontend SKIP path read a dead
+  `state.forceSpeaker` field (assigned nowhere), silently dropping the force on
+  every skip turn — matching the report "forced Narrator, a character still
+  answered". Ordinary sends read the select correctly, which is why the
+  archived plugin session (091b11c6) shows its one forced turn working.
+- **Fix**: the skip payload now reads the same single source of truth
+  (`forceSpeakerSelect.value`); a static boundary test pins that the dead-state
+  read can never return.
+- **Backend hardening already in place** (task 34): a manual force collapses
+  the Director's queue even if a plugin filter alters the output; covered by
+  `tests/test_force_speaker_regression.py` including the model-ignores-the-
+  constraint case and the controlled-character agency guard.
+- **Real-LLM acceptance** (`plans/artifacts/force-narrator-acceptance/`): 5
+  present characters, 4 ordinary + 2 skip consecutive rounds forcing only
+  `Narrator` -> zero character calls; `debug.jsonl` shows
+  `force_speaker: "Narrator"` and `effective_force_speaker: "Narrator"` on all
+  6 turns.
+- Mobile menu/Suggest reachability unchanged (no layout changes were needed;
+  the fix is payload-only).

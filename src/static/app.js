@@ -211,7 +211,10 @@ async function skipTurn() {
             action: '',
             skip: true,
             narrator_hint: state.narratorHint || undefined,
-            force_speaker: state.forceSpeaker || undefined,
+            // Single source of truth is the select control; a dead
+            // state.forceSpeaker read here silently dropped the force on
+            // every skip turn (Task 28 regression).
+            force_speaker: (forceSpeakerSelect ? forceSpeakerSelect.value : '') || undefined,
         };
         payload = await PluginRuntime.runHook('turn.input', payload, { state });
         let data = await api.turn(state.sessionId, payload, ac.signal);
