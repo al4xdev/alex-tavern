@@ -11,7 +11,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.agents.prose import build_prose_messages
+import src.agents.prose as prose
+from src.agents.prose import (
+    REPETITION_CORRECTION,
+    _repeats_prior_narration,
+    build_prose_messages,
+    render_narration,
+)
 from src.models import Character, CharacterBody, CharacterMind, Scene, TurnRecord
 
 
@@ -161,3 +167,143 @@ class TestNonSpeechRecordsKeepContent:
         history = [_record("C2", "Preciso esconder o mapa.", "thought")]
         prompt = _prompt(history, [])
         assert "esconder o mapa" not in prompt
+
+
+REPEATED_PARAGRAPH = (
+    "Rafa entra na sala com passos hesitantes, os olhos varrendo os rostos "
+    "desconhecidos. A música pulsa nas paredes enquanto ele procura um canto "
+    "menos iluminado. Ninguém parece notar a sua chegada silenciosa."
+)
+
+NEAR_IDENTICAL_PARAGRAPH = (
+    "Rafa entra na sala com passos hesitantes, os olhos varrendo os rostos "
+    "desconhecidos. A música pulsa nas paredes enquanto ele busca um canto "
+    "menos iluminado. Ninguém parece notar a sua chegada silenciosa."
+)
+
+FRESH_PARAGRAPH = (
+    "Do outro lado do salão, Bruno equilibra dois copos e abre caminho entre "
+    "os convidados. Uma rajada de vento derruba um guardanapo da mesa. O riso "
+    "de Alice corta o burburinho por um instante breve."
+)
+
+
+class TestRepeatsPriorNarration:
+    def test_near_identical_paragraph_detected(self) -> None:
+        history = [_record("Narrator", REPEATED_PARAGRAPH, "narration")]
+        assert _repeats_prior_narration(NEAR_IDENTICAL_PARAGRAPH, history) is True
+
+    def test_identical_paragraph_detected(self) -> None:
+        history = [_record("Narrator", REPEATED_PARAGRAPH, "narration")]
+        assert _repeats_prior_narration(REPEATED_PARAGRAPH, history) is True
+
+    def test_fresh_prose_passes(self) -> None:
+        history = [_record("Narrator", REPEATED_PARAGRAPH, "narration")]
+        assert _repeats_prior_narration(FRESH_PARAGRAPH, history) is False
+
+    def test_no_narration_in_history_passes(self) -> None:
+        history = [
+            _record("C2", "Bruno fala alguma coisa longa e detalhada aqui.", "speech"),
+            _record("C3", "Vitor guarda o envelope no bolso interno do paletó.", "action"),
+        ]
+        assert _repeats_prior_narration(REPEATED_PARAGRAPH, history) is False
+
+    def test_empty_history_passes(self) -> None:
+        assert _repeats_prior_narration(REPEATED_PARAGRAPH, []) is False
+
+
+class _FakeCompletion:
+    """Fake for chat_completion_json returning queued narrations in order."""
+
+    def __init__(self, narrations: list[str]) -> None:
+        self.narrations = list(narrations)
+        self.calls: list[dict[str, Any]] = []
+
+    async def __call__(self, client: Any, messages: list[dict], **kwargs: Any) -> dict:
+        self.calls.append({"messages": messages, "kwargs": kwargs})
+        return {"narration": self.narrations[len(self.calls) - 1]}
+
+
+class TestRepetitionRetry:
+    HISTORY = [_record("Narrator", REPEATED_PARAGRAPH, "narration")]
+
+    async def _render(self, fake: _FakeCompletion, monkeypatch: Any) -> str:
+        monkeypatch.setattr(prose, "chat_completion_json", fake)
+        return await render_narration(
+            None, SCENE, CHARACTERS, CONTROLLED_ID, self.HISTORY, [], {}
+        )
+
+    async def test_repeated_then_fresh_retries_once_and_returns_second(
+        self, monkeypatch: Any
+    ) -> None:
+        fake = _FakeCompletion([NEAR_IDENTICAL_PARAGRAPH, FRESH_PARAGRAPH])
+        result = await self._render(fake, monkeypatch)
+        assert len(fake.calls) == 2
+        assert result == FRESH_PARAGRAPH
+        assert fake.calls[1]["messages"][-1] == {
+            "role": "user",
+            "content": REPETITION_CORRECTION,
+        }
+
+    async def test_repeated_twice_still_two_calls_and_second_accepted(
+        self, monkeypatch: Any
+    ) -> None:
+        fake = _FakeCompletion([NEAR_IDENTICAL_PARAGRAPH, NEAR_IDENTICAL_PARAGRAPH])
+        result = await self._render(fake, monkeypatch)
+        assert len(fake.calls) == 2
+        assert result == NEAR_IDENTICAL_PARAGRAPH
+
+    async def test_fresh_first_draft_makes_single_call(self, monkeypatch: Any) -> None:
+        fake = _FakeCompletion([FRESH_PARAGRAPH])
+        result = await self._render(fake, monkeypatch)
+        assert len(fake.calls) == 1
+        assert result == FRESH_PARAGRAPH
+
+
+ZONED_SCENE = Scene(
+    location="Mansão",
+    time_of_day="Noite",
+    present_characters=["C1", "C2", "C3"],
+    physical_facts={},
+    zones={"salao": [], "biblioteca": []},
+    positions={"C1": "salao", "C2": "salao", "C3": "biblioteca"},
+)
+
+
+class TestZoneStagingBlock:
+    def test_zoned_scene_adds_staging_block(self) -> None:
+        messages = build_prose_messages(ZONED_SCENE, CHARACTERS, CONTROLLED_ID, [], [])
+        user = messages[1]["content"]
+        assert "STAGING" in user
+        assert (
+            "salao: hears nothing outside itself (acoustically isolated) | "
+            "isolated from: biblioteca | inside: Alice, Bruno" in user
+        )
+        assert (
+            "biblioteca: hears nothing outside itself (acoustically isolated) | "
+            "isolated from: salao | inside: Vitor" in user
+        )
+
+    def test_audible_zone_listed_as_heard(self) -> None:
+        scene = Scene(
+            location="Mansão",
+            time_of_day="Noite",
+            present_characters=["C1", "C3"],
+            physical_facts={},
+            zones={"salao": ["varanda"], "varanda": ["salao"]},
+            positions={"C1": "salao", "C3": "varanda"},
+        )
+        messages = build_prose_messages(scene, CHARACTERS, CONTROLLED_ID, [], [])
+        user = messages[1]["content"]
+        assert "salao: hears varanda | isolated from: none | inside: Alice" in user
+        assert "varanda: hears salao | isolated from: none | inside: Vitor" in user
+
+    def test_separation_rule_reaches_system_prompt(self) -> None:
+        messages = build_prose_messages(ZONED_SCENE, CHARACTERS, CONTROLLED_ID, [], [])
+        system = messages[0]["content"]
+        assert "zones that cannot perceive each other" in system
+        assert "cut between separated spaces explicitly" in system
+
+    def test_flat_scene_has_no_staging_block(self) -> None:
+        messages = build_prose_messages(SCENE, CHARACTERS, CONTROLLED_ID, [], [])
+        assert "STAGING" not in messages[1]["content"]

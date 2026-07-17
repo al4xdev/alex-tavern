@@ -11,7 +11,9 @@ to leak (selection before the call, the principle measured at 0/13 vs 7/13).
 
 from __future__ import annotations
 
+import difflib
 import json
+import re
 from typing import Any
 
 import httpx
@@ -36,6 +38,9 @@ PROSE_SYSTEM = (
     "  reference the act of speaking without inventing or repeating the words\n"
     "  beyond what the event states.\n"
     "- Do not repeat a sentence from the transcript.\n"
+    "- Characters in zones that cannot perceive each other must NEVER be staged\n"
+    "  as sharing space, hearing one another, or being 'a few meters' apart —\n"
+    "  cut between separated spaces explicitly.\n"
     "- You are omniscient for identities: always name characters by their\n"
     "  canonical names and never describe anyone as unknown or unidentified.\n"
 )
@@ -92,6 +97,85 @@ def _stage_event_content(
     return f"{subject} diz algo audível para {audience}"
 
 
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+_MIN_SENTENCE_CHARS = 25
+_SIMILARITY_THRESHOLD = 0.85
+
+REPETITION_CORRECTION = (
+    "CORRECTION: your previous draft repeated earlier narration nearly "
+    "verbatim. Write this beat fresh: new sentence structures, new observed "
+    "details, no reuse of prior phrasing."
+)
+
+
+def _normalize_sentence(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _qualifying_sentences(text: str) -> list[str]:
+    sentences = (_normalize_sentence(s) for s in _SENTENCE_SPLIT.split(text))
+    return [s for s in sentences if len(s) >= _MIN_SENTENCE_CHARS]
+
+
+def _repeats_prior_narration(new_text: str, history: list[TurnRecord]) -> bool:
+    """True when the new narration is a near-verbatim echo of prior narration.
+
+    Deterministic guard for the measured failure mode (identical paragraphs
+    rendered on consecutive turns): more than half of the new narration's
+    qualifying sentences match a prior narration sentence above 0.85 similarity,
+    or the whole text is above 0.85 similar to any single prior narration.
+    """
+    prior_texts = [r.content for r in history if r.content_type == "narration"]
+    if not prior_texts:
+        return False
+    whole_new = _normalize_sentence(new_text)
+    for prior in prior_texts:
+        ratio = difflib.SequenceMatcher(None, whole_new, _normalize_sentence(prior)).ratio()
+        if ratio > _SIMILARITY_THRESHOLD:
+            return True
+    new_sentences = _qualifying_sentences(new_text)
+    if not new_sentences:
+        return False
+    prior_sentences = [s for text in prior_texts for s in _qualifying_sentences(text)]
+    if not prior_sentences:
+        return False
+    repeated = sum(
+        1
+        for sentence in new_sentences
+        if any(
+            difflib.SequenceMatcher(None, sentence, prior).ratio() > _SIMILARITY_THRESHOLD
+            for prior in prior_sentences
+        )
+    )
+    return repeated > len(new_sentences) / 2
+
+
+def _staging_lines(
+    scene: Scene, characters: dict[str, Character], controlled_id: str
+) -> list[str]:
+    """STAGING block lines for the zone graph (empty when the scene is flat).
+
+    Each zone lists which other zones it can hear, which it is acoustically
+    isolated from, and who is inside (canonical names) — so the renderer can
+    cut between separated spaces instead of collapsing them into one room.
+    """
+    if not scene.zones:
+        return []
+    lines = ["STAGING (zone graph; audibility is one-way as listed):"]
+    for zone, audible in scene.zones.items():
+        isolated = [z for z in scene.zones if z != zone and z not in audible]
+        occupants = [
+            _canonical_name(cid, characters, controlled_id)
+            for cid, position in scene.positions.items()
+            if position == zone
+        ]
+        hears = ", ".join(audible) if audible else "nothing outside itself (acoustically isolated)"
+        iso = ", ".join(isolated) if isolated else "none"
+        who = ", ".join(occupants) if occupants else "nobody"
+        lines.append(f"  {zone}: hears {hears} | isolated from: {iso} | inside: {who}")
+    return lines
+
+
 def build_prose_messages(
     scene: Scene,
     characters: dict[str, Character],
@@ -133,11 +217,14 @@ def build_prose_messages(
         f"  - ({event['event_kind']}) {_stage_event_content(event, characters, controlled_id)}"
         for event in events
     ] or ["  - Nothing new happens; render a short atmospheric beat."]
+    staging = _staging_lines(scene, characters, controlled_id)
+    staging_block = "\n".join(staging) + "\n\n" if staging else ""
     user = (
         f"SCENE: {scene.location} | {scene.time_of_day}\n"
         f"PHYSICAL FACTS: {json.dumps(scene.physical_facts, ensure_ascii=False)}\n"
         "CAST (visible appearance only):\n" + "\n".join(cast_lines) + "\n\n"
-        "READER TRANSCRIPT (oldest to newest):\n" + "\n".join(transcript) + "\n\n"
+        + staging_block
+        + "READER TRANSCRIPT (oldest to newest):\n" + "\n".join(transcript) + "\n\n"
         "CONFIRMED EVENTS OF THIS BEAT (narrate exactly these):\n"
         + "\n".join(event_lines)
     )
@@ -171,17 +258,16 @@ async def render_narration(
     turn_number: int = 0,
 ) -> str:
     max_tokens = int(config.get("max_tokens_narrator", 2048))
-    result = await chat_completion_json(
-        client,
-        build_prose_messages(
-            scene,
-            characters,
-            controlled_id,
-            history,
-            events,
-            context_max=config.get("context_max"),
-            max_tokens=max_tokens,
-        ),
+    messages = build_prose_messages(
+        scene,
+        characters,
+        controlled_id,
+        history,
+        events,
+        context_max=config.get("context_max"),
+        max_tokens=max_tokens,
+    )
+    request_kwargs: dict[str, Any] = dict(
         model=config.get("model", ""),
         language=config.get("language", ""),
         max_tokens=max_tokens,
@@ -192,4 +278,13 @@ async def render_narration(
         agent="prose",
         **llm_request_options(config),
     )
-    return normalize_generated_text(str(result.get("narration", "")).strip())
+    result = await chat_completion_json(client, messages, **request_kwargs)
+    narration = str(result.get("narration", "")).strip()
+    if _repeats_prior_narration(narration, history):
+        # Deterministic anti-repetition guard (measured failure: the same
+        # paragraph rendered on consecutive turns). Retry ONCE with an explicit
+        # correction, then accept whatever comes back — never fail the turn.
+        retry_messages = messages + [{"role": "user", "content": REPETITION_CORRECTION}]
+        result = await chat_completion_json(client, retry_messages, **request_kwargs)
+        narration = str(result.get("narration", "")).strip()
+    return normalize_generated_text(narration)

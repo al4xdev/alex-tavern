@@ -83,9 +83,18 @@ within one).
   dialogue-in-narration instances -> uncontexted fixer removed spoken words
   from ALL prose inputs by construction -> deterministic cycle-2 verification:
   0/4 instances, identity/isolation without regression.
-- **OPEN CHECKPOINT**: the cycle-2 SUBJECTIVE blind-critic pass is pending
-  (subagent API returned 529 three times). Run it on
-  `plans/artifacts/split-smoke2` + `split-partition2` transcripts when the
-  server recovers, before closing the task.
-- Next: 36.2 — character `action_intent` (attempt physics gains an owner) +
-  zone movement adjudicated by the Director.
+- **36.2 DELIVERED** (commit 33b9a40): `action_intent` (attempt physics),
+  `zone_moves`, dynamic `zone_link_updates`; full physics arc validated live
+  2/2 (partition opens -> invite crosses -> intent -> move resolves ->
+  perception), with one emergent refusal.
+- **Cycle-2 subjective critic EXECUTED** (after API recovery): confirmed
+  dialogue-in-narration = NO everywhere and the code never leaked; found
+  verbatim narration blocks across turns, prose staging the isolated character
+  "a few meters away" (renderer had no zone briefing), and a pre-void-guard
+  isolated-hallucination take. Uncontexted fixer delivered the deterministic
+  anti-repetition guard (fuzzy >0.85, one correction retry, never fails the
+  turn) and the STAGING zone block + separation rule in the prose prompt.
+  Fresh re-measurement: near-dup sentences 6/15 -> 0/0, staging red-flags
+  NONE, isolated thoughts physically correct. Suite 490 passed.
+- **REMAINING for full closure**: 29.3 round with the ZONED campaign fixture
+  (re-author beats so the partition opens mid-campaign via zone_link_updates).
