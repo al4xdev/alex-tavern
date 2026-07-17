@@ -38,6 +38,9 @@ PROSE_SYSTEM = (
     "  reference the act of speaking without inventing or repeating the words\n"
     "  beyond what the event states.\n"
     "- Do not repeat a sentence from the transcript.\n"
+    "- Never reference unspecified speech (no 'says something', 'exchanges\n"
+    "  words'); dialogue renders separately. Never narrate anyone's silence,\n"
+    "  hesitation to answer, or non-response.\n"
     "- Characters in zones that cannot perceive each other must NEVER be staged\n"
     "  as sharing space, hearing one another, or being 'a few meters' apart —\n"
     "  cut between separated spaces explicitly.\n"
@@ -213,9 +216,14 @@ def build_prose_messages(
         f"[{r.content_type}]: {_transcript_content(r, characters, controlled_id)}"
         for r in visible
     ] or ["  (story opening)"]
+    # Dialogue shows itself as dialogue lines; staging "someone says something"
+    # in prose produced phantom unspecified speech ("Bento diz algo para Rui")
+    # and narrated the protagonist's silence. The renderer only narrates
+    # NON-SPEECH events.
     event_lines = [
         f"  - ({event['event_kind']}) {_stage_event_content(event, characters, controlled_id)}"
         for event in events
+        if event.get("event_kind") != "audible_speech"
     ] or ["  - Nothing new happens; render a short atmospheric beat."]
     staging = _staging_lines(scene, characters, controlled_id)
     staging_block = "\n".join(staging) + "\n\n" if staging else ""

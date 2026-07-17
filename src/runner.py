@@ -28,7 +28,7 @@ from src.agents.perspective import (
     update_identity,
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
-from src.perception import eligible_witnesses, render_events_for_viewer
+from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
 from src.agents.summarizer import relevant_character_ids, summarize
 from src.compaction import (
     CompactionDraft,
@@ -50,6 +50,7 @@ from src.llm.debug_log import (
     log_presence_change,
     log_presence_undo,
     log_drive_decision,
+    log_burst,
     log_restore_compaction,
     log_turn_input,
     log_undo,
@@ -574,256 +575,317 @@ class Runner:
                         "automatic_compaction": automatic_compaction,
                     }
 
-            # Drive scheduler (Task 33): on a skip turn without a manual hint,
-            # CODE decides whether the world receives an autonomous event; a
-            # small structured call only writes WHAT the event is. The seed is
-            # always an external world event for the blind Narrator — never a
-            # move for the human's character.
-            injected_event = False
-            if skip and not narrator_hint.strip():
-                decision = evaluate_event_hazard(game, self.config)
-                event_seed = ""
-                if decision.fired:
-                    event_seed = await generate_event_seed(self.client, game, self.config, step)
-                    if event_seed:
-                        narrator_hint = event_seed
-                        injected_event = True
-                log_drive_decision(
-                    game.session_id,
-                    step,
-                    fired=injected_event,
-                    probability=decision.probability,
-                    quiet_turns=decision.quiet_turns,
-                    roll=decision.roll,
-                    event_seed=event_seed,
-                )
+            # Bounded autonomous burst (Task 37): on a bare skip turn the world
+            # may play several beats before control returns. Each beat commits
+            # as its OWN turn (undo pops one beat; a crash leaves only complete
+            # beats). Stop conditions are deterministic; a manual force always
+            # means exactly one beat.
+            max_beats = 1
+            if skip and not effective_force_speaker:
+                max_beats = max(1, int(self.config.get("autonomous_burst_max_beats", 1)))
+            beats: list[dict[str, Any]] = []
+            narrator_only_streak = 0
+            burst_event_texts: list[str] = []
+            stop_reason = "budget_exhausted"
+            for beat_index in range(max_beats):
+                if beat_index:
+                    step = (game.history[-1].turn_number + 1) if game.history else 1
+                # Drive scheduler (Task 33): on a skip turn without a manual hint,
+                # CODE decides whether the world receives an autonomous event; a
+                # small structured call only writes WHAT the event is. The seed is
+                # always an external world event for the blind Narrator — never a
+                # move for the human's character.
+                injected_event = False
+                if beat_index == 0 and skip and not narrator_hint.strip():
+                    decision = evaluate_event_hazard(game, self.config)
+                    event_seed = ""
+                    if decision.fired:
+                        event_seed = await generate_event_seed(self.client, game, self.config, step)
+                        if event_seed:
+                            narrator_hint = event_seed
+                            injected_event = True
+                    log_drive_decision(
+                        game.session_id,
+                        step,
+                        fired=injected_event,
+                        probability=decision.probability,
+                        quiet_turns=decision.quiet_turns,
+                        roll=decision.roll,
+                        event_seed=event_seed,
+                    )
 
-            # Call Narrator — extra_context/extra_schema let plugins add read-only
-            # prompt lines and an optional output key (narrator.context/narrator.schema)
-            # without a provider- or plugin-specific branch here.
-            extra_context: list[str] = []
-            extra_schema_properties: dict[str, Any] = {}
-            extra_schema_required: list[str] = []
-            if self.plugins is not None:
-                extra_context = await self.plugins.hooks.filter(
-                    "narrator.context", [], {"game": game, "turn_number": step, "runner": self}
-                )
-                schema_extension = await self.plugins.hooks.filter(
-                    "narrator.schema",
-                    {"properties": {}, "required": []},
-                    {"game": game, "turn_number": step, "runner": self},
-                )
-                extra_schema_properties = dict(schema_extension.get("properties", {}))
-                extra_schema_required = list(schema_extension.get("required", []))
+                # Call Narrator — extra_context/extra_schema let plugins add read-only
+                # prompt lines and an optional output key (narrator.context/narrator.schema)
+                # without a provider- or plugin-specific branch here.
+                extra_context: list[str] = []
+                extra_schema_properties: dict[str, Any] = {}
+                extra_schema_required: list[str] = []
+                if self.plugins is not None:
+                    extra_context = await self.plugins.hooks.filter(
+                        "narrator.context", [], {"game": game, "turn_number": step, "runner": self}
+                    )
+                    schema_extension = await self.plugins.hooks.filter(
+                        "narrator.schema",
+                        {"properties": {}, "required": []},
+                        {"game": game, "turn_number": step, "runner": self},
+                    )
+                    extra_schema_properties = dict(schema_extension.get("properties", {}))
+                    extra_schema_required = list(schema_extension.get("required", []))
 
-            if self.plugins is None:
-                narrator_raw = await self._call_narrator(
-                    game,
-                    step,
-                    effective_force_speaker,
-                    narrator_hint,
-                    extra_context=extra_context,
-                    extra_schema_properties=extra_schema_properties,
-                    extra_schema_required=extra_schema_required,
-                )
-            else:
-                narrator_game = game
-                assert narrator_game is not None
-                narrator_raw = await self.plugins.hooks.call_wrapped(
-                    "narrator.call",
-                    lambda: self._call_narrator(
-                        narrator_game,
+                if self.plugins is None:
+                    narrator_raw = await self._call_narrator(
+                        game,
                         step,
                         effective_force_speaker,
                         narrator_hint,
                         extra_context=extra_context,
                         extra_schema_properties=extra_schema_properties,
                         extra_schema_required=extra_schema_required,
-                    ),
-                    {"game": narrator_game, "turn_number": step, "runner": self},
-                )
-            if self.plugins is not None:
-                narrator_raw = await self.plugins.hooks.filter(
-                    "narrator.output",
-                    narrator_raw,
-                    {"game": game, "turn_number": step, "runner": self},
-                )
-
-            # A manual force wins over whatever the Director (or a plugin filter)
-            # returned — the queue collapses to the forced speaker alone.
-            queue: list[str] = (
-                [effective_force_speaker]
-                if effective_force_speaker
-                else list(narrator_raw["next_speakers"])
-            )
-            controlled = game.player.controlled_character_id
-            character_responses: list[dict[str, Any]] = []
-
-            # Decision -> Prose split (Task 36): the blind renderer turns the
-            # validated events into reader prose CONCURRENTLY with the routed
-            # speakers' ledger preparation (they share no data dependency; the
-            # latency concentrates at this beat boundary). Deterministic merge:
-            # the narration record is always appended before any character
-            # record, regardless of completion order.
-            prepare_ids = list(
-                dict.fromkeys(
-                    speaker
-                    for speaker in queue
-                    if speaker != controlled
-                    and speaker in game.characters
-                    and speaker in game.scene.present_characters
-                )
-            )
-            narration, *_ = await asyncio.gather(
-                self._render_narration(game, narrator_raw["perception_events"], step),
-                *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
-            )
-            self._append_history(game, "Narrator", narration, "narration", step)
-
-            # The queue runs sequentially WITHOUT Narrator calls in between: each
-            # response is appended to history before the next character call, so a
-            # later speaker perceives the earlier ones through the normal visibility
-            # filter. The Narrator is blind and can route to the controlled
-            # character — the queue stops there and control returns to the human
-            # (the runner never generates their speech). A whispered exchange stays
-            # whispered: when a replying character is part of the turn's audience,
-            # its reply keeps the same audience.
-            for position, speaker in enumerate(queue):
-                if speaker == controlled:
-                    break
-                if speaker not in game.characters or speaker not in game.scene.present_characters:
-                    continue
-                reply_audience = (
-                    audience if audience is not None and speaker in audience else None
-                )
-                await self._ensure_perspective(game, speaker, step)
-                # Each speaker receives only the typed perception events they
-                # witness (zone-clamped upstream), projected through their own
-                # identity ledger — the free-prose context_for_character is gone.
-                ctx = render_events_for_viewer(
-                    narrator_raw["perception_events"],
-                    speaker,
-                    game.characters,
-                    game.character_perspectives.get(speaker),
-                )
-                if not ctx.strip():
-                    # An empty perception void invites the model to hallucinate a
-                    # stimulus (an isolated character greeted a visitor that does
-                    # not exist). State the deterministic fact instead: nothing
-                    # new reached this character's senses.
-                    ctx = (
-                        "Nothing new reaches your senses right now; you are "
-                        "alone with your current activity and thoughts."
-                    )
-                # Deterministic guard behind the Narrator's whisper rule: the
-                # "denial that reveals" pattern ("you did not hear the password X")
-                # occasionally leaks whispered content into an event rendered for
-                # a character outside the whisper's audience. Strip it here,
-                # before the character ever sees it; audience members unaffected.
-                ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
-                if self.plugins is None:
-                    character_response = await self._call_character(
-                        game, speaker, ctx, step, reply_audience=reply_audience
                     )
                 else:
-                    character_game = game
-                    assert character_game is not None
-                    character_response = await self.plugins.hooks.call_wrapped(
-                        "character.call",
-                        lambda g=character_game, s=speaker, c=ctx, ra=reply_audience: (
-                            self._call_character(g, s, c, step, reply_audience=ra)
+                    narrator_game = game
+                    assert narrator_game is not None
+                    narrator_raw = await self.plugins.hooks.call_wrapped(
+                        "narrator.call",
+                        lambda: self._call_narrator(
+                            narrator_game,
+                            step,
+                            effective_force_speaker,
+                            narrator_hint,
+                            extra_context=extra_context,
+                            extra_schema_properties=extra_schema_properties,
+                            extra_schema_required=extra_schema_required,
                         ),
-                        {
-                            "game": character_game,
-                            "character_id": speaker,
-                            "turn_number": step,
-                            "runner": self,
-                        },
+                        {"game": narrator_game, "turn_number": step, "runner": self},
                     )
                 if self.plugins is not None:
-                    character_response = await self.plugins.hooks.filter(
-                        "character.output",
-                        character_response,
-                        {
-                            "game": game,
-                            "character_id": speaker,
-                            "turn_number": step,
-                            "runner": self,
-                        },
+                    narrator_raw = await self.plugins.hooks.filter(
+                        "narrator.output",
+                        narrator_raw,
+                        {"game": game, "turn_number": step, "runner": self},
                     )
-                if character_response["thought"]:
-                    self._append_history(
-                        game, speaker, character_response["thought"], "thought", step
-                    )
-                if character_response["speech"]:
-                    self._append_history(
-                        game,
-                        speaker,
-                        character_response["speech"],
-                        "speech",
-                        step,
-                        audience=reply_audience,
-                    )
-                if character_response.get("action_intent"):
-                    # An intent is an ATTEMPT: it becomes an action record (the
-                    # existing physics — resolved by the next beat's Director),
-                    # never an outcome. Zone-scoped audience is computed by
-                    # _append_history like any physical act.
-                    self._append_history(
-                        game,
-                        speaker,
-                        character_response["action_intent"],
-                        "action",
-                        step,
-                    )
-                character_responses.append({"character_id": speaker, **character_response})
 
-            # Update scene
-            scene_up = narrator_raw.get("scene_update")
-            if scene_up:
-                self._update_scene(game, scene_up)
+                # Within a burst a stimulus must be resolved once: events that
+                # near-duplicate an earlier beat's event are dropped so the
+                # renderer never tells the same thud-and-whinny three times
+                # (Task 37, critic finding).
+                if max_beats > 1:
+                    fresh_events = [
+                        event
+                        for event in narrator_raw["perception_events"]
+                        if not repeats_event_text(event["content"], burst_event_texts)
+                    ]
+                    narrator_raw["perception_events"] = fresh_events
+                    burst_event_texts.extend(event["content"] for event in fresh_events)
 
-            # Zone movement adjudicated by the Director (validated upstream):
-            # arrival takes effect on the NEXT beat's perception computations.
-            zone_moves = narrator_raw.get("zone_moves") or {}
-            for moved_id, zone in zone_moves.items():
-                game.scene.positions[moved_id] = zone
-            for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
-                game.scene.zones[zone] = list(audible)
-
-            # Update characters' moods
-            mood_updates = narrator_raw.get("mood_updates")
-            if mood_updates:
-                self._update_moods(game, mood_updates)
-
-            if self.plugins is not None:
-                # Each plugin validates and applies its own narrator.schema property (if
-                # present in narrator_raw) to this same-turn draft. A plugin that finds
-                # its own proposal invalid returns the draft unchanged instead of raising —
-                # raising here would trip the shared crash policy and disable the plugin,
-                # which is reserved for genuine bugs, not routine LLM validation failures.
-                game = await self.plugins.hooks.filter(
-                    "narrator.result",
-                    game,
-                    {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
+                # A manual force wins over whatever the Director (or a plugin filter)
+                # returned — the queue collapses to the forced speaker alone.
+                queue: list[str] = (
+                    [effective_force_speaker]
+                    if effective_force_speaker
+                    else list(narrator_raw["next_speakers"])
                 )
-                game = await self.plugins.hooks.filter(
-                    "turn.before_commit", game, {"kind": "turn", "runner": self}
-                )
-            game.turns_since_injected_event = (
-                0 if injected_event else game.turns_since_injected_event + 1
-            )
-            game.revision += 1
-            save_game(game)
-            if self.plugins is not None:
-                await self.plugins.hooks.action("turn.after_commit", {"game": game, "kind": "turn"})
+                controlled = game.player.controlled_character_id
+                character_responses: list[dict[str, Any]] = []
 
+                # Decision -> Prose split (Task 36): the blind renderer turns the
+                # validated events into reader prose CONCURRENTLY with the routed
+                # speakers' ledger preparation (they share no data dependency; the
+                # latency concentrates at this beat boundary). Deterministic merge:
+                # the narration record is always appended before any character
+                # record, regardless of completion order.
+                prepare_ids = list(
+                    dict.fromkeys(
+                        speaker
+                        for speaker in queue
+                        if speaker != controlled
+                        and speaker in game.characters
+                        and speaker in game.scene.present_characters
+                    )
+                )
+                narration, *_ = await asyncio.gather(
+                    self._render_narration(game, narrator_raw["perception_events"], step),
+                    *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
+                )
+                self._append_history(game, "Narrator", narration, "narration", step)
+
+                # The queue runs sequentially WITHOUT Narrator calls in between: each
+                # response is appended to history before the next character call, so a
+                # later speaker perceives the earlier ones through the normal visibility
+                # filter. The Narrator is blind and can route to the controlled
+                # character — the queue stops there and control returns to the human
+                # (the runner never generates their speech). A whispered exchange stays
+                # whispered: when a replying character is part of the turn's audience,
+                # its reply keeps the same audience.
+                for position, speaker in enumerate(queue):
+                    if speaker == controlled:
+                        break
+                    if speaker not in game.characters or speaker not in game.scene.present_characters:
+                        continue
+                    reply_audience = (
+                        audience if audience is not None and speaker in audience else None
+                    )
+                    await self._ensure_perspective(game, speaker, step)
+                    # Each speaker receives only the typed perception events they
+                    # witness (zone-clamped upstream), projected through their own
+                    # identity ledger — the free-prose context_for_character is gone.
+                    ctx = render_events_for_viewer(
+                        narrator_raw["perception_events"],
+                        speaker,
+                        game.characters,
+                        game.character_perspectives.get(speaker),
+                    )
+                    if not ctx.strip():
+                        # An empty perception void invites the model to hallucinate a
+                        # stimulus (an isolated character greeted a visitor that does
+                        # not exist). State the deterministic fact instead: nothing
+                        # new reached this character's senses.
+                        ctx = (
+                            "Nothing new reaches your senses right now; you are "
+                            "alone with your current activity and thoughts."
+                        )
+                    # Deterministic guard behind the Narrator's whisper rule: the
+                    # "denial that reveals" pattern ("you did not hear the password X")
+                    # occasionally leaks whispered content into an event rendered for
+                    # a character outside the whisper's audience. Strip it here,
+                    # before the character ever sees it; audience members unaffected.
+                    ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
+                    if self.plugins is None:
+                        character_response = await self._call_character(
+                            game, speaker, ctx, step, reply_audience=reply_audience
+                        )
+                    else:
+                        character_game = game
+                        assert character_game is not None
+                        character_response = await self.plugins.hooks.call_wrapped(
+                            "character.call",
+                            lambda g=character_game, s=speaker, c=ctx, ra=reply_audience: (
+                                self._call_character(g, s, c, step, reply_audience=ra)
+                            ),
+                            {
+                                "game": character_game,
+                                "character_id": speaker,
+                                "turn_number": step,
+                                "runner": self,
+                            },
+                        )
+                    if self.plugins is not None:
+                        character_response = await self.plugins.hooks.filter(
+                            "character.output",
+                            character_response,
+                            {
+                                "game": game,
+                                "character_id": speaker,
+                                "turn_number": step,
+                                "runner": self,
+                            },
+                        )
+                    if character_response["thought"]:
+                        self._append_history(
+                            game, speaker, character_response["thought"], "thought", step
+                        )
+                    if character_response["speech"]:
+                        self._append_history(
+                            game,
+                            speaker,
+                            character_response["speech"],
+                            "speech",
+                            step,
+                            audience=reply_audience,
+                        )
+                    if character_response.get("action_intent"):
+                        # An intent is an ATTEMPT: it becomes an action record (the
+                        # existing physics — resolved by the next beat's Director),
+                        # never an outcome. Zone-scoped audience is computed by
+                        # _append_history like any physical act.
+                        self._append_history(
+                            game,
+                            speaker,
+                            character_response["action_intent"],
+                            "action",
+                            step,
+                        )
+                    character_responses.append({"character_id": speaker, **character_response})
+
+                # Update scene
+                scene_up = narrator_raw.get("scene_update")
+                if scene_up:
+                    self._update_scene(game, scene_up)
+
+                # Zone movement adjudicated by the Director (validated upstream):
+                # arrival takes effect on the NEXT beat's perception computations.
+                zone_moves = narrator_raw.get("zone_moves") or {}
+                for moved_id, zone in zone_moves.items():
+                    game.scene.positions[moved_id] = zone
+                for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
+                    game.scene.zones[zone] = list(audible)
+
+                # Update characters' moods
+                mood_updates = narrator_raw.get("mood_updates")
+                if mood_updates:
+                    self._update_moods(game, mood_updates)
+
+                if self.plugins is not None:
+                    # Each plugin validates and applies its own narrator.schema property (if
+                    # present in narrator_raw) to this same-turn draft. A plugin that finds
+                    # its own proposal invalid returns the draft unchanged instead of raising —
+                    # raising here would trip the shared crash policy and disable the plugin,
+                    # which is reserved for genuine bugs, not routine LLM validation failures.
+                    game = await self.plugins.hooks.filter(
+                        "narrator.result",
+                        game,
+                        {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
+                    )
+                    game = await self.plugins.hooks.filter(
+                        "turn.before_commit", game, {"kind": "turn", "runner": self}
+                    )
+                game.turns_since_injected_event = (
+                    0 if injected_event else game.turns_since_injected_event + 1
+                )
+                game.revision += 1
+                save_game(game)
+                if self.plugins is not None:
+                    await self.plugins.hooks.action("turn.after_commit", {"game": game, "kind": "turn"})
+
+                beat_result = {
+                    "narration": narration,
+                    "character_responses": character_responses,
+                    "next_speakers": queue,
+                    "scene_update": scene_up,
+                    "turn_number": step,
+                }
+                beats.append(beat_result)
+                narrator_hint = ""
+                if controlled in queue:
+                    stop_reason = "player_addressed"
+                    break
+                if narrator_raw.get("return_control"):
+                    stop_reason = "protagonist_decision"
+                    break
+                if character_responses:
+                    narrator_only_streak = 0
+                elif max_beats > 1 and not narrator_raw["perception_events"]:
+                    # Nothing new happened and nobody spoke: the beat settled.
+                    stop_reason = "beat_settled"
+                    break
+                else:
+                    narrator_only_streak += 1
+                    if narrator_only_streak >= 2:
+                        stop_reason = "beat_settled"
+                        break
+
+            if max_beats > 1:
+                log_burst(
+                    game.session_id,
+                    beats[-1]["turn_number"],
+                    beat_count=len(beats),
+                    stop_reason=stop_reason,
+                    first_turn=beats[0]["turn_number"],
+                )
             return {
-                "narration": narration,
-                "character_responses": character_responses,
-                "next_speakers": queue,
-                "scene_update": scene_up,
-                "turn_number": step,
+                **beats[-1],
+                "beats": beats,
+                "burst_stop_reason": stop_reason if max_beats > 1 else None,
                 "effective_input": effective_input,
                 "transformed_fields": transformed_fields,
                 "automatic_compaction": automatic_compaction,

@@ -226,9 +226,12 @@ async function skipTurn() {
         const historyWasReconciled = await reconcileAutomaticCompaction(data);
         if (state.debug) refreshDebugLog();
         if (!historyWasReconciled) {
-            if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-            for (const entry of (data.character_responses || [])) {
-                addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
+            const beats = data.beats || [data];
+            for (const beat of beats) {
+                if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
+                for (const entry of (beat.character_responses || [])) {
+                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
+                }
             }
         }
         if (data.scene_update) {
@@ -1486,9 +1489,12 @@ async function sendTurn(isRetry = false) {
         if (state.debug) refreshDebugLog();
 
         if (!historyWasReconciled) {
-            if (data.narration) addMessage('Narrator', data.narration, 'narration', { animate: true });
-            for (const entry of (data.character_responses || [])) {
-                addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
+            const beats = data.beats || [data];
+            for (const beat of beats) {
+                if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
+                for (const entry of (beat.character_responses || [])) {
+                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
+                }
             }
         }
 

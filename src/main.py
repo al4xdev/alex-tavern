@@ -238,10 +238,20 @@ class CharacterTurnEntry(BaseModel):
     action_intent: str | None = None
 
 
+class BeatResult(BaseModel):
+    narration: str | None = None
+    character_responses: list[CharacterTurnEntry] = Field(default_factory=list)
+    next_speakers: list[str] = Field(default_factory=list)
+    scene_update: dict | None = None
+    turn_number: int | None = None
+
+
 class PlayerTurnResponse(BaseModel):
     narration: str | None = None
     character_responses: list[CharacterTurnEntry] = Field(default_factory=list)
     next_speakers: list[str] = Field(default_factory=list)
+    beats: list[BeatResult] | None = None
+    burst_stop_reason: str | None = None
     scene_update: dict | None = None
     turn_number: int | None = None
     effective_input: EffectiveTurnInput | None = None

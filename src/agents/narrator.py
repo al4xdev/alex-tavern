@@ -72,6 +72,9 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  of zones now audible from it, when a physical change connects or seals\n"
         "  spaces (a partition opens: each side starts hearing the other; a door\n"
         "  closes: remap back to []). Takes effect next beat.\n"
+        '- "return_control": true ONLY when this beat ends on a decision, danger,\n'
+        "  or direct question that the protagonist of the last input must answer\n"
+        "  personally; false while the world can keep moving on its own.\n"
         "\n"
         "RULES:\n"
         "- Resolve the immediate consequence of the final HISTORY event before adding\n"
@@ -187,6 +190,7 @@ def build_narrator_json_schema(
                     "type": ["object", "null"],
                     "additionalProperties": {"type": "array", "items": {"type": "string"}},
                 },
+                "return_control": {"type": "boolean"},
                 **(extra_properties or {}),
             },
             "required": [
@@ -530,6 +534,7 @@ async def narrate(
                     if isinstance(other, str) and other in scene.zones and other != zone
                 ]
     result["zone_link_updates"] = links
+    result["return_control"] = bool(result.get("return_control", False))
     for event in result["perception_events"]:
         event["content"] = normalize_generated_text(event["content"])
 

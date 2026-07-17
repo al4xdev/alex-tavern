@@ -13,6 +13,7 @@ from typing import Any
 
 import src.agents.prose as prose
 from src.agents.prose import (
+    PROSE_SYSTEM,
     REPETITION_CORRECTION,
     _repeats_prior_narration,
     build_prose_messages,
@@ -91,65 +92,55 @@ class TestSpeechContentNeverReachesProse:
         assert "Frase antiga" not in prompt
 
 
-class TestAudibleSpeechEventsAreStaged:
-    def test_audible_speech_content_replaced_by_staging_line(self) -> None:
-        events = [
-            {
-                "event_kind": "audible_speech",
-                "subject_id": "C1",
-                "content": "Alice revela que o cofre abre com 7419.",
-                "witness_ids": ["C2", "C3"],
-            }
-        ]
-        prompt = _prompt([], events)
-        assert "7419" not in prompt
+class TestAudibleSpeechEventsAreOmitted:
+    """Dialogue renders itself as dialogue lines; the renderer narrates only
+    NON-SPEECH events. Staging "someone says something" produced phantom
+    unspecified speech and narrated the protagonist's silence."""
+
+    def _prompt(self, events):  # noqa: ANN001, ANN202
+        messages = build_prose_messages(SCENE, CHARACTERS, "C1", [], events)
+        return "\n".join(m["content"] for m in messages)
+
+    def test_audible_speech_events_never_reach_the_prompt(self) -> None:
+        prompt = self._prompt(
+            [
+                {
+                    "event_kind": "audible_speech",
+                    "subject_id": "C1",
+                    "content": "Alice pergunta sobre o cofre.",
+                    "witness_ids": ["C2", "C3"],
+                }
+            ]
+        )
         assert "cofre" not in prompt
-        assert "Alice diz algo audível para Bruno, Vitor" in prompt
+        assert "diz algo" not in prompt
+        # With only speech events, the renderer gets the atmospheric fallback.
+        assert "Nothing new happens" in prompt
 
-    def test_audible_speech_without_witnesses_stages_os_presentes(self) -> None:
-        events = [
-            {
-                "event_kind": "audible_speech",
-                "subject_id": "C2",
-                "content": "Bruno grita o segredo.",
-                "witness_ids": [],
-            }
-        ]
-        prompt = _prompt([], events)
-        assert "segredo" not in prompt
-        assert "Bruno diz algo audível para os presentes" in prompt
+    def test_non_speech_events_still_render_alongside_omitted_speech(self) -> None:
+        prompt = self._prompt(
+            [
+                {
+                    "event_kind": "audible_speech",
+                    "subject_id": "C1",
+                    "content": "Alice pergunta.",
+                    "witness_ids": ["C2"],
+                },
+                {
+                    "event_kind": "physical_outcome",
+                    "subject_id": "C2",
+                    "content": "Bruno derruba a cadeira.",
+                    "witness_ids": ["C1"],
+                },
+            ]
+        )
+        assert "derruba a cadeira" in prompt
+        assert "Alice pergunta" not in prompt
 
-    def test_audible_speech_player_subject_resolves_to_controlled_name(self) -> None:
-        events = [
-            {
-                "event_kind": "audible_speech",
-                "subject_id": "Player",
-                "content": "confissão em voz alta",
-                "witness_ids": ["C2"],
-            }
-        ]
-        prompt = _prompt([], events)
-        assert "confissão" not in prompt
-        assert "Alice diz algo audível para Bruno" in prompt
+    def test_system_prompt_forbids_unspecified_speech_and_silence(self) -> None:
+        assert "unspecified speech" in PROSE_SYSTEM
+        assert "silence" in PROSE_SYSTEM
 
-    def test_non_speech_events_keep_content(self) -> None:
-        events = [
-            {
-                "event_kind": "observation",
-                "subject_id": "C2",
-                "content": "Bruno derruba a taça de vinho no tapete.",
-                "witness_ids": ["C1"],
-            },
-            {
-                "event_kind": "physical_outcome",
-                "subject_id": "C3",
-                "content": "A porta do compartimento tranca com um estalo.",
-                "witness_ids": [],
-            },
-        ]
-        prompt = _prompt([], events)
-        assert "Bruno derruba a taça de vinho no tapete." in prompt
-        assert "A porta do compartimento tranca com um estalo." in prompt
 
 
 class TestNonSpeechRecordsKeepContent:

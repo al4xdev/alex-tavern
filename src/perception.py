@@ -143,3 +143,19 @@ def describe_zones_for_narrator(scene: Scene, characters: dict[str, Character]) 
     if unplaced:
         lines.append(f"  unplaced (perceive everything): {', '.join(unplaced)}")
     return lines
+
+
+def repeats_event_text(content: str, previous: list[str], threshold: float = 0.8) -> bool:
+    """Whether an event near-duplicates one already established (fuzzy per text).
+
+    Used by the autonomous burst so a single stimulus is resolved exactly once
+    across beats instead of being re-narrated with synonyms.
+    """
+    from difflib import SequenceMatcher
+
+    normalized = " ".join(content.lower().split())
+    for prior in previous:
+        prior_normalized = " ".join(prior.lower().split())
+        if SequenceMatcher(None, normalized, prior_normalized).ratio() > threshold:
+            return True
+    return False

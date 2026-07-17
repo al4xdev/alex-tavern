@@ -327,6 +327,29 @@ def log_drive_decision(
     )
 
 
+def log_burst(
+    session_id: str,
+    turn_number: int,
+    *,
+    beat_count: int,
+    stop_reason: str,
+    first_turn: int,
+) -> None:
+    """One autonomous burst outcome (Task 37): how many beats and why it stopped."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "autonomous_burst",
+            "beat_count": beat_count,
+            "first_turn": first_turn,
+            "stop_reason": stop_reason,
+        },
+    )
+
+
 def log_compaction_status(
     session_id: str,
     turn_number: int,

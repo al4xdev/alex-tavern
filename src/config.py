@@ -104,6 +104,9 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         "auto_event_max_probability": _unit_interval(
             value.get("auto_event_max_probability", 0.85), "auto_event_max_probability"
         ),
+        "autonomous_burst_max_beats": _positive_integer(
+            value.get("autonomous_burst_max_beats", 1), "autonomous_burst_max_beats"
+        ),
         "providers": {},
     }
     for name in current_provider_names:
@@ -233,6 +236,7 @@ def resolve_active_config(value: dict[str, Any]) -> dict[str, Any]:
         "auto_event_base_probability": canonical["auto_event_base_probability"],
         "auto_event_growth_per_quiet_turn": canonical["auto_event_growth_per_quiet_turn"],
         "auto_event_max_probability": canonical["auto_event_max_probability"],
+        "autonomous_burst_max_beats": canonical["autonomous_burst_max_beats"],
     }
 
 
