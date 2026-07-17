@@ -132,6 +132,12 @@ def _build_system_prompt(character: Character) -> str:
         "  by everyone present.\n"
         "- Never repeat a complete sentence from RECENT EVENTS. Silently proofread\n"
         "  grammar and remove accidental duplicated words before answering.\n"
+        "- Pursue a goal, do not merely react. In this scene you WANT something\n"
+        "  consistent with your personality (learn why someone is here, get a\n"
+        "  decision made, keep someone from leaving, secure the room, settle a\n"
+        "  score). Take a concrete step toward that aim THIS turn (ask, prod,\n"
+        "  propose, or attempt an action) instead of only commenting on the\n"
+        "  moment. Vary how you push; never restate a point you already made.\n"
         "- Keep responses to 1-3 sentences.\n"
         "- You may address other characters directly.\n"
     )

@@ -16,11 +16,53 @@ Usage:
 """
 import argparse
 import asyncio
+import difflib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
+
+_SENT = re.compile(r"(?<=[.!?…])\s+")
+
+
+def _sentences(text: str) -> list[str]:
+    return [" ".join(s.lower().split()) for s in _SENT.split(text) if len(s.strip()) >= 25]
+
+
+def lexical_metrics(sid: str) -> dict:
+    """Deterministic lexical-variation metrics over a session's narration.
+
+    max_echo: highest similarity between any narration sentence and any EARLIER
+    narration sentence (0 = every sentence fresh, 1 = a verbatim repeat).
+    near_dups: how many narration sentences echo an earlier one above 0.8.
+    """
+    from src.store.sessions import load_game
+
+    game = load_game(sid)
+    assert game is not None
+    narrations = [r.content for r in game.history if r.content_type == "narration"]
+    seen: list[str] = []
+    max_echo, near_dups, total = 0.0, 0, 0
+    worst = ("", "")
+    for text in narrations:
+        for sentence in _sentences(text):
+            total += 1
+            for prior in seen:
+                ratio = difflib.SequenceMatcher(None, sentence, prior).ratio()
+                if ratio > max_echo:
+                    max_echo, worst = ratio, (prior, sentence)
+                if ratio >= 0.8:
+                    near_dups += 1
+                    break
+            seen.append(sentence)
+    return {
+        "narration_sentences": total,
+        "max_echo": round(max_echo, 2),
+        "near_dups": near_dups,
+        "worst_pair": worst if max_echo >= 0.8 else None,
+    }
 
 REPO = Path("/home/alex/git/my/roleplay")
 BASE = REPO / "plans/artifacts/roteiro-ab"
@@ -142,7 +184,9 @@ def confidentiality_scan(sid: str) -> None:
 
 def _spawn(args: list[str], data_dir: Path) -> str:
     """Run this script as a subprocess with an isolated data dir; return stdout."""
-    env = dict(os.environ, ROLEPLAY_DATA_DIR=str(data_dir))
+    # The child runs THIS file directly, so sys.path[0] is tools/acceptance,
+    # not the repo root — inject REPO so ``import src`` resolves.
+    env = dict(os.environ, ROLEPLAY_DATA_DIR=str(data_dir), PYTHONPATH=str(REPO))
     proc = subprocess.run(
         [sys.executable, __file__, *args],
         env=env, cwd=str(REPO), capture_output=True, text=True,
@@ -167,6 +211,10 @@ def orchestrate() -> None:
     sid_control = _sid_from(control_out)
     sid_roteiro = _sid_from(roteiro_out)
     _spawn(["--scan", sid_roteiro], BASE / "roteiro" / "data")
+    ctrl_lex = _spawn(["--metrics", sid_control], BASE / "control" / "data")
+    rot_lex = _spawn(["--metrics", sid_roteiro], BASE / "roteiro" / "data")
+    sys.stdout.write("LEXICAL control " + ctrl_lex.split("LEXICAL ", 1)[-1])
+    sys.stdout.write("LEXICAL roteiro " + rot_lex.split("LEXICAL ", 1)[-1])
     print("SESSIONS " + json.dumps({"control": sid_control, "roteiro": sid_roteiro}))
 
 
@@ -175,9 +223,12 @@ def main() -> None:
     parser.add_argument("--arm", choices=["control", "roteiro"])
     parser.add_argument("--enabled", choices=["0", "1"])
     parser.add_argument("--scan", metavar="SID")
+    parser.add_argument("--metrics", metavar="SID")
     args = parser.parse_args()
     if args.scan:
         confidentiality_scan(args.scan)
+    elif args.metrics:
+        print("LEXICAL " + json.dumps(lexical_metrics(args.metrics), ensure_ascii=False))
     elif args.arm:
         asyncio.run(run_arm(args.enabled == "1"))
     else:

@@ -38,6 +38,11 @@ PROSE_SYSTEM = (
     "  reference the act of speaking without inventing or repeating the words\n"
     "  beyond what the event states.\n"
     "- Do not repeat a sentence from the transcript.\n"
+    "- LEXICAL VARIATION IS MANDATORY. Each beat must use fresh vocabulary, a\n"
+    "  new sentence opening, and a different sensory angle than any earlier\n"
+    "  narration. Never reuse a distinctive noun-phrase or clause you already\n"
+    "  wrote (if a prior beat said 'the fire almost out', do not write it again;\n"
+    "  find another image or drop it). Reusing prior phrasing is a failure.\n"
     "- Never reference unspecified speech (no 'says something', 'exchanges\n"
     "  words'); dialogue renders separately. Never narrate anyone's silence,\n"
     "  hesitation to answer, or non-response — and never present someone's\n"
@@ -105,6 +110,12 @@ def _stage_event_content(
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 _MIN_SENTENCE_CHARS = 25
 _SIMILARITY_THRESHOLD = 0.85
+# A single near-verbatim sentence echo (the fire "goes out" rendered twice) is
+# a lexical-variation failure even when the rest of the beat is fresh; the
+# >half-of-sentences rule missed it. Fire the retry on any one qualifying
+# sentence at or above this bar, tuned to catch near-verbatim reuse without
+# tripping on ordinary thematic callbacks.
+_PER_SENTENCE_ECHO_THRESHOLD = 0.8
 
 REPETITION_CORRECTION = (
     "CORRECTION: your previous draft repeated earlier narration nearly "
@@ -125,10 +136,11 @@ def _qualifying_sentences(text: str) -> list[str]:
 def _repeats_prior_narration(new_text: str, history: list[TurnRecord]) -> bool:
     """True when the new narration is a near-verbatim echo of prior narration.
 
-    Deterministic guard for the measured failure mode (identical paragraphs
-    rendered on consecutive turns): more than half of the new narration's
-    qualifying sentences match a prior narration sentence above 0.85 similarity,
-    or the whole text is above 0.85 similar to any single prior narration.
+    Deterministic guard for the measured failure modes: the whole text is
+    above 0.85 similar to a prior narration (identical paragraphs on
+    consecutive turns), OR even a single qualifying sentence near-verbatim
+    echoes a prior narration sentence (the fire "goes out" rendered twice) —
+    lexical variation is a first-class acceptance criterion (Task 38).
     """
     prior_texts = [r.content for r in history if r.content_type == "narration"]
     if not prior_texts:
@@ -144,15 +156,11 @@ def _repeats_prior_narration(new_text: str, history: list[TurnRecord]) -> bool:
     prior_sentences = [s for text in prior_texts for s in _qualifying_sentences(text)]
     if not prior_sentences:
         return False
-    repeated = sum(
-        1
+    return any(
+        difflib.SequenceMatcher(None, sentence, prior).ratio() >= _PER_SENTENCE_ECHO_THRESHOLD
         for sentence in new_sentences
-        if any(
-            difflib.SequenceMatcher(None, sentence, prior).ratio() > _SIMILARITY_THRESHOLD
-            for prior in prior_sentences
-        )
+        for prior in prior_sentences
     )
-    return repeated > len(new_sentences) / 2
 
 
 def _staging_lines(

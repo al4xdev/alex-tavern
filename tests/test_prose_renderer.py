@@ -192,6 +192,21 @@ class TestRepeatsPriorNarration:
         history = [_record("Narrator", REPEATED_PARAGRAPH, "narration")]
         assert _repeats_prior_narration(FRESH_PARAGRAPH, history) is False
 
+    def test_single_near_verbatim_sentence_echo_detected(self) -> None:
+        # Mostly-fresh beat that reuses ONE distinctive prior sentence verbatim
+        # (the "a lareira apaga de repente" ×2 failure): the old >half rule let
+        # this through; lexical variation now flags it.
+        prior = (
+            "A lareira apaga de repente, mergulhando o salão na escuridão. "
+            "Marta recua um passo, a respiração presa na garganta."
+        )
+        new = (
+            "Bento avança em direção à porta com o facão erguido. "
+            "A lareira apaga de repente, mergulhando o salão na escuridão."
+        )
+        history = [_record("Narrator", prior, "narration")]
+        assert _repeats_prior_narration(new, history) is True
+
     def test_no_narration_in_history_passes(self) -> None:
         history = [
             _record("C2", "Bruno fala alguma coisa longa e detalhada aqui.", "speech"),
