@@ -95,7 +95,7 @@ class TestRunnerIntentAndMoves:
         monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
 
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {})
+            runner = Runner(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),

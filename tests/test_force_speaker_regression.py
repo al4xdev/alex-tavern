@@ -91,7 +91,7 @@ class TestBackendForceHonored:
     ) -> None:  # noqa: ANN001
         Runner, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2", "C3"])
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {})
+            runner = Runner(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
@@ -118,7 +118,7 @@ class TestBackendForceHonored:
     ) -> None:  # noqa: ANN001
         Runner, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C3"])
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {})
+            runner = Runner(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
@@ -144,7 +144,7 @@ class TestBackendForceHonored:
     ) -> None:  # noqa: ANN001
         Runner, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2"])
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {})
+            runner = Runner(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),

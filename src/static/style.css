@@ -2533,3 +2533,33 @@ select.text-input { cursor: pointer; }
         scroll-behavior: auto !important;
     }
 }
+
+/* ── Whisper (audience) control — Task 30 ─────────────────────────────── */
+.whisper-popup {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    z-index: 30;
+    background: var(--surface-hi, #222);
+    border: 1px solid var(--border, #444);
+    border-radius: 10px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 180px;
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+.whisper-popup[hidden] { display: none; }
+.whisper-popup-title { font-size: 0.8em; opacity: 0.75; margin-bottom: 2px; }
+.whisper-option { display: flex; align-items: center; gap: 6px; font-size: 0.9em; cursor: pointer; }
+.action-btn.whisper-active { outline: 2px solid var(--accent, #a78bfa); border-radius: 8px; }
+.msg-whisper-badge {
+    font-size: 0.75em;
+    opacity: 0.8;
+    margin-left: 8px;
+    font-style: italic;
+}
+.msg-whispered .msg-content { opacity: 0.92; }

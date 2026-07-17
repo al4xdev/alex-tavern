@@ -1894,10 +1894,14 @@ class TestCustomSessionAndDebug:
                         ],
                         "scene_update": None,
                         "mood_updates": None,
+                        "zone_moves": None,
+                        "zone_link_updates": None,
                     }
                 )
             else:
-                content = json_module.dumps({"speech": "Estou pronto.", "thought": None})
+                content = json_module.dumps(
+                    {"speech": "Estou pronto.", "thought": None, "action_intent": None}
+                )
             req = httpx.Request("POST", url)
             return httpx.Response(
                 200, json={"choices": [{"message": {"content": content}}]}, request=req
@@ -1916,7 +1920,12 @@ class TestCustomSessionAndDebug:
         self.created.append(sid)
         result = await self.runner.player_turn(sid, speech="oi")
         assert result["character_responses"] == [
-            {"character_id": "C1", "speech": "Estou pronto.", "thought": None}
+            {
+                "character_id": "C1",
+                "speech": "Estou pronto.",
+                "thought": None,
+                "action_intent": None,
+            }
         ]
 
         debug_path = session_debug_path(sid)
@@ -1938,6 +1947,7 @@ class TestCustomSessionAndDebug:
         assert json_module.loads(entries[3]["response"]) == {
             "speech": "Estou pronto.",
             "thought": None,
+            "action_intent": None,
         }
 
 
@@ -2314,14 +2324,17 @@ class TestEdgeCases:
     @pytest.mark.parametrize(
         ("raw", "expected"),
         [
-            ({"speech": "Olá.", "thought": None}, {"speech": "Olá.", "thought": None}),
+            (
+                {"speech": "Olá.", "thought": None},
+                {"speech": "Olá.", "thought": None, "action_intent": None},
+            ),
             (
                 {"speech": None, "thought": "Isso parece errado."},
-                {"speech": None, "thought": "Isso parece errado."},
+                {"speech": None, "thought": "Isso parece errado.", "action_intent": None},
             ),
             (
                 {"speech": "Olá.", "thought": "Preciso ter cuidado."},
-                {"speech": "Olá.", "thought": "Preciso ter cuidado."},
+                {"speech": "Olá.", "thought": "Preciso ter cuidado.", "action_intent": None},
             ),
         ],
     )
@@ -2352,8 +2365,8 @@ class TestEdgeCases:
 
         responses = iter(
             [
-                {"speech": "Oi.", "thought": "Inclino a cabeça."},
-                {"speech": "Oi.", "thought": "Ele parece cansado para mim."},
+                {"speech": "Oi.", "thought": "Inclino a cabeça.", "action_intent": None},
+                {"speech": "Oi.", "thought": "Ele parece cansado para mim.", "action_intent": None},
             ]
         )
 
@@ -2372,7 +2385,11 @@ class TestEdgeCases:
                 character_id="C2",
                 config={},
             )
-        assert output == {"speech": "Oi.", "thought": "Ele parece cansado para mim."}
+        assert output == {
+            "speech": "Oi.",
+            "thought": "Ele parece cansado para mim.",
+            "action_intent": None,
+        }
 
     def test_character_prompt_includes_own_notes(self) -> None:
         """A nota do próprio personagem vira uma linha 'What you remember' no prompt."""
@@ -3261,6 +3278,7 @@ class TestLanguageConfiguration:
                                     {
                                         "speech": "Wait — listen between doors 1–3.",
                                         "thought": None,
+                                        "action_intent": None,
                                     }
                                 )
                             }
@@ -3285,12 +3303,17 @@ class TestLanguageConfiguration:
                 turn_number=1,
             )
 
-            assert output == {"speech": "Wait, listen between doors 1-3.", "thought": None}
+            assert output == {
+                "speech": "Wait, listen between doors 1-3.",
+                "thought": None,
+                "action_intent": None,
+            }
             path = session_debug_path(sid)
             raw_entry = json.loads(path.read_text(encoding="utf-8"))
             assert json.loads(raw_entry["response"]) == {
                 "speech": "Wait — listen between doors 1–3.",
                 "thought": None,
+                "action_intent": None,
             }
         finally:
             await client.aclose()

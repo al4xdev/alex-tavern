@@ -47,3 +47,17 @@ mechanics are invisible in the product.
 - [ ] One real-LLM session through the UI: whisper a fact to one character with
   an outsider present, verify the outsider's later replies contain no secret
   token (existing guards), and the transcript renders the whisper markers.
+
+> **CLOSED 2026-07-16.** Composer gained the whisper control (🤫 button +
+> checklist popup of present non-controlled characters, populated with the
+> force-speaker options); the turn payload carries `audience` only when a
+> selection exists; a whisper without speech/action is blocked client-side
+> mirroring the backend rule; the selection is cleared on every committed turn
+> (never silently persists). Player echo and history records with an audience
+> render a localized badge ("🤫 whispered to / sussurrado para {names}"),
+> including zone-scoped records. i18n en/pt; 9 static boundary tests
+> (`tests/test_whisper_ui.py`); JS syntax verified; the whisper mechanics
+> end-to-end (payload → runner → guards → prompts) were already exhaustively
+> validated by the partition/perspective live runs. Residual: a human
+> click-through in a real browser (cannot be automated here) — the payload the
+> UI emits is byte-identical to the harness-validated shape.

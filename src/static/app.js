@@ -82,6 +82,8 @@ const compactProgress = document.getElementById('compact-progress');
 const compactProgressStatus = document.getElementById('compact-progress-status');
 const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
 const forceSpeakerSelect = document.getElementById('force-speaker-select');
+const whisperBtn = document.getElementById('action-whisper-btn');
+const whisperPopup = document.getElementById('whisper-popup');
 const actionPopup   = document.getElementById('action-popup');
 const stopBtn       = document.getElementById('stop-btn');
 const sessionsOverlay = document.getElementById('sessions-overlay');
@@ -166,6 +168,7 @@ function updateActionPopup() {
     const hasSession = !!state.sessionId;
     if (actionSkipBtn) actionSkipBtn.style.display = hasSession ? '' : 'none';
     if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
+    if (whisperBtn) whisperBtn.style.display = hasSession ? '' : 'none';
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
     if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
@@ -451,6 +454,8 @@ function renderHistory(history) {
         if (!responseBuffer) return;
         addMessage(responseBuffer.speaker, responseBuffer, 'response', {
             transformed: responseBuffer.transformed,
+            whisperNames: responseBuffer.audience
+                ? whisperNamesFor(responseBuffer.audience) : '',
         });
         responseBuffer = null;
     };
@@ -468,10 +473,12 @@ function renderHistory(history) {
                     thought: null,
                     action: null,
                     transformed: false,
+                    audience: null,
                 };
             }
             responseBuffer[record.content_type] = record.content;
             responseBuffer.transformed ||= record.input_transformed === true;
+            if (record.audience != null) responseBuffer.audience = record.audience;
             continue;
         }
         flushResponseBuffer();
@@ -703,7 +710,10 @@ function messageSegments(content, contentType) {
     return [{ type: contentType, text: content }];
 }
 
-function addMessage(speaker, content, contentType, { animate = false, transformed = false } = {}) {
+function addMessage(
+    speaker, content, contentType,
+    { animate = false, transformed = false, whisperNames = '' } = {}
+) {
     const info = speakerInfo(speaker);
 
     const msg = document.createElement('div');
@@ -741,6 +751,14 @@ function addMessage(speaker, content, contentType, { animate = false, transforme
         badge.className = 'msg-transform-badge';
         header.appendChild(badge);
         msg.classList.add('msg-transformed');
+    }
+
+    if (whisperNames) {
+        const badge = document.createElement('span');
+        badge.className = 'msg-whisper-badge';
+        badge.textContent = `🤫 ${t('msg.whisperTo')} ${whisperNames}`;
+        header.appendChild(badge);
+        msg.classList.add('msg-whispered');
     }
 
     const body = document.createElement('div');
@@ -1242,6 +1260,65 @@ function populateForceSpeakerOptions() {
     if ([...forceSpeakerSelect.options].some((o) => o.value === current)) {
         forceSpeakerSelect.value = current;
     }
+    populateWhisperOptions();
+}
+
+/* ── Whisper (audience) control — Task 30 ─────────────────────────────── */
+
+function populateWhisperOptions() {
+    if (!whisperPopup) return;
+    const previous = new Set(getWhisperAudience());
+    whisperPopup.innerHTML = '';
+    const title = bindTranslation(document.createElement('div'), 'action.whisperHeading');
+    title.className = 'whisper-popup-title';
+    whisperPopup.appendChild(title);
+    for (const cid of state.order) {
+        if (cid === state.controlledId) continue;
+        const ch = state.characters[cid];
+        if (!ch) continue;
+        const label = document.createElement('label');
+        label.className = 'whisper-option';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = cid;
+        box.checked = previous.has(cid);
+        box.addEventListener('change', updateWhisperButton);
+        label.appendChild(box);
+        label.appendChild(document.createTextNode(` ${ch.mind.name}`));
+        whisperPopup.appendChild(label);
+    }
+    updateWhisperButton();
+}
+
+function getWhisperAudience() {
+    if (!whisperPopup) return [];
+    return [...whisperPopup.querySelectorAll('input:checked')].map((box) => box.value);
+}
+
+function clearWhisperSelection() {
+    if (!whisperPopup) return;
+    for (const box of whisperPopup.querySelectorAll('input:checked')) box.checked = false;
+    whisperPopup.hidden = true;
+    updateWhisperButton();
+}
+
+function updateWhisperButton() {
+    if (!whisperBtn) return;
+    const count = getWhisperAudience().length;
+    whisperBtn.classList.toggle('whisper-active', count > 0);
+    whisperBtn.textContent = count > 0 ? `🤫${count}` : '🤫';
+}
+
+function whisperNamesFor(ids) {
+    return (ids || [])
+        .map((cid) => state.characters[cid]?.mind?.name || cid)
+        .join(', ');
+}
+
+if (whisperBtn) {
+    whisperBtn.addEventListener('click', () => {
+        whisperPopup.hidden = !whisperPopup.hidden;
+    });
 }
 
 /* ── Session lifecycle ────────────────────────────────────────────────── */
@@ -1343,8 +1420,13 @@ async function sendTurn(isRetry = false) {
     const thought = inputThought.value.trim();
     const action = inputAction.value.trim();
     const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
+    const whisperAudience = getWhisperAudience();
     if (!speech && !thought && !action && !state.narratorHint) {
         toast(t('action.inputRequired'), 'info', 2500);
+        return;
+    }
+    if (whisperAudience.length && !speech && !action) {
+        toast(t('action.whisperNeedsContent'), 'info', 3000);
         return;
     }
 
@@ -1363,7 +1445,8 @@ async function sendTurn(isRetry = false) {
     // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
     if (!isRetry) {
         state.lastEchoMessage = addMessage(
-            'Player', buildPlayerEcho(speech, thought, action), 'response'
+            'Player', buildPlayerEcho(speech, thought, action), 'response',
+            { whisperNames: whisperAudience.length ? whisperNamesFor(whisperAudience) : '' }
         );
     }
 
@@ -1383,6 +1466,7 @@ async function sendTurn(isRetry = false) {
             action: action || '',
             force_speaker: forceSpeaker || undefined,
             narrator_hint: state.narratorHint || undefined,
+            audience: whisperAudience.length ? whisperAudience : undefined,
         };
         payload = await PluginRuntime.runHook('turn.input', payload, { state });
         let data = await api.turn(state.sessionId, payload, ac.signal);
@@ -1422,6 +1506,7 @@ async function sendTurn(isRetry = false) {
         if (window.innerWidth > 760) inputSpeech.focus();
         state.lastTurnFailed = false;
         state.canUndo = true;
+        clearWhisperSelection();
         updateActionPopup();
     } catch (err) {
         try {
