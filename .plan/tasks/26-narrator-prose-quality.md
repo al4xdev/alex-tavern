@@ -228,3 +228,17 @@ run 2) — template-like set-dressing tags in static scenes. Refined mitigation
 candidate: apply the fuzzy guard per SENTENCE (>=40 chars, >0.85 vs any prior
 narration sentence) instead of per narration; epithet recycling likely needs
 the context-narrowing option (pass only the last 1-2 narrations).
+
+## Additional Evidence (2026-07-17, Task 38 portais/estalagem A/B — reopened)
+
+Cross-turn WHOLE-BEAT re-narration is the dominant residual once single-sentence
+lexical echo is backstopped: the portais roteiro arm narrated the smoke-statue
+forming into 16 shards twice (T6==T8, paraphrased under the 0.8 sentence bar),
+and the messenger arrival twice (T3==T4). The narration lexical backstop only
+catches per-sentence >=0.8; a paraphrased re-run of a whole beat slips under.
+Concrete candidate: generalize the burst's `repeats_event_text` dedup
+(perception.py) to regular turns — drop a perception_event that near-matches one
+narrated in the last K turns. Also: semantic character-line echo (Nix's
+"Senhor Veludo" line T3~T4; Mirella's "geada noturna" x6) and repeated
+`action_intent` ("observar discretamente" x3) escape the verbatim character
+guard (>=0.88) — harder, needs semantic dedup or an action_intent-aware guard.

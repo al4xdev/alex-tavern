@@ -44,10 +44,20 @@ Ordem fixa por incremento:
 8. Exclusões decididas pelo usuário: matriz multi-modelo NÃO; defeitos das
    Tasks 26/33 só registram evidência.
 
-## 2. TAREFA 1 — Fechar Task 38 (roteiro). Implementação PRONTA; falta aceitação
+## 2. ✅ TAREFA 1 — Task 38 (roteiro) FECHADA (2026-07-17), escopo honesto
 
-Spec: `.plan/tasks/38-roteiro-beat-contracts.md`. Código commitado em
-`9761f31`; testes em `tests/test_roteiro.py` (30).
+Fechada em `.plan/closed/38-roteiro-beat-contracts.md`. Relatório completo:
+`docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`. Veredito: roteiro
+é opt-in (OFF), ajuda drive em cena de ação (estalagem confiável), cara-ou-coroa
+em cena procedural grande (portais 2W/2L). Ganhos de engine banked (teto de
+beat, guard de personagem, backstop lexical, disrupção-no-stall, medição
+autoritativa). PRÓXIMA TAREFA = **39** (memória do ledger), §3. O texto abaixo é
+o registro histórico da task (spec + jornada), mantido para referência.
+
+### (histórico) Spec + jornada
+
+Spec: `.plan/closed/38-roteiro-beat-contracts.md`. Código commitado em
+`9761f31`; testes em `tests/test_roteiro.py`.
 
 Mapa do código:
 - `src/roteiro.py` — tudo: `evaluate_roteiro` (motor determinístico),

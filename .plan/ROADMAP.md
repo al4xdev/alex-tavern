@@ -26,6 +26,7 @@ aceitação A/B). Referência de arquitetura:
 | **36** | **Split Diretor/Prosa + intents + zonas dinâmicas + audience_origin (v6)** | benchmark 25 -> 0 determinístico; diálogo-em-narração impossível; staging correto |
 | 23 | Gap trim/compactação | pinning de âncoras de código + retenção adaptativa; os 2 xfails-spec verdes; suíte sem nenhum xfail |
 | 37 | Loop autônomo limitado (rajada com paradas tipadas, undo por beat) | 3 runs ao vivo ×4 beats; parada `protagonist_decision` via `return_control`; crítico cego ×2 — classes estruturais zeradas por construção |
+| 38 | Roteiro com contratos de beat tipados + replan algorítmico (OPT-IN, OFF) | A/B deepseek, crítico cego ×9 embaralhado; confidencialidade NONE, gatilhos determinísticos; **veredito escopado**: ajuda drive em cena de ação (estalagem confiável), cara-ou-coroa em cena procedural grande (portais 2W/2L); ganhos de engine banked (teto de beat, guard de personagem, backstop lexical, disrupção-no-stall). Relatório: `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md` |
 
 ## 🔶 Em andamento
 
@@ -37,10 +38,12 @@ aceitação A/B). Referência de arquitetura:
 
 | Ordem | Task | Depende de |
 |---|---|---|
-| 1 | 38 — Roteiro com contratos de beat tipados + replan algorítmico | 36 ✅ |
-| 2 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
-| 3 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
+| 1 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
+| 2 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
 | — | Render progressivo da rajada (SSE por beat) — lane de UI; arquitetura já suporta | 37 ✅ |
+| — | Gatilho geral de estagnação de tópico no drive layer (Task 33) — quebra loop nos dois braços | 38 (evidência) |
+| — | Disrupção do roteiro avança o arco planejado (não interrompe solto) — cena procedural | 38 |
+| — | Adjudicação da tentativa do jogador (resposta-do-mundo + return_control) | 36/37 |
 
 ## 🧺 Lane paralela (independentes)
 

@@ -56,3 +56,16 @@ invents events or manually triggers suggestions.
 > local validator reject responses 3× before the lenient normalization could
 > absorb them — exclusion is now normalization policy, full enum guides the
 > model. 7+2 tests; suite 440 passed.
+
+## Future extension (routed here 2026-07-17 from Task 38)
+
+The drive layer is the natural home for a GENERAL anti-stagnation trigger. Today
+the hazard fires on skip turns over `turns_since_injected_event` (quiet turns).
+Task 38's curl-replay investigation proved that topic-looping (the cast
+restating one sentiment because the scene is stuck) is NOT fixable in any agent
+prompt — only a concrete new event breaks it (2/3 injecting an event; 3/3 with a
+disruptive Director beat). Give the hazard function a **topic-stagnation** input
+(no new entity/anchor introduced for K turns, or low lexical novelty between
+recent turns) so it injects a world event to break the loop in BOTH arms
+(roteiro on/off), not only on quiet skip turns. See
+`docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`.
