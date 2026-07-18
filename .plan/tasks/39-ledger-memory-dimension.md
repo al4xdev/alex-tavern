@@ -44,7 +44,7 @@ authority, no parallel memories).
   both compactions; secret family stays 0.
 - [ ] Undo/fork/restore preserve ledger memory exactly.
 
-## Design frozen (2026-07-17, Opus) — staged increments
+## Design frozen (2026-07-17) — staged increments
 
 ### Increment 1 (additive, deterministic, LOW risk) — THIS increment
 - `CharacterPerspective` gains a memory dimension (schema v8):

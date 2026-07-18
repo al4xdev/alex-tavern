@@ -516,7 +516,7 @@ This task is complete as exploration only after producing evidence-backed artifa
 These questions must be answered before implementation code establishes another de facto authoring
 workflow.
 
-## Exploration DELIVERED 2026-07-17 (Opus session) — pending owner acceptance
+## Exploration DELIVERED 2026-07-17 — pending owner acceptance
 
 Exploration document (deliverables 1-15 + threat model + decision register):
 `docs/plugin-ecosystem-topology-exploration-2026-07-17.md`. Grounded in the

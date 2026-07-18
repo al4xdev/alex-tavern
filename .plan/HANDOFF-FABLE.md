@@ -1,15 +1,16 @@
 # Handoff — Fable (2026-07-17)
 
-Documento LOCAL. Regras de commit: iguais ao `HANDOFF-OPUS.md` §0 — inglês,
-convencional, **NUNCA** trailer de IA, última linha `Agent: fable`, **sem push**,
-nunca `git add -A`. Protocolo de validação: `HANDOFF-OPUS.md` §1.
+Documento LOCAL. Regras de commit: iguais ao `HANDOFF.md` §0 — inglês,
+convencional, **NUNCA** trailer de IA, **sem push**, nunca `git add -A`.
+Protocolo de validação: `HANDOFF.md` §1.
 
-## Tua tarefa: Task 39 increment 2 (o Opus deixou o increment 1 pronto e verde)
+## Tua tarefa: Task 39 increment 2 (increment 1 pronto e verde)
 
 O increment 1 (aditivo, baixo risco) está feito e commitado (`0e83612`): a
 dimensão de memória do ledger existe e funciona. **O increment 2 é a parte
 arriscada — toca a COMPACTAÇÃO (transacional: undo LIFO, checkpoints com hash,
-restore).** O Opus parou aqui de propósito pra você fazer com cuidado fresco.
+restore).** A sessão anterior parou aqui de propósito para o increment 2 ser
+feito com cuidado fresco.
 
 ### Estado atual (increment 1, já commitado)
 - `CharacterPerspective` (schema v8) tem: `recent_memory: list[str]` (digest

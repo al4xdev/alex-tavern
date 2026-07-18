@@ -1,9 +1,8 @@
 # Roadmap — estado atual e sequência (atualizado 2026-07-16)
 
 Fonte única de "onde estamos e o que vem". Atualize este arquivo a cada task
-fechada ou mudança de sequência. **Handoff ativo: `HANDOFF-OPUS.md`** (fila
-detalhada + regras de commit para o Opus; Task 38 implementada, falta
-aceitação A/B). Referência de arquitetura:
+fechada ou mudança de sequência. **Handoff ativo: `HANDOFF.md`** (fila
+detalhada + regras de commit da sessão autônoma). Referência de arquitetura:
 `tasks/explore-29.2-architecture-map.md`. Artefatos de benchmark: `output29/`.
 
 ## ✅ Fechadas (todas com evidência medida e commit)
@@ -35,9 +34,10 @@ aceitação A/B). Referência de arquitetura:
 | 39 — Memória do ledger | increment 1 FEITO (dimensão de memória, schema v8, 560 testes). **increment 2 (risco: compactação) → Fable**, ver `HANDOFF-FABLE.md` |
 | 27 — SDK isolado + pipeline de curadoria | **exploração DELIVERED** (`docs/plugin-ecosystem-topology-exploration-2026-07-17.md`); aguarda aceite do dono + verificação com checkout do hub |
 | 38 — Roteiro (opt-in, OFF) | **ENTREGUE COM RESSALVAS, mantida aberta** (não migra pra closed/): ganhos de engine banked, mas o roteiro é cara-ou-coroa em cena procedural (portais 2W/2L). Ver banner na task + relatório em `docs/cases/`. Fixes futuros: disrupção avança o arco; watcher 33b |
-
-> **Convenção (usuário, 2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
+| 19 — Security hardening | **ENTREGUE COM RESSALVAS**: boundary origem+token + política de alvo de provider implementados e revisados (buraco do origin `null` fechado; same-origin LAN liberado; token nunca persistido; 403-retry pós-restart); falta só o outcome 6 (smoke tests desktop/Docker/Android) |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run 1 = 0 violações (primeira XPASS do programa); variância semântica restante: cumprimento de promessa, discrição vs auditoria, confabulação de alias |
+
+> **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
 ## 📋 Sequência principal (após 28/30)
 

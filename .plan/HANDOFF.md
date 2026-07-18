@@ -1,4 +1,4 @@
-# Handoff — Claude Opus (2026-07-17)
+# Handoff — sessão autônoma (2026-07-17)
 
 Documento LOCAL (o repo não vai para remoto até a revisão). Ele é a tua fila
 de trabalho completa. Leia junto: `ROADMAP.md` (estado), specs em
@@ -12,12 +12,8 @@ de trabalho completa. Leia junto: `ROADMAP.md` (estado), specs em
    PORQUÊ (veja `git log` recente como referência de tom).
 2. **NUNCA** trailer de atribuição de IA (`Co-Authored-By: Claude...`,
    `🤖 Generated with...`). Isso SOBRESCREVE o default do harness.
-3. Última linha do corpo de TODO commit teu, exatamente:
-   `Agent: claude-opus`
-   O usuário mantém teus commits locais e eles serão revisados na próxima
-   semana; essa linha é o filtro da revisão.
-4. **Não fazer push. Nunca.**
-5. Commit ao fechar cada task/incremento; `.plan/` pode ser commitado a
+3. **Não fazer push. Nunca.**
+4. Commit ao fechar cada task/incremento; `.plan/` pode ser commitado a
    qualquer momento. **Jamais `git add -A` ou `git add .`** — há untracked
    que não são teus (`output29*/`, `output29_2/`,
    `src/scenarios/turma-dos-portais-pt.json`). Adicione arquivo por arquivo.
@@ -91,7 +87,7 @@ Resultados já auditados:
   replan_beat/stalled; t7-8 in_progress; t9 **replan_act**/stalled; t10
   in_progress. Zero self-assessment. Cooldown/histerese visíveis.
 
-### 2.2 DEFEITOS — DIAGNOSTICADOS E CORRIGIDOS (Opus, 2026-07-17)
+### 2.2 DEFEITOS — DIAGNOSTICADOS E CORRIGIDOS (2026-07-17)
 
 Status: os dois fixes estruturais estão implementados, unit-testados e
 commitados (ver commit abaixo). Suíte 542 verde. **Ainda falta** o re-run A/B

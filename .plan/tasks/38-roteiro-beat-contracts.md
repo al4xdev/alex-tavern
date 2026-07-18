@@ -58,7 +58,7 @@ the prose renderer (it contains future secrets). Assertable from debug.jsonl.
 - [ ] Real-run A/B: same scenario with and without roteiro; blind critic
   compares narrative drive without knowing which is which.
 
-## CLOSED 2026-07-17 (Opus session) — honest, scoped
+## CLOSED 2026-07-17 (sessão autônoma) — honest, scoped
 
 Full report: `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`.
 
@@ -127,6 +127,6 @@ adjudication rule (world-response + return_control, never dictating will).
 - Player-attempt adjudication (the portal example) -> new follow-up.
 
 Suite: 550 passed. Artifacts + all blind-critic rounds:
-`plans/artifacts/roteiro-ab*/`. Commits (Agent: claude-opus): 9761f31, 35a9a2f,
+`plans/artifacts/roteiro-ab*/`. Commits: 9761f31, 35a9a2f,
 3f4c014, bdda81f, 9f073e0, 06bb963, cedbb1a, 86df261, 7b39304, 6d6e9b8,
 5c40276, c3863ae, 490f1d5 (+ the b23a9e7 revert 52f5f88).

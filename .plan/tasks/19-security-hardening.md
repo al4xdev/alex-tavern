@@ -66,34 +66,40 @@ the boundary for every unsafe method.
 - Trusted in-process plugins remain trusted code once intentionally installed; the goal is to stop
   arbitrary web pages from reaching plugin-management endpoints.
 
-## Delivered 2026-07-17 (Opus) — COM RESSALVAS (mantida em tasks/, não closed/)
+## Delivered 2026-07-17 — COM RESSALVAS (mantida em tasks/, não closed/)
 
 Boundary de origem + token + política de alvo de provider implementados e
 testados no nível unit+integração. **Ressalva: o outcome 6 (smoke tests de
 deployment desktop/Docker/Android) NÃO foi executado — não dá pra rodar
 Docker/Android aqui — então não é fecho confiante** (convenção: fica em tasks/).
 
-### Entregue e testado (17 testes em `tests/test_security.py`, suíte 593)
+### Entregue e testado (23 testes em `tests/test_security.py`, suíte 610)
 - `src/security.py`: token por-processo não-persistido + allowlist de origem
-  (loopback qualquer porta; native/WebView `null`/ausente) + `unsafe_request_allowed`.
-- `src/main.py`: CORS wildcard credenciado REMOVIDO → regex loopback + `null`
-  (WebView); middleware `enforce_origin_and_token` cobre TODO método de mutação
-  (config/session/scenario/plugin/experience); `GET /bootstrap` entrega o token
-  same-origin (cross-origin não lê → não forja).
-- Política de `api_base` no contrato do adapter (`base.require_https_host` /
-  `require_loopback_or_lan`): deepseek = HTTPS + host `api.deepseek.com`;
-  llama_cpp = loopback/LAN. Ligada no `validate_config` → um `api_base` de
-  atacante é rejeitado (422) sem persistir nem trocar o Runner. Isso fecha o
-  threat path (repontar o segredo cloud) por construção — o host fica travado.
-- Frontend: `api.js` busca o token do /bootstrap e o envia em toda mutação;
-  `plugin-runtime.js` idem no observe.
+  (loopback qualquer porta; native/WebView `null`/ausente; **same-origin real**:
+  Origin cujo authority == Host da request — cobre LAN-IP/Docker) +
+  `unsafe_request_allowed`.
+- `src/main.py`: CORS wildcard credenciado REMOVIDO → regex loopback apenas.
+  **`null` NUNCA entra no CORS**: um iframe sandboxed de atacante também tem
+  Origin `null`; permitir que ele LEIA `/bootstrap` entregaria o token e
+  derrubaria o boundary inteiro (revisão 2026-07-17 fechou exatamente isso).
+  Middleware `enforce_origin_and_token` cobre TODO método de mutação;
+  `GET /bootstrap` entrega o token (legível só same-origin/loopback no browser).
+- Política de `api_base` no contrato do adapter: deepseek = HTTPS + host
+  `api.deepseek.com`; llama_cpp = loopback/rede privada, incluindo nomes
+  single-label (Docker) e sufixos privados (.local/.internal/.lan/.home.arpa).
+  Ligada no `validate_config` → `api_base` de atacante é rejeitado (422) sem
+  persistir nem trocar o Runner; config Docker legítima não quebra o boot.
+- Token nunca persistido: o service worker não cacheia `/bootstrap`; `api.js`
+  renova o token e re-tenta uma vez em 403 (restart do processo rotaciona o
+  token sem quebrar a página aberta, ex.: `/plugins/restart`).
+- Frontend: `api.js` envia o token em toda mutação; `plugin-runtime.js` idem.
 
 ### Ressalvas a verificar antes de fecho confiante (outcome 6)
 - Smoke test desktop (served same-origin, BASE_URL=''): mutações OK com token.
-- Smoke test Docker: origem/porta reais na allowlist.
-- Smoke test Android/WebView (file:// → 127.0.0.1:8889, Origin null): o app
-  lê respostas (CORS `null` permitido) E envia o token nas mutações. **Trade-off
-  documentado**: permitir `null` no CORS deixa um iframe sandboxed atacante LER
-  GETs (mutações seguem protegidas pelo token). Alternativa mais forte: servir o
-  frontend do WebView same-origin (http://127.0.0.1:8889) em vez de file:// —
-  aí `null` não precisa ser permitido. Decidir no smoke test.
+- Smoke test Docker: acesso via IP da LAN usa o caminho same-origin
+  (Origin == Host) — confirmar no ambiente real; api_base com service name.
+- Smoke test Android/WebView: com `null` fora do CORS, o WebView carregando de
+  file:// precisa OU servir o app same-origin (http://127.0.0.1:8889) OU usar
+  modo WebView isento de CORS (universal access) para ler `/bootstrap`; as
+  mutações já passam (Origin null + token). Confirmar qual dos dois o app
+  Android usa e ajustar lá se preciso.

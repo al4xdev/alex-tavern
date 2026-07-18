@@ -384,7 +384,7 @@ Expected outcomes:
 - developer documentation and examples;
 - notes about any missing SDK abstractions discovered during plugin review.
 
-## CLOSED 2026-07-17 (Opus session)
+## CLOSED 2026-07-17
 
 Implemented the first-class private storage namespace. Deliverables:
 - `.data/plugins/storage/<plugin-id>/` layout (`PLUGIN_STORAGE_DIR` in
