@@ -487,8 +487,19 @@ def build_next_beat_messages(
         "advance": "The current beat COMPLETED (its actors and anchors all landed).",
         "coverage_complete": "The current beat COMPLETED (its actors and anchors all landed).",
         "coverage_sufficient": "The current beat is essentially DONE (actors and nearly all anchors landed); move the story on rather than dwell.",
-        "stalled": "The current beat STALLED: its turn budget ran out without full coverage.",
-        "drifted": "The story DRIFTED away from the current beat: recent turns touch neither its actors nor its anchors. Plan from where the story actually is.",
+        "stalled": (
+            "The current beat STALLED: the scene is STUCK, circling one topic "
+            "without a new development (measured: the same events/subject repeat). "
+            "The next beat MUST be a concrete external DISRUPTION that happens THIS "
+            "turn - an arrival, an interruption, something breaking or bursting in - "
+            "that changes what the scene is ABOUT. Never continue or rephrase the "
+            "stalled topic."
+        ),
+        "drifted": (
+            "The story DRIFTED away from the current beat: recent turns touch "
+            "neither its actors nor its anchors. Plan from where the story actually "
+            "is, and open the next beat with a concrete event that happens now."
+        ),
         "no_beat": "There is no current beat.",
     }.get(reason, reason)
     lines = _story_context_lines(game)
@@ -514,9 +525,11 @@ def build_next_beat_messages(
         )
     else:
         task = (
-            "Produce the NEXT beat contract continuing the current act (or opening\n"
-            "the next act if the current act's exit condition has been met — set\n"
-            "act_completed accordingly)."
+            "Produce the NEXT beat contract. Follow STATUS above: if the scene\n"
+            "stalled, the beat must be a concrete disruption that changes the\n"
+            "subject, even mid-act; otherwise continue the current act (or open the\n"
+            "next act if its exit condition has been met). Set act_completed\n"
+            "accordingly."
         )
     return [
         {"role": "system", "content": _ARCHITECT_RULES + task},
