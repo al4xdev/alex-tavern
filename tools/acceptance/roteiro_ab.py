@@ -109,17 +109,27 @@ INPUTS_PASSIVE_GENERIC = [
     ("skip", None),
 ]
 
-# scenario -> (builtin name or None for the hardcoded estalagem, inputs profile)
+# scenario -> (builtin name or None for the hardcoded estalagem, inputs profile,
+# optional present-subset). The portais preset has 21 present; a viewer's
+# perspective-ledger init (one PersonView per other present character) overflows
+# the fixed 1024-token init budget at that size (a Task 29.2 scaling limit,
+# logged as evidence). Use a 6-character team-selection sub-scene: Link plus the
+# classmates his sheet gives relationship priors with (Asword, Mirella, Nix,
+# Doran, Riven). Still 2x the estalagem cast, a wholly different genre.
 SCENARIOS = {
-    "estalagem": (None, INPUTS_ESTALAGEM),
-    "turma-dos-portais-pt": ("turma-dos-portais-pt", INPUTS_PASSIVE_GENERIC),
+    "estalagem": (None, INPUTS_ESTALAGEM, None),
+    "turma-dos-portais-pt": (
+        "turma-dos-portais-pt",
+        INPUTS_PASSIVE_GENERIC,
+        ["C1", "C2", "C3", "C5", "C6", "C13", "Player"],
+    ),
 }
 
 
 def _build_session_args(scenario: str):  # noqa: ANN202
     from src.models import Character, CharacterBody, CharacterMind, Scene
 
-    builtin, inputs = SCENARIOS[scenario]
+    builtin, inputs, present_subset = SCENARIOS[scenario]
     if builtin is None:
         characters = {
             cid: Character(mind=CharacterMind(**spec["mind"]), body=CharacterBody(**spec["body"]))
@@ -139,18 +149,19 @@ def _build_session_args(scenario: str):  # noqa: ANN202
 
     spec = load_builtin_scenario(builtin)
     scene_raw = spec["scene"]
+    present = present_subset or list(scene_raw["present_characters"])
+    npc_ids = [cid for cid in present if cid != "Player"]
     characters = {
-        cid: Character(
-            mind=CharacterMind(**c["mind"]), body=CharacterBody(**c["body"])
-        )
+        cid: Character(mind=CharacterMind(**c["mind"]), body=CharacterBody(**c["body"]))
         for cid, c in spec["characters"].items()
+        if cid in npc_ids
     }
     return {
         "characters": characters,
         "scene": Scene(
             location=scene_raw["location"],
             time_of_day=scene_raw["time_of_day"],
-            present_characters=list(scene_raw["present_characters"]),
+            present_characters=present,
             physical_facts=dict(scene_raw.get("physical_facts", {})),
             zones={z: list(a) for z, a in scene_raw.get("zones", {}).items()},
             positions=dict(scene_raw.get("positions", {})),
