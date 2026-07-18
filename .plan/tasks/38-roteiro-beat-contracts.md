@@ -1,3 +1,12 @@
+> ⚠️ **MANTIDA EM tasks/ (não em closed/) — entregue COM RESSALVAS, sem fecho confiante.**
+> O roteiro é opt-in (OFF por padrão) e ajuda drive em cena de AÇÃO, mas é
+> **cara-ou-coroa em cena procedural grande** (portais 2W/2L). Os ganhos de
+> ENGINE são confiáveis (teto de beat, guard de personagem, backstop lexical,
+> disrupção-no-stall) e ficam banked; o ROTEIRO em si não é vitória universal.
+> Convenção (usuário, 2026-07-17): tarefa fechada sem confiança fica em tasks/
+> com as ressalvas, não migra pra closed/. Relatório completo:
+> `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`.
+
 # Task 38 — Roteiro with Typed Beat Contracts and Algorithmic Replanning
 
 **Depends on:** Task 36 (a Director box must exist to consume the roteiro).

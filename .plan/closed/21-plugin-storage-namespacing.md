@@ -383,3 +383,35 @@ Expected outcomes:
 - review and migration of affected published plugins;
 - developer documentation and examples;
 - notes about any missing SDK abstractions discovered during plugin review.
+
+## CLOSED 2026-07-17 (Opus session)
+
+Implemented the first-class private storage namespace. Deliverables:
+- `.data/plugins/storage/<plugin-id>/` layout (`PLUGIN_STORAGE_DIR` in
+  `src/paths.py`), distinct from `PLUGIN_CACHE_DIR` (core-owned installed
+  ARCHIVES — different concern, correctly named `cached`).
+- `context.storage` = `PluginStorage` (`src/plugins/sdk.py`): `path`,
+  `resolve(*parts)`, `open(*parts, mode)`, `exists`, `mkdir`,
+  `remove(*parts, recursive)`, `for_session(session_id)`. Small, predictable
+  abstraction; plugins use ordinary FS APIs after getting a safe root.
+- Path safety by construction: every method routes through `resolve()`, which
+  rejects absolute components, `..` traversal, empty/blank/NUL, and symlink
+  escape (fully-resolved path must stay under the plugin root). `remove()`
+  refuses the root. 16 tests in `tests/test_plugin_storage.py`.
+- Machine-readable contract updated: `storage` service + `storage.write`
+  permission in `src/plugins/contracts.py`.
+- Developer docs: `docs/plugin-storage.md` (storage vs config, path, safety,
+  lifecycle, the cached/ distinction, published-plugin review).
+
+### Decisions
+- **No migration from `cached/`**: it holds installed archives, not plugin
+  runtime files — separate concern, no data to move.
+- **Lifecycle = data-safety first**: disabling/uninstalling a plugin does NOT
+  auto-delete its storage; explicit deletion is a future lifecycle API.
+- **Published-plugin review**: the example/named plugins do not derive `.data/`
+  paths manually today; those needing to persist generated files should adopt
+  `context.storage`. No missing SDK abstraction surfaced for the current set
+  (the external hub repo was not checked out here; documented from what is
+  reviewable in this checkout).
+
+Suite: 576 passed.

@@ -37,16 +37,20 @@ Ordem fixa por incremento:
 5. Achado de prosa-craft (repetição de epítetos, frases copiadas, NPC coral)
    → NÃO corrigir; registrar em `.plan/tasks/26-narrator-prose-quality.md`
    ("Additional Evidence" com data, sessão, citação literal).
-6. Fechar: closure note em `.plan/closed/<task>.md` (modelo:
+6. Fechar: closure note + `git mv` para `.plan/closed/<task>.md` (modelo:
    `.plan/closed/37-bounded-autonomous-loop.md`), atualizar `ROADMAP.md`,
-   commit.
+   commit. **CONVENÇÃO (usuário, 2026-07-17): só migra pra `closed/` a tarefa
+   fechada COM CONFIANÇA. Entregue com ressalvas / sem fecho confiante fica em
+   `tasks/` com as ressalvas no topo (ex.: Task 38, roteiro).**
 7. Fim de cada task: `bash ~/.config/my_scripts/done.sh &`
 8. Exclusões decididas pelo usuário: matriz multi-modelo NÃO; defeitos das
    Tasks 26/33 só registram evidência.
 
-## 2. ✅ TAREFA 1 — Task 38 (roteiro) FECHADA (2026-07-17), escopo honesto
+## 2. TAREFA 1 — Task 38 (roteiro) ENTREGUE COM RESSALVAS, mantida em tasks/
 
-Fechada em `.plan/closed/38-roteiro-beat-contracts.md`. Relatório completo:
+**Não migrou pra closed/** (convenção §1.6): opt-in OFF, cara-ou-coroa em cena
+procedural. Ver `.plan/tasks/38-roteiro-beat-contracts.md` (banner no topo).
+Relatório completo:
 `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`. Veredito: roteiro
 é opt-in (OFF), ajuda drive em cena de ação (estalagem confiável), cara-ou-coroa
 em cena procedural grande (portais 2W/2L). Ganhos de engine banked (teto de
