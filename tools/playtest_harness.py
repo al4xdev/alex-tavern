@@ -546,7 +546,6 @@ async def _snapshot(runner: Any, session_id: str) -> dict[str, Any]:
         "history_records": len(game.history),
         "history_turns": sorted({record.turn_number for record in game.history}),
         "story_summary": game.story_summary,
-        "character_notes": dict(game.character_notes),
     }
 
 

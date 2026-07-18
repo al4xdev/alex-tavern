@@ -46,7 +46,6 @@ class CompactionDraft:
 
     history: list[TurnRecord]
     story_summary: str
-    character_notes: dict[str, str]
     plugin_state: dict[str, Any]
 
 

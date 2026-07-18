@@ -39,7 +39,7 @@ from src.roteiro import (
     replan_roteiro,
 )
 from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
-from src.agents.summarizer import relevant_character_ids, summarize
+from src.agents.summarizer import summarize
 from src.compaction import (
     CompactionDraft,
     CompactionProgress,
@@ -1180,12 +1180,9 @@ class Runner:
         cutoff = turn_numbers[-keep_recent]
         evicted = [record for record in game.history if record.turn_number < cutoff]
         kept = [record for record in game.history if record.turn_number >= cutoff]
-        relevant_ids = relevant_character_ids(
-            game.characters,
-            game.player.controlled_character_id,
-            evicted,
-        )
-        total_units = 1 + len(relevant_ids)
+        # One model unit: the world summary. Private memory is the perspective
+        # ledger's continuous job now (Task 39) - no per-character fan-out.
+        total_units = 1
         completed_units = 0
         emit("summarizing", completed_units, total_units)
 
@@ -1200,12 +1197,11 @@ class Runner:
             )
 
         try:
-            new_summary, changed_notes = await summarize(
+            new_summary = await summarize(
                 client=self.client,
                 characters=game.characters,
                 controlled_id=game.player.controlled_character_id,
                 story_summary=game.story_summary,
-                character_notes=game.character_notes,
                 evicted_turns=evicted,
                 config=self.config,
                 narrator_directives=game.narrator_directives,
@@ -1217,7 +1213,6 @@ class Runner:
             draft = CompactionDraft(
                 history=copy.deepcopy(kept),
                 story_summary=new_summary,
-                character_notes={**game.character_notes, **changed_notes},
                 plugin_state=copy.deepcopy(game.plugin_state),
             )
             emit("before_commit", completed_units, total_units)
@@ -1233,7 +1228,6 @@ class Runner:
             compacted = copy.deepcopy(game)
             compacted.history = copy.deepcopy(draft.history)
             compacted.story_summary = draft.story_summary
-            compacted.character_notes = copy.deepcopy(draft.character_notes)
             compacted.plugin_state = copy.deepcopy(draft.plugin_state)
             committed_revision = game.revision + 1
             parent_id = game.compaction_stack[-1].checkpoint_id if game.compaction_stack else None
@@ -1248,10 +1242,8 @@ class Runner:
                 "max_turn_number": turn_numbers[-1],
                 "evicted_history": [asdict(record) for record in evicted],
                 "before_story_summary": game.story_summary,
-                "before_character_notes": copy.deepcopy(game.character_notes),
                 "after_history_hash": history_hash(compacted.history),
                 "after_story_summary_hash": canonical_hash(compacted.story_summary),
-                "after_character_notes_hash": canonical_hash(compacted.character_notes),
                 "plugin_state_delta": build_plugin_delta(game.plugin_state, compacted.plugin_state),
             }
             emit("checkpointing", completed_units, total_units)
@@ -1359,8 +1351,6 @@ class Runner:
                     raise ValueError("Compacted history prefix diverged")
                 if canonical_hash(game.story_summary) != checkpoint["after_story_summary_hash"]:
                     raise ValueError("Story summary diverged after compaction")
-                if canonical_hash(game.character_notes) != checkpoint["after_character_notes_hash"]:
-                    raise ValueError("Character notes diverged after compaction")
 
                 restored_plugin_state, conflicts = invert_plugin_delta(
                     game.plugin_state, checkpoint["plugin_state_delta"]
@@ -1403,7 +1393,6 @@ class Runner:
                 draft = copy.deepcopy(game)
                 draft.history = [*evicted, *compacted_prefix, *later]
                 draft.story_summary = str(checkpoint["before_story_summary"])
-                draft.character_notes = copy.deepcopy(checkpoint["before_character_notes"])
                 draft.plugin_state = restored_plugin_state
                 draft.compaction_stack.pop()
                 draft.revision += 1
@@ -1712,7 +1701,6 @@ class Runner:
             config=self.config,
             session_id=game.session_id,
             turn_number=turn_number,
-            notes=game.character_notes.get(character_id, ""),
             scene=game.scene,
             reply_audience=reply_audience,
             viewer_perspective=game.character_perspectives.get(character_id),

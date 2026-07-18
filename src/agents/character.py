@@ -165,17 +165,15 @@ def _build_user_prompt(
     context: str,
     history_text: str,
     current_mood: str,
-    notes: str,
     whisper_note: str = "",
     ledger_memory: str = "",
 ) -> str:
     """Put append-only history before the Character's changing state and context.
 
-    ``ledger_memory`` is the viewer's durable, viewer-projected memory (Task 39);
-    it is the primary "What you remember" source. ``notes`` (legacy
-    ``character_notes``) is a fallback while both coexist.
+    ``ledger_memory`` is the viewer's durable, viewer-projected memory (Task 39)
+    — the single "What you remember" source.
     """
-    memory = ledger_memory.strip() or notes.strip() or "(none yet)"
+    memory = ledger_memory.strip() or "(none yet)"
     return (
         "RECENT EVENTS:\n"
         f"{history_text}\n"
@@ -381,7 +379,6 @@ async def act(
     config: dict,
     session_id: str = "",
     turn_number: int = 0,
-    notes: str = "",
     scene: Scene | None = None,
     reply_audience: list[str] | None = None,
     viewer_perspective=None,
@@ -402,8 +399,6 @@ async def act(
         config: Server config (max_tokens).
         session_id: Passed to the raw LLM call log (see ``src/llm/client.py``).
         turn_number: Passed to the raw call log.
-        notes: This character's note (``game.character_notes[character_id]``,
-               see ``runner.compact_session``) — never another character's.
         scene: Current scene, required by the whisper output guard (present set +
                known-fact whitelist). ``None`` disables the guard.
         reply_audience: Audience the reply will be recorded with (``None`` =
@@ -436,7 +431,6 @@ async def act(
                 context,
                 history_text,
                 character.mind.current_mood,
-                notes,
                 whisper_note=_whisper_turn_note(
                     reply_audience,
                     characters,

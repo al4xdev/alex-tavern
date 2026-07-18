@@ -88,20 +88,15 @@ class TestCaptureMemory:
 
 
 class TestPromptWiring:
-    def test_ledger_memory_preferred_over_notes(self) -> None:
+    def test_ledger_memory_renders_in_prompt(self) -> None:
         p = _perspective(recent_memory=["T1 Marta disse: oi"])
-        prompt = _build_user_prompt(
-            "ctx", "hist", "calmo", notes="nota antiga", ledger_memory=_ledger_memory_text(p)
-        )
+        prompt = _build_user_prompt("ctx", "hist", "calmo", ledger_memory=_ledger_memory_text(p))
         assert "T1 Marta disse: oi" in prompt
-        assert "nota antiga" not in prompt
 
-    def test_falls_back_to_notes_when_memory_empty(self) -> None:
+    def test_empty_ledger_renders_none_yet(self) -> None:
         p = _perspective()
-        prompt = _build_user_prompt(
-            "ctx", "hist", "calmo", notes="lembro de algo", ledger_memory=_ledger_memory_text(p)
-        )
-        assert "lembro de algo" in prompt
+        prompt = _build_user_prompt("ctx", "hist", "calmo", ledger_memory=_ledger_memory_text(p))
+        assert "(none yet)" in prompt
 
     def test_summary_leads_recent_follows(self) -> None:
         p = _perspective(memory_summary="Resumo do que vivi.", recent_memory=["T5 Bento fez: saiu"])

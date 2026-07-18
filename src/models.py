@@ -20,8 +20,11 @@ from typing import Any
 # scheduler counter (Task 33); 6 = audience_origin on TurnRecord separating
 # intentional whispers (secrecy) from zone-computed scoping (physics);
 # 7 = roteiro (premise + act skeleton + rolling beat contract) on GameState;
-# 8 = memory dimension on CharacterPerspective (recent_memory + memory_summary).
-SESSION_SCHEMA_VERSION = 8
+# 8 = memory dimension on CharacterPerspective (recent_memory + memory_summary);
+# 9 = character_notes removed — the perspective ledger is the ONLY private
+# memory (continuous capture + semantic revision); compaction keeps only the
+# world summarizer and checkpoints drop the notes fields (Task 39 inc.2).
+SESSION_SCHEMA_VERSION = 9
 
 
 @dataclass
@@ -308,8 +311,6 @@ class GameState:
     created_at: str = ""  # ISO timestamp
     narrator_directives: str = ""  # world/tone/extra rule instructions for the Narrator
     story_summary: str = ""  # world summary of compacted turns — only the Narrator sees
-    # {cid: note} — each character only receives their own note, never another's
-    character_notes: dict[str, str] = field(default_factory=dict)
     revision: int = 0
     plugin_state: dict[str, Any] = field(default_factory=dict)
     compaction_stack: list[CompactionStackEntry] = field(default_factory=list)
@@ -522,7 +523,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         created_at=data["created_at"],
         narrator_directives=data["narrator_directives"],
         story_summary=data["story_summary"],
-        character_notes=dict(data["character_notes"]),
         revision=data["revision"],
         plugin_state=copy.deepcopy(data["plugin_state"]),
         compaction_stack=compaction_stack,

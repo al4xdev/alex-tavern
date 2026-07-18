@@ -104,13 +104,11 @@ def _narrator_result() -> dict[str, Any]:
     }
 
 
-async def _successful_summary(**kwargs: Any) -> tuple[str, dict[str, str]]:
+async def _successful_summary(**kwargs: Any) -> str:
     callback = kwargs.get("on_model_completed")
     if callback is not None:
         callback("summarizer:world")
-        callback("summarizer:Thorn")
-        callback("summarizer:Lyra")
-    return "Durable summary.", {"C1": "Thorn remembers.", "C2": "Lyra remembers."}
+    return "Durable summary."
 
 
 @pytest.mark.asyncio
@@ -282,14 +280,12 @@ async def test_measured_progress_is_monotonic_and_contains_no_story_text(
         "checking",
         "summarizing",
         "model_completed",
-        "model_completed",
-        "model_completed",
         "before_commit",
         "checkpointing",
         "committing",
         "completed",
     ]
-    assert {event.total_units for event in events[1:]} == {3}
+    assert {event.total_units for event in events[1:]} == {1}
     assert events[-1].result == result
     payload = json.dumps([asdict(event) for event in events])
     assert "Thorn remembers" not in payload
@@ -404,48 +400,34 @@ async def test_plugin_precommit_failure_discards_draft_and_checkpoint(
 
 
 @pytest.mark.asyncio
-async def test_historian_jobs_start_together_and_notes_finish_deterministically(
-    monkeypatch,  # noqa: ANN001
-) -> None:
+async def test_summarize_is_world_only(monkeypatch) -> None:  # noqa: ANN001
+    """Task 39 inc.2: compaction runs ONE model unit (the world summary); the
+    per-character historian fan-out is gone - private memory lives in the
+    perspective ledger."""
     session_id = _seed(1)
     game = load_game(session_id)
     assert game is not None
-    started: list[str] = []
-    completed: list[str] = []
-    all_started = asyncio.Event()
-    delays = {"summarizer:Lyra": 0.0, "summarizer:Thorn": 0.01, "summarizer:world": 0.02}
+    agents: list[str] = []
 
     async def fake_json(*_args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-        agent = kwargs["agent"]
-        started.append(agent)
-        if len(started) == 3:
-            all_started.set()
-        await asyncio.wait_for(all_started.wait(), timeout=0.5)
-        await asyncio.sleep(delays[agent])
-        if agent == "summarizer:world":
-            return {"story_summary": "World."}
-        return {"character_note": f"Note for {agent}."}
+        agents.append(kwargs["agent"])
+        return {"story_summary": "World."}
 
     monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+    completed: list[str] = []
     async with httpx.AsyncClient() as client:
-        summary, notes = await asyncio.wait_for(
-            summarizer_mod.summarize(
-                client=client,
-                characters=game.characters,
-                controlled_id="C1",
-                story_summary="",
-                character_notes={},
-                evicted_turns=game.history,
-                config={},
-                on_model_completed=completed.append,
-            ),
-            timeout=1,
+        summary = await summarizer_mod.summarize(
+            client=client,
+            characters=game.characters,
+            controlled_id="C1",
+            story_summary="",
+            evicted_turns=game.history,
+            config={},
+            on_model_completed=completed.append,
         )
-
-    assert set(started) == {"summarizer:world", "summarizer:Thorn", "summarizer:Lyra"}
-    assert completed == ["summarizer:Lyra", "summarizer:Thorn", "summarizer:world"]
     assert summary == "World."
-    assert list(notes) == ["C1", "C2"]
+    assert agents == ["summarizer:world"]
+    assert completed == ["summarizer:world"]
 
 
 def test_plugin_delta_reports_only_divergent_owned_paths() -> None:

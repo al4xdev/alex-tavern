@@ -206,7 +206,6 @@ class TestModels:
         """game_state_to_dict + dict_to_game_state deve ser idempotente."""
         original = _make_test_game()
         original.story_summary = "Thorn e Lyra se conheceram na taverna."
-        original.character_notes = {"C1": "Desconfia de magia.", "C2": "Curiosa demais."}
         data = game_state_to_dict(original)
         restored = dict_to_game_state(data)
         assert restored.session_id == original.session_id
@@ -215,7 +214,6 @@ class TestModels:
         assert restored.scene.location == original.scene.location
         assert restored.scene.physical_facts == original.scene.physical_facts
         assert restored.story_summary == original.story_summary
-        assert restored.character_notes == original.character_notes
 
     def test_game_state_round_trip_with_history(self) -> None:
         """Round-trip preserva histórico e snapshots."""
@@ -1107,9 +1105,10 @@ class TestRunnerLogic:
         delete_session(sid)
 
     @pytest.mark.asyncio
-    async def test_call_character_passes_own_notes_only(self, monkeypatch) -> None:  # noqa: ANN001
-        """_call_character repassa só a nota do PRÓPRIO personagem, nunca a de outro."""
+    async def test_call_character_passes_own_perspective_only(self, monkeypatch) -> None:  # noqa: ANN001
+        """_call_character repassa só a perspective do PRÓPRIO personagem."""
         from src import runner as runner_mod
+        from src.models import CharacterPerspective
 
         captured: dict = {}
 
@@ -1120,10 +1119,14 @@ class TestRunnerLogic:
         monkeypatch.setattr(runner_mod, "character_act", fake_act)
 
         game = _make_test_game()
-        game.character_notes = {"C1": "nota do Thorn", "C2": "nota da Lyra"}
+        own = CharacterPerspective(initialized_turn=0, processed_through_turn=0,
+                                   recent_memory=["so minha memoria"])
+        other = CharacterPerspective(initialized_turn=0, processed_through_turn=0,
+                                     recent_memory=["memoria alheia"])
+        game.character_perspectives = {"C1": own, "C2": other}
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         await runner._call_character(game, "C1", "ctx", 1)
-        assert captured["notes"] == "nota do Thorn"
+        assert captured["viewer_perspective"] is own
 
     @pytest.mark.asyncio
     async def test_private_thought_only_turn_persists_without_calling_narrator(
@@ -1218,7 +1221,7 @@ class TestCompactSession:
         from src import runner as runner_mod
 
         async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
-            return "Resumo dos turnos antigos.", {"C1": "Nota atualizada sobre Thorn."}
+            return "Resumo dos turnos antigos."
 
         monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
 
@@ -1265,7 +1268,6 @@ class TestCompactSession:
         assert len(game.history) == 16
         assert game.history[0].turn_number == 5  # os 4 primeiros passos saíram
         assert game.story_summary == "Resumo dos turnos antigos."
-        assert game.character_notes["C1"] == "Nota atualizada sobre Thorn."
         assert [entry.checkpoint_id for entry in game.compaction_stack] == ["c000001"]
 
     @pytest.mark.asyncio
@@ -1286,11 +1288,11 @@ class TestCompactSession:
         assert len(game.history) == turns_after_compaction - 2  # um passo (2 registros) a menos
 
     @pytest.mark.asyncio
-    async def test_turn_after_compaction_uses_summary_and_character_note(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_turn_after_compaction_uses_world_summary(self, monkeypatch) -> None:  # noqa: ANN001
         from src import runner as runner_mod
 
         async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
-            return "Durable world summary.", {"C2": "Lyra remembers the sealed gate."}
+            return "Durable world summary."
 
         captured: dict[str, str] = {}
 
@@ -1307,7 +1309,6 @@ class TestCompactSession:
             }
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
-            captured["note"] = game.character_notes.get(character_id, "")
             captured["context"] = context
             return {"speech": "I remember this gate.", "thought": None}
 
@@ -1329,7 +1330,6 @@ class TestCompactSession:
         ]
         assert captured == {
             "summary": "Durable world summary.",
-            "note": "Lyra remembers the sealed gate.",
             "context": "The sealed gate is visible.",
         }
 
@@ -2015,100 +2015,38 @@ class TestSummarizerAgent:
         assert "SPEAKER=Thorn" in messages[1]["content"]
         assert "Player" not in messages[1]["content"]
 
-    def test_build_summarizer_messages_keeps_private_notes_out(self) -> None:
-        """O resumo público nunca recebe notas privadas existentes."""
-        from src.agents.summarizer import build_summarizer_messages
+    def test_summarizer_has_no_private_memory_surface(self) -> None:
+        """Task 39 inc.2: o summarizer é world-only; nenhum parâmetro/prompt de
+        notas privadas existe mais (a memória privada é o ledger)."""
+        import inspect
 
-        messages = build_summarizer_messages(
-            characters=DEFAULT_CHARACTERS,
-            controlled_id="C1",
-            story_summary="Thorn e Lyra se conheceram na taverna.",
-            character_notes={"C1": "Desconfia de magia."},
-            evicted_turns=[],
-        )
-        user_content = messages[1]["content"]
-        assert "Thorn e Lyra se conheceram na taverna." in user_content
-        assert "Desconfia de magia." not in user_content
-
-    @pytest.mark.asyncio
-    async def test_summarize_returns_only_changed_notes(self, monkeypatch) -> None:  # noqa: ANN001
-        """summarize() devolve o resumo + só as notas que o LLM decidiu mudar
-        (merge com as notas antigas é responsabilidade de quem chama)."""
         from src.agents import summarizer as summarizer_mod
 
+        assert not hasattr(summarizer_mod, "build_private_memory_messages")
+        assert "character_notes" not in str(inspect.signature(summarizer_mod.summarize))
+
+    @pytest.mark.asyncio
+    async def test_summarize_world_only_returns_summary(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.agents import summarizer as summarizer_mod
+
+        agents: list[str] = []
+
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            if kwargs["agent"] == "summarizer:world":
-                return {"story_summary": "Resumo atualizado."}
-            return {"character_note": "Ficou tenso ao ouvir sobre a Guarda de Ferro."}
+            agents.append(kwargs["agent"])
+            return {"story_summary": "Resumo atualizado."}
 
         monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
-
         client = httpx.AsyncClient(base_url="http://localhost:8888")
-        summary, changed_notes = await summarizer_mod.summarize(
+        summary = await summarizer_mod.summarize(
             client=client,
             characters=DEFAULT_CHARACTERS,
             controlled_id="C1",
             story_summary="Resumo antigo.",
-            character_notes={"C1": "nota antiga", "C2": "nota antiga da Lyra"},
-            evicted_turns=[
-                TurnRecord(
-                    turn_number=1,
-                    speaker="Player",
-                    content="Penso na Guarda de Ferro.",
-                    content_type="thought",
-                    scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
-                )
-            ],
+            evicted_turns=[],
             config={},
         )
         assert summary == "Resumo atualizado."
-        assert changed_notes == {"C1": "Ficou tenso ao ouvir sobre a Guarda de Ferro."}
-        assert "C2" not in changed_notes  # não mencionada -> não retorna, runner mantém a antiga
-        await client.aclose()
-
-    @pytest.mark.asyncio
-    async def test_summarize_isolates_private_character_calls(self, monkeypatch) -> None:  # noqa: ANN001
-        from src.agents import summarizer as summarizer_mod
-
-        prompts: dict[str, str] = {}
-
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            prompts[kwargs["agent"]] = messages[1]["content"]
-            if kwargs["agent"] == "summarizer:world":
-                return {"story_summary": "Summary."}
-            return {"character_note": f"Private {kwargs['agent']} note."}
-
-        monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
-        client = httpx.AsyncClient(base_url="http://localhost:8888")
-        _, changed_notes = await summarizer_mod.summarize(
-            client=client,
-            characters=DEFAULT_CHARACTERS,
-            controlled_id="C1",
-            story_summary="",
-            character_notes={},
-            evicted_turns=[
-                TurnRecord(
-                    turn_number=1,
-                    speaker="Player",
-                    content="Segredo do Thorn.",
-                    content_type="thought",
-                    scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
-                ),
-                TurnRecord(
-                    turn_number=1,
-                    speaker="C2",
-                    content="Segredo da Lyra.",
-                    content_type="thought",
-                    scene_snapshot=copy.deepcopy(DEFAULT_SCENE),
-                ),
-            ],
-            config={},
-        )
-        assert set(changed_notes) == {"C1", "C2"}
-        assert "Segredo do Thorn." not in prompts["summarizer:Lyra"]
-        assert "Segredo da Lyra." not in prompts["summarizer:Thorn"]
-        assert "Segredo do Thorn." not in prompts["summarizer:world"]
-        assert "Segredo da Lyra." not in prompts["summarizer:world"]
+        assert agents == ["summarizer:world"]
         await client.aclose()
 
     def test_summarizer_schema_is_public_only(self) -> None:
@@ -2403,8 +2341,8 @@ class TestEdgeCases:
             "action_intent": None,
         }
 
-    def test_character_prompt_includes_own_notes(self) -> None:
-        """A nota do próprio personagem vira uma linha 'What you remember' no prompt."""
+    def test_character_prompt_includes_ledger_memory(self) -> None:
+        """A memória do ledger vira a linha 'What you remember' no prompt."""
         from src.agents.character import _build_user_prompt
 
         thorn = DEFAULT_CHARACTERS["C1"]
@@ -2412,7 +2350,7 @@ class TestEdgeCases:
             "Contexto.",
             "(none)",
             thorn.mind.current_mood,
-            "Ficou tenso ao ouvir sobre a Guarda de Ferro.",
+            ledger_memory="Ficou tenso ao ouvir sobre a Guarda de Ferro.",
         )
         assert "What you remember: Ficou tenso ao ouvir sobre a Guarda de Ferro." in prompt
 
@@ -2428,17 +2366,18 @@ class TestEdgeCases:
 
         thorn = DEFAULT_CHARACTERS["C1"]
         prompt = _build_user_prompt(
-            "Contexto.", "(none)", thorn.mind.current_mood, "Nota exclusiva do Thorn."
+            "Contexto.", "(none)", thorn.mind.current_mood,
+            ledger_memory="Memoria exclusiva do Thorn.",
         )
-        assert "Nota exclusiva do Thorn." in prompt
-        assert "nota da Lyra" not in prompt  # nunca foi passada, nem podia vazar
+        assert "Memoria exclusiva do Thorn." in prompt
+        assert "memoria da Lyra" not in prompt  # nunca foi passada, nem podia vazar
 
     def test_character_prompt_marks_empty_notes_explicitly(self) -> None:
         """Sem nota, o estado privado explicita que ainda não há memória compactada."""
         from src.agents.character import _build_user_prompt
 
         thorn = DEFAULT_CHARACTERS["C1"]
-        prompt = _build_user_prompt("Contexto.", "(none)", thorn.mind.current_mood, "")
+        prompt = _build_user_prompt("Contexto.", "(none)", thorn.mind.current_mood)
         assert "What you remember: (none yet)" in prompt
 
     def test_character_prompt_keeps_rules_stable_and_state_after_history(self) -> None:

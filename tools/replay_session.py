@@ -187,12 +187,10 @@ def compare_checkpoint_input(
             and record["turn_number"] < cutoff
         ],
         "before_story_summary": before_compaction.get("story_summary"),
-        "before_character_notes": before_compaction.get("character_notes"),
     }
     expected = {
         "evicted_history": checkpoint.get("evicted_history"),
         "before_story_summary": checkpoint.get("before_story_summary"),
-        "before_character_notes": checkpoint.get("before_character_notes"),
     }
     return first_difference(expected, actual)
 
