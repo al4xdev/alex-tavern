@@ -32,6 +32,7 @@ aceitação A/B). Referência de arquitetura:
 
 | Task | O que falta |
 |---|---|
+| 39 — Memória do ledger | increment 1 FEITO (dimensão de memória, schema v8, 560 testes). **increment 2 (risco: compactação) → Fable**, ver `HANDOFF-FABLE.md` |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run 1 = 0 violações (primeira XPASS do programa); variância semântica restante: cumprimento de promessa, discrição vs auditoria, confabulação de alias |
 
 ## 📋 Sequência principal (após 28/30)
@@ -44,6 +45,7 @@ aceitação A/B). Referência de arquitetura:
 | — | Gatilho geral de estagnação de tópico no drive layer (Task 33) — quebra loop nos dois braços | 38 (evidência) |
 | — | Disrupção do roteiro avança o arco planejado (não interrompe solto) — cena procedural | 38 |
 | — | Adjudicação da tentativa do jogador (resposta-do-mundo + return_control) | 36/37 |
+| — | **33b** — Watcher contínuo do roteiro (sub-modelo olhando sempre, toggle OFF, explorar via curl) — DEPOIS das pendentes | 33/38; `tasks/33b-*` |
 
 ## 🧺 Lane paralela (independentes)
 
