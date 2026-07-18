@@ -26,7 +26,6 @@ aceitação A/B). Referência de arquitetura:
 | **36** | **Split Diretor/Prosa + intents + zonas dinâmicas + audience_origin (v6)** | benchmark 25 -> 0 determinístico; diálogo-em-narração impossível; staging correto |
 | 23 | Gap trim/compactação | pinning de âncoras de código + retenção adaptativa; os 2 xfails-spec verdes; suíte sem nenhum xfail |
 | 37 | Loop autônomo limitado (rajada com paradas tipadas, undo por beat) | 3 runs ao vivo ×4 beats; parada `protagonist_decision` via `return_control`; crítico cego ×2 — classes estruturais zeradas por construção |
-| 38 | Roteiro com contratos de beat tipados + replan algorítmico | A/B deepseek ao vivo, crítico cego ×5 (embaralhado); arm roteiro vence drive + objetivo-por-NPC; variação lexical garantida por construção (backstop); confidencialidade NONE; gatilhos 100% determinísticos |
 
 ## 🔶 Em andamento
 
@@ -38,8 +37,9 @@ aceitação A/B). Referência de arquitetura:
 
 | Ordem | Task | Depende de |
 |---|---|---|
-| 1 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
-| 2 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
+| 1 | 38 — Roteiro com contratos de beat tipados + replan algorítmico | 36 ✅ |
+| 2 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
+| 3 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
 | — | Render progressivo da rajada (SSE por beat) — lane de UI; arquitetura já suporta | 37 ✅ |
 
 ## 🧺 Lane paralela (independentes)

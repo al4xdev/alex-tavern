@@ -228,32 +228,3 @@ run 2) — template-like set-dressing tags in static scenes. Refined mitigation
 candidate: apply the fuzzy guard per SENTENCE (>=40 chars, >0.85 vs any prior
 narration sentence) instead of per narration; epithet recycling likely needs
 the context-narrowing option (pass only the last 1-2 narrations).
-
-## Additional Evidence (2026-07-17, Task 38 roteiro A/B loops, deepseek)
-
-Three blind-critic A/B loops while adding lexical-variation + goal-per-NPC as
-Task 38 criteria surfaced two residual prose classes (the criteria themselves
-passed; these are routed here):
-
-- **Cross-turn event/action duplication** (loop 3, roteiro arm T3/T4): the same
-  physical action re-staged on consecutive turns — "Bento empurra um caixote
-  contra a porta... saca uma faca" (T3) then "Bento arrasta um caixote contra a
-  madeira... puxa uma faca" (T4). The Director re-emitted a near-identical
-  perception_event while a beat stayed active. The prose lexical backstop only
-  guards NARRATION sentences, not repeated character actions/Director events.
-  Concrete candidate: generalize the burst's `repeats_event_text` dedup
-  (perception.py) to regular turns — drop a perception_event that near-matches
-  one narrated in the immediately prior turn(s). Measure against the loop-3
-  artifact (`plans/artifacts/roteiro-ab/`).
-- **Repeated IMAGERY below the verbatim bar** (loop 3 T2/T4): "a chapa de uma
-  faca captura o último brilho alaranjado" vs "a lâmina solitária captura o
-  último clarão alaranjado" — same image, different words (~0.67, under the 0.8
-  strip threshold). Same family as the "lareira quase apagada" epithet
-  recycling. The per-sentence guard intentionally does not fire here (not
-  verbatim); mitigation is the context-narrowing option (feed the renderer the
-  last 1-2 narrations with an explicit "vary the imagery" steer), measured.
-
-Also observed (NOT prose — routed elsewhere): object-state continuity break
-(a medallion narrated as thrown and on-the-floor in the same turn) — the engine
-has no authoritative object-state tracking; general limitation, candidate for a
-future state-ledger task, not Task 26.
