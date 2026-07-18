@@ -123,11 +123,14 @@ _LOOPBACK_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 
 app.add_middleware(
     CORSMiddleware,
-    # "null" is the Android/WebView case (the app document loads from file:// and
-    # calls the loopback API cross-origin). The token gate — not CORS — protects
-    # mutations; this only lets the WebView READ responses. Trade-off to confirm
-    # in the deployment smoke tests (desktop/Docker are same-origin).
-    allow_origins=["null"],
+    # NEVER allow the "null" origin here: a sandboxed attacker iframe also has
+    # Origin "null", and allowing it to READ /bootstrap would hand it the access
+    # token and defeat the whole boundary. Android/WebView clients that load the
+    # document from file:// must either serve the app same-origin from this
+    # server or use a WebView mode that is not subject to CORS; both paths keep
+    # working because the unsafe gate itself admits a null/absent Origin WITH a
+    # valid token. Same-origin browser use (localhost, LAN IP, Docker) never
+    # needs CORS at all.
     allow_origin_regex=_LOOPBACK_ORIGIN_REGEX,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -148,6 +151,7 @@ async def enforce_origin_and_token(request: Request, call_next):  # noqa: ANN001
         request.headers.get("origin"),
         request.headers.get(ACCESS_TOKEN_HEADER),
         ACCESS_TOKEN,
+        host=request.headers.get("host"),
     ):
         return JSONResponse(
             status_code=403,
@@ -158,10 +162,12 @@ async def enforce_origin_and_token(request: Request, call_next):  # noqa: ANN001
 
 @app.get("/bootstrap")
 def bootstrap() -> dict:
-    """Deliver the per-process access token to the same-origin app.
+    """Deliver the per-process access token to the served app.
 
-    Readable only same-origin: the locked CORS policy prevents a cross-origin
-    page from reading this response, so the token stays secret to the app.
+    Browser pages can read this only same-origin or from a loopback origin (the
+    CORS policy above allows nothing else — in particular never the "null"
+    origin, which sandboxed attacker iframes share). Native clients and
+    CORS-exempt WebViews read it directly; they are trusted local callers.
     """
     return {"access_token": ACCESS_TOKEN}
 

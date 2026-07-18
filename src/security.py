@@ -42,18 +42,31 @@ def _origin_host_allowed(origin: str) -> bool:
     return host is not None and host.lower() in _LOOPBACK_HOSTS
 
 
-def is_origin_allowed(origin: str | None, extra_origins: frozenset[str] = frozenset()) -> bool:
+def is_origin_allowed(
+    origin: str | None,
+    host: str | None = None,
+    extra_origins: frozenset[str] = frozenset(),
+) -> bool:
     """Whether a request Origin may drive unsafe endpoints.
 
-    Loopback hosts (any port) and native/WebView (absent/``null``) are allowed;
-    everything else must be an explicitly configured extra origin. A remote
-    attacker page is never on a loopback host, so this rejects it.
+    Allowed: loopback hosts (any port), native/WebView (absent/``null``
+    Origin), a true same-origin request (the Origin's authority equals the
+    ``Host`` the server was reached on — covers LAN-IP and Docker access,
+    where the app is served by this very server), and configured extras. A
+    remote attacker page matches none of these: a browser never lets a page
+    forge ``Host``, and its Origin is the attacker's own host.
     """
     if origin is None or origin in _NATIVE_ORIGINS:
         return True
     if origin in extra_origins:
         return True
-    return _origin_host_allowed(origin)
+    if _origin_host_allowed(origin):
+        return True
+    if host:
+        netloc = urlsplit(origin).netloc
+        if netloc and netloc.lower() == host.strip().lower():
+            return True
+    return False
 
 
 def token_ok(provided: str | None, expected: str) -> bool:
@@ -68,10 +81,13 @@ def unsafe_request_allowed(
     origin: str | None,
     token_header: str | None,
     expected_token: str,
+    host: str | None = None,
     extra_origins: frozenset[str] = frozenset(),
 ) -> bool:
     """The full gate for one request: safe methods pass; unsafe methods need a
     valid token AND an allowed Origin."""
     if method.upper() not in UNSAFE_METHODS:
         return True
-    return token_ok(token_header, expected_token) and is_origin_allowed(origin, extra_origins)
+    return token_ok(token_header, expected_token) and is_origin_allowed(
+        origin, host, extra_origins
+    )

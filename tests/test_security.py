@@ -54,6 +54,22 @@ class TestOriginAndToken:
         assert not unsafe_request_allowed("POST", "http://evil.com", "secret", tok)  # bad origin
         assert unsafe_request_allowed("DELETE", None, "secret", tok)  # native + token
 
+    def test_same_origin_lan_host_allowed(self) -> None:
+        # The app served over a LAN IP or Docker host: Origin matches the Host
+        # the server was reached on -> true same-origin, must pass.
+        assert is_origin_allowed("http://192.168.0.10:8889", host="192.168.0.10:8889")
+        assert unsafe_request_allowed(
+            "POST", "http://192.168.0.10:8889", "secret", "secret", host="192.168.0.10:8889"
+        )
+
+    def test_cross_origin_not_legitimized_by_lan_host(self) -> None:
+        # An attacker page's Origin never equals the server's Host (browsers do
+        # not let pages forge Host), so the same-origin path stays closed.
+        assert not is_origin_allowed("http://evil.example.com", host="192.168.0.10:8889")
+        assert not unsafe_request_allowed(
+            "POST", "http://evil.example.com", "secret", "secret", host="192.168.0.10:8889"
+        )
+
 
 class TestApiBasePolicy:
     def test_deepseek_requires_https_deepseek_host(self) -> None:
@@ -70,6 +86,17 @@ class TestApiBasePolicy:
             LlamaCppAdapter().validate_api_base("https://evil.example.com")  # public host
         with pytest.raises(ApiBasePolicyError):
             LlamaCppAdapter().validate_api_base("http://8.8.8.8:80")  # public IP
+
+    def test_llama_cpp_accepts_docker_and_private_names(self) -> None:
+        # Docker service names and private-use suffixes cannot resolve on
+        # public DNS; rejecting them would break container deployments at boot.
+        for ok in (
+            "http://llama-cpp:8080",
+            "http://host.docker.internal:8888",
+            "http://minha-maquina.lan:8888",
+            "http://servidor.local:8888",
+        ):
+            LlamaCppAdapter().validate_api_base(ok)
 
     def test_helpers_reject_malformed(self) -> None:
         with pytest.raises(ApiBasePolicyError):
@@ -156,5 +183,34 @@ class TestMiddlewareBoundary:
             "/config",
             json={},
             headers={"X-Tavern-Token": token, "Origin": "http://localhost:5173"},
+        )
+        assert res.status_code != 403
+
+    def test_null_origin_cannot_read_bootstrap_via_cors(self, client) -> None:  # noqa: ANN001
+        """The token-theft path: a sandboxed attacker iframe has Origin "null".
+
+        CORS must NOT reflect it back — otherwise the iframe could read
+        /bootstrap, steal the token, and defeat the whole boundary.
+        """
+        c, _ = client
+        res = c.get("/bootstrap", headers={"Origin": "null"})
+        assert res.headers.get("access-control-allow-origin") != "null"
+        assert "access-control-allow-origin" not in res.headers
+
+    def test_loopback_origin_can_read_bootstrap_via_cors(self, client) -> None:  # noqa: ANN001
+        c, _ = client
+        res = c.get("/bootstrap", headers={"Origin": "http://localhost:5173"})
+        assert res.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+    def test_same_origin_lan_mutation_passes(self, client) -> None:  # noqa: ANN001
+        c, token = client
+        res = c.put(
+            "/config",
+            json={},
+            headers={
+                "X-Tavern-Token": token,
+                "Origin": "http://testserver",
+                "Host": "testserver",
+            },
         )
         assert res.status_code != 403

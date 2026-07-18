@@ -36,6 +36,9 @@ const SHELL = [
 const API_PREFIXES = [
     '/session', '/sessions', '/scenario-defaults', '/scenarios', '/config',
     '/plugins', '/experiences', '/commands', '/presets', '/health', '/version',
+    // Never cache /bootstrap: it carries the per-process access token, which
+    // must never be persisted (Cache Storage lives on disk).
+    '/bootstrap',
 ];
 
 function isApi(pathname) {

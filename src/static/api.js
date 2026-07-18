@@ -28,8 +28,15 @@ async function withAccessToken(options = {}) {
 
 async function apiFetch(url, options = {}) {
     const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
-    options = await withAccessToken(options);
-    const res = await fetch(fullUrl, options);
+    const prepared = await withAccessToken(options);
+    let res = await fetch(fullUrl, prepared);
+    if (res.status === 403 && UNSAFE_METHODS.has((options.method || 'GET').toUpperCase())) {
+        // The server process may have restarted (e.g. /plugins/restart), which
+        // rotates the per-process token. Refresh it once and retry.
+        _accessTokenPromise = null;
+        const retried = await withAccessToken(options);
+        res = await fetch(fullUrl, retried);
+    }
     let data = null;
     try {
         data = await res.json();

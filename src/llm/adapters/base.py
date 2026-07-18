@@ -36,20 +36,33 @@ def require_https_host(api_base: str, allowed_hosts: tuple[str, ...]) -> None:
         )
 
 
+# Name suffixes that cannot resolve on public DNS (private-use / local zones).
+_PRIVATE_NAME_SUFFIXES = (".local", ".lan", ".internal", ".home.arpa")
+
+
 def require_loopback_or_lan(api_base: str) -> None:
-    """Local policy: loopback or private-LAN targets only (no public hosts)."""
+    """Local policy: loopback or private-network targets only, never a public host.
+
+    Accepted names besides loopback/private IPs: ``localhost``, single-label
+    hostnames (Docker service names, LAN hosts resolved via search domain —
+    these cannot resolve on public DNS), and private-use suffixes such as
+    ``.local``/``.internal`` (covers ``host.docker.internal``).
+    """
     _, host = parse_api_base(api_base)
     lowered = host.lower()
-    if lowered in ("localhost",) or lowered.endswith(".local"):
+    if lowered == "localhost" or lowered.endswith(_PRIVATE_NAME_SUFFIXES):
         return
+    if "." not in lowered:
+        return  # single-label name: Docker/LAN-only resolution
     try:
         address = ipaddress.ip_address(host)
     except ValueError as exc:
         raise ApiBasePolicyError(
-            f"local api_base host {host!r} must be loopback, a private LAN address, or .local"
+            f"local api_base host {host!r} must be loopback, a private address, "
+            "a single-label name, or a private-use suffix (.local/.internal)"
         ) from exc
     if not (address.is_loopback or address.is_private):
-        raise ApiBasePolicyError(f"local api_base {host!r} must be loopback or a private LAN address")
+        raise ApiBasePolicyError(f"local api_base {host!r} must be loopback or a private address")
 
 
 @dataclass(frozen=True, slots=True)
