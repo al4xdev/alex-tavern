@@ -34,6 +34,14 @@ class PluginStorage:
     """
 
     def __init__(self, plugin_id: str) -> None:
+        # Defense in depth (the task forbids relying on manifest validation
+        # alone): a malformed id like "../evil" or "a/b" would otherwise make
+        # the ROOT itself escape the namespace, and resolve()'s containment
+        # check — which compares against that root — could not catch it.
+        from src.plugins.manifest import _ID_RE
+
+        if not isinstance(plugin_id, str) or not _ID_RE.fullmatch(plugin_id):
+            raise ValueError(f"invalid plugin id for storage namespace: {plugin_id!r}")
         self.plugin_id = plugin_id
         self.root = PLUGIN_STORAGE_DIR / plugin_id
 

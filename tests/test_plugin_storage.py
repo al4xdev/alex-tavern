@@ -103,9 +103,19 @@ def test_remove_root_rejected() -> None:
 
 
 def test_malformed_plugin_id_stays_contained() -> None:
-    # Even a plugin id with dots resolves to a single directory component; a
-    # crafted id cannot climb out because the root is a fixed join and every
-    # resolve() re-checks containment.
+    # A well-formed dotted id resolves to a single directory component under
+    # the namespace root.
     s = PluginStorage("dev.alex.dotted")
     resolved = s.resolve("x")
     assert PLUGIN_STORAGE_DIR.resolve() in resolved.parents
+
+
+@pytest.mark.parametrize(
+    "bad_id",
+    ["../evil", "a/b", "a\\b", "", "..", ".hidden", "UPPER", "dev..double", "id\x00nul"],
+)
+def test_malicious_or_malformed_plugin_id_rejected(bad_id: str) -> None:
+    # The ROOT itself must never escape: resolve()'s containment check compares
+    # against the root, so a crafted id is rejected at construction.
+    with pytest.raises(ValueError):
+        PluginStorage(bad_id)
