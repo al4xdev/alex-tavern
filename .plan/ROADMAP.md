@@ -27,12 +27,14 @@ aceitação A/B). Referência de arquitetura:
 | 23 | Gap trim/compactação | pinning de âncoras de código + retenção adaptativa; os 2 xfails-spec verdes; suíte sem nenhum xfail |
 | 37 | Loop autônomo limitado (rajada com paradas tipadas, undo por beat) | 3 runs ao vivo ×4 beats; parada `protagonist_decision` via `return_control`; crítico cego ×2 — classes estruturais zeradas por construção |
 | 38 | Roteiro com contratos de beat tipados + replan algorítmico (OPT-IN, OFF) | A/B deepseek, crítico cego ×9 embaralhado; confidencialidade NONE, gatilhos determinísticos; **veredito escopado**: ajuda drive em cena de ação (estalagem confiável), cara-ou-coroa em cena procedural grande (portais 2W/2L); ganhos de engine banked (teto de beat, guard de personagem, backstop lexical, disrupção-no-stall). Relatório: `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md` |
+| 21 | Namespace de storage privado por plugin | `.data/plugins/storage/<id>/` + `context.storage` (path-safe: rejeita abs/`..`/symlink escape); contrato + permission + 16 testes + `docs/plugin-storage.md`; cached/ é concern separado (sem migração) |
 
 ## 🔶 Em andamento
 
 | Task | O que falta |
 |---|---|
 | 39 — Memória do ledger | increment 1 FEITO (dimensão de memória, schema v8, 560 testes). **increment 2 (risco: compactação) → Fable**, ver `HANDOFF-FABLE.md` |
+| 27 — SDK isolado + pipeline de curadoria | **exploração DELIVERED** (`docs/plugin-ecosystem-topology-exploration-2026-07-17.md`); aguarda aceite do dono + verificação com checkout do hub |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run 1 = 0 violações (primeira XPASS do programa); variância semântica restante: cumprimento de promessa, discrição vs auditoria, confabulação de alias |
 
 ## 📋 Sequência principal (após 28/30)
