@@ -53,6 +53,11 @@ PROSE_SYSTEM = (
     "  cut between separated spaces explicitly.\n"
     "- You are omniscient for identities: always name characters by their\n"
     "  canonical names and never describe anyone as unknown or unidentified.\n"
+    # Verbosity floor (Task 42): measured on real payloads, deepseek renders
+    # ~120-270 chars without it; this single line at the END of the prompt
+    # (position matters) lifted narration to ~570-1250 chars, 3/3 on two
+    # scenes. A floor, never a cap - small beats still come out shorter.
+    "- Narrate at least 150 words; a beat deserves full paragraphs.\n"
 )
 
 

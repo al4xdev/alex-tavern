@@ -25,3 +25,23 @@ regras.
 - [ ] Variante vencedora: alonga a prosa de forma consistente (3/3) sem
   reintroduzir repetição/invenção (checar com os guards existentes).
 - [ ] Diff mínimo no prompt (frase pequena), posição validada.
+
+## DELIVERED 2026-07-18 (puro curl, mesma sessão)
+
+Baseline medido (sessões reais): mediana 240-390 chars (~2-4 frases) por
+narração; no replay o payload A rendia mediana 118 chars.
+
+Experimento (2 payloads reais de cenas diferentes, 3× por variante):
+- V0 baseline: 118 / 271 chars (med).
+- V1 troca "economical"→"generous": 702 / 301 — variância alta (194-1813).
+- V2 frase qualitativa ("let the scene breathe"): 567 / 351.
+- **V3 piso numérico (1 linha, fim do prompt): 1247 / 568 — maior e mais
+  consistente 3/3 nos DOIS payloads. VENCEDORA e shippada exatamente como
+  validada** ("Narrate at least 150 words; a beat deserves full paragraphs").
+
+Notas: é PISO, não cap (regra do AGENTS proíbe limitar por quantidade fixa —
+piso é pressão, e o modelo entrega menos em beat pequeno, comportamento
+desejado). "vivid but economical" ficou (contrapeso contra divagação; o piso
+domina — testado). Guards anti-repetição/anti-invenção seguem ativos em
+runtime. Watch item: turno sem eventos (fallback atmosférico fora de rajada)
+agora rende ~150 palavras de atmosfera — se incomodar, tratar na 26.
