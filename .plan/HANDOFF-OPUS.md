@@ -44,7 +44,20 @@ Ordem fixa por incremento:
 8. Exclusões decididas pelo usuário: matriz multi-modelo NÃO; defeitos das
    Tasks 26/33 só registram evidência.
 
-## 2. TAREFA 1 — Fechar Task 38 (roteiro). Implementação PRONTA; falta aceitação
+## ✅ TAREFA 1 — Task 38 (roteiro) FECHADA (2026-07-17)
+
+Fechada com todos os critérios medidos (ver `.plan/closed/38-roteiro-beat-contracts.md`).
+A/B ao vivo no deepseek (endpoint local caiu; usuário aprovou deepseek),
+crítico cego ×5 embaralhado. Jornada: round 1 roteiro perdeu drive (beat
+pinado → fix partial-coverage advance); round 2 venceu; usuário elevou a barra
+(variação lexical + objetivo-por-NPC, 3 loops); loop 1 goals✅ drive✅ lexical✗
+(→ backstop de strip determinístico); loop 2 lexical✅ goals✅ drive✗ (arco
+tagarela → fix _ARCHITECT_RULES: escalar + proibir exposição); loop 3 roteiro
+VENCE ambos os eixos decisivamente, lexical 0.67/0, confidencialidade NONE.
+Residuais roteados à Task 26 (dup de evento cross-turn, imagética repetida,
+continuidade de objeto). O texto abaixo é o registro original da tarefa.
+
+## 2. (ORIGINAL) Fechar Task 38 (roteiro)
 
 Spec: `.plan/tasks/38-roteiro-beat-contracts.md`. Código commitado em
 `9761f31`; testes em `tests/test_roteiro.py` (30).
