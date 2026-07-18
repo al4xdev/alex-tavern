@@ -123,3 +123,82 @@ class TestPersistence:
         assert restored.recent_memory == []
         assert restored.memory_summary == ""
         assert restored.memory_through_turn == 0
+
+
+class TestUndoPreservesMemory:
+    """Undo restores the ledger memory exactly (per-record perspective snapshots)."""
+
+    async def _session(self, monkeypatch):  # noqa: ANN001, ANN202
+        import httpx
+
+        import src.runner as runner_mod
+        from src.runner import Runner
+
+        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return CharacterPerspective(
+                initialized_turn=kwargs.get("turn_number", 0),
+                processed_through_turn=kwargs.get("turn_number", 0),
+            )
+
+        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {
+                "next_speakers": ["C2"],
+                "perception_events": [],
+                "scene_update": None,
+                "mood_updates": None,
+                "return_control": False,
+            }
+
+        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {"speech": f"Resposta no turno {turn_number}.", "thought": None, "action_intent": None}
+
+        async def fake_prose() -> str:
+            return "Narracao."
+
+        client = httpx.AsyncClient()
+        runner = Runner(client, {"auto_event_enabled": False})
+        session_scene = Scene(
+            location="Salao",
+            time_of_day="Noite",
+            present_characters=["C1", "C2", "C3", "Player"],
+            physical_facts={},
+        )
+        sid = runner.start_session(
+            {
+                "characters": dict(CHARACTERS),
+                "scene": session_scene,
+                "controlled_character_id": "C1",
+            }
+        )
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(runner, "_call_character", fake_character)
+        monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
+        return runner, sid, client
+
+    async def test_undo_rolls_ledger_memory_back(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.store.sessions import delete_session
+
+        runner, sid, client = await self._session(monkeypatch)
+        try:
+            await runner.player_turn(sid, speech="Primeira fala.")
+            game1 = await runner.get_state(sid)
+            memory_after_1 = list(game1.character_perspectives["C2"].recent_memory)
+            cursor_after_1 = game1.character_perspectives["C2"].memory_through_turn
+            assert memory_after_1  # turn 1 speech was captured
+
+            await runner.player_turn(sid, speech="Segunda fala.")
+            game2 = await runner.get_state(sid)
+            assert len(game2.character_perspectives["C2"].recent_memory) > len(memory_after_1)
+
+            await runner.undo_turn(sid)
+            game3 = await runner.get_state(sid)
+            perspective = game3.character_perspectives["C2"]
+            # Memory AND cursor roll back exactly: the regenerated turn 2 will
+            # be captured fresh instead of being skipped as already-seen.
+            assert perspective.recent_memory == memory_after_1
+            assert perspective.memory_through_turn == cursor_after_1
+        finally:
+            await delete_session(sid)
+            await client.aclose()

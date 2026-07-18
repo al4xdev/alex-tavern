@@ -512,7 +512,9 @@ async def act(
                     attempt_number=attempt + 1,
                 )
             assert output["speech"] is not None
-            output = {"speech": redact_tokens(output["speech"], leaked), "thought": output["thought"]}
+            # Preserve every other field (action_intent included): only the
+            # leaking speech is redacted.
+            output = {**output, "speech": redact_tokens(output["speech"], leaked)}
 
         # Anti-repetition guard: a character that echoes its own recent thought
         # verbatim, or parrots another's visible line, is caught here — retry

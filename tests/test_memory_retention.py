@@ -877,6 +877,22 @@ class TestCharacterOutputGuard:
         assert output["thought"] == "Eu sei tudo."
 
     @pytest.mark.asyncio
+    async def test_redaction_preserves_action_intent(self, monkeypatch) -> None:  # noqa: ANN001
+        # A redacted-speech turn must not silently lose the physical attempt.
+        output, calls = await self._act(
+            monkeypatch,
+            [
+                {"speech": f"A senha era {MARKER}!", "thought": None,
+                 "action_intent": "guardar o bilhete no bolso"},
+                {"speech": f"Repito: {MARKER}.", "thought": None,
+                 "action_intent": "guardar o bilhete no bolso"},
+            ],
+        )
+        assert len(calls) == 2
+        assert "[indistinct]" in (output["speech"] or "")
+        assert output.get("action_intent") == "guardar o bilhete no bolso"
+
+    @pytest.mark.asyncio
     async def test_whispered_reply_to_confidant_passes_intact(self, monkeypatch) -> None:  # noqa: ANN001
         output, calls = await self._act(
             monkeypatch,
