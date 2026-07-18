@@ -302,6 +302,29 @@ Prompts são compartilhados entre providers e descrevem regras de papel de forma
 - texto gerado não usa em dash/en dash; a normalização é global no cliente;
 - histórico é limitado por orçamento de tokens, nunca por corte de caracteres.
 
+### Depurar defeito que parece de prompt (replay isolado antes da bateria)
+
+Quando a saída de um agente repete/quebra numa cena real, NÃO itere rodando a
+bateria A/B inteira (lenta e cara). Isole a chamada defeituosa e conserte-a
+primeiro, depois valide na bateria:
+
+1. Pegue o payload REAL da chamada ruim em `<data>/sessions/<sid>/debug.jsonl`
+   (o registro do agente tem `request.messages` exatos daquele turno).
+2. Replay via `curl` contra o provider, variando SÓ o prompt. Para deepseek:
+   `POST {api_base}/chat/completions`, `Authorization: Bearer <key>`, body
+   `{"model","messages","response_format":{"type":"json_object"},"thinking":{"type":"disabled"}}`
+   (o schema já vem embutido no system pelo adapter). Rode 3-4x por variante —
+   a saída é estocástica; conte a taxa de defeito, não um caso.
+3. Itere o prompt até a chamada isolada sair limpa; SÓ então rode a bateria.
+4. Regra que essa técnica já provou (2026-07-17, loop do sorteio no
+   turma-dos-portais): se uma instrução no prompt do PERSONAGEM não conserta a
+   chamada isolada — nem uma proibição explícita do tópico — o defeito NÃO é de
+   prompt; a causa é a montante (cena estagnada no mesmo tópico). Confirme
+   variando o INPUT em vez do prompt: injetar um evento de cena novo no contexto
+   quebrou o loop 2/3 sem tocar no prompt, enquanto a proibição dura quebrou
+   0/3. Nesse caso o lever é o Diretor/roteiro avançar a cena, não o prompt do
+   agente — não adicione regra de prompt que a evidência mostrou não funcionar.
+
 Compactação é um evento transacional: prepara resumos em draft isolado, grava um checkpoint
 incremental numerado, mantém a janela recente e atualiza `story_summary`/`character_notes`.
 Compactação automática é opt-in, usa a estimativa do prompt completo antes do Narrador e roda sob
