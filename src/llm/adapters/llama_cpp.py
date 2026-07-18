@@ -34,6 +34,16 @@ class LlamaCppAdapter:
     def completion_url(self, api_base: str) -> str:
         return f"{api_base.rstrip('/')}/chat/completions" if api_base else "/v1/chat/completions"
 
+    def validate_api_base(self, api_base: str) -> None:
+        # A local model server: loopback or private LAN only. Empty is allowed
+        # (client-relative default). No secret is sent, but the target is still
+        # constrained (Task 19).
+        if not api_base.strip():
+            return
+        from src.llm.adapters.base import require_loopback_or_lan
+
+        require_loopback_or_lan(api_base)
+
     def headers(self, api_key: str) -> dict[str, str] | None:  # noqa: ARG002
         return None
 

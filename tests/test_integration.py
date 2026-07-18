@@ -107,6 +107,12 @@ DEFAULT_SCENE = Scene(
 )
 
 
+def _sec_headers() -> dict:
+    """Task 19: the per-process access token so ASGI POSTs pass the origin/token gate."""
+    import src.main
+    return {"X-Tavern-Token": src.main.ACCESS_TOKEN}
+
+
 @pytest.fixture(autouse=True)
 def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep legacy Runner tests isolated from new internal LLM boundaries."""
@@ -2657,7 +2663,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             # Start session
             start_resp = await http.post("/session/start", json={})
@@ -2709,7 +2715,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -2758,7 +2764,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -2791,7 +2797,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -2820,7 +2826,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -2849,7 +2855,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -2898,7 +2904,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -2949,7 +2955,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -3014,7 +3020,7 @@ class TestHttpBoundary:
             runner=runner,
         )
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             start_resp = await http.post("/session/start", json={})
             sid = start_resp.json()["session_id"]
@@ -3039,7 +3045,7 @@ class TestHttpBoundary:
         from src.main import app
 
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
             resp = await http.get("/version")
             assert resp.status_code == 200

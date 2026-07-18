@@ -11,13 +11,28 @@ import {
 
 const hooks = new Map();
 
+// Access token (Task 19) for the observe POST; a cross-origin page cannot read
+// /bootstrap so it cannot forge this. Cached once, fire-and-forget on failure.
+let _observeTokenPromise = null;
+function _observeToken() {
+    if (!_observeTokenPromise) {
+        _observeTokenPromise = fetch('/bootstrap')
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => (d && d.access_token) || '')
+            .catch(() => '');
+    }
+    return _observeTokenPromise;
+}
+
 function observe(pluginId, permission, details = {}) {
-    fetch(`/plugins/${encodeURIComponent(pluginId)}/observe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permission, ...details }),
-        keepalive: true,
-    }).catch(() => {});
+    _observeToken().then((token) => {
+        fetch(`/plugins/${encodeURIComponent(pluginId)}/observe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Tavern-Token': token },
+            body: JSON.stringify({ permission, ...details }),
+            keepalive: true,
+        }).catch(() => {});
+    });
 }
 
 function sdk(pluginId, pluginName) {

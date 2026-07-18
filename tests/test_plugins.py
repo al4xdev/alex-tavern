@@ -46,6 +46,12 @@ from tools.plugin_author import pack_plugin, scaffold_plugin
 EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
 
 
+def _sec_headers() -> dict:
+    """Task 19 access token so ASGI POSTs pass the origin/token gate."""
+    import src.main
+    return {"X-Tavern-Token": src.main.ACCESS_TOKEN}
+
+
 @pytest.fixture(autouse=True)
 def isolated_plugin_data() -> None:
     for directory in (PLUGINS_DIR, EXPERIENCES_DIR):
@@ -232,7 +238,7 @@ async def test_external_zip_can_be_inspected_without_installing(tmp_path: Path) 
     package = _versioned_plugin(tmp_path / "external.zip", "1.0.0", permissions=("model.call",))
     transport = httpx.ASGITransport(app=main.app)
 
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://test", headers=_sec_headers()) as client:
         response = await client.post(
             "/plugins/inspect-upload",
             headers={"Content-Type": "application/zip"},

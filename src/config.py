@@ -117,8 +117,23 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         raw = providers.get(name, adapter.config_defaults)
         if not isinstance(raw, dict):
             raise ConfigValidationError(f"providers.{name} must be an object")
+        api_base = _required_string(raw.get("api_base"), f"providers.{name}.api_base")
+        # Endpoint policy is adapter-owned (Task 19): cloud adapters restrict to
+        # HTTPS + host allowlist so a stored secret cannot reach an attacker
+        # target; local adapters restrict to loopback/LAN. Adapters without the
+        # method fall back to a conservative http(s)+host check.
+        validate_api_base = getattr(adapter, "validate_api_base", None)
+        try:
+            if callable(validate_api_base):
+                validate_api_base(api_base)
+            else:
+                from src.llm.adapters.base import parse_api_base
+
+                parse_api_base(api_base)
+        except ValueError as exc:
+            raise ConfigValidationError(f"providers.{name}.api_base rejected: {exc}") from exc
         provider = {
-            "api_base": _required_string(raw.get("api_base"), f"providers.{name}.api_base"),
+            "api_base": api_base,
             "model": _required_string(
                 raw.get("model", ""),
                 f"providers.{name}.model",

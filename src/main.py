@@ -27,6 +27,11 @@ from src.config import (
 )
 from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR
+from src.security import (
+    ACCESS_TOKEN_HEADER,
+    generate_access_token,
+    unsafe_request_allowed,
+)
 from src.plugins.runtime import PluginRuntime
 from src.runner import PresenceRevisionConflictError, Runner
 from src.store.sessions import (
@@ -106,14 +111,59 @@ def _runtime() -> RuntimeState:
     return runtime
 
 
-# CORS — allow all in MVP (local frontend)
+# Per-process access token (Task 19): never persisted, never logged. The served
+# same-origin app fetches it from /bootstrap and returns it on every mutation; a
+# cross-origin page cannot read it, so it cannot forge a state-changing request.
+ACCESS_TOKEN = generate_access_token()
+
+# Origins the browser may drive unsafe endpoints from: loopback on any port
+# (desktop/Docker/dev). Native/WebView clients send no Origin or "null" and are
+# handled by the security middleware. This replaces credentialed wildcard CORS.
+_LOOPBACK_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # "null" is the Android/WebView case (the app document loads from file:// and
+    # calls the loopback API cross-origin). The token gate — not CORS — protects
+    # mutations; this only lets the WebView READ responses. Trade-off to confirm
+    # in the deployment smoke tests (desktop/Docker are same-origin).
+    allow_origins=["null"],
+    allow_origin_regex=_LOOPBACK_ORIGIN_REGEX,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept", ACCESS_TOKEN_HEADER],
 )
+
+
+@app.middleware("http")
+async def enforce_origin_and_token(request: Request, call_next):  # noqa: ANN001, ANN201
+    """Reject cross-origin/untokened state-changing requests (Task 19).
+
+    Safe methods pass. Every unsafe method (session/config/scenario/plugin/
+    Experience mutations alike) requires the access token AND a loopback/native
+    Origin, so an arbitrary web page cannot reach these endpoints.
+    """
+    if not unsafe_request_allowed(
+        request.method,
+        request.headers.get("origin"),
+        request.headers.get(ACCESS_TOKEN_HEADER),
+        ACCESS_TOKEN,
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "forbidden", "detail": "invalid origin or access token"},
+        )
+    return await call_next(request)
+
+
+@app.get("/bootstrap")
+def bootstrap() -> dict:
+    """Deliver the per-process access token to the same-origin app.
+
+    Readable only same-origin: the locked CORS policy prevents a cross-origin
+    page from reading this response, so the token stays secret to the app.
+    """
+    return {"access_token": ACCESS_TOKEN}
 
 
 # ── Pydantic models ───────────────────────────────────────────────────────

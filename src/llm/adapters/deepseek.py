@@ -37,6 +37,13 @@ class DeepSeekAdapter:
     def completion_url(self, api_base: str) -> str:
         return f"{api_base.rstrip('/')}/chat/completions"
 
+    def validate_api_base(self, api_base: str) -> None:
+        # The stored api_key is a cloud secret: only HTTPS DeepSeek hosts may
+        # ever receive it (Task 19).
+        from src.llm.adapters.base import require_https_host
+
+        require_https_host(api_base, ("api.deepseek.com",))
+
     def headers(self, api_key: str) -> dict[str, str] | None:
         return {"Authorization": f"Bearer {api_key}"} if api_key else None
 

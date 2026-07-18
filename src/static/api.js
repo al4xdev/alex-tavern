@@ -5,8 +5,30 @@
 // WARNING (Antigravity AI): Modified to switch BASE_URL to local server when running in WebView
 const BASE_URL = window.location.protocol === 'file:' ? 'http://127.0.0.1:8889' : '';
 
+// Access token (Task 19): fetched once from /bootstrap and returned on every
+// state-changing request. A cross-origin page cannot read /bootstrap, so it
+// cannot forge these headers. Safe (GET) requests need no token.
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+let _accessTokenPromise = null;
+function ensureAccessToken() {
+    if (!_accessTokenPromise) {
+        _accessTokenPromise = fetch(`${BASE_URL}/bootstrap`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => (d && d.access_token) || null)
+            .catch(() => null);
+    }
+    return _accessTokenPromise;
+}
+async function withAccessToken(options = {}) {
+    const method = (options.method || 'GET').toUpperCase();
+    if (!UNSAFE_METHODS.has(method)) return options;
+    const token = await ensureAccessToken();
+    return { ...options, headers: { ...(options.headers || {}), 'X-Tavern-Token': token || '' } };
+}
+
 async function apiFetch(url, options = {}) {
     const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+    options = await withAccessToken(options);
     const res = await fetch(fullUrl, options);
     let data = null;
     try {
@@ -24,9 +46,10 @@ async function apiFetch(url, options = {}) {
 }
 
 async function compactStream(sessionId, onProgress = () => {}, signal = null) {
+    const token = await ensureAccessToken();
     const res = await fetch(`${BASE_URL}/session/${sessionId}/compact`, {
         method: 'POST',
-        headers: { Accept: 'text/event-stream' },
+        headers: { Accept: 'text/event-stream', 'X-Tavern-Token': token || '' },
         signal,
     });
     if (!res.ok) {
