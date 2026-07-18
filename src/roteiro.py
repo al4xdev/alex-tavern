@@ -31,6 +31,12 @@ ROTEIRO_DEFAULTS = {
 # Replan tuning (module constants; measured before ever becoming config).
 DRIFT_WINDOW_TURNS = 3  # M consecutive disengaged turns = drifted
 PARTIAL_ADVANCE_PATIENCE = 2  # turns before a near-covered beat advances anyway
+# Hard ceiling on how many turns one beat may stay active, regardless of its
+# declared budget or how many anchors remain. Beyond this the scene is moving
+# on: a beat held longer makes the Director re-stage the same tableau (measured
+# on the portais scene, where a 5-turn beat produced three identical turns).
+# Drive over completeness - a stuck beat replans into a fresh situation.
+HARD_BEAT_TURN_CAP = 3
 COOLDOWN_TURNS = 2  # replans blocked for this many turns after any replan
 ACT_REPLAN_THRESHOLD = 2  # stall/drift replans in one act before act rewrite
 MIN_BUDGET_TURNS = 2
@@ -213,7 +219,10 @@ def evaluate_roteiro(
     if substantial and progress.turns_elapsed >= PARTIAL_ADVANCE_PATIENCE:
         return ReplanDecision(action="advance", reason="coverage_sufficient", progress=progress)
 
-    stalled = progress.turns_elapsed >= roteiro.beat.budget_turns
+    # A beat stalls at its declared budget OR the hard turn cap, whichever comes
+    # first — the cap guarantees no beat can pin the scene into static repetition.
+    stall_at = min(roteiro.beat.budget_turns, HARD_BEAT_TURN_CAP)
+    stalled = progress.turns_elapsed >= stall_at
     drifted = (
         progress.turns_elapsed >= DRIFT_WINDOW_TURNS
         and progress.disengaged_streak >= DRIFT_WINDOW_TURNS
@@ -222,7 +231,10 @@ def evaluate_roteiro(
         return ReplanDecision(action=None, reason="in_progress", progress=progress)
     if next_turn < roteiro.cooldown_until_turn:
         return ReplanDecision(action=None, reason="cooldown", progress=progress)
-    reason = "stalled" if stalled else "drifted"
+    # Disengaged (the scene moved away) is labelled "drifted"; an engaged beat
+    # that simply ran out of time is "stalled". Both replan; the label is the
+    # evidence signal.
+    reason = "drifted" if drifted else "stalled"
     if roteiro.beat_replans_in_act >= ACT_REPLAN_THRESHOLD:
         return ReplanDecision(action="replan_act", reason=reason, progress=progress)
     return ReplanDecision(action="replan_beat", reason=reason, progress=progress)
@@ -256,6 +268,12 @@ def describe_roteiro_for_director(roteiro: Roteiro, characters: dict) -> list[st
         )
     if beat.exit_condition:
         lines.append(f"    The beat ends when: {beat.exit_condition}")
+    lines.append(
+        "    This beat may span turns: each turn ADVANCE the situation with a "
+        "new development or pressure toward its end. Never restage what already "
+        "happened or repeat a prior beat's framing; if it is already in play, "
+        "push it forward."
+    )
     return lines
 
 

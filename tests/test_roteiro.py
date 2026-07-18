@@ -227,13 +227,19 @@ class TestEvaluateRoteiro:
         roteiro = _roteiro(
             beat=_beat(expected_anchors=["carta lacrada", "adaga", "selo"], budget_turns=10)
         )
-        history = [_record(turn, "C2", "Vi a carta lacrada.") for turn in range(1, 4)]
-        decision = evaluate_roteiro(roteiro, history, "C1", 4)
-        assert decision.action is None  # two anchors still missing => keep going
+        # Under the hard turn cap (2 turns), so not yet stalled: two anchors
+        # still missing => not substantial => keep going.
+        history = [_record(1, "C2", "Vi a carta lacrada."), _record(2, "C2", "Nada mais.")]
+        decision = evaluate_roteiro(roteiro, history, "C1", 3)
+        assert decision.action is None
 
-    def test_budget_exhaustion_stalls(self) -> None:
-        history = [_record(turn, "C3", "Conversa fiada.") for turn in range(1, 5)]
-        decision = evaluate_roteiro(_roteiro(), history, "C1", 5)
+    def test_hard_cap_stalls_engaged_beat_before_budget(self) -> None:
+        # An ENGAGED beat (its actor speaks every turn) that never lands its
+        # anchor stalls at the hard turn cap, not at its far-larger budget -
+        # the fix for the portais pin (a beat held 5 turns restaged the scene).
+        roteiro = _roteiro(beat=_beat(expected_anchors=["selo real"], budget_turns=10))
+        history = [_record(turn, "C2", "Preciso agir logo.") for turn in range(1, 4)]
+        decision = evaluate_roteiro(roteiro, history, "C1", 4)
         assert decision.action == "replan_beat"
         assert decision.reason == "stalled"
 
