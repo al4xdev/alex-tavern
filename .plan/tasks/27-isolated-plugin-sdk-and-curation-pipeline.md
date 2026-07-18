@@ -515,3 +515,25 @@ This task is complete as exploration only after producing evidence-backed artifa
 
 These questions must be answered before implementation code establishes another de facto authoring
 workflow.
+
+## Exploration DELIVERED 2026-07-17 (Opus session) — pending owner acceptance
+
+Exploration document (deliverables 1-15 + threat model + decision register):
+`docs/plugin-ecosystem-topology-exploration-2026-07-17.md`. Grounded in the
+2026-07-17 checkout (`src/plugins/` ~2850 LOC, `exported_contract()` as the
+single contract source, browser SDK, `tools/plugin_author.py`).
+
+Key decisions recorded: contract source of truth = core `exported_contract()`,
+SDK publishes a GENERATED snapshot (never a hand copy); core is upstream of the
+SDK (no cycle); ordinary plugin dev needs only the SDK, not a full core checkout;
+`dev`->`prod`->curation-PR journey; hub-fork + ordinary token as the default
+least-privilege PR mechanism; curator independently rebuilds and compares;
+forward-only cutover with no transitional hub-local write.
+
+STILL OPEN / verify-before-implementation (need the external hub checkout or an
+owner call): exact submission descriptor schema; App-vs-fork-token final choice;
+artifact hosting model; per-plugin migration owners; final home of the authoring
+MCP. NON-GOALS honored: no repo/source/package/token/PR/release created.
+
+Task stays in tasks/ until the owner reviews and accepts the exploration (§14
+acceptance is an owner action) and the hub-checkout items are verified.
