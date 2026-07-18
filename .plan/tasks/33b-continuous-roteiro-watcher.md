@@ -62,3 +62,15 @@ Método curl-replay do `AGENTS.md` §6. Validar o CONCEITO antes de qualquer có
 - [ ] A/B crítico cego: watcher-ON vs determinístico vs OFF em cena procedural
   (portais) e de ação (estalagem).
 - [ ] Confidencialidade do roteiro preservada (scan NONE).
+
+## Reenquadramento (2026-07-17): controlador de transição de estado de cena
+
+Ver `docs/cases/scene-state-transition-and-human-stagnation-2026-07-17.md`. A 33b
+não é só um "watcher que reescreve o roteiro" — é um controlador de TRANSIÇÃO DE
+ESTADO com: estado autoritativo de cena (dramatic_question, threads, pressures),
+progresso por DELTA MATERIAL (não cobertura lexical), ladder de recuperação
+(executar transição prometida → adjudicar tentativa → permitir silêncio →
+reincorporar thread → só então disromper), contrato causal de intervenção
+(source_thread/target_state/event_now/expected_delta/refractory_turns) e cobertura
+de atores representativa (silêncio permitido). Consome o relógio narrativo da
+**Task 40** (o tempo sempre anda). Experimento A/B/C no doc §7.

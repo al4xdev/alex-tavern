@@ -49,7 +49,9 @@ aceitação A/B). Referência de arquitetura:
 | — | Gatilho geral de estagnação de tópico no drive layer (Task 33) — quebra loop nos dois braços | 38 (evidência) |
 | — | Disrupção do roteiro avança o arco planejado (não interrompe solto) — cena procedural | 38 |
 | — | Adjudicação da tentativa do jogador (resposta-do-mundo + return_control) | 36/37 |
-| — | **33b** — Watcher contínuo do roteiro (sub-modelo olhando sempre, toggle OFF, explorar via curl) — DEPOIS das pendentes | 33/38; `tasks/33b-*` |
+| — | **33b** — Controlador de transição de estado de cena (reenquadrado de "watcher"; estado autoritativo + delta material + contrato causal) | 33/38/40; `tasks/33b-*` + doc de estado-de-cena |
+| — | **40** — Relógio narrativo (ticks): o tempo sempre anda, ato amarrado a deadline de tick → o código força a transição do mundo | 38; `tasks/40-*` |
+| — | Pesquisa: estagnação = ausência de transição de estado + comportamento humano (literatura) | `docs/cases/scene-state-transition-and-human-stagnation-2026-07-17.md` |
 
 ## 🧺 Lane paralela (independentes)
 
