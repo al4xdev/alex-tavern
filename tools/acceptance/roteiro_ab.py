@@ -82,7 +82,9 @@ CHARACTER_SPEC = {
     },
 }
 
-INPUTS = [
+# Passive-player input profiles per scenario: the player gives only inert,
+# non-directing lines and skips, so the NPCs and the roteiro carry the scene.
+INPUTS_ESTALAGEM = [
     ("speech", "Que noite parada."),
     ("skip", None),
     ("speech", "Hm. Pode ser só o vento."),
@@ -94,31 +96,36 @@ INPUTS = [
     ("speech", "E agora, o que fazemos?"),
     ("skip", None),
 ]
+INPUTS_PASSIVE_GENERIC = [
+    ("speech", "..."),
+    ("skip", None),
+    ("speech", "Prefiro só observar por enquanto."),
+    ("skip", None),
+    ("skip", None),
+    ("speech", "Não se preocupem comigo, continuem."),
+    ("skip", None),
+    ("skip", None),
+    ("speech", "E agora?"),
+    ("skip", None),
+]
+
+# scenario -> (builtin name or None for the hardcoded estalagem, inputs profile)
+SCENARIOS = {
+    "estalagem": (None, INPUTS_ESTALAGEM),
+    "turma-dos-portais-pt": ("turma-dos-portais-pt", INPUTS_PASSIVE_GENERIC),
+}
 
 
-async def run_arm(roteiro_enabled: bool) -> str:
-    """Run one arm in THIS process — env var must already be set by the caller."""
-    import httpx
-    from src.config import load_config, resolve_active_config
+def _build_session_args(scenario: str):  # noqa: ANN202
     from src.models import Character, CharacterBody, CharacterMind, Scene
-    from src.runner import Runner
 
-    characters = {
-        cid: Character(
-            mind=CharacterMind(**spec["mind"]),
-            body=CharacterBody(**spec["body"]),
-        )
-        for cid, spec in CHARACTER_SPEC.items()
-    }
-    config = resolve_active_config(load_config(REPO / ".data/config.json"))
-    config.update({
-        "autonomous_burst_max_beats": 1,
-        "roteiro_enabled": roteiro_enabled,
-        "llm_timeout_seconds": 120.0,
-    })
-    async with httpx.AsyncClient() as client:
-        runner = Runner(client, config)
-        sid = runner.start_session({
+    builtin, inputs = SCENARIOS[scenario]
+    if builtin is None:
+        characters = {
+            cid: Character(mind=CharacterMind(**spec["mind"]), body=CharacterBody(**spec["body"]))
+            for cid, spec in CHARACTER_SPEC.items()
+        }
+        return {
             "characters": characters,
             "scene": Scene(
                 location="Estalagem - salao",
@@ -127,8 +134,49 @@ async def run_arm(roteiro_enabled: bool) -> str:
                 physical_facts={"lareira": "quase apagada"},
             ),
             "controlled_character_id": "C1",
-        })
-        for kind, text in INPUTS:
+        }, inputs
+    from src.store.scenarios import load_builtin_scenario
+
+    spec = load_builtin_scenario(builtin)
+    scene_raw = spec["scene"]
+    characters = {
+        cid: Character(
+            mind=CharacterMind(**c["mind"]), body=CharacterBody(**c["body"])
+        )
+        for cid, c in spec["characters"].items()
+    }
+    return {
+        "characters": characters,
+        "scene": Scene(
+            location=scene_raw["location"],
+            time_of_day=scene_raw["time_of_day"],
+            present_characters=list(scene_raw["present_characters"]),
+            physical_facts=dict(scene_raw.get("physical_facts", {})),
+            zones={z: list(a) for z, a in scene_raw.get("zones", {}).items()},
+            positions=dict(scene_raw.get("positions", {})),
+        ),
+        "controlled_character_id": spec["controlled_character_id"],
+        "narrator_directives": spec.get("narrator_directives", ""),
+    }, inputs
+
+
+async def run_arm(roteiro_enabled: bool, scenario: str = "estalagem") -> str:
+    """Run one arm in THIS process — env var must already be set by the caller."""
+    import httpx
+    from src.config import load_config, resolve_active_config
+    from src.runner import Runner
+
+    session_args, inputs = _build_session_args(scenario)
+    config = resolve_active_config(load_config(REPO / ".data/config.json"))
+    config.update({
+        "autonomous_burst_max_beats": 1,
+        "roteiro_enabled": roteiro_enabled,
+        "llm_timeout_seconds": 120.0,
+    })
+    async with httpx.AsyncClient() as client:
+        runner = Runner(client, config)
+        sid = runner.start_session(session_args)
+        for kind, text in inputs:
             if kind == "speech":
                 await runner.player_turn(sid, speech=text)
             else:
@@ -205,16 +253,18 @@ def _sid_from(stdout: str) -> str:
     raise SystemExit("no ARM_SUMMARY in arm output")
 
 
-def orchestrate() -> None:
-    control_out = _spawn(["--arm", "control", "--enabled", "0"], BASE / "control" / "data")
-    roteiro_out = _spawn(["--arm", "roteiro", "--enabled", "1"], BASE / "roteiro" / "data")
+def orchestrate(scenario: str) -> None:
+    base = BASE if scenario == "estalagem" else BASE.parent / f"roteiro-ab-{scenario}"
+    control_out = _spawn(["--arm", "control", "--enabled", "0", "--scenario", scenario], base / "control" / "data")
+    roteiro_out = _spawn(["--arm", "roteiro", "--enabled", "1", "--scenario", scenario], base / "roteiro" / "data")
     sid_control = _sid_from(control_out)
     sid_roteiro = _sid_from(roteiro_out)
-    _spawn(["--scan", sid_roteiro], BASE / "roteiro" / "data")
-    ctrl_lex = _spawn(["--metrics", sid_control], BASE / "control" / "data")
-    rot_lex = _spawn(["--metrics", sid_roteiro], BASE / "roteiro" / "data")
+    _spawn(["--scan", sid_roteiro], base / "roteiro" / "data")
+    ctrl_lex = _spawn(["--metrics", sid_control], base / "control" / "data")
+    rot_lex = _spawn(["--metrics", sid_roteiro], base / "roteiro" / "data")
     sys.stdout.write("LEXICAL control " + ctrl_lex.split("LEXICAL ", 1)[-1])
     sys.stdout.write("LEXICAL roteiro " + rot_lex.split("LEXICAL ", 1)[-1])
+    print("ARTIFACT_DIR " + str(base))
     print("SESSIONS " + json.dumps({"control": sid_control, "roteiro": sid_roteiro}))
 
 
@@ -224,15 +274,16 @@ def main() -> None:
     parser.add_argument("--enabled", choices=["0", "1"])
     parser.add_argument("--scan", metavar="SID")
     parser.add_argument("--metrics", metavar="SID")
+    parser.add_argument("--scenario", default="estalagem", choices=list(SCENARIOS))
     args = parser.parse_args()
     if args.scan:
         confidentiality_scan(args.scan)
     elif args.metrics:
         print("LEXICAL " + json.dumps(lexical_metrics(args.metrics), ensure_ascii=False))
     elif args.arm:
-        asyncio.run(run_arm(args.enabled == "1"))
+        asyncio.run(run_arm(args.enabled == "1", args.scenario))
     else:
-        orchestrate()
+        orchestrate(args.scenario)
 
 
 if __name__ == "__main__":
