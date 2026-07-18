@@ -119,9 +119,11 @@ class TestRunnerIntentAndMoves:
         assert game is not None
         intents = [r for r in game.history if r.content_type == "action" and r.speaker == "C3"]
         assert len(intents) == 1
-        # The attempt was made while C3 was still isolated: nobody perceives it.
-        assert intents[0].audience == []
-        # Movement applied after the beat: next perceptions happen from the salao.
+        # Canon applies before the beat's records (Task 41): the adjudicated
+        # move already happened, so C3 acts FROM the salao and the people there
+        # perceive it (public audience). The Director's witness clamps for this
+        # beat's perception_events were still computed pre-move.
+        assert intents[0].audience is None
         assert game.scene.positions["C3"] == "salao"
         assert result["character_responses"][0]["action_intent"].startswith("Abrir a divisoria")
 

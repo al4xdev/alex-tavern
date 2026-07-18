@@ -7,7 +7,12 @@ from typing import Any
 
 import httpx
 
-from src.confidentiality import REDACTION_MARKER, hidden_whisper_tokens, redact_tokens
+from src.confidentiality import (
+    REDACTION_MARKER,
+    hidden_thought_tokens,
+    hidden_whisper_tokens,
+    redact_tokens,
+)
 from src.perception import describe_zones_for_narrator, validate_perception_events
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
@@ -66,8 +71,11 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  only after a meaningful emotional transition. Mood is persistent state,\n"
         "  not a pose or momentary synonym. Omit unchanged characters.\n"
         '- "zone_moves": null OR an object mapping character_id to the zone they\n'
-        "  physically moved to THIS beat (only when the scene has zones and an\n"
-        "  attempted movement succeeds). Movement takes effect next beat.\n"
+        "  physically moved to THIS beat (an attempted movement succeeds). You may\n"
+        "  CREATE a new zone by naming it here (e.g. a character who is elsewhere:\n"
+        '  {"C1": "city streets"}); a new zone starts acoustically isolated and the\n'
+        "  rest of the cast stays on the current stage. Witness computation takes\n"
+        "  effect next beat.\n"
         '- "zone_link_updates": null OR an object remapping a zone to the FULL list\n'
         "  of zones now audible from it, when a physical change connects or seals\n"
         "  spaces (a partition opens: each side starts hearing the other; a door\n"
@@ -99,6 +107,26 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
             "\nWORLD DIRECTIVES (tone, rules, setting; always respect these):\n"
             f"{narrator_directives.strip()}\n"
         )
+    # These two rules close the prompt ON PURPOSE: long scenario directives
+    # otherwise bury them, and the isolated replays showed the model follows
+    # them reliably only in the final position (recency).
+    prompt += (
+        "\nPRIVATE THOUGHTS AND CANON (these override any scenario framing above):\n"
+        "- OMNISCIENCE OVER PRIVATE THOUGHTS: history lines marked PRIVATE THOUGHT\n"
+        "  are a character's interiority, perceived ONLY by you. Use them to shape\n"
+        "  the timing, pressure, and dramatic intent of what the world does next\n"
+        "  (irony, hesitation, urgency). They are NOT public facts: no character may\n"
+        "  perceive, react to, or know their content, and no perception_event may\n"
+        "  state or paraphrase them.\n"
+        "- CANON RECONCILIATION: a character's declared state about THEMSELF (where\n"
+        "  they are, what they are doing) is authoritative. If it contradicts the\n"
+        "  canonical scene, RECONCILE through your typed decisions: PREFER splitting\n"
+        "  the stage with zone_moves (creating a zone if needed); change the scene\n"
+        "  location ONLY when the whole scene moves. Never teleport anyone, never\n"
+        "  ignore a declared action, never stage someone as present where they\n"
+        "  declared they are not. Facts about the WORLD or OTHER characters remain\n"
+        "  canon unless confirmed.\n"
+    )
     return prompt
 
 
@@ -262,13 +290,22 @@ def _build_user_prompt(
 
     # History — complete window, or trimmed by token budget if context_max is provided
     lines.append("HISTORY:")
-    # Thoughts are private and must never become Narrator knowledge.
-    hist = [rec for rec in history if rec.content_type != "thought"]
+    # The Director is omniscient (Task 41): private thoughts are included,
+    # explicitly labeled, so it can shape timing/pressure/dramatic intent.
+    # The system prompt plus a deterministic token guard keep that content out
+    # of perception_events; characters and the prose renderer never see it.
+    hist = list(history)
     if context_max is not None:
         hist = trim_history_by_tokens(hist, context_max, max_tokens_narrator)
     if hist:
         for rec in hist:
             label = speaker_label(rec.speaker, characters, player_controlled_id)
+            if rec.content_type == "thought":
+                lines.append(
+                    f"  Turn {rec.turn_number} | TYPE=PRIVATE THOUGHT (only you "
+                    f"perceive this; no character does) | SPEAKER={label}: {rec.content}"
+                )
+                continue
             audience_marker = ""
             if rec.audience is not None:
                 hearers = ", ".join(
@@ -525,15 +562,19 @@ async def narrate(
     )
     raw_moves = result.get("zone_moves")
     moves: dict[str, str] = {}
-    if isinstance(raw_moves, dict) and scene.zones:
+    if isinstance(raw_moves, dict):
         for cid, zone in raw_moves.items():
+            # A move may target a NEW zone (Task 41 canon reconciliation): the
+            # Director names it and the runner materializes it isolated. Only
+            # the character clamps stay hard; the zone name is sanitized.
             if (
                 isinstance(zone, str)
+                and zone.strip()
+                and len(zone.strip()) <= 60
                 and cid in characters
                 and cid in scene.present_characters
-                and zone in scene.zones
             ):
-                moves[cid] = zone
+                moves[cid] = zone.strip()
     result["zone_moves"] = moves
     raw_links = result.get("zone_link_updates")
     links: dict[str, list[str]] = {}
@@ -547,8 +588,14 @@ async def narrate(
                 ]
     result["zone_link_updates"] = links
     result["return_control"] = bool(result.get("return_control", False))
+    # Deterministic thought guard (Task 41): the Director sees every private
+    # thought, but nothing thought-only may surface as a perceivable event.
+    thought_secret = hidden_thought_tokens(history, characters, scene)
     for event in result["perception_events"]:
-        event["content"] = normalize_generated_text(event["content"])
+        content = normalize_generated_text(event["content"])
+        if thought_secret:
+            content = redact_tokens(content, thought_secret)
+        event["content"] = content
 
 
     for field in ("scene_update", "mood_updates"):

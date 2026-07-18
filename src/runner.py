@@ -703,6 +703,51 @@ class Runner:
                 controlled = game.player.controlled_character_id
                 character_responses: list[dict[str, Any]] = []
 
+                # Canon applies BEFORE the prose renders (Task 41): the renderer
+                # must stage the reconciled scene, not the stale one — rendering
+                # old canon against new events made the prose invent its own
+                # reconciliation ("he enters the hall" while the event had him
+                # racing through the city). Witness clamps were already computed
+                # from the pre-move scene inside narrate(), so perception
+                # fairness ("arrival counts next beat") is unchanged.
+                scene_up = narrator_raw.get("scene_update")
+                zone_moves = narrator_raw.get("zone_moves") or {}
+                if zone_moves and scene_up and "location" in scene_up:
+                    # Partial movement is expressed by zones; the stage location
+                    # only changes when the WHOLE scene moves. The model often
+                    # emits both (zone split + a location change that would drag
+                    # the rest of the cast along in canon) — clamp the location
+                    # change unless every present character moved.
+                    movers = set(zone_moves)
+                    present = {
+                        cid
+                        for cid in game.scene.present_characters
+                        if cid in game.characters
+                    }
+                    if not present.issubset(movers):
+                        scene_up = {k: v for k, v in scene_up.items() if k != "location"}
+                if scene_up:
+                    self._update_scene(game, scene_up)
+                new_zones = [z for z in zone_moves.values() if z not in game.scene.zones]
+                if new_zones and not game.scene.zones:
+                    # First split of a zone-less stage: everyone else keeps the
+                    # current stage as their zone, so the new zone is genuinely
+                    # isolated (unplaced characters perceive everything).
+                    stage = (game.scene.location or "").strip()[:60] or "palco"
+                    game.scene.zones[stage] = []
+                    for cid in game.scene.present_characters:
+                        if cid in game.characters and cid not in zone_moves:
+                            game.scene.positions[cid] = stage
+                for zone in new_zones:
+                    game.scene.zones.setdefault(zone, [])  # new zones start isolated
+                for moved_id, zone in zone_moves.items():
+                    game.scene.positions[moved_id] = zone
+                for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
+                    if zone in game.scene.zones:
+                        game.scene.zones[zone] = [
+                            other for other in audible if other in game.scene.zones
+                        ]
+
                 # Decision -> Prose split (Task 36): the blind renderer turns the
                 # validated events into reader prose CONCURRENTLY with the routed
                 # speakers' ledger preparation (they share no data dependency; the
@@ -831,19 +876,6 @@ class Runner:
                             step,
                         )
                     character_responses.append({"character_id": speaker, **character_response})
-
-                # Update scene
-                scene_up = narrator_raw.get("scene_update")
-                if scene_up:
-                    self._update_scene(game, scene_up)
-
-                # Zone movement adjudicated by the Director (validated upstream):
-                # arrival takes effect on the NEXT beat's perception computations.
-                zone_moves = narrator_raw.get("zone_moves") or {}
-                for moved_id, zone in zone_moves.items():
-                    game.scene.positions[moved_id] = zone
-                for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
-                    game.scene.zones[zone] = list(audible)
 
                 # Update characters' moods
                 mood_updates = narrator_raw.get("mood_updates")

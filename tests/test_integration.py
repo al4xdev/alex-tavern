@@ -2309,7 +2309,10 @@ class TestEdgeCases:
         assert prompt.index("CURRENT SCENE:") < prompt.index("CURRENT MOODS:")
         assert prompt.index("CURRENT MOODS:") < prompt.index("ROUTING CONSTRAINT:")
 
-    def test_narrator_prompt_never_receives_private_thoughts(self) -> None:
+    def test_narrator_prompt_receives_thoughts_labeled_private(self) -> None:
+        """Task 41: the Director is omniscient — thoughts arrive, explicitly
+        labeled as private, so it can shape timing/pressure without ever
+        staging their content (deterministic guard + prompt rules)."""
         from src.agents.narrator import _build_user_prompt
 
         scene = deepcopy_scene(DEFAULT_SCENE)
@@ -2324,7 +2327,10 @@ class TestEdgeCases:
             history,
             context_max=4096,
         )
-        assert "Segredo do Thorn." not in prompt
+        assert "Segredo do Thorn." in prompt
+        thought_line = next(l for l in prompt.splitlines() if "Segredo do Thorn." in l)
+        assert "PRIVATE THOUGHT" in thought_line
+        assert "only you perceive this" in thought_line
         assert "Pode me ouvir?" in prompt
 
     @pytest.mark.parametrize(

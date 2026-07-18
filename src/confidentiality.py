@@ -163,6 +163,43 @@ def hidden_whisper_tokens(
     return secret
 
 
+def hidden_thought_tokens(
+    history: list[TurnRecord],
+    characters: dict[str, Character],
+    scene: Scene,
+) -> set[str]:
+    """Payload tokens that exist ONLY inside private thoughts (Task 41).
+
+    The omniscient Director receives every thought; nothing from them may
+    surface in a perception_event. A token stops being thought-only the moment
+    it appears in any non-thought record (spoken aloud, acted out), a character
+    name/id, or a scene fact — saying it makes it world content. Narration is
+    deliberately not a laundering channel (module docstring). The payload
+    calibration means ordinary feeling-thoughts contribute nothing; specific
+    content (names, codes, numbers) is what gets guarded.
+    """
+    thoughts = [rec for rec in history if rec.content_type == "thought"]
+    if not thoughts:
+        return set()
+    known: set[str] = set()
+    for rec in history:
+        if rec.content_type in ("thought", "narration"):
+            continue
+        known |= tokens(rec.content)
+    for cid, character in characters.items():
+        known |= tokens(cid)
+        known |= tokens(character.mind.name)
+    known |= tokens(scene.location)
+    known |= tokens(scene.time_of_day)
+    for key, value in scene.physical_facts.items():
+        known |= tokens(str(key))
+        known |= tokens(str(value))
+    secret: set[str] = set()
+    for rec in thoughts:
+        secret |= {token for token in payload_tokens(rec.content) if token not in known}
+    return secret
+
+
 def secret_tokens_exposed_to(
     history: list[TurnRecord],
     speaker_id: str,

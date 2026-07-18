@@ -316,6 +316,12 @@ primeiro, depois valide na bateria:
    (o schema já vem embutido no system pelo adapter). Rode 3-4x por variante —
    a saída é estocástica; conte a taxa de defeito, não um caso.
 3. Itere o prompt até a chamada isolada sair limpa; SÓ então rode a bateria.
+   **A variante validada tem que ser a variante shippada**: o replay final deve
+   usar o BUILDER de produção (ou espelhar exatamente a posição/ordem do texto
+   no prompt final — inclusive diretivas longas de cenário que vêm depois).
+   Lição medida (2026-07-18, task 41): regras validadas no FIM do prompt
+   funcionaram 3/3; as mesmas regras implementadas no MEIO, soterradas por
+   5k chars de diretivas, falharam 3/3. Posição é parte da variante.
 4. Regra que essa técnica já provou (2026-07-17, loop do sorteio no
    turma-dos-portais): se uma instrução no prompt do PERSONAGEM não conserta a
    chamada isolada — nem uma proibição explícita do tópico — o defeito NÃO é de

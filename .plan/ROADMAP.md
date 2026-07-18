@@ -34,6 +34,7 @@ detalhada + regras de commit da sessão autônoma). Referência de arquitetura:
 | 39 — Memória do ledger | increment 1 FEITO (dimensão de memória, schema v8, 560 testes). **increment 2 (risco: compactação) → Fable**, ver `HANDOFF-FABLE.md` |
 | 27 — SDK isolado + pipeline de curadoria | **exploração DELIVERED** (`docs/plugin-ecosystem-topology-exploration-2026-07-17.md`); aguarda aceite do dono + verificação com checkout do hub |
 | 38 — Roteiro (opt-in, OFF) | **ENTREGUE COM RESSALVAS, mantida aberta** (não migra pra closed/): ganhos de engine banked, mas o roteiro é cara-ou-coroa em cena procedural (portais 2W/2L). Ver banner na task + relatório em `docs/cases/`. Fixes futuros: disrupção avança o arco; watcher 33b |
+| 41 — Diretor onisciente + reconciliação de canon (EMERGENCIAL) | **ENTREGUE** (replay produção 3/3 no caso real c2e5107b; 9 testes; guard determinístico de thought; zonas dinâmicas; canon-antes-da-prosa); ressalva: revalidar famílias de vazamento no relógio do xfail |
 | 19 — Security hardening | **ENTREGUE COM RESSALVAS**: boundary origem+token + política de alvo de provider implementados e revisados (buraco do origin `null` fechado; same-origin LAN liberado; token nunca persistido; 403-retry pós-restart); falta só o outcome 6 (smoke tests desktop/Docker/Android) |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run 1 = 0 violações (primeira XPASS do programa); variância semântica restante: cumprimento de promessa, discrição vs auditoria, confabulação de alias |
 
