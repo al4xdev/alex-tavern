@@ -930,6 +930,75 @@ class TestCharacterOutputGuard:
         assert len(calls) == 1
         assert MARKER in (output["speech"] or "")
 
+
+class TestCharacterRepetitionGuard:
+    """Task 38 loop: character output must not echo its own recent line or parrot
+    another's — the analog of the narration lexical backstop, for speech/thought."""
+
+    PRIOR = "A escuridão lá fora parece esconder algo que se move devagar."
+
+    def _history(self) -> list[TurnRecord]:
+        # C2's own earlier private thought (visible to C2 for the self-echo check).
+        return [_record(1, "C2", self.PRIOR, "thought")]
+
+    async def _act(self, monkeypatch, responses):  # noqa: ANN001, ANN202
+        queue = list(responses)
+        calls: list[list[dict]] = []
+
+        async def fake(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            calls.append(messages)
+            return queue.pop(0)
+
+        monkeypatch.setattr(character_mod, "chat_completion_json", fake)
+        output = await character_mod.act(
+            client=None,
+            character=THREE_CHARACTERS["C2"],
+            context="Algo se move na noite.",
+            history=self._history(),
+            characters=THREE_CHARACTERS,
+            controlled_id="C1",
+            character_id="C2",
+            config={},
+            scene=SCENE,
+        )
+        return output, calls
+
+    @pytest.mark.asyncio
+    async def test_echoed_thought_retries_then_accepts_fresh(self, monkeypatch) -> None:  # noqa: ANN001
+        output, calls = await self._act(
+            monkeypatch,
+            [
+                {"speech": None, "thought": self.PRIOR},  # verbatim echo of the prior thought
+                {"speech": "Vou trancar a porta agora mesmo.", "thought": "Preciso agir."},
+            ],
+        )
+        assert len(calls) == 2
+        assert "CORRECTION" in calls[1][-1]["content"]
+        assert output["thought"] == "Preciso agir."
+
+    @pytest.mark.asyncio
+    async def test_persistent_echo_drops_field_keeps_the_other(self, monkeypatch) -> None:  # noqa: ANN001
+        fresh_speech = "Alguém precisa vigiar a porta esta noite inteira."
+        output, calls = await self._act(
+            monkeypatch,
+            [
+                {"speech": fresh_speech, "thought": self.PRIOR},
+                {"speech": fresh_speech, "thought": self.PRIOR},  # thought still echoes
+            ],
+        )
+        assert len(calls) == 2
+        assert output["thought"] is None  # echoed field dropped
+        assert output["speech"] == fresh_speech  # the other survives (never mute)
+
+    @pytest.mark.asyncio
+    async def test_fresh_output_passes_single_call(self, monkeypatch) -> None:  # noqa: ANN001
+        output, calls = await self._act(
+            monkeypatch,
+            [{"speech": "Fiquem atentos, ouvi passos lá fora.", "thought": "Não é o vento."}],
+        )
+        assert len(calls) == 1
+        assert output["speech"] == "Fiquem atentos, ouvi passos lá fora."
+
     @pytest.mark.asyncio
     async def test_end_to_end_public_record_never_contains_secret(self, monkeypatch) -> None:  # noqa: ANN001
         """Via player_turn real: fake que insiste em vazar → registro público redigido."""

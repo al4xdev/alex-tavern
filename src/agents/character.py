@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from difflib import SequenceMatcher
 from typing import TypedDict
 
 import httpx
@@ -272,6 +273,50 @@ _WHISPER_LEAK_CORRECTION = (
     "without any detail from the whisper (no names, codes, numbers, or facts "
     "from it); your private thought may keep them.\n"
 )
+_REPETITION_CORRECTION = (
+    "\nCORRECTION: Your previous answer nearly repeated a line already in RECENT "
+    "EVENTS (your own earlier words or another character's). Say something new: "
+    "a fresh reaction or a next step, never a restatement of what was already "
+    "said.\n"
+)
+_ECHO_THRESHOLD = 0.88
+_ECHO_MIN_CHARS = 30
+
+
+def _echoed_output_field(
+    output: CharacterOutput, history: list[TurnRecord], character_id: str
+) -> str | None:
+    """The output field ('thought'/'speech') that near-echoes a recent line.
+
+    Compares against what this character can see: its own prior thoughts plus
+    speech/actions visible to it. Catches self-repetition (a thought rendered
+    verbatim two turns apart) and parroting another's line. Thought is preferred
+    for removal (less load-bearing than speech). Short lines are exempt to avoid
+    firing on common phrasings.
+    """
+    recent = [
+        _normalize_sentence(rec.content)
+        for rec in history
+        if len(rec.content) >= _ECHO_MIN_CHARS
+        and (
+            (rec.content_type in ("speech", "action") and record_visible_to(rec, character_id))
+            or (rec.content_type == "thought" and rec.speaker == character_id)
+        )
+    ]
+    if not recent:
+        return None
+    for field in ("thought", "speech"):
+        value = output.get(field)
+        if not value or len(value) < _ECHO_MIN_CHARS:
+            continue
+        norm = _normalize_sentence(value)
+        if any(SequenceMatcher(None, norm, prior).ratio() >= _ECHO_THRESHOLD for prior in recent):
+            return field
+    return None
+
+
+def _normalize_sentence(text: str) -> str:
+    return " ".join(text.lower().split())
 
 
 def _leaked_secret_tokens(
@@ -420,29 +465,42 @@ async def act(
             reply_audience,
             scene,
         )
-        if not leaked:
-            return output
-        if attempt == 0:
+        if leaked:
+            if attempt == 0:
+                if session_id:
+                    log_whisper_output_guard(
+                        session_id,
+                        turn_number,
+                        character_id,
+                        outcome="retried",
+                        leaked_tokens=sorted(leaked),
+                        attempt_number=attempt + 1,
+                    )
+                correction = _WHISPER_LEAK_CORRECTION
+                continue
             if session_id:
                 log_whisper_output_guard(
                     session_id,
                     turn_number,
                     character_id,
-                    outcome="retried",
+                    outcome="redacted",
                     leaked_tokens=sorted(leaked),
                     attempt_number=attempt + 1,
                 )
-            correction = _WHISPER_LEAK_CORRECTION
-            continue
-        if session_id:
-            log_whisper_output_guard(
-                session_id,
-                turn_number,
-                character_id,
-                outcome="redacted",
-                leaked_tokens=sorted(leaked),
-                attempt_number=attempt + 1,
-            )
-        assert output["speech"] is not None
-        return {"speech": redact_tokens(output["speech"], leaked), "thought": output["thought"]}
+            assert output["speech"] is not None
+            output = {"speech": redact_tokens(output["speech"], leaked), "thought": output["thought"]}
+
+        # Anti-repetition guard: a character that echoes its own recent thought
+        # verbatim, or parrots another's visible line, is caught here — retry
+        # once, then deterministically drop the echoed field if the other
+        # survives (never mute the character entirely).
+        echoed = _echoed_output_field(output, history, character_id)
+        if echoed:
+            if attempt == 0:
+                correction = _REPETITION_CORRECTION
+                continue
+            other = "speech" if echoed == "thought" else "thought"
+            if output.get(other):
+                output = {**output, echoed: None}
+        return output
     raise ValueError(f"Invalid Character response after correction: {last_error}")
