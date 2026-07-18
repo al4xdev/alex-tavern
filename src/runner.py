@@ -26,6 +26,8 @@ from src.agents.perspective import (
     capture_memory,
     initialize_perspective,
     needs_identity_update,
+    needs_memory_revision,
+    revise_memory,
     update_identity,
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
@@ -1676,6 +1678,19 @@ class Runner:
             game.characters,
             game.player.controlled_character_id,
         )
+        if needs_memory_revision(perspective):
+            # Semantic revision (Task 39 inc.2): condense the older digest into
+            # memory_summary instead of losing it to the MAX bound. Maintenance
+            # call - failures are swallowed inside and retried on a later turn.
+            await revise_memory(
+                self.client,
+                viewer_id,
+                perspective,
+                game.characters,
+                self.config,
+                session_id=game.session_id,
+                turn_number=turn_number,
+            )
 
     async def _call_character(
         self,

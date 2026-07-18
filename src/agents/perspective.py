@@ -359,6 +359,111 @@ def project_text_for_viewer(
 
 
 MAX_RECENT_MEMORY = 24
+# Semantic revision (Task 39 inc.2): when the raw digest grows past the
+# trigger, the older lines are condensed into memory_summary instead of being
+# silently truncated at the MAX bound; the newest tail stays raw.
+MEMORY_REVISION_TRIGGER = 20
+MEMORY_KEEP_RAW_TAIL = 8
+
+
+def needs_memory_revision(perspective: CharacterPerspective) -> bool:
+    """Deterministic trigger: enough raw digest lines to be worth condensing."""
+    return len(perspective.recent_memory) >= MEMORY_REVISION_TRIGGER
+
+
+def build_memory_revision_messages(
+    viewer_name: str,
+    memory_summary: str,
+    older_lines: list[str],
+) -> list[dict]:
+    """Messages that condense a viewer's older memory into one summary.
+
+    Pure builder (replayable in isolation). The lines are already
+    viewer-projected digests; the summary is the character's own durable
+    memory, written in their voice.
+    """
+    system = (
+        f"You maintain the private memory of the character {viewer_name}.\n"
+        "Merge the CURRENT MEMORY SUMMARY and the OLDER MEMORY LINES into ONE\n"
+        "updated summary, in the language of the lines.\n"
+        "Rules:\n"
+        "- Write in FIRST PERSON (this is your own remembered experience, not a\n"
+        "  report): no turn markers, no timestamps, flowing sentences.\n"
+        "- Preserve exactly: promises and commitments, relationship changes,\n"
+        "  secrets/codes/numbers verbatim, unresolved threads, and who did what\n"
+        "  to whom. Drop atmosphere and incidental detail.\n"
+        "- Only merge what is given: never invent events, names, or feelings.\n"
+        "- Refer to each person EXACTLY as the lines refer to them; never merge\n"
+        "  two different references into one person, even if they could match.\n"
+        "- At most 120 words.\n"
+    )
+    user = (
+        "CURRENT MEMORY SUMMARY:\n"
+        f"{memory_summary.strip() or '(none yet)'}\n\n"
+        "OLDER MEMORY LINES (oldest to newest, being condensed away):\n"
+        + "\n".join(f"  {line}" for line in older_lines)
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+
+def build_memory_revision_schema() -> dict:
+    return {
+        "name": "memory_revision",
+        "schema": {
+            "type": "object",
+            "properties": {"memory_summary": {"type": "string"}},
+            "required": ["memory_summary"],
+            "additionalProperties": False,
+        },
+    }
+
+
+async def revise_memory(
+    client: httpx.AsyncClient,
+    viewer_id: str,
+    perspective: CharacterPerspective,
+    characters: dict[str, Character],
+    config: dict,
+    session_id: str = "",
+    turn_number: int = 0,
+) -> None:
+    """Condense the older raw digest into ``memory_summary`` (mutates the ledger).
+
+    Maintenance, not content: a provider flake must never fail the player's
+    turn, so failures are swallowed — the raw lines stay and the trigger simply
+    fires again on a later turn.
+    """
+    older = perspective.recent_memory[:-MEMORY_KEEP_RAW_TAIL]
+    if not older:
+        return
+    viewer_name = characters[viewer_id].mind.name if viewer_id in characters else viewer_id
+    messages = build_memory_revision_messages(
+        viewer_name, perspective.memory_summary, older
+    )
+    try:
+        result = await chat_completion_json(
+            client,
+            messages,
+            model=config.get("model", ""),
+            language=config.get("language", ""),
+            max_tokens=config.get("summarizer_max_tokens", 1024),
+            timeout=resolve_llm_timeout(config),
+            json_schema=build_memory_revision_schema(),
+            session_id=session_id,
+            turn_number=turn_number,
+            agent=f"perspective:memory:{viewer_id}",
+            **llm_request_options(config),
+        )
+        revised = str(result.get("memory_summary", "")).strip()
+    except Exception:  # noqa: BLE001 - maintenance must never fail the turn
+        return
+    if not revised:
+        return
+    perspective.memory_summary = revised
+    del perspective.recent_memory[:-MEMORY_KEEP_RAW_TAIL]
 
 
 def capture_memory(

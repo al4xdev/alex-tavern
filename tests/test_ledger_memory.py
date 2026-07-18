@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from src.agents.character import _build_user_prompt, _ledger_memory_text
 from src.agents.perspective import MAX_RECENT_MEMORY, capture_memory
 from src.models import (
@@ -202,3 +204,48 @@ class TestUndoPreservesMemory:
         finally:
             await delete_session(sid)
             await client.aclose()
+
+
+class TestMemoryRevision:
+    def test_trigger_threshold(self) -> None:
+        from src.agents.perspective import MEMORY_REVISION_TRIGGER, needs_memory_revision
+
+        assert not needs_memory_revision(_perspective(recent_memory=["x"] * (MEMORY_REVISION_TRIGGER - 1)))
+        assert needs_memory_revision(_perspective(recent_memory=["x"] * MEMORY_REVISION_TRIGGER))
+
+    def test_builder_carries_rules_and_lines(self) -> None:
+        from src.agents.perspective import build_memory_revision_messages
+
+        msgs = build_memory_revision_messages("Marta", "resumo atual", ["T1 A disse: oi", "T2 B fez: saiu"])
+        system, user = msgs[0]["content"], msgs[1]["content"]
+        assert "FIRST PERSON" in system
+        assert "never merge" in system
+        assert "resumo atual" in user and "T2 B fez: saiu" in user
+
+    @pytest.mark.asyncio
+    async def test_revision_condenses_and_keeps_tail(self, monkeypatch) -> None:  # noqa: ANN001
+        import src.agents.perspective as pmod
+        from src.agents.perspective import MEMORY_KEEP_RAW_TAIL, revise_memory
+
+        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            return {"memory_summary": "Lembro do essencial."}
+
+        monkeypatch.setattr(pmod, "chat_completion_json", fake_chat)
+        p = _perspective(recent_memory=[f"linha {i}" for i in range(22)])
+        await revise_memory(None, "C2", p, CHARACTERS, {})
+        assert p.memory_summary == "Lembro do essencial."
+        assert p.recent_memory == [f"linha {i}" for i in range(22 - MEMORY_KEEP_RAW_TAIL, 22)]
+
+    @pytest.mark.asyncio
+    async def test_provider_failure_never_mutates_or_raises(self, monkeypatch) -> None:  # noqa: ANN001
+        import src.agents.perspective as pmod
+        from src.agents.perspective import revise_memory
+
+        async def boom(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            raise ValueError("provider flake")
+
+        monkeypatch.setattr(pmod, "chat_completion_json", boom)
+        p = _perspective(recent_memory=[f"linha {i}" for i in range(22)], memory_summary="antigo")
+        await revise_memory(None, "C2", p, CHARACTERS, {})  # must not raise
+        assert p.memory_summary == "antigo"
+        assert len(p.recent_memory) == 22
