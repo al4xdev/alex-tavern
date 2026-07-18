@@ -16,6 +16,10 @@ PLUGINS_DIR = DATA_DIR / "plugins"
 PLUGIN_CACHE_DIR = PLUGINS_DIR / "cached"
 PLUGIN_STARTED_DIR = PLUGINS_DIR / "started"
 PLUGIN_CONFIG_DIR = PLUGINS_DIR / "config"
+# Private per-plugin runtime storage namespace (Task 21). Distinct from
+# PLUGIN_CACHE_DIR ("cached"), which holds core-owned installed plugin ARCHIVES,
+# not plugin-authored runtime files.
+PLUGIN_STORAGE_DIR = PLUGINS_DIR / "storage"
 PLUGIN_ENV_DIR = PLUGINS_DIR / "environment"
 PLUGIN_RUNTIME_PATH = PLUGINS_DIR / "runtime.json"
 PLUGIN_EVENTS_PATH = PLUGINS_DIR / "events.jsonl"

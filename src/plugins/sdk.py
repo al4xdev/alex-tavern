@@ -15,12 +15,92 @@ import httpx
 
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, resolve_llm_timeout
-from src.paths import PLUGIN_CONFIG_DIR
+from src.paths import PLUGIN_CONFIG_DIR, PLUGIN_STORAGE_DIR
 from src.plugins.hooks import Handler, HookKind, HookRegistry
 from src.plugins.journal import emit
 from src.plugins.manifest import PluginManifest
 
 _config_lock = threading.RLock()
+
+
+class PluginStorage:
+    """A plugin's private, path-safe runtime storage namespace (Task 21).
+
+    Each plugin owns everything under ``.data/plugins/storage/<plugin-id>/`` and
+    nothing outside it. The core creates the root, resolves paths safely, and
+    rejects any attempt to escape the namespace (absolute paths, ``..``
+    traversal, symlink escape); it never interprets the files. The internal
+    layout is entirely the plugin's own.
+    """
+
+    def __init__(self, plugin_id: str) -> None:
+        self.plugin_id = plugin_id
+        self.root = PLUGIN_STORAGE_DIR / plugin_id
+
+    @property
+    def path(self) -> Path:
+        """The plugin's storage root, created on first access."""
+        self.root.mkdir(parents=True, exist_ok=True)
+        return self.root
+
+    def resolve(self, *parts: str) -> Path:
+        """Resolve a path inside the namespace, rejecting any escape.
+
+        Every component must be a non-empty relative string; the fully resolved
+        path (symlinks included) must stay under the plugin root.
+        """
+        root = self.root.resolve()
+        if not parts:
+            return root
+        for part in parts:
+            if not isinstance(part, str) or not part.strip():
+                raise ValueError("storage path components must be non-empty strings")
+            if "\x00" in part or os.path.isabs(part):
+                raise ValueError(f"unsafe storage path component: {part!r}")
+        candidate = self.root.joinpath(*parts).resolve()
+        if candidate != root and root not in candidate.parents:
+            raise ValueError("storage path escapes the plugin namespace")
+        return candidate
+
+    def exists(self, *parts: str) -> bool:
+        return self.resolve(*parts).exists()
+
+    def mkdir(self, *parts: str) -> Path:
+        target = self.resolve(*parts)
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+
+    def open(self, *parts: str, mode: str = "r", **kwargs: Any):  # noqa: ANN201
+        """Open a file inside the namespace; parent dirs are created for writes."""
+        if not parts:
+            raise ValueError("open requires at least one path component")
+        target = self.resolve(*parts)
+        if any(flag in mode for flag in ("w", "a", "x", "+")):
+            emit("permission_access", self.plugin_id, permission="storage.write")
+            target.parent.mkdir(parents=True, exist_ok=True)
+        binary = "b" in mode
+        return open(target, mode, **({} if binary else {"encoding": "utf-8"}), **kwargs)
+
+    def remove(self, *parts: str, recursive: bool = False) -> None:
+        """Remove a file or directory inside the namespace (no-op if absent)."""
+        target = self.resolve(*parts)
+        if target == self.root.resolve():
+            raise ValueError("cannot remove the storage root itself")
+        emit("permission_access", self.plugin_id, permission="storage.write")
+        if not target.exists():
+            return
+        if target.is_dir():
+            if not recursive:
+                raise ValueError("removing a directory requires recursive=True")
+            import shutil
+
+            shutil.rmtree(target)
+        else:
+            target.unlink()
+
+    def for_session(self, session_id: str) -> Path:
+        """Recommended (not mandatory) per-session subdir inside the namespace."""
+        return self.mkdir("sessions", session_id)
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
@@ -158,6 +238,7 @@ class PluginContext:
         self.manifest = manifest
         self.plugin_id = manifest.plugin_id
         self.config = PluginConfig(self.plugin_id)
+        self.storage = PluginStorage(self.plugin_id)
         self.http = PluginHttp(self.plugin_id)
         self.model = PluginModel(self.plugin_id)
         self.unsafe = UnsafeAccess(self.plugin_id, runtime)

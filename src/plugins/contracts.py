@@ -166,6 +166,7 @@ CONTRIBUTION_SLOTS = {
 PERMISSIONS = {
     "config.read": "Read the plugin-owned configuration object",
     "config.write": "Replace the plugin-owned configuration object",
+    "storage.write": "Write files inside the plugin's private storage namespace",
     "network": "Perform outbound HTTP requests",
     "model.call": "Call the active provider through the structured core model gateway",
     "session.state.write": "Mutate GameState and namespaced plugin_state",
@@ -192,7 +193,17 @@ SERVICES = {
         "agent": "plugin:<plugin_id>",
         "secrets": "never exposed to the plugin",
         "validation": "JSON Schema plus local validation and shared retries",
-    }
+    },
+    "storage": {
+        "kind": "private path-safe filesystem namespace",
+        "access": "context.storage",
+        "root": ".data/plugins/storage/<plugin-id>/",
+        "api": ["path", "resolve(*parts)", "open(*parts, mode)", "exists", "mkdir",
+                "remove(*parts, recursive)", "for_session(session_id)"],
+        "safety": "rejects absolute paths, .. traversal, symlink escape; contents opaque to core",
+        "vs_config": "config is small/validated JSON; storage is arbitrary plugin-owned files",
+        "docs": "docs/plugin-storage.md",
+    },
 }
 
 SETTINGS = {
