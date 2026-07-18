@@ -43,3 +43,31 @@ authority, no parallel memories).
 - [ ] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
   both compactions; secret family stays 0.
 - [ ] Undo/fork/restore preserve ledger memory exactly.
+
+## Design frozen (2026-07-17, Opus) — staged increments
+
+### Increment 1 (additive, deterministic, LOW risk) — THIS increment
+- `CharacterPerspective` gains a memory dimension (schema v8):
+  - `recent_memory: list[str]` — deterministic, continuous capture of what the
+    viewer perceived, one compact digest per witnessed turn, viewer-projected
+    (no unlearned names/IDs — reuse the same projection as the identity ledger).
+    Bounded (keep last N, e.g. 24).
+  - `memory_summary: str = ""` — reserved for the LLM semantic revision
+    (increment 2 fills it); empty in increment 1.
+- Runner captures the digest when a character witnesses a turn (it already
+  computes `render_events_for_viewer` per speaker; add heard speech too).
+- `_build_user_prompt` "What you remember" reads the ledger memory
+  (memory_summary + recent_memory), falling back to `character_notes` while both
+  coexist. character_notes STAYS this increment (no removal yet).
+- Undo/fork/restore already deep-copy the perspective; verify memory survives.
+- Acceptance hit now: rapport accumulates WITHIN a session with no compaction
+  (the ef6b5b90 complaint) — deterministic, unit-testable, no LLM.
+
+### Increment 2 (removal, HIGHER risk) — next
+- LLM semantic revision: condense `recent_memory` into `memory_summary` +
+  bounded important entries, batched/co-scheduled with a narrator call.
+- REMOVE `character_notes`, the private summarizer calls
+  (`build_private_memory_messages`, summarize's notes path), checkpoint note
+  fields. Forward-only. Reconcile Task 23's private-recall half.
+- Re-validate xfailed3 retention probes (ribbon, origin) via ledger memory
+  across both compactions; secret family stays 0.

@@ -356,3 +356,41 @@ def project_text_for_viewer(
                 rf"\b{re.escape(canonical)}\b", view.reference, projected, flags=re.IGNORECASE
             )
     return projected
+
+
+MAX_RECENT_MEMORY = 24
+
+
+def capture_memory(
+    perspective: CharacterPerspective,
+    history: list[TurnRecord],
+    viewer_id: str,
+    characters: dict[str, Character],
+    controlled_id: str,
+) -> None:
+    """Fold newly-perceived turns into the viewer's durable memory (Task 39).
+
+    Deterministic and continuous: appends one viewer-projected digest per
+    speech/action the viewer witnessed (their own included) since
+    ``memory_through_turn``, so rapport accumulates within a session without a
+    compaction. No LLM. Bounded to the most recent ``MAX_RECENT_MEMORY`` lines.
+    """
+    new_records = [
+        record
+        for record in history
+        if record.turn_number > perspective.memory_through_turn
+        and record.content_type in ("speech", "action")
+        and (record.speaker == viewer_id or record_visible_to(record, viewer_id))
+    ]
+    if not new_records:
+        return
+    for record in new_records:
+        label = viewer_speaker_label(record.speaker, characters, controlled_id, perspective)
+        content = project_text_for_viewer(record.content, characters, perspective)
+        verb = "disse" if record.content_type == "speech" else "fez"
+        perspective.recent_memory.append(f"T{record.turn_number} {label} {verb}: {content}")
+    perspective.memory_through_turn = max(
+        perspective.memory_through_turn, *(r.turn_number for r in new_records)
+    )
+    if len(perspective.recent_memory) > MAX_RECENT_MEMORY:
+        del perspective.recent_memory[: -MAX_RECENT_MEMORY]

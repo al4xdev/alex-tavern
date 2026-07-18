@@ -19,8 +19,9 @@ from typing import Any
 # context_for_character (Task 29.2, increment 2); 5 = autonomous event
 # scheduler counter (Task 33); 6 = audience_origin on TurnRecord separating
 # intentional whispers (secrecy) from zone-computed scoping (physics);
-# 7 = roteiro (premise + act skeleton + rolling beat contract) on GameState.
-SESSION_SCHEMA_VERSION = 7
+# 7 = roteiro (premise + act skeleton + rolling beat contract) on GameState;
+# 8 = memory dimension on CharacterPerspective (recent_memory + memory_summary).
+SESSION_SCHEMA_VERSION = 8
 
 
 @dataclass
@@ -103,6 +104,16 @@ class CharacterPerspective:
     initialized_turn: int
     processed_through_turn: int
     people: dict[str, PersonView] = field(default_factory=dict)
+    # Durable private memory (Task 39, schema v8). ``recent_memory`` is a
+    # deterministic, continuous digest of what this viewer actually perceived
+    # (viewer-projected, bounded), so rapport accumulates within a session
+    # without waiting for a compaction. ``memory_summary`` is reserved for the
+    # batched LLM revision (increment 2); empty until then.
+    recent_memory: list[str] = field(default_factory=list)
+    memory_summary: str = ""
+    # Cursor: highest turn already folded into recent_memory (own capture cadence,
+    # independent of the identity updater's processed_through_turn).
+    memory_through_turn: int = 0
 
 
 def perspective_to_dict(perspective: CharacterPerspective) -> dict[str, Any]:
@@ -113,6 +124,9 @@ def dict_to_perspective(data: dict[str, Any]) -> CharacterPerspective:
     return CharacterPerspective(
         initialized_turn=int(data["initialized_turn"]),
         processed_through_turn=int(data["processed_through_turn"]),
+        recent_memory=list(data.get("recent_memory", [])),
+        memory_summary=str(data.get("memory_summary", "")),
+        memory_through_turn=int(data.get("memory_through_turn", 0)),
         people={
             subject_id: PersonView(
                 known_name=item["known_name"],

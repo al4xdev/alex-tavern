@@ -23,6 +23,7 @@ from src.agents.narrator import build_narrator_messages, narrate, redact_whisper
 from src.agents.narrator import suggest as narrator_suggest
 from src.agents.prose import render_narration
 from src.agents.perspective import (
+    capture_memory,
     initialize_perspective,
     needs_identity_update,
     update_identity,
@@ -1633,6 +1634,16 @@ class Runner:
                 session_id=game.session_id,
                 turn_number=turn_number,
             )
+        # Durable memory (Task 39): fold what this viewer has perceived since it
+        # last spoke into its ledger memory — deterministic, no LLM, so rapport
+        # accumulates within the session without waiting for a compaction.
+        capture_memory(
+            perspective,
+            game.history,
+            viewer_id,
+            game.characters,
+            game.player.controlled_character_id,
+        )
 
     async def _call_character(
         self,

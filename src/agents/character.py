@@ -144,15 +144,38 @@ def _build_system_prompt(character: Character) -> str:
     )
 
 
+def _ledger_memory_text(viewer_perspective) -> str:  # noqa: ANN001
+    """The viewer's durable memory rendered for the prompt (Task 39).
+
+    A batched semantic summary (increment 2) leads when present; the continuous
+    deterministic digest follows. Empty when the ledger has no memory yet.
+    """
+    if viewer_perspective is None:
+        return ""
+    parts: list[str] = []
+    summary = getattr(viewer_perspective, "memory_summary", "").strip()
+    if summary:
+        parts.append(summary)
+    recent = getattr(viewer_perspective, "recent_memory", [])
+    parts.extend(recent)
+    return "\n".join(parts)
+
+
 def _build_user_prompt(
     context: str,
     history_text: str,
     current_mood: str,
     notes: str,
     whisper_note: str = "",
+    ledger_memory: str = "",
 ) -> str:
-    """Put append-only history before the Character's changing state and context."""
-    memory = notes.strip() or "(none yet)"
+    """Put append-only history before the Character's changing state and context.
+
+    ``ledger_memory`` is the viewer's durable, viewer-projected memory (Task 39);
+    it is the primary "What you remember" source. ``notes`` (legacy
+    ``character_notes``) is a fallback while both coexist.
+    """
+    memory = ledger_memory.strip() or notes.strip() or "(none yet)"
     return (
         "RECENT EVENTS:\n"
         f"{history_text}\n"
@@ -421,6 +444,7 @@ async def act(
                     character_id,
                     viewer_perspective=viewer_perspective,
                 ),
+                ledger_memory=_ledger_memory_text(viewer_perspective),
             ),
         },
     ]
