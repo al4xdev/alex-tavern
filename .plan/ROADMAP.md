@@ -40,19 +40,27 @@ Referência de arquitetura:
 
 > **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
-## 📋 Sequência principal (após 28/30)
+## 🌙 FILA DA MADRUGADA (2026-07-18, decisões do usuário já resolvidas)
 
-| Ordem | Task | Depende de |
-|---|---|---|
-| 1 | 39 — Dimensão de memória do ledger (remove `character_notes`) | 35 ✅; melhor pós-36 |
-| 2 | Rodadas de saída 29.3 (xfail estrito sai com 3 runs completas limpas — §15) | cada incremento |
-| — | Render progressivo da rajada (SSE por beat) — lane de UI; arquitetura já suporta | 37 ✅ |
-| — | Gatilho geral de estagnação de tópico no drive layer (Task 33) — quebra loop nos dois braços | 38 (evidência) |
-| — | Disrupção do roteiro avança o arco planejado (não interrompe solto) — cena procedural | 38 |
-| — | Adjudicação da tentativa do jogador (resposta-do-mundo + return_control) | 36/37 |
-| — | **33b** — Controlador de transição de estado de cena (reenquadrado de "watcher"; estado autoritativo + delta material + contrato causal) | 33/38/40; `tasks/33b-*` + doc de estado-de-cena |
-| — | **40** — Relógio narrativo (ticks): o tempo sempre anda, ato amarrado a deadline de tick → o código força a transição do mundo | 38; `tasks/40-*` |
-| — | Pesquisa: estagnação = ausência de transição de estado + comportamento humano (literatura) | `docs/cases/scene-state-transition-and-human-stagnation-2026-07-17.md` |
+Ordem de execução autônoma. Regras permanentes: commits em inglês sem trailer
+de IA; método curl-first (AGENTS.md §6 — a variante validada É a shippada);
+convenção closed/ = só fecho confiante; 529 storm → pular pra item zero-API e
+voltar; `done.sh` ao fim de cada task.
+
+| # | Task | Custo API | Decisões já tomadas |
+|---|---|---|---|
+| 0 | **42 — Narrador fala pouco (EMERGENCIAL)**: prosa curta demais; não é max_tokens, é prompt. Achar FRASE PEQUENA que destrave o deepseek (prompts já estão grandes). Puro curl em payloads reais; suspeito nº 1: "vivid but economical" no PROSE_SYSTEM | baixo | frase mínima, posição no FIM (lição 41); nunca CAP de frases (regra AGENTS) — só piso/riqueza |
+| 1 | 39 inc2(a) — revisão semântica da memória (builder → replay → wire) | baixo | never-fail-the-turn no LLM da revisão |
+| 2 | 39 inc2(b) — remover character_notes + checkpoint | zero | **schema v9 AUTORIZADO** (sessões existentes quebram, ok) |
+| 3 | 39 inc2(c) — reconciliar recall task 23 | zero | pinning de âncora fica |
+| 4 | xfailed3 run 1 (valida 39d + famílias de vazamento da 41) | alto | **1 run; +2 só se limpo; cap 3** |
+| 5 | 40 — relógio narrativo (curl-replay → increment 1) | baixo | v1: tick próprio no GameState, +1/turno commitado, dono do código; time-skip do Diretor = v2 |
+| 6 | 33b — exploração curl (delta material + contrato causal em payloads reais) | médio (~20 calls) | **bateria A/B/C só com o usuário acordado** |
+| F | Fillers (quando bloqueado): MCP curl simples SÓ em tools/ (**autorizado**); medição offline da guarda-por-sentença (26); fakes antigos do test_integration | zero | — |
+
+Pendências que precisam do usuário (NÃO tocar de madrugada): smoke tests da 19
+(desktop/Docker/Android); aceite da exploração 27; bateria A/B/C da 33b.
+
 
 ## 🧺 Lane paralela (independentes)
 
