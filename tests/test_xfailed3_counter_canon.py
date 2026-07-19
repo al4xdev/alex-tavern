@@ -509,17 +509,34 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
                 ):
                     add(rule_id, rule["violation_class"], turn, record.content[:200])
 
-    # SP-01 structural: before the partition opens (end of turn 7), no salon
-    # speech/action may be visible to the isolated delegate. Post-29.2 the
-    # zone graph computes record audiences, so this is deterministic.
+    # SP-01 structural: before the partition opens, no salon speech/action may
+    # be visible to the isolated delegate. Post-29.2 the zone graph computes
+    # record audiences, so this is deterministic. Calibration 2026-07-19 (3/3
+    # blind naturalness samples, owner decision): the player opens the
+    # partition MID turn 7, so within the boundary turn only records BEFORE
+    # the opening action stay isolated - sound reaches the delegate the
+    # moment the divider is open.
     from src.models import record_visible_to
 
-    for record in game.history:
+    opening_index = next(
+        (
+            index
+            for index, record in enumerate(game.history)
+            if record.turn_number == 7
+            and record.content_type == "action"
+            and record.speaker == "Player"
+            and "divis" in record.content.lower()
+        ),
+        None,
+    )
+    for index, record in enumerate(game.history):
         if record.turn_number > 7 or record.turn_number > executed_turns:
             continue
         if record.content_type not in ("speech", "action"):
             continue
         if record.speaker in ("C9", "Narrator"):
+            continue
+        if opening_index is not None and index > opening_index:
             continue
         if record_visible_to(record, "C9"):
             add(
