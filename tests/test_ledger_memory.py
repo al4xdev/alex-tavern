@@ -215,6 +215,9 @@ class TestMemoryRevision:
         system, user = msgs[0]["content"], msgs[1]["content"]
         assert "FIRST PERSON" in system
         assert "never merge" in system
+        # Task 23 reconciliation: confided codes survive condensation verbatim
+        # (the history-side code-anchor pinning is the other half and stays).
+        assert "secrets/codes/numbers verbatim" in system
         assert "resumo atual" in user and "T2 B fez: saiu" in user
 
     @pytest.mark.asyncio
