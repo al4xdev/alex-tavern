@@ -9,7 +9,7 @@ verbatim.
 ## Current Problem
 
 Stochastic, model-level failures observed in 3/3 real DeepSeek runs (case study:
-`docs/cases/multi-character-memory-retention-2026-07-14.md`, §3.2–3.3):
+`docs/cases/07-multi-character-memory-retention-2026-07-14.md`, §3.2–3.3):
 
 - Characters reveal secrets they overheard when directly asked (Vela disclosed the
   hideout `GIRASSOL-222`; Rook disclosed the password) in roughly half the

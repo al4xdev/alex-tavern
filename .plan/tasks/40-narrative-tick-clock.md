@@ -1,7 +1,7 @@
 # Task 40 — Relógio narrativo (sistema de ticks): o tempo sempre anda
 
 **Origem:** ideia do usuário (2026-07-17), mecanização do "relógio do mundo" do
-doc `docs/cases/scene-state-transition-and-human-stagnation-2026-07-17.md`.
+doc `docs/cases/12-scene-state-transition-theory-2026-07-17.md`.
 **Relação:** primitivo fundacional consumido por Task 33 (drive) e Task 33b
 (controlador de transição de cena). **Opt-in a definir.**
 

@@ -1,10 +1,22 @@
-# Task 09: Prompt caching evidence
+# Prompt caching: versioned positive and negative proof on both providers
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 06 |
+| **Date** | 2026-07-12 |
+| **Probe** | `tools/prompt_cache_probe.py` |
+| **Status** | Verified on both supported provider adapters |
+
+## Abstract
+
+Raw usage counters proving when provider-native prompt caching hits and when it deliberately misses, for DeepSeek and llama.cpp. The append-only prompt discipline validated here is what later makes the agentic fan-out economically viable (see No. 10).
+
+---
 **Captured:** 2026-07-12 UTC  
 **Status:** Verified on both supported provider adapters  
 **Probe:** `tools/prompt_cache_probe.py`
 
-## What was proved
+### What was proved
 
 Alex Tavern sent a unique long prompt through its production `chat_completion()` path. For each
 provider the probe performed:
@@ -21,7 +33,7 @@ request reported a non-zero hit and the changed-prefix request reported a smalle
 This proves provider-native input-prefix reuse. It does not claim that generated responses are
 cached; every call generated a new completion.
 
-## DeepSeek V4 Flash
+### DeepSeek V4 Flash
 
 Command:
 
@@ -66,7 +78,7 @@ raw successful repeat usage was:
 The negative control returned zero cache hits. This matches DeepSeek's documented requirement
 that cached content match from the beginning of the input.
 
-## llama.cpp
+### llama.cpp
 
 Command:
 
@@ -116,7 +128,7 @@ The negative control returned zero cached tokens. Durations are retained as obse
 a portable latency guarantee: hardware, batching, slot state, and model generation can change
 them.
 
-## Implementation exercised by the probes
+### Implementation exercised by the probes
 
 - `LlamaCppAdapter.prepare_request()` sends `cache_prompt: true`.
 - Both adapters return content plus the raw `usage` object and normalized cache hit/miss counts.
@@ -131,7 +143,7 @@ The knowledge boundary is unchanged: Narrator history still excludes all thought
 still receives only public speech, its own thoughts, its own note, and the Narrator-filtered scene
 context.
 
-## Automated validation
+### Automated validation
 
 After implementation:
 
@@ -145,7 +157,7 @@ Unit coverage includes provider-specific request controls, response-envelope/cac
 JSONL persistence, stable-prefix ordering, repeatable/negative probe construction, and refusal to
 claim verification when cache counters are missing.
 
-## Reproducing and inspecting
+### Reproducing and inspecting
 
 The probe reads provider settings from `.data/config.json`; it never prints the API key. Start the
 selected backend first, then run one of the commands above. A successful process exit means both
@@ -165,7 +177,7 @@ jq -c '
 ' .data/sessions/<session-id>.debug.jsonl
 ```
 
-## Boundaries
+### Boundaries
 
 - DeepSeek owns cache persistence and may evict entries; its service documents caching as
   best-effort.
@@ -177,7 +189,7 @@ jq -c '
   There is no stale application cache because Alex Tavern stores neither generated responses nor
   provider KV state.
 
-## Primary references
+### Primary references
 
 - [DeepSeek Context Caching](https://api-docs.deepseek.com/guides/kv_cache/)
 - [DeepSeek chat completion usage fields](https://api-docs.deepseek.com/api/create-chat-completion/)

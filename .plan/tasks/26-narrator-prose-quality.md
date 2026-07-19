@@ -10,7 +10,7 @@ person-of-address oscillation.
 
 Findings from the blind continuity review of three real sessions
 (`plans/artifacts/memory_focus_xyz-avaliacao-narrativa.md`; case study
-`docs/cases/multi-character-memory-retention-2026-07-14.md`, §3.3):
+`docs/cases/07-multi-character-memory-retention-2026-07-14.md`, §3.3):
 
 - **Boilerplate narration**: near-identical sensory sentences recycled across turns
   ("sente o couro do colete esticar", "alguém arrasta um banco"); one character kept a

@@ -20,7 +20,7 @@ filter in `src/agents/character.py` (`_format_history_for_character`) keeps only
 
 This is the leading hypothesis for the originally reported "character forgot" incident
 (session driven through narrator auto-suggestions; original data lost). See
-`docs/cases/multi-character-memory-retention-2026-07-14.md`, §4.1.
+`docs/cases/07-multi-character-memory-retention-2026-07-14.md`, §4.1.
 
 ## Evidence
 

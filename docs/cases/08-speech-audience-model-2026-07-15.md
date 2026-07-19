@@ -1,16 +1,29 @@
-# Case study: An audience model for multi-character speech, validated by a bias-controlled remediation loop
+# An audience model for multi-character speech, validated by a bias-controlled remediation loop
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 08 |
+| **Date** | 2026-07-15 |
+| **Provider** | DeepSeek V4 Flash, Portuguese, real API |
+| **Tasks** | 22 and 24, closed |
+| **Status** | Adopted: audience-stamped records are the perception substrate |
+
+## Abstract
+
+Witnessed actions and a whisper/audience model for speech, validated by two-level recall assertions, blind continuity review, and a bias-controlled loop of uncontexted fixer subagents (two cycles). The pipeline closed leak-free; behavioral residuals were routed onward. The audience-stamped record introduced here later became the substrate of the zone graph and the structural-isolation benchmarks.
+
+---
 **Date**: 2026-07-15
 **Provider under test**: DeepSeek V4 Flash (`deepseek-v4-flash`), Portuguese, real API
 **Scope**: Tasks 24 (fact ingestion visibility) and 22 (speech audience model), closed in
 `.plan/closed/`
-**Predecessor**: `multi-character-memory-retention-2026-07-14.md` (the investigation that
+**Predecessor**: `07-multi-character-memory-retention-2026-07-14.md` (the investigation that
 produced the defect list this work remediates)
 **Artifacts**: `plans/artifacts/memory_action_fact-run1/`, `plans/artifacts/memory_audience-run-{v1,v2-pos-ciclo1,v3-pos-ciclo2}/`
 **Status**: Concluded — architectural information boundary in place; residual behavioral
 defects routed to open tasks
 
-## Abstract
+### Abstract
 
 The predecessor investigation established that the engine had no information boundary:
 every speech record reached every present character's prompt, while the narrator's
@@ -29,7 +42,7 @@ cycle 2, no whispered content reached an outsider's prompt through any pipeline 
 a character electing to say a secret aloud — which is a behavioral defect already
 tracked separately.
 
-## 1. Problem statement
+### 1. Problem statement
 
 From the predecessor case, two confirmed defects:
 
@@ -44,9 +57,9 @@ From the predecessor case, two confirmed defects:
 The project is alpha with no legacy constraints; breaking serialization compatibility
 was explicitly authorized.
 
-## 2. Design
+### 2. Design
 
-### 2.1 Task 24 — witnessed actions (smallest fix)
+#### 2.1 Task 24 — witnessed actions (smallest fix)
 
 `_format_history_for_character` (`src/agents/character.py`) now includes `action`
 records, labeled `TYPE=ACTION`. Narration remains narrator-only: it is omniscient,
@@ -54,7 +67,7 @@ reader-facing prose whose leakage into character context would change both econo
 and epistemics. "Witnessed" initially meant "present"; the audience model below refines
 it.
 
-### 2.2 Task 22 — the audience model
+#### 2.2 Task 22 — the audience model
 
 - **State**: `TurnRecord.audience: list[str] | None` (`src/models.py`). `None` means
   public (visible to everyone present — the previous behavior, preserved for existing
@@ -75,7 +88,7 @@ it.
   character inside the whisper's audience, that character's reply keeps the same
   audience — a whispered exchange stays whispered end to end.
 
-## 3. Validation method
+### 3. Validation method
 
 Three independent evidence layers, in increasing distance from the code:
 
@@ -93,7 +106,7 @@ Three independent evidence layers, in increasing distance from the code:
    (`tools/render_transcript.py`) and handed to a fresh clean-context agent acting as a
    screenwriter/continuity editor, with no access to code, plans, or prior analyses.
 
-### 3.1 The bias-controlled remediation loop
+#### 3.1 The bias-controlled remediation loop
 
 Rule set by the project owner: when acceptance fails, the implementing agent must not
 fix the failure it just diagnosed. Instead it dispatches a **fixer subagent with no
@@ -104,9 +117,9 @@ The rationale is straightforward: the author of a diagnosis tends to implement t
 their diagnosis presupposes; a cold agent must rediscover the mechanism from the
 symptom, which both validates the diagnosis and diversifies the fix.
 
-## 4. Results
+### 4. Results
 
-### 4.1 Task 24 acceptance
+#### 4.1 Task 24 acceptance
 
 Scenario `memory_action_fact.json` (a code shown on a parchment via the action field,
 then burned; noise with decoys; whispered-free recall test): 3/3 repetitions passed at
@@ -118,7 +131,7 @@ first acceptance round failed 3/3 purely because the reply regex was case-sensit
 the criterion, not the engine, was fixed (and forbidden patterns were hardened to
 case-insensitive in the same change).
 
-### 4.2 Task 22 acceptance across remediation rounds
+#### 4.2 Task 22 acceptance across remediation rounds
 
 | Round | Result (9 checks = 3 checks × 3 reps) | Remaining failure mode |
 |---|---|---|
@@ -142,7 +155,7 @@ case-insensitive in the same change).
   hole: narration must never launder a whispered token into "known", since characters
   never receive narration.
 
-### 4.3 Blind continuity review (final round, 3 sessions)
+#### 4.3 Blind continuity review (final round, 3 sessions)
 
 - Whisper semantics hold as *fiction*: the best session (`f85b5845`) keeps the secret
   through 28 public turns and converts the whisper into drama — the excluded character
@@ -160,7 +173,7 @@ case-insensitive in the same change).
   tal de C3") leaking into a character's thought, one "diesel" anachronism, and
   verbatim thought loops in long single-character stretches.
 
-## 5. Discussion
+### 5. Discussion
 
 1. **Two-level assertions carried the whole investigation.** Prompt-versus-reply
    separation localized every failure to the correct layer within minutes: character
@@ -182,7 +195,7 @@ case-insensitive in the same change).
    model guarantees who *can* know a secret; it cannot make a talkative character keep
    one. That residual is measurable (reply-forbidden rate) and tracked as its own task.
 
-## 6. Threats to validity
+### 6. Threats to validity
 
 Single provider (DeepSeek V4 Flash; the local llama.cpp host remained offline);
 three repetitions bound but do not eliminate sampling variance; the acceptance scenario
@@ -192,7 +205,7 @@ innocent rare token that coincidentally appears in a whisper (no such false posi
 was observed; short tokens are exempt unless numeric); the continuity reviewer is
 itself a model, spot-checked against raw artifacts.
 
-## 7. Reproducibility
+### 7. Reproducibility
 
 ```fish
 # Acceptance (whispered scenario, all three checks required)
@@ -214,7 +227,7 @@ uv run pytest
 The full flow, including the blind-critic protocol, is codified in the project skill
 `.claude/skills/memory-playtest/SKILL.md`.
 
-## 8. Conclusions
+### 8. Conclusions
 
 1. The engine now has a real information boundary: whispered speech/action reaches only
    its audience, replies inherit whisper scope, and a deterministic guard keeps the

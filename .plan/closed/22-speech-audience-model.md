@@ -14,7 +14,7 @@ Every `speech` record reaches every present character's prompt. The selection la
 `content_type`; there is no notion of audience, whisper, or addressee.
 
 Confirmed deterministically in 3/3 real DeepSeek runs (case study:
-`docs/cases/multi-character-memory-retention-2026-07-14.md`): the pair-exclusive fact
+`docs/cases/07-multi-character-memory-retention-2026-07-14.md`): the pair-exclusive fact
 `GIRASSOL-222` was always present in Vela's prompt, and `ORQUÍDEA-741` always in Rook's,
 even though the scenario framed both as secrets between two characters.
 

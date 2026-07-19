@@ -1,7 +1,19 @@
-# Estagnação de cena: transição de estado narrativo, o mundo como relógio, e o que a literatura sobre humanos ensina
+# Scene stagnation as absent state transition: the world as a clock, and what the human literature teaches
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 12 |
+| **Date** | 2026-07-17 |
+| **Type** | Research synthesis + design program (owner-authored findings preserved) |
+| **Status** | ACTIVE program: feeds Tasks 33b and 40 (clock delivered; watcher validated by exploration) |
+
+## Abstract
+
+Research synthesis defining stagnation as the absence of narrative state transition: two decoupled clocks (conversation vs world), a material-delta definition of progress, a causal intervention contract, a recovery ladder, and the player-attempt contract - grounded in the dialogue, turn-taking, improv and RPG literatures (Pickering & Garrod; Sacks, Schegloff & Jefferson; Magerko; FIREBALL). Its predictions were later validated by curl exploration and the delivered narrative clock; the A/B/C battery it specifies in section 7 is executed as case No. 13.
+
+---
 Documento de pesquisa + design, alimentando a **Task 33b**. Sintetiza o achado
-empírico da Task 38 (relatório: `roteiro-drive-and-scene-stagnation-2026-07-17.md`)
+empírico da Task 38 (relatório: `11-roteiro-drive-scene-stagnation-2026-07-17.md`)
 com literatura sobre diálogo, turn-taking, improviso e RPG, e mapeia como esses
 temas ajudam — e o que já fizemos similar no kernel.
 
@@ -10,7 +22,7 @@ adiciona o mapeamento pro nosso código.
 
 ---
 
-## 1. A tese
+### 1. A tese
 
 > **Estagnação não é repetição de texto; é ausência de transição de estado
 > narrativo.**
@@ -28,7 +40,7 @@ a cena esgotou sua função e deve mudar de estado*.
 
 ---
 
-## 2. O mecanismo: dois relógios desacoplados
+### 2. O mecanismo: dois relógios desacoplados
 
 A cena do sorteio (portais) estagnou porque **o relógio da conversa continuou
 avançando, mas o relógio do mundo parou**:
@@ -62,7 +74,7 @@ sozinha não equivale a causalidade* (confirmado no run de confirmação do port
 
 ---
 
-## 3. A literatura: humanos também alinham, repetem e travam
+### 3. A literatura: humanos também alinham, repetem e travam
 
 O erro seria concluir "LLMs repetem e humanos não". A conclusão melhor:
 
@@ -109,7 +121,7 @@ cego a metade dos sinais que um humano usa.)
 
 ---
 
-## 4. As saídas humanas que removemos
+### 4. As saídas humanas que removemos
 
 1. **O jogador/personagem pode não produzir conteúdo.** "O meu só espera" é um
    turno válido de 2 segundos. Nós pressionamos cada personagem convocado a
@@ -125,7 +137,7 @@ cego a metade dos sinais que um humano usa.)
 
 ---
 
-## 5. O que já fizemos similar aqui (mapeamento pro kernel)
+### 5. O que já fizemos similar aqui (mapeamento pro kernel)
 
 Já temos **implementações parciais** de vários mecanismos humanos:
 
@@ -156,21 +168,21 @@ Já temos **implementações parciais** de vários mecanismos humanos:
 
 ---
 
-## 6. O design proposto (Task 33b reenquadrada)
+### 6. O design proposto (Task 33b reenquadrada)
 
 Task 33b deixa de ser "watcher que reescreve o roteiro" e vira um **controlador
 de transição de estado de cena** — tira da LLM a responsabilidade de perceber
 sozinha quando continuar deixou de ser progredir, e dá ao código autoridade pra
 exigir uma transição causal concreta.
 
-### 6.1 Estado autoritativo mínimo
+#### 6.1 Estado autoritativo mínimo
 ```
 scene_phase          dramatic_question     active_pressure
 unresolved_threads   actor_commitments     last_material_change
 intervention_level
 ```
 
-### 6.2 Progresso = DELTA MATERIAL verificável
+#### 6.2 Progresso = DELTA MATERIAL verificável
 Um turno só conta como avanço se produzir ≥1 delta: uma decisão foi tomada;
 informação antes desconhecida virou conhecida; posição/posse/acesso mudou; uma
 tentativa recebeu consequência; uma relação/compromisso mudou; uma ameaça
@@ -178,7 +190,7 @@ avançou; uma possibilidade foi aberta/fechada; a pergunta dramática mudou.
 Entidade nova e novidade lexical *participam* do sinal, mas **não são o sinal
 principal**.
 
-### 6.3 Recuperação em ladder (ANTES de disromper)
+#### 6.3 Recuperação em ladder (ANTES de disromper)
 ```
 1. Há transição do mundo já prometida?  → EXECUTE-A.
 2. Há tentativa pendente?                → ADJUDIQUE-A.
@@ -189,7 +201,7 @@ principal**.
 A disrupção é o ÚLTIMO recurso, não o primeiro. Um GM humano não explodiria os
 portões — ele simplesmente **realizaria o sorteio**.
 
-### 6.4 Contrato causal de intervenção (o antídoto pro pile-up)
+#### 6.4 Contrato causal de intervenção (o antídoto pro pile-up)
 ```yaml
 source_thread:   "o portal reage de forma anômala ao jogador"
 target_state:    "o sorteio deixa de ser a questão dominante"
@@ -205,7 +217,7 @@ consequência → permite reação → consolida o novo estado → devolve contr
 ainda estagnar, a próxima intervenção **escala o mesmo thread** (`lembrar →
 pressionar → tornar inevitável → resolver com custo`), nunca abre outro fio.
 
-### 6.5 Beat de PROCEDIMENTO (o relógio do mundo)
+#### 6.5 Beat de PROCEDIMENTO (o relógio do mundo)
 ```yaml
 beat_kind: procedure
 world_owner: mestre_da_cerimonia
@@ -218,7 +230,7 @@ actor_coverage: representative_not_exhaustive
 > Precisam de **um mundo que continue funcionando** enquanto os personagens
 > existem dentro dele.
 
-### 6.6 Liberdade do jogador — contrato refinado
+#### 6.6 Liberdade do jogador — contrato refinado
 ```
 player_intent:       preservado integralmente
 attempted_action:    pode ser narrada
@@ -236,7 +248,7 @@ adjudicação.
 
 ---
 
-## 7. O experimento que fecharia a hipótese
+### 7. O experimento que fecharia a hipótese
 
 Três braços no cenário Portais:
 
@@ -260,7 +272,7 @@ causal numa chamada real de Diretor antes de qualquer bateria; depois o A/B/C.
 
 ---
 
-## 8. Relação com o que está roteado
+### 8. Relação com o que está roteado
 
 - **Task 33 (drive layer)** já foi roteada (2026-07-17) pra ganhar um gatilho de
   estagnação. Este doc a refina: o gatilho não deve ser "hora de acontecer algo"
@@ -275,7 +287,7 @@ causal numa chamada real de Diretor antes de qualquer bateria; depois o A/B/C.
 
 ---
 
-## 9. Mecanização: o relógio narrativo (Task 40)
+### 9. Mecanização: o relógio narrativo (Task 40)
 
 Ideia do usuário que fecha o "relógio do mundo" (§2) de forma concreta: a LLM
 está parada no tempo porque a história não tem relógio. Introduzir um **tick

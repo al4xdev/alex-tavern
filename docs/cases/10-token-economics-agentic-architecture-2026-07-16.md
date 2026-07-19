@@ -1,11 +1,23 @@
 # Token economics as an architectural enabler
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 10 |
+| **Evidence window** | 2026-07-11 through 2026-07-16 UTC |
+| **Source** | DeepSeek usage and cost CSVs (2026-07-17) |
+| **Status** | Interim V1; update through the 1.0 release |
+
+## Abstract
+
+Provider-billing evidence used as an explicit upper bound on project spend. The measured 89.57% input cache-hit ratio changes the economic trade-off of the agentic fan-out (Director, Prose, Character, Perspective, Historian, Drive), with no-cache and alternative-provider counterfactuals and an explicit attribution-limitations section. The append-only prompt discipline of No. 06 is what makes these numbers reachable.
+
+---
 **Captured:** 2026-07-16  
 **Evidence window:** 2026-07-11 through 2026-07-16 UTC
 **Provider export:** DeepSeek usage and cost CSVs generated on 2026-07-17  
 **Status:** Interim V1 case study; update through the Alex Tavern 1.0 release
 
-## Abstract
+### Abstract
 
 Alex Tavern deliberately favors explicit agent boundaries over minimizing model calls. A turn may
 involve a Director, prose renderer, Character agents, perspective initialization or revision, a
@@ -27,7 +39,7 @@ decision: for this workload and provider, collapsing semantic responsibilities m
 input tokens would optimize the wrong constraint. Correctness and knowledge isolation come first;
 latency, dependency topology, and output volume remain real constraints.
 
-## 1. Question
+### 1. Question
 
 Should Alex Tavern keep a comparatively complex multi-agent architecture when a simpler design
 could use fewer calls and fewer prompt tokens?
@@ -40,7 +52,7 @@ The working hypothesis is:
 The hypothesis is intentionally conditional. It must be revisited if cache behavior, provider
 prices, latency, workload shape, or product scale changes.
 
-## 2. Data and method
+### 2. Data and method
 
 The source archive was downloaded from the provider dashboard as
 `usage_data_2026-06-17_2026-07-16.zip`. Its internal CSVs cover rows through 2026-07-16 and contain:
@@ -88,9 +100,9 @@ no-cache counterfactual =
 This is a billing counterfactual, not a claim that every cached request would otherwise have been
 sent unchanged or that provider pricing will remain stable.
 
-## 3. Results
+### 3. Results
 
-### 3.1 Volume and observed cost
+#### 3.1 Volume and observed cost
 
 | Project-attribution scope | Cache-hit input | Cache-miss input | Output | Requests | Observed cost |
 |---|---:|---:|---:|---:|---:|
@@ -100,7 +112,7 @@ Cache hits represented 89.57% of the Flash input tokens and 88.39% of its billed
 output. The same account window contains another 47,043,441 V4 Pro tokens across 721 requests for
 USD 1.3742. That usage is attributed to separate development tooling and excluded here.
 
-### 3.2 Where the money went
+#### 3.2 Where the money went
 
 | Cost component | V4 Flash project ceiling |
 |---|---:|
@@ -115,13 +127,13 @@ cache-hit input tokens alone would cost approximately USD 0.28 on V4 Flash. In t
 project-aligned window, 65.19 million Flash cache-hit tokens cost approximately USD 0.1825. It is
 not correct for an arbitrary mixture of cache misses and generated output.
 
-### 3.3 Counterfactual without cache pricing
+#### 3.3 Counterfactual without cache pricing
 
 | Model | Observed | All input at miss price | Difference |
 |---|---:|---:|---:|
 | V4 Flash project ceiling | USD 1.5172 | USD 10.4615 | USD 8.9443 (85.50%) |
 
-### 3.4 Alternative-provider counterfactual
+#### 3.4 Alternative-provider counterfactual
 
 Provider choice materially changes the conclusion even when cache reuse is held constant. The
 following counterfactual applies each provider's published standard API prices to the same
@@ -176,7 +188,7 @@ changing token shape could raise the ceiling from about USD 1.52 to roughly USD 
 abstraction remains strategically useful, but provider selection is part of the architecture's
 economic envelope rather than an interchangeable detail.
 
-### 3.5 Broader archive context
+#### 3.5 Broader archive context
 
 The complete provider archive begins on 2026-06-18, before Alex Tavern's first commit. Across that
 broader account window it contains 511,961,017 tokens and USD 7.9055 of cost. Those totals are not
@@ -185,9 +197,9 @@ naive whole-file aggregation overstates Alex Tavern's measured cost.
 
 The result is consistent with Alex Tavern's controlled cache probes, which separately verified
 positive repeated-prefix reuse and a changed-prefix negative control. See
-[Task 09 prompt-caching evidence](./09-prompt-caching.md).
+[Task 09 prompt-caching evidence](./06-prompt-caching-evidence-2026-07-12.md).
 
-## 4. Architectural decision supported by the evidence
+### 4. Architectural decision supported by the evidence
 
 The project will not collapse independently owned responsibilities into one model call merely to
 reduce token count. The current direction keeps explicit boxes when they enforce a meaningful
@@ -214,7 +226,7 @@ unrepresentable or locally rejectable. Cheap cached input changes the trade-off:
 buy stronger semantic boundaries without paying the uncached price for the full stable context on
 every call.
 
-## 5. Why simulations and tests belong in the cost model
+### 5. Why simulations and tests belong in the cost model
 
 The export covers development activity, not only end-user gameplay. During the measured period,
 the project repeatedly used real-provider boundaries for:
@@ -236,7 +248,7 @@ experiments sharing the account/API-key label. It therefore cannot quantify the 
 spent on simulations. Repository debug artifacts establish that such runs occurred, but account
 totals are used here only for the broad token-economics observation.
 
-## 6. What caching does and does not justify
+### 6. What caching does and does not justify
 
 Caching supports:
 
@@ -260,7 +272,7 @@ The principal optimization target is therefore the dependency graph, not raw cal
 that do not depend on one another may run concurrently. Calls with a true data dependency remain
 sequential. Deterministic predicates suppress work when there is no new evidence to process.
 
-## 7. Decision hierarchy for V1
+### 7. Decision hierarchy for V1
 
 Until new measurements overturn it, Alex Tavern prioritizes:
 
@@ -274,7 +286,7 @@ Until new measurements overturn it, Alex Tavern prioritizes:
 Cost is last in this ordering because the measured cached workload makes it a weak constraint, not
 because cost never matters.
 
-## 8. V1.0 update protocol
+### 8. V1.0 update protocol
 
 This case study is provisional and should be updated before the 1.0 release with:
 
@@ -292,7 +304,7 @@ or cost that scales materially with normal play, the architecture should be simp
 topology changed. The present evidence supports continuing the separated design while measuring
 those risks.
 
-## 9. Reproduction notes
+### 9. Reproduction notes
 
 The aggregate calculations can be reproduced locally without extracting account metadata to the
 repository:
@@ -307,10 +319,10 @@ Use the `price` column from the same CSV to recompute each component, then compa
 `cost-2026-06-17_2026-07-17.csv`. Do not publish raw rows: even though keys are masked, the export
 contains account identifiers and credential labels.
 
-## Related evidence
+### Related evidence
 
-- [Verified prompt caching](./09-prompt-caching.md)
-- [DeepSeek provider integration](./deepseek-provider-integration-2026-07-12.md)
-- [Multi-character memory retention](./multi-character-memory-retention-2026-07-14.md)
-- [Speech audience model](./speech-audience-model-2026-07-15.md)
-- [Character output guard](./character-output-guard-2026-07-15.md)
+- [Verified prompt caching](./06-prompt-caching-evidence-2026-07-12.md)
+- [DeepSeek provider integration](./02-deepseek-provider-integration-2026-07-12.md)
+- [Multi-character memory retention](./07-multi-character-memory-retention-2026-07-14.md)
+- [Speech audience model](./08-speech-audience-model-2026-07-15.md)
+- [Character output guard](./09-character-output-guard-2026-07-15.md)

@@ -22,7 +22,7 @@ providers:
 
 Once a session outgrows the trim budget, characters lose their oldest memories with no
 trace: this is the mechanism that will reproduce the "character forgot an early fact"
-symptom investigated in `docs/cases/multi-character-memory-retention-2026-07-14.md`
+symptom investigated in `docs/cases/07-multi-character-memory-retention-2026-07-14.md`
 (where it was ruled out only because the DeepSeek budget ≈ 367k tokens was never reached).
 
 ## Evidence

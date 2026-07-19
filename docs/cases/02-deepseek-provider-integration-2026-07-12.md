@@ -1,10 +1,21 @@
-# DeepSeek V4 Flash provider integration
+# Server-owned multi-provider architecture and the DeepSeek V4 Flash integration
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 02 |
+| **Date** | 2026-07-12 |
+| **Status** | Adopted architecture; DeepSeek remains the active provider |
+
+## Abstract
+
+Model and API discovery, a server-owned provider-adapter architecture (the browser never holds credentials), configuration and UI surfaces, tests, and live validation of DeepSeek V4 Flash against the local Gemma baseline. The adapter boundary introduced here is the one every later agent call, security policy and cache measurement flows through.
+
+---
 **Date**: 2026-07-12
 **Scope**: exact model/API discovery, provider architecture, server-owned configuration, UI,
 tests, and live validation.
 
-## Confirmed API contract
+### Confirmed API contract
 
 - Account model inventory: `deepseek-v4-flash`, `deepseek-v4-pro`.
 - Selected model: `deepseek-v4-flash`.
@@ -16,7 +27,7 @@ tests, and live validation.
 
 The local Deep Code clone independently uses the same model name and disabled-thinking payload.
 
-## Architecture delivered
+### Architecture delivered
 
 - `src/llm/adapters/`: separate contract, registry, llama.cpp, and DeepSeek modules. Each adapter
   owns transport capabilities, response extraction, defaults, secret metadata, forced settings,
@@ -41,7 +52,7 @@ The local Deep Code clone independently uses the same model name and disabled-th
   without exposing a secret CLI parameter, while preserving identical experiment parameters for
   A/B comparisons.
 
-## Live application validation
+### Live application validation
 
 Using an isolated temporary data root:
 
@@ -52,7 +63,7 @@ Using an isolated temporary data root:
 - the turn made one Narrator and one Character request through the DeepSeek adapter;
 - narration, Character response, state persistence, and routing all completed successfully.
 
-## Test-suite cleanup in parallel
+### Test-suite cleanup in parallel
 
 - Default suite reduced from 133 to 121 cases before provider tests.
 - Old stochastic LLM tests were replaced by the maintained harness.
@@ -60,7 +71,7 @@ Using an isolated temporary data root:
 - Retry coverage no longer waits through real backoff.
 - Six provider/config/adapter cases were added, bringing the current suite to 127 fast tests.
 
-## A/B playtest
+### A/B playtest
 
 The first 8-run DeepSeek integration suite completed with zero failed runs but inherited the
 server's Portuguese/larger-token settings, so it is evidence of compatibility rather than a fair
@@ -101,7 +112,7 @@ Artifacts retained for inspection:
 - DeepSeek fair suite: `/tmp/roleplay-playtest-suite-vekl52w5`
 - Gemma baseline: `/tmp/roleplay-playtest-suite-7zkowcx7`
 
-## Closure
+### Closure
 
 All feature acceptance requirements are implemented. The provider task is closed; prompt-quality
 refinement remains a separate experimental concern rather than an integration blocker.
@@ -120,7 +131,7 @@ schema validation, debug logging, frontend modules, immutable built-ins, preset 
 and session concurrency into their final ownership boundaries. The final canonical preset/session
 HTTP smoke test passed through load, save, start, state read, fork, and deletion without an LLM.
 
-## Security closure
+### Security closure
 
 `.data/` was already listed in `.gitignore`, but `.data/config.json` remained tracked from an
 earlier commit. With explicit owner authorization, `git rm --cached .data/config.json` removed it

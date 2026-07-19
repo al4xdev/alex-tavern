@@ -68,4 +68,4 @@ disruptive Director beat). Give the hazard function a **topic-stagnation** input
 (no new entity/anchor introduced for K turns, or low lexical novelty between
 recent turns) so it injects a world event to break the loop in BOTH arms
 (roteiro on/off), not only on quiet skip turns. See
-`docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`.
+`docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`.

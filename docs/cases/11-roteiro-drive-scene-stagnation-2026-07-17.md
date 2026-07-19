@@ -1,5 +1,18 @@
-# Roteiro, drive e estagnação de cena — investigação completa (2026-07-17)
+# Roteiro, drive and scene stagnation: empirical results of typed beat contracts
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 11 |
+| **Date** | 2026-07-17 |
+| **Provider** | DeepSeek V4 Flash, real runs, blind critic |
+| **Task** | 38 (delivered with reservations) |
+| **Status** | Evidence feeding the stagnation program (No. 12) |
+
+## Abstract
+
+The Task 38 report and the investigation it unlocked: why procedural roleplay scenes stagnate and repeat. Typed beat contracts banked engine gains, but the roteiro proved coin-flip on a procedural scene (portals 2W/2L); a concrete disruptive beat broke the stall 3/3 while an abstract instruction failed 0/3 - the position-and-concreteness result that seeded the clock (Task 40) and the watcher (Task 33b).
+
+---
 Relatório da Task 38 (roteiro com contratos de beat tipados) e da investigação
 que ela destravou sobre por que cenas de roleplay estagnam e repetem. Provider
 de todos os runs reais: deepseek-v4-flash (endpoint local caiu; deepseek
@@ -8,7 +21,7 @@ arms embaralhados (A/B), veredito por eixo.
 
 ---
 
-## 1. O que a Task 38 entregou
+### 1. O que a Task 38 entregou
 
 Um **roteiro hierárquico** compilado antes da primeira fala: premissa + esqueleto
 de 3 atos + um **beat rolante** tipado (`intent`, `expected_actors`,
@@ -22,7 +35,7 @@ Feature **opt-in, OFF por padrão** (`roteiro_enabled`). Schema v7.
 
 ---
 
-## 2. O veredito honesto (medido, não desejado)
+### 2. O veredito honesto (medido, não desejado)
 
 | Cenário | Personagens | Gênero | Drive (roteiro vs controle) |
 |---|---|---|---|
@@ -50,7 +63,7 @@ Critérios que o usuário adicionou no meio:
 
 ---
 
-## 3. A investigação de estagnação (o payoff que sobrevive à task)
+### 3. A investigação de estagnação (o payoff que sobrevive à task)
 
 O crítico apontou repetição em quase todo run (personagens reafirmando a mesma
 ideia; o elenco inteiro rezando por "bons parceiros" no turno do sorteio). A
@@ -59,7 +72,7 @@ tanto? já tentou via prompt?* Investigamos com a técnica de **curl-replay**:
 pegar o payload REAL da chamada defeituosa (do `debug.jsonl`) e iterar só o
 prompt até consertar a chamada isolada, antes de rodar qualquer bateria.
 
-### Tabela de intervenções (chamada real do turno travado, N runs cada)
+#### Tabela de intervenções (chamada real do turno travado, N runs cada)
 
 | Intervenção | Alvo | Quebrou o loop? |
 |---|---|---|
@@ -69,7 +82,7 @@ prompt até consertar a chamada isolada, antes de rodar qualquer bateria.
 | Injetar um **evento de cena novo** no contexto | contexto | ✅ 2/3 |
 | **Beat concreto disruptivo** no roteiro → Diretor | Diretor | ✅ **3/3** |
 
-### O que isso prova
+#### O que isso prova
 
 1. **Não é problema do personagem.** Nenhuma regra no prompt do personagem — nem
    uma proibição direta do tópico — quebra o loop. O modelo rápido segue a cena
@@ -83,7 +96,7 @@ prompt até consertar a chamada isolada, antes de rodar qualquer bateria.
    instrução **concreta "isto acontece AGORA"**. Instrução abstrata perde pro
    puxão do histórico; evento concreto ganha.
 
-### O fix que saiu disso
+#### O fix que saiu disso
 
 `evaluate_roteiro` → quando um beat **estagna**, o replan gera um **beat concreto
 disruptivo** que muda o assunto (chegada/interrupção/quebra acontecendo neste
@@ -94,7 +107,7 @@ mantendo o portais em cara-ou-coroa.
 
 ---
 
-## 4. Ganhos de engine banked (valem para os dois braços)
+### 4. Ganhos de engine banked (valem para os dois braços)
 
 Independem do roteiro estar ligado — melhoram o kernel inteiro:
 
@@ -112,7 +125,7 @@ Independem do roteiro estar ligado — melhoram o kernel inteiro:
 
 ---
 
-## 5. Roteado para outras tasks
+### 5. Roteado para outras tasks
 
 - **Task 33 (drive layer)** — a casa natural do fix GERAL de estagnação: dar à
   hazard function um sinal de **estagnação de tópico** (nenhuma entidade/âncora
@@ -133,7 +146,7 @@ Independem do roteiro estar ligado — melhoram o kernel inteiro:
 
 ---
 
-## 6. Princípio de design que fica
+### 6. Princípio de design que fica
 
 > **O Diretor tem autoridade sobre a RESPOSTA DO MUNDO, nunca sobre a VONTADE de
 > quem age.** Toda ação (NPC ou jogador) é uma tentativa; o Diretor decide como o

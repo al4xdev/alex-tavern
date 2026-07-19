@@ -5,7 +5,7 @@
 > disrupção-no-stall) e ficam banked; o ROTEIRO em si não é vitória universal.
 > Convenção (usuário, 2026-07-17): tarefa fechada sem confiança fica em tasks/
 > com as ressalvas, não migra pra closed/. Relatório completo:
-> `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`.
+> `docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`.
 
 # Task 38 — Roteiro with Typed Beat Contracts and Algorithmic Replanning
 
@@ -60,7 +60,7 @@ the prose renderer (it contains future secrets). Assertable from debug.jsonl.
 
 ## CLOSED 2026-07-17 (sessão autônoma) — honest, scoped
 
-Full report: `docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`.
+Full report: `docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`.
 
 Roteiro delivered as an OPT-IN feature (roteiro_enabled, OFF by default),
 consumed only Director-side, with deterministic replanning. It was closed once

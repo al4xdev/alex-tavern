@@ -3,7 +3,7 @@
 **Status:** Completed and closed
 **Closed:** 2026-07-12
 **README evidence:** `README.md`, section `Multi-provider LLM architecture`
-**Detailed report:** [`../deepseek-provider-integration-2026-07-12.md`](../deepseek-provider-integration-2026-07-12.md)
+**Detailed report:** [`../02-deepseek-provider-integration-2026-07-12.md`](../02-deepseek-provider-integration-2026-07-12.md)
 
 ## Goal
 
@@ -39,7 +39,7 @@ settings and secrets must remain exclusively in the server-owned `.data/config.j
   frontend adapters own provider-specific form behavior without hardcoded provider HTML.
 - The final post-audit validation evidence is recorded in the detailed report and closed audit.
 - The architecture audit and remaining preexisting coupling risks are recorded in
-  [`../explore-adaptability-coupling-audit-2026-07-12.md`](../explore-adaptability-coupling-audit-2026-07-12.md).
+  [`../03-adaptability-coupling-audit-2026-07-12.md`](../03-adaptability-coupling-audit-2026-07-12.md).
 
 ## Security closure
 

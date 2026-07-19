@@ -1,16 +1,29 @@
-# Case study: A deterministic output guard for whispered secrets — structure over prompt
+# A deterministic output guard for whispered secrets: structure over prompt
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 09 |
+| **Date** | 2026-07-15 |
+| **Provider** | DeepSeek V4 Flash, Portuguese, real API |
+| **Task** | 25, closed |
+| **Status** | Adopted invariant: zero record-level leaks by construction |
+
+## Abstract
+
+Prompt rules reduced but never eliminated secret leakage under interrogation pressure. This case replaced them with a deterministic retry-then-redact guard on character output, including informational-payload secret derivation and a whisper-turn marker designed by an uncontexted fixer agent. Zero record-level leaks across all measured runs; the structure-over-prompt doctrine stated here recurs in every later case.
+
+---
 **Date**: 2026-07-15
 **Provider under test**: DeepSeek V4 Flash (`deepseek-v4-flash`), Portuguese, real API
 **Scope**: Task 25 (secret-handling behavior under interrogation), closed in `.plan/closed/`
-**Predecessors**: `multi-character-memory-retention-2026-07-14.md` (investigation),
-`speech-audience-model-2026-07-15.md` (audience model, Tasks 22/24)
+**Predecessors**: `07-multi-character-memory-retention-2026-07-14.md` (investigation),
+`08-speech-audience-model-2026-07-15.md` (audience model, Tasks 22/24)
 **Artifacts**: `plans/artifacts/memory_outputguard-run-{v1,v2,v3-pos-ciclo1}/`,
 `plans/artifacts/transcript-outputguard-v3.md`
 **Status**: Concluded — leak invariant enforced by construction; one bias-controlled
 fix cycle used (of two authorized)
 
-## Abstract
+### Abstract
 
 After the audience model (Task 22) made whispers structurally invisible to outsiders,
 one behavioral defect remained: a character who legitimately knows a whispered secret
@@ -32,7 +45,7 @@ genuine blocks per session, and a blind continuity review judged the residual re
 noise diegetically acceptable — while the formerly leaky character became "the most
 reliable of the three sessions".
 
-## 1. Problem statement
+### 1. Problem statement
 
 From the Task 22 closure, measured across its final acceptance round: the garrulous
 character (Rook), whispered a hideout location with "só tu sabes", spoke
@@ -53,9 +66,9 @@ does not cover that secret — by construction, not by instruction.
 leaking tokens in the recorded speech (`[indistinct]`, reading as diegetic mumbling),
 never silently narrow the audience, never fail the turn.
 
-## 2. Design
+### 2. Design
 
-### 2.1 Shared confidentiality primitives (`src/confidentiality.py`)
+#### 2.1 Shared confidentiality primitives (`src/confidentiality.py`)
 
 Extracted from the Task 22 narrator guard so both guards share one semantics:
 `tokens`, `known_tokens` (everything a viewer legitimately knows: visible
@@ -68,7 +81,7 @@ listeners already know — "earned knowledge" via prior public mention stops bei
 secret). The internal "Player" speaker marker counts as the controlled character for
 audience-coverage purposes.
 
-### 2.2 The output guard (`src/agents/character.py`)
+#### 2.2 The output guard (`src/agents/character.py`)
 
 Inside `act()`'s existing two-attempt loop (previously used only for the
 physical-action validation): after a syntactically valid reply, compute the leaked
@@ -79,7 +92,7 @@ non-empty, record the speech with the leaking tokens redacted. Private thoughts 
 exempt by design. Every guard event is logged (`whisper_output_guard`,
 retried/redacted, tokens) for measurement.
 
-### 2.3 Measurement (playtest harness)
+#### 2.3 Measurement (playtest harness)
 
 - `whisper_leak_records(game)`: post-run invariant — any character speech/action
   record exposing whispered payload fails the run. Player-typed records are exempt
@@ -88,7 +101,7 @@ retried/redacted, tokens) for measurement.
   often the model tries to leak" (quality signal) from "how often anything leaks"
   (invariant, must be zero).
 
-## 3. First acceptance round: invariant holds, implementation over-fires
+### 3. First acceptance round: invariant holds, implementation over-fires
 
 Three repetitions (one lost to a provider JSON flake): `whisper_leak_records` empty in
 every completed session — **the invariant held from day one**. But:
@@ -110,7 +123,7 @@ One acceptance-criterion artifact was also found and fixed by the main agent (wi
 evidence): the recall regex required a hyphen while the model answered "Orquídea 741";
 patterns were made separator-tolerant.
 
-## 4. Bias-controlled remediation (cycle 1 of 2)
+### 4. Bias-controlled remediation (cycle 1 of 2)
 
 Per the project's protocol, the implementing agent did not fix its own guard. An
 uncontexted fixer subagent — barred from reading plans, case studies, or prior
@@ -130,7 +143,7 @@ analyses — received only the two behavioral reports above and produced:
    heuristic "latest event" reading. This is a structural signal derived from runner
    state, not a new preventive behavior rule.
 
-## 5. Re-evaluation results
+### 5. Re-evaluation results
 
 Three repetitions, all green (exit 0):
 
@@ -151,7 +164,7 @@ ilha"). The two remaining `[indistinct]` occurrences across ~99 turns read as
 (both at turn 4) is what betrays an artifact — a calibration note, not a defect
 verdict.
 
-## 6. Discussion
+### 6. Discussion
 
 1. **The constraint was right.** The structural guard achieved in one round what two
    generations of prompt rules could not: a leak rate of literally zero, measured at
@@ -171,7 +184,7 @@ verdict.
    thought asserting a whisper's content; confabulated memories under interrogation)
    and in staging/prose quality — all routed to Task 26 with turn-level citations.
 
-## 7. Threats to validity
+### 7. Threats to validity
 
 Single provider (DeepSeek V4 Flash); three repetitions per round bound but do not
 eliminate sampling variance; the payload window (7) and anchor heuristics were
@@ -181,7 +194,7 @@ roughly one run in three (agent calls use `retries=0` — harness robustness not
 backlog); the continuity reviewer is itself a model, spot-checked against raw
 artifacts.
 
-## 8. Reproducibility
+### 8. Reproducibility
 
 ```fish
 uv run python -m tools.playtest_harness tools/playtests/memory_focus_xyz.json \
@@ -194,7 +207,7 @@ uv run pytest   # 367 passed, 2 xfailed at closure
 
 Full flow, including the blind-critic protocol, in `.claude/skills/memory-playtest/SKILL.md`.
 
-## 9. Conclusions
+### 9. Conclusions
 
 1. Whispered secrets are now protected end to end by construction: selection filter
    (Task 22), narrator context guard (Task 22 cycle 2), and character output guard

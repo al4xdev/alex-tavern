@@ -17,7 +17,7 @@ turno. É opcional exatamente por isso.
 ## Por que faz sentido (evidência da Task 38)
 
 A investigação da Task 38 (relatório:
-`docs/cases/roteiro-drive-and-scene-stagnation-2026-07-17.md`) provou:
+`docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`) provou:
 - Estagnação de cena é o problema-raiz; o lever é o Diretor encenar um **evento
   concreto novo** (um beat disruptivo quebrou o loop 3/3 no curl).
 - O replan determinístico da Task 38 é reativo e por vezes tardio (o teto força
@@ -65,7 +65,7 @@ Método curl-replay do `AGENTS.md` §6. Validar o CONCEITO antes de qualquer có
 
 ## Reenquadramento (2026-07-17): controlador de transição de estado de cena
 
-Ver `docs/cases/scene-state-transition-and-human-stagnation-2026-07-17.md`. A 33b
+Ver `docs/cases/12-scene-state-transition-theory-2026-07-17.md`. A 33b
 não é só um "watcher que reescreve o roteiro" — é um controlador de TRANSIÇÃO DE
 ESTADO com: estado autoritativo de cena (dramatic_question, threads, pressures),
 progresso por DELTA MATERIAL (não cobertura lexical), ladder de recuperação

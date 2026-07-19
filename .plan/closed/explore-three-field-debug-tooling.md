@@ -67,7 +67,7 @@ Runner.player_turn
 - The published closed MCP case calls its legacy fixture “the current format” and lists
   `turn_input`/MCP submission without thought (`docs/cases/tasks/08-debug-mcp-server.md:54-71`).
 - The remediation closure similarly describes the then-current marker as containing speech and
-  action but not thought (`docs/cases/report-remediation-final.md:18`). This is historical evidence,
+  action but not thought (`docs/cases/01-real-playtest-remediation-2026-07-11.md:18`). This is historical evidence,
   but the wording reads as a current contract rather than a dated limitation.
 
 ## Coverage gaps

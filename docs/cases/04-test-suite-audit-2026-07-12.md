@@ -1,5 +1,16 @@
-# Explore: test suite redundancy and legacy audit
+# Test-suite redundancy and the retirement of stochastic tests
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 04 |
+| **Date** | 2026-07-12 |
+| **Status** | Adopted policy: deterministic suite + LLM-marked benchmarks |
+
+## Abstract
+
+An audit of the pytest suite and its boundaries: redundant cases, legacy paths, and stochastic tests that could not fail deterministically. The resulting policy - a fast deterministic suite plus explicitly marked real-LLM benchmarks - is the shape the suite still has (627 deterministic tests and the xfailed3 program at the time of the series reorganization).
+
+---
 **Date**: 2026-07-12
 **Scope**: `tests/`, pytest configuration, related persistence/model compatibility paths, and
 the boundaries exercised by the current suite.
@@ -9,7 +20,7 @@ the boundaries exercised by the current suite.
 > incremental LIFO checkpoints that preserve later turns. See
 > [Context Compaction](../../README.md#-context-compaction).
 
-## Suite shape
+### Suite shape
 
 - Pytest collects 138 cases, deselects 5 `llm` cases by default, and runs 133.
 - The default suite passes in about 3.1 seconds.
@@ -19,9 +30,9 @@ the boundaries exercised by the current suite.
 - `tests/test_llama_api.py` defines six `test_*` functions but sets `__test__ = False`; it is a
   standalone diagnostic script and contributes zero pytest cases.
 
-## Clearly stale or legacy coverage
+### Clearly stale or legacy coverage
 
-### Standalone llama API script
+#### Standalone llama API script
 
 `tests/test_llama_api.py` is not part of pytest and describes an older model and older protocol:
 
@@ -34,7 +45,7 @@ the boundaries exercised by the current suite.
 - it writes a bespoke `/tmp/llama_test_results.json` report and duplicates the role now served
   by the queued scenario harness.
 
-### Old live-LLM class
+#### Old live-LLM class
 
 `TestRunnerWithLLM` in `tests/test_integration.py:1111` contains five tests deselected by the
 default pytest expression. The assertions are intentionally loose and stochastic (nonempty
@@ -42,7 +53,7 @@ narration, a valid speaker, some history), and the class uses obsolete per-agent
 config keys. The queued playtest harness now exercises richer real Runner flows with preserved
 artifacts, repetitions, scenarios, and deterministic metrics.
 
-### Explicit persisted-session compatibility
+#### Explicit persisted-session compatibility
 
 `test_game_state_load_legacy_without_compaction_fields` at
 `tests/test_integration.py:185` explicitly preserves sessions saved before compaction fields
@@ -53,7 +64,7 @@ existed. Its production counterpart is the empty defaults for `story_summary` an
 `personality_summary`/`personality_full` shape. No test directly exercises that migration, but
 both persistence and preset parsing still call it.
 
-## Tests with little or misleading signal
+### Tests with little or misleading signal
 
 - `test_imports` (`tests/test_integration.py:138`) asserts that an already-imported dataclass is
   not `None`; collection/import itself proves this.
@@ -73,7 +84,7 @@ both persistence and preset parsing still call it.
   coverage but spends about 1.5 seconds in real retry backoff even though elapsed time is not an
   assertion. It accounts for roughly half of default suite runtime.
 
-## Overlapping groups
+### Overlapping groups
 
 The following groups cover related paths repeatedly. They are not exact duplicates, but their
 assertions could be expressed with fewer scenario-style tests without losing distinct outcomes:
@@ -93,7 +104,7 @@ Some apparent repetition is intentional boundary coverage and remains distinct:
 - replay entry parsing versus replay HTTP cursor behavior versus state comparison;
 - shared pytest data isolation versus the playtest harness refusing the real `.data` path.
 
-## Coverage imbalance
+### Coverage imbalance
 
 - `src/main.py` exposes 19 FastAPI routes, but no test drives the actual Roleplay FastAPI app via
   ASGI. Runner/store behavior is heavily tested while request validation, response models, status
@@ -105,7 +116,7 @@ Some apparent repetition is intentional boundary coverage and remains distinct:
 - The harness tests its parser, queue, analyzer, aggregation, and report independently, but no
   default test invokes its complete CLI against a fake OpenAI-compatible endpoint.
 
-## Factual conclusion
+### Factual conclusion
 
 The suite is fast and its size is not an operational problem. It does contain a small group of
 clear no-signal tests, an old live-model layer superseded by the playtest harness, and explicit

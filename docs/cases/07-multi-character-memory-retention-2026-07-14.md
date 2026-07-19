@@ -1,12 +1,25 @@
-# Case study: Multi-character memory retention under alternating narrative focus
+# Multi-character memory retention under alternating narrative focus: a failed reproduction with a real finding
 
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 07 |
+| **Date** | 2026-07-14 |
+| **Provider** | DeepSeek V4 Flash, Portuguese, real API |
+| **Runs** | 3 independent sessions, 33 turns each |
+| **Status** | Reported defect did not reproduce; latent findings routed to Tasks 22-26 |
+
+## Abstract
+
+A controlled attempt to reproduce a reported multi-character recall loss. The reported defect did not reproduce in three independent 33-turn runs; the experiment instead demonstrated the absence of an information boundary between characters (any character could answer with another's private facts) and a latent trim/compaction gap. Both findings became tasks and later structural fixes (audience model, output guard, perception ledger).
+
+---
 **Date**: 2026-07-14
 **Provider under test**: DeepSeek V4 Flash (`deepseek-v4-flash`), Portuguese, real API
 **Runs**: 3 independent sessions of the same 33-turn scenario
 **Artifacts**: `plans/artifacts/memory_focus_xyz-run1/`, `plans/artifacts/memory_focus_xyz-run2/`
 **Status**: Concluded — reported defect not reproduced; two distinct defects confirmed
 
-## Abstract
+### Abstract
 
 A user-reported anomaly claimed that in a three-character session (X, Y, Z all present
 throughout, no compaction, no presence edits, under ~30k tokens), character Y could not
@@ -23,7 +36,7 @@ fiction asserts a character did not hear it; and (2) an independent, latent
 trim/compaction gap that silently drops the oldest history from character context in
 long sessions with no summary fallback.
 
-## 1. Problem statement
+### 1. Problem statement
 
 Reported behavior (original session data lost; scenario reconstructed from the report):
 
@@ -35,7 +48,7 @@ Reported behavior (original session data lost; scenario reconstructed from the r
 Constraints asserted by the reporter: no compaction occurred, no character was removed
 (`set_presence` never used), the session stayed under ~30k tokens, provider was DeepSeek.
 
-### 1.1 Prior static analysis
+#### 1.1 Prior static analysis
 
 Code inspection before the experiment established (verified against the tree at the time):
 
@@ -57,9 +70,9 @@ Code inspection before the experiment established (verified against the tree at 
 These facts predicted the reported loss should be impossible under the stated
 conditions — motivating a controlled reproduction attempt rather than a speculative fix.
 
-## 2. Method
+### 2. Method
 
-### 2.1 Instrumentation
+#### 2.1 Instrumentation
 
 Four pieces were added to the toolchain (all merged with deterministic unit tests):
 
@@ -89,7 +102,7 @@ Four pieces were added to the toolchain (all merged with deterministic unit test
    impossible knowledge, fact confusion, focus-switch continuity, and reader-visible
    discontinuities.
 
-### 2.2 Scenario design
+#### 2.2 Scenario design
 
 `tools/playtests/memory_focus_xyz.json`: three characters — Dario (X, player-controlled),
 Vela (Y), Rook (Z) — all present at the same tavern table for the entire session; focus is
@@ -111,15 +124,15 @@ Checks 2 and 3 encode the *desired* information-boundary behavior and were expec
 fail under the current architecture; they are kept `required: true` deliberately, as the
 playtest-level equivalent of a strict `xfail`.
 
-### 2.3 Execution
+#### 2.3 Execution
 
 Three runs against the live DeepSeek API (one run, then `--repeat 2`), 66 LLM calls per
 run, zero LLM errors, full artifacts retained (session state, `debug.jsonl`, manifests,
 markdown reports, transcripts).
 
-## 3. Results
+### 3. Results
 
-### 3.1 Recall of the planted fact (the reported defect)
+#### 3.1 Recall of the planted fact (the reported defect)
 
 | Run | Session | Prompt contains fact | Reply contains fact | Verdict |
 |---|---|---|---|---|
@@ -134,7 +147,7 @@ real one; hard facts (codes, quantities, deadlines) never corrupted in any sessi
 
 **The reported defect did not reproduce.**
 
-### 3.2 Information boundary (checks 2 and 3)
+#### 3.2 Information boundary (checks 2 and 3)
 
 Deterministic failure at the **prompt layer in 3/3 runs**: `GIRASSOL-222` was always
 present in Y's prompt and `ORQUÍDEA-741` always present in Z's prompt, because the
@@ -148,7 +161,7 @@ including the self-defeating pattern of denying knowledge while quoting the secr
 Session invariants were clean in 3/3 runs (no compaction, no presence edits, stable
 participant set), mechanically satisfying the report's preconditions.
 
-### 3.3 Blind narrative evaluation
+#### 3.3 Blind narrative evaluation
 
 The clean-context reviewer (three sessions, transcript-only) converged on the same
 diagnosis from the fiction side: *"the recurring problem is not memory, it is
@@ -167,7 +180,7 @@ information boundary and staging coherence."* Key observations:
   character walks to the door and reappears seated), second/third-person oscillation,
   and one costume transfer between characters (T19, `ff8b7dd6`).
 
-### 3.4 Independent finding: the trim/compaction gap
+#### 3.4 Independent finding: the trim/compaction gap
 
 Unrelated to this scenario (trimming never fired at DeepSeek's budget), static analysis
 plus targeted tests confirmed a latent defect for long sessions or small-context
@@ -179,9 +192,9 @@ This gap will manifest exactly as the reported symptom once a session outgrows t
 budget. It is documented as two `xfail(strict=True)` specification tests in
 `tests/test_memory_retention.py`, which double as acceptance criteria for a future fix.
 
-## 4. Discussion
+### 4. Discussion
 
-### 4.1 Explaining the original report
+#### 4.1 Explaining the original report
 
 With the pipeline exonerated under the stated conditions, two hypotheses remain for the
 lost original session, both actionable:
@@ -197,7 +210,7 @@ lost original session, both actionable:
 Should the symptom recur, the `/memory-playtest` skill localizes the losing layer from
 the affected session's own artifacts in minutes.
 
-### 4.2 Design implication
+#### 4.2 Design implication
 
 The confirmed boundary defect is architectural, not a bug in any single function: the
 engine has no representation of speech audience. The narrator already *narrates* selective
@@ -206,7 +219,7 @@ speech records (narrator, character prompt assembly, and history schema), which 
 product decision rather than a minimal correction — and was deliberately not attempted
 in this pass (one cause per fix, evidence first).
 
-## 5. Threats to validity
+### 5. Threats to validity
 
 - **Single provider**: all runs used DeepSeek V4 Flash; the local llama.cpp host was
   offline. Cross-model consistency remains untested.
@@ -217,7 +230,7 @@ in this pass (one cause per fix, evidence first).
 - **LLM-based narrative evaluation**: the continuity reviewer is itself a model; its
   transcript citations were spot-checked against the artifacts.
 
-## 6. Reproducibility
+### 6. Reproducibility
 
 ```fish
 # Full pipeline (see .claude/skills/memory-playtest/SKILL.md)
@@ -236,7 +249,7 @@ Supporting documents: `plans/artifacts/memory_focus_xyz-relatorio.md` (decision 
 Portuguese), `plans/artifacts/memory_focus_xyz-avaliacao-narrativa.md` (full narrative
 evaluation, Portuguese), raw run artifacts under `plans/artifacts/memory_focus_xyz-run*/`.
 
-## 7. Conclusions
+### 7. Conclusions
 
 1. The memory pipeline is healthy for the reported conditions: append-only state, no
    focus/presence filtering, no trimming at DeepSeek budgets, verbatim recall in 3/3
