@@ -1129,26 +1129,41 @@ class TestRunnerLogic:
         assert captured["viewer_perspective"] is own
 
     @pytest.mark.asyncio
-    async def test_private_thought_only_turn_persists_without_calling_narrator(
+    async def test_private_thought_only_turn_calls_narrator_without_leaking_thought(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
         sid = self.runner.start_session()
 
-        async def forbidden_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            raise AssertionError("Narrator must not receive a thought-only turn")
+        async def fake_narrator(game, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
+            assert game.history[-1].content_type == "thought"
+            assert game.history[-1].content == "Não devo demonstrar preocupação."
+            return {
+                "next_speakers": [],
+                "perception_events": [
+                    _perception_event("A chuva começa a bater nas janelas.", "C1")
+                ],
+                "scene_update": None,
+                "mood_updates": None,
+                "zone_moves": None,
+                "zone_link_updates": None,
+                "return_control": True,
+            }
 
-        monkeypatch.setattr(self.runner, "_call_narrator", forbidden_narrator)
+        async def fake_prose(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+            return "A chuva começa a bater nas janelas."
+
+        monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(self.runner, "_render_narration", fake_prose)
         result = await self.runner.player_turn(
             sid,
             thought="Não devo demonstrar preocupação.",
-            force_speaker="C2",
         )
         game = await self.runner.get_state(sid)
         assert game is not None
-        assert result["narration"] is None
-        assert result["next_speakers"] == []
+        assert result["narration"] == "A chuva começa a bater nas janelas."
         assert [(record.content_type, record.content) for record in game.history] == [
-            ("thought", "Não devo demonstrar preocupação.")
+            ("thought", "Não devo demonstrar preocupação."),
+            ("narration", "A chuva começa a bater nas janelas."),
         ]
         delete_session(sid)
 
@@ -1742,16 +1757,31 @@ class TestCustomSessionAndDebug:
         from src.agents.narrator import _build_system_prompt
 
         prompt = _build_system_prompt(["C1", "C2", "C3"], "Regras do mundo aqui.")
-        assert "C1, C2, C3, Narrator" in prompt
+        assert "C1, C2, C3" in prompt
+        assert "Narration is rendered separately and is never a speaker." in prompt
+        assert "DIALOGUE OWNERSHIP" in prompt
+        assert '"scene_blocking": REQUIRED spatial draft' in prompt
+        assert "SILENT SCENE BLOCKING" in prompt
+        assert "1. PLACE EVERYONE." in prompt
+        assert "5. ROUTE FROM PERCEPTION." in prompt
+        assert 'Use ["Narrator"]' not in prompt
         assert "Player" not in prompt
         assert "Regras do mundo aqui." in prompt
 
     def test_build_system_prompt_no_directives(self) -> None:
         """Sem diretivas, não anexa o bloco de WORLD DIRECTIVES."""
-        from src.agents.narrator import _build_system_prompt
+        from src.agents.narrator import _build_system_prompt, build_narrator_json_schema
 
         prompt = _build_system_prompt(["C1"], "")
         assert "WORLD DIRECTIVES" not in prompt
+        speakers = build_narrator_json_schema(["C1", "C2"])["schema"]["properties"][
+            "next_speakers"
+        ]["items"]["enum"]
+        assert speakers == ["C1", "C2"]
+        schema = build_narrator_json_schema(["C1", "C2"])["schema"]
+        assert list(schema["properties"])[0] == "scene_blocking"
+        assert schema["required"][0] == "scene_blocking"
+        assert schema["properties"]["next_speakers"]["minItems"] == 0
 
     @pytest.mark.asyncio
     async def test_valid_speakers_accepts_custom_id(self, monkeypatch) -> None:  # noqa: ANN001

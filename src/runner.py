@@ -442,22 +442,17 @@ class Runner:
             }
 
             automatic_compaction: dict[str, Any] | None = None
-            private_thought_only = bool(
-                effective_input["thought"]
-                and not effective_input["speech"]
-                and not effective_input["action"]
-                and not narrator_hint.strip()
-            )
             context_max = self.config.get("context_max")
             if (
                 self.config.get("automatic_compaction_enabled", False)
-                and not private_thought_only
                 and isinstance(context_max, int)
             ):
                 probe = copy.deepcopy(game)
                 if not skip:
                     if speech:
                         self._append_history(probe, "Player", speech, "speech", step)
+                    if thought:
+                        self._append_history(probe, "Player", thought, "thought", step)
                     if action:
                         self._append_history(probe, "Player", action, "action", step)
                 max_tokens = int(self.config.get("max_tokens_narrator", 2048))
@@ -559,32 +554,6 @@ class Runner:
                         "action" in transformed_fields,
                         audience=audience,
                     )
-
-                # A private thought has no observable event for the Narrator to
-                # resolve — unless there's also a narrator_hint providing external
-                # context. Persist it as a complete step without replaying the
-                # previous public event or inventing a reaction to hidden content.
-                if thought and not speech and not action and not narrator_hint.strip():
-                    if self.plugins is not None:
-                        game = await self.plugins.hooks.filter(
-                            "turn.before_commit", game, {"kind": "private_thought", "runner": self}
-                        )
-                    game.revision += 1
-                    save_game(game)
-                    if self.plugins is not None:
-                        await self.plugins.hooks.action(
-                            "turn.after_commit", {"game": game, "kind": "private_thought"}
-                        )
-                    return {
-                        "narration": None,
-                        "character_responses": [],
-                        "next_speakers": [],
-                        "scene_update": None,
-                        "turn_number": step,
-                        "effective_input": effective_input,
-                        "transformed_fields": transformed_fields,
-                        "automatic_compaction": automatic_compaction,
-                    }
 
             # Bounded autonomous burst (Task 37): on a bare skip turn the world
             # may play several beats before control returns. Each beat commits
