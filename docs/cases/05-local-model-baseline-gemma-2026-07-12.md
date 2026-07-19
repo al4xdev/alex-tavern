@@ -9,7 +9,7 @@
 
 ## Abstract
 
-Before adopting a commercial provider the project measured what a strong local model could sustain under the scripted playtest suite. This article merges the queued baseline run and the partial MXFP4-MoE follow-up: the local model held basic coherence but showed the failure families (identity drift, secret leakage, stalled scenes) that later became the engine's structural benchmarks. The baseline is the control arm against which the provider migration and every later structural fix were justified.
+Before adopting a commercial provider the project measured what a strong local model could sustain under the scripted playtest suite. This article merges the queued baseline run and the partial MXFP4-MoE follow-up: the local model held basic coherence but showed the failure families this suite actually measured: Character action-boundary violations (59/69 markers), second-person narrator POV, nested `physical_facts`, redundant mood updates, runaway invention and em-dash violations. (The later structural benchmarks - identity drift, secret leakage, stalled scenes - were established on a different provider in Nos. 07-11.) The baseline is the control arm against which the provider migration and every later structural fix were justified.
 
 ---
 ## Part I — Queued baseline (2026-07-12)
@@ -175,8 +175,13 @@ same aggregate SHA-256, `472b03deca0ccdedb925e69b885f24cef017198a53a04dbed6a6514
 
 ## Part II — Partial results, MXFP4 MoE quantization (2026-07-13)
 
+> **Bridge note.** Part II ran a DIFFERENT quantization (MXFP4 MoE vs Part I's A4B QAT) and an
+> incomplete suite (the harness was cancelled before the stress scenarios), so its positive
+> claims - including em-dash adherence, which Part I measured 14 violations against - are
+> partial and not directly comparable with Part I.
+
 **Date**: 2026-07-13
-**Provider**: `llama_cpp` (local, http://192.168.0.183:8888)
+**Provider**: `llama_cpp` (local, http://(redacted-private-endpoint):8888)
 **Model**: `gemma-4-26B-A4B-it.gguf` (Quantization: MXFP4 MoE)
 
 ### Overview

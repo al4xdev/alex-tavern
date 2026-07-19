@@ -20,7 +20,7 @@ part of the variant.
 |---|---|---|
 | 01 | [From a real playtest to verified remediation](./01-real-playtest-remediation-2026-07-11.md) | The four-stage loop (findings → plan → verified closure → live validation) that became the house method. |
 | 02 | [DeepSeek provider integration](./02-deepseek-provider-integration-2026-07-12.md) | Server-owned adapters: the browser never holds credentials; the boundary every later call flows through. |
-| 03 | [Adaptability and coupling audit](./03-adaptability-coupling-audit-2026-07-12.md) | The seams the provider migration had to respect, found before the migration. |
+| 03 | [Adaptability and coupling audit](./03-adaptability-coupling-audit-2026-07-12.md) | The seams the provider migration had to respect, found alongside the migration. |
 | 04 | [Test-suite audit](./04-test-suite-audit-2026-07-12.md) | Deterministic suite + explicitly-marked real-LLM benchmarks, still the suite's shape. |
 | 05 | [Local-model baseline: Gemma 4 26B](./05-local-model-baseline-gemma-2026-07-12.md) | The control arm: the failure families that became the engine's structural benchmarks. |
 | 06 | [Prompt caching evidence](./06-prompt-caching-evidence-2026-07-12.md) | Versioned positive AND negative cache proof; append-only prompts make the fan-out affordable. |
@@ -30,7 +30,7 @@ part of the variant.
 | 10 | [Token economics as an architectural enabler](./10-token-economics-agentic-architecture-2026-07-16.md) | An 89.57% cache-hit ratio is what makes the six-agent fan-out economically rational. |
 | 11 | [Roteiro, drive and scene stagnation](./11-roteiro-drive-scene-stagnation-2026-07-17.md) | A concrete disruptive beat breaks a stall 3/3; an abstract instruction 0/3. |
 | 12 | [Scene stagnation as absent state transition](./12-scene-state-transition-theory-2026-07-17.md) | The theory: two clocks, material delta, causal contract, recovery ladder — the active program. |
-| 13 | [The world as a clock: the A/B/C battery](./13-clock-causal-watcher-battery-2026-07-19.md) | The clock alone sustained the scene (watcher never fired); every reader-flagged incoherence was an unanchored drive seed. |
+| 13 | [The world as a clock: the A/B/C battery](./13-clock-causal-watcher-battery-2026-07-19.md) | In the clock+causal arm the clock alone sustained the scene (its watcher never fired); every reader-flagged incoherence was an unanchored drive seed. |
 
 ## Reading paths
 

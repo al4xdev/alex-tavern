@@ -13,6 +13,8 @@
 Prompt rules reduced but never eliminated secret leakage under interrogation pressure. This case replaced them with a deterministic retry-then-redact guard on character output, including informational-payload secret derivation and a whisper-turn marker designed by an uncontexted fixer agent. Zero record-level leaks across all measured runs; the structure-over-prompt doctrine stated here recurs in every later case.
 
 ---
+
+## Original report
 **Date**: 2026-07-15
 **Provider under test**: DeepSeek V4 Flash (`deepseek-v4-flash`), Portuguese, real API
 **Scope**: Task 25 (secret-handling behavior under interrogation), closed in `.plan/closed/`
@@ -23,7 +25,7 @@ Prompt rules reduced but never eliminated secret leakage under interrogation pre
 **Status**: Concluded — leak invariant enforced by construction; one bias-controlled
 fix cycle used (of two authorized)
 
-### Abstract
+### Original abstract
 
 After the audience model (Task 22) made whispers structurally invisible to outsiders,
 one behavioral defect remained: a character who legitimately knows a whispered secret

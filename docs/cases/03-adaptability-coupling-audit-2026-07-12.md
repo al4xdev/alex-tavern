@@ -11,6 +11,8 @@
 A read-only architecture review of backend, LLM integration, persistence and the vanilla frontend, run concurrently with the uncommitted provider work. It ranked coupling risks, identified the seams the provider migration had to respect, and recorded the remediation closure. Several of its structural warnings (config ownership, storage layout) shaped the later provider and storage contracts.
 
 ---
+
+## Original report
 **Date**: 2026-07-12
 **Scope**: Read-only review of backend, LLM integration, persistence, and vanilla frontend, with a concurrent review of the uncommitted provider work in `src/config.py` and `src/llm/providers.py`.
 

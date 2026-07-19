@@ -11,6 +11,8 @@
 Model and API discovery, a server-owned provider-adapter architecture (the browser never holds credentials), configuration and UI surfaces, tests, and live validation of DeepSeek V4 Flash against the local Gemma baseline. The adapter boundary introduced here is the one every later agent call, security policy and cache measurement flows through.
 
 ---
+
+## Original report
 **Date**: 2026-07-12
 **Scope**: exact model/API discovery, provider architecture, server-owned configuration, UI,
 tests, and live validation.
@@ -67,7 +69,7 @@ Using an isolated temporary data root:
 
 - Default suite reduced from 133 to 121 cases before provider tests.
 - Old stochastic LLM tests were replaced by the maintained harness.
-- The historical llama probe was preserved as `tools/legacy_llama_api_probe.py`.
+- The historical llama probe was preserved as `tools/legacy_llama_api_probe.py` *(contract note: later deleted; it survives in git history)*.
 - Retry coverage no longer waits through real backoff.
 - Six provider/config/adapter cases were added, bringing the current suite to 127 fast tests.
 

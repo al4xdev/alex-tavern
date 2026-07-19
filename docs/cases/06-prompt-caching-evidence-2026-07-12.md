@@ -12,6 +12,8 @@
 Raw usage counters proving when provider-native prompt caching hits and when it deliberately misses, for DeepSeek and llama.cpp. The append-only prompt discipline validated here is what later makes the agentic fan-out economically viable (see No. 10).
 
 ---
+
+## Original report
 **Captured:** 2026-07-12 UTC  
 **Status:** Verified on both supported provider adapters  
 **Probe:** `tools/prompt_cache_probe.py`

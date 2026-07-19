@@ -5,7 +5,7 @@
 | **Series** | Alex Tavern Engineering Cases, No. 07 |
 | **Date** | 2026-07-14 |
 | **Provider** | DeepSeek V4 Flash, Portuguese, real API |
-| **Runs** | 3 independent sessions, 33 turns each |
+| **Runs** | 3 independent sessions, 33 turns each (artifact dirs `-run1/` and `-run2/`; run2 holds two repetitions, numbered Runs 2 and 3 in the tables) |
 | **Status** | Reported defect did not reproduce; latent findings routed to Tasks 22-26 |
 
 ## Abstract
@@ -13,13 +13,15 @@
 A controlled attempt to reproduce a reported multi-character recall loss. The reported defect did not reproduce in three independent 33-turn runs; the experiment instead demonstrated the absence of an information boundary between characters (any character could answer with another's private facts) and a latent trim/compaction gap. Both findings became tasks and later structural fixes (audience model, output guard, perception ledger).
 
 ---
+
+## Original report
 **Date**: 2026-07-14
 **Provider under test**: DeepSeek V4 Flash (`deepseek-v4-flash`), Portuguese, real API
 **Runs**: 3 independent sessions of the same 33-turn scenario
 **Artifacts**: `plans/artifacts/memory_focus_xyz-run1/`, `plans/artifacts/memory_focus_xyz-run2/`
 **Status**: Concluded — reported defect not reproduced; two distinct defects confirmed
 
-### Abstract
+### Original abstract
 
 A user-reported anomaly claimed that in a three-character session (X, Y, Z all present
 throughout, no compaction, no presence edits, under ~30k tokens), character Y could not

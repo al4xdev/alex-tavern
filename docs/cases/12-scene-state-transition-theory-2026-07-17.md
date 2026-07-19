@@ -12,6 +12,10 @@
 Research synthesis defining stagnation as the absence of narrative state transition: two decoupled clocks (conversation vs world), a material-delta definition of progress, a causal intervention contract, a recovery ladder, and the player-attempt contract - grounded in the dialogue, turn-taking, improv and RPG literatures (Pickering & Garrod; Sacks, Schegloff & Jefferson; Magerko; FIREBALL). Its predictions were later validated by curl exploration and the delivered narrative clock; the A/B/C battery it specifies in section 7 is executed as case No. 13.
 
 ---
+
+## Registro original
+
+*Body preserved verbatim in Portuguese.*
 Documento de pesquisa + design, alimentando a **Task 33b**. Sintetiza o achado
 empírico da Task 38 (relatório: `11-roteiro-drive-scene-stagnation-2026-07-17.md`)
 com literatura sobre diálogo, turn-taking, improviso e RPG, e mapeia como esses

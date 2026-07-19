@@ -10,9 +10,11 @@
 
 ## Abstract
 
-Witnessed actions and a whisper/audience model for speech, validated by two-level recall assertions, blind continuity review, and a bias-controlled loop of uncontexted fixer subagents (two cycles). The pipeline closed leak-free; behavioral residuals were routed onward. The audience-stamped record introduced here later became the substrate of the zone graph and the structural-isolation benchmarks.
+Witnessed actions and a whisper/audience model for speech, validated by two-level recall assertions, blind continuity review, and a bias-controlled loop of uncontexted fixer subagents (two cycles). The pipeline closed leak-free; behavioral residuals were routed onward. The audience-stamped record introduced here later became the substrate of the acoustic zone graph (delivered later by Task 29.2 increment 2, `.plan/closed/`) and the structural-isolation benchmarks.
 
 ---
+
+## Original report
 **Date**: 2026-07-15
 **Provider under test**: DeepSeek V4 Flash (`deepseek-v4-flash`), Portuguese, real API
 **Scope**: Tasks 24 (fact ingestion visibility) and 22 (speech audience model), closed in
@@ -23,7 +25,7 @@ produced the defect list this work remediates)
 **Status**: Concluded — architectural information boundary in place; residual behavioral
 defects routed to open tasks
 
-### Abstract
+### Original abstract
 
 The predecessor investigation established that the engine had no information boundary:
 every speech record reached every present character's prompt, while the narrator's

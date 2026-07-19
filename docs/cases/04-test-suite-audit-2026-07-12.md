@@ -11,6 +11,12 @@
 An audit of the pytest suite and its boundaries: redundant cases, legacy paths, and stochastic tests that could not fail deterministically. The resulting policy - a fast deterministic suite plus explicitly marked real-LLM benchmarks - is the shape the suite still has (627 deterministic tests and the xfailed3 program at the time of the series reorganization).
 
 ---
+
+## Original report
+
+> **Chronology note.** This audit snapshots the suite BEFORE the cleanup that No. 02 already
+> reports (133 cases there reduced to 121, later 127) - read counts here as the pre-cleanup
+> baseline.
 **Date**: 2026-07-12
 **Scope**: `tests/`, pytest configuration, related persistence/model compatibility paths, and
 the boundaries exercised by the current suite.

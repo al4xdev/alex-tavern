@@ -12,12 +12,14 @@
 Provider-billing evidence used as an explicit upper bound on project spend. The measured 89.57% input cache-hit ratio changes the economic trade-off of the agentic fan-out (Director, Prose, Character, Perspective, Historian, Drive), with no-cache and alternative-provider counterfactuals and an explicit attribution-limitations section. The append-only prompt discipline of No. 06 is what makes these numbers reachable.
 
 ---
+
+## Original report
 **Captured:** 2026-07-16  
 **Evidence window:** 2026-07-11 through 2026-07-16 UTC
 **Provider export:** DeepSeek usage and cost CSVs generated on 2026-07-17  
 **Status:** Interim V1 case study; update through the Alex Tavern 1.0 release
 
-### Abstract
+### Original abstract
 
 Alex Tavern deliberately favors explicit agent boundaries over minimizing model calls. A turn may
 involve a Director, prose renderer, Character agents, perspective initialization or revision, a
@@ -197,7 +199,7 @@ naive whole-file aggregation overstates Alex Tavern's measured cost.
 
 The result is consistent with Alex Tavern's controlled cache probes, which separately verified
 positive repeated-prefix reuse and a changed-prefix negative control. See
-[Task 09 prompt-caching evidence](./06-prompt-caching-evidence-2026-07-12.md).
+[No. 06, the prompt-caching evidence of closed Task 09](./06-prompt-caching-evidence-2026-07-12.md).
 
 ### 4. Architectural decision supported by the evidence
 

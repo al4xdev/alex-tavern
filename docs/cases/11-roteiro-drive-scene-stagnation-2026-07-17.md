@@ -13,6 +13,8 @@
 The Task 38 report and the investigation it unlocked: why procedural roleplay scenes stagnate and repeat. Typed beat contracts banked engine gains, but the roteiro proved coin-flip on a procedural scene (portals 2W/2L); a concrete disruptive beat broke the stall 3/3 while an abstract instruction failed 0/3 - the position-and-concreteness result that seeded the clock (Task 40) and the watcher (Task 33b).
 
 ---
+
+*Body preserved verbatim in Portuguese.*
 Relatório da Task 38 (roteiro com contratos de beat tipados) e da investigação
 que ela destravou sobre por que cenas de roleplay estagnam e repetem. Provider
 de todos os runs reais: deepseek-v4-flash (endpoint local caiu; deepseek

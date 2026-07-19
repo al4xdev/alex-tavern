@@ -13,6 +13,8 @@
 A 20-turn real playtest with one manual compaction surfaced six objective defects and a set of qualitative weaknesses in the early engine. This article preserves the complete loop as evidence: the original findings (Part I), the execution plan derived exclusively from them (Part II), the verified closure of every objective defect (Part III), and the independent post-remediation live exploration that validated the fixes under real play, including two compactions with a restore between them and an undo (Part IV). The loop established the house method later formalized for every task: findings recorded before fixes, plans derived from recorded evidence only, and closure claimed only on verified behavior.
 
 ---
+
+*Body preserved verbatim in Portuguese.*
 ## Part I — Findings of the real playtest (2026-07-11, session 7cb448da)
 
 **Data:** 2026-07-11
@@ -293,6 +295,13 @@ mágica e a jornada ao norte. Porém:
 
 
 ## Part II — Remediation plan derived exclusively from Part I
+
+> **Merge note.** This part was originally a separate file. References to
+> `01-real-playtest-remediation-2026-07-11.md` inside it mean the ORIGINAL findings
+> report (now Part I) when cited as source, and the final remediation report (now
+> Part III) when cited as planned output - the merge renamed all three to this
+> article's filename.
+
 
 **Data:** 2026-07-12
 **Fonte exclusiva:** [`01-real-playtest-remediation-2026-07-11.md`](./01-real-playtest-remediation-2026-07-11.md)
@@ -590,6 +599,13 @@ O trabalho estará concluído quando:
 
 
 ## Part III — Verified closure of the six objective defects
+
+> **Merge note.** This part was originally a separate file. References to
+> `01-real-playtest-remediation-2026-07-11.md` inside it mean the ORIGINAL findings
+> report (now Part I) when cited as source, and the final remediation report (now
+> Part III) when cited as planned output - the merge renamed all three to this
+> article's filename.
+
 
 **Data:** 2026-07-12
 
