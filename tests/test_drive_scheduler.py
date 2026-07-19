@@ -108,6 +108,10 @@ class TestSeedPromptShape:
         assert "Estalagem" in joined
         assert "A porta range" in joined
         assert "never dictate" in joined.lower()
+        # causal contract (battery Decision B): the event must grow from a cited
+        # open thread, never appear disconnected from the scene.
+        assert "source_thread" in joined
+        assert "disconnected" in joined.lower()
 
 
 class TestRunnerInjection:

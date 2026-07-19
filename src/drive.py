@@ -77,15 +77,23 @@ def build_event_seed_messages(game: GameState) -> list[dict]:
         lines.insert(0, f"STORY SO FAR: {game.story_summary[:600]}")
     system = (
         "You inject narrative momentum into a stalled roleplay scene.\n"
-        "Propose ONE short unexpected but scene-consistent EXTERNAL event that\n"
-        "pushes the story forward: an arrival, an interruption, a discovery, a\n"
-        "sound, an object changing state, a complication.\n"
+        "First identify ONE open thread ALREADY present in the recent events or\n"
+        "story so far: a tension, an unanswered question, an object in play, a\n"
+        "pending action, or an approaching force. Quote its concrete evidence in\n"
+        "`source_thread`.\n"
+        "Then propose ONE short EXTERNAL event that GROWS CAUSALLY from that\n"
+        "thread and pushes the story forward. State in `expected_delta` what\n"
+        "materially changes.\n"
         "Rules:\n"
+        "- The event MUST be traceable to `source_thread`: it escalates, answers,\n"
+        "  or complicates something already in the scene. Never introduce an\n"
+        "  element disconnected from it (no figure, object, sound, or force from\n"
+        "  nowhere).\n"
         "- One or two sentences, in the language of the scene.\n"
         "- The event must be external to the characters' wills: never dictate\n"
         "  any character's action, dialogue, thought, or decision.\n"
-        "- Stay consistent with the location, physical facts, and recent events;\n"
-        "  never contradict them and never resolve an open mystery.\n"
+        "- Stay consistent with the location and physical facts; never contradict\n"
+        "  them and never resolve an open mystery outright.\n"
     )
     return [
         {"role": "system", "content": system},
@@ -98,8 +106,12 @@ def build_event_seed_schema() -> dict:
         "name": "drive_event_seed",
         "schema": {
             "type": "object",
-            "properties": {"event": {"type": "string"}},
-            "required": ["event"],
+            "properties": {
+                "source_thread": {"type": "string"},
+                "event": {"type": "string"},
+                "expected_delta": {"type": "string"},
+            },
+            "required": ["source_thread", "event", "expected_delta"],
             "additionalProperties": False,
         },
     }
