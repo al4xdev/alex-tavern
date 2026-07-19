@@ -117,7 +117,12 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.models import CharacterPerspective, PersonView
 
     async def fake_initialize(
-        client, viewer_id, characters, controlled_id, config, **kwargs  # noqa: ANN001, ANN003
+        client,
+        viewer_id,
+        characters,
+        controlled_id,
+        config,
+        **kwargs,  # noqa: ANN001, ANN003
     ) -> CharacterPerspective:
         turn_number = kwargs.get("turn_number", 0)
         return CharacterPerspective(
@@ -168,9 +173,7 @@ class TestFocusSwitchWithoutTrim:
             return {
                 "narration": "A taverna murmura ao redor da mesa.",
                 "next_speakers": ["C2"],
-                "perception_events": [
-                    _perception_event("Dario aguarda a resposta de Vela.", "C2")
-                ],
+                "perception_events": [_perception_event("Dario aguarda a resposta de Vela.", "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -189,8 +192,7 @@ class TestFocusSwitchWithoutTrim:
         )
 
         assert (
-            result["character_responses"][0]["speech"]
-            == "Era a senha que me confiaste no início."
+            result["character_responses"][0]["speech"] == "Era a senha que me confiaste no início."
         )
         assert len(captured) == 1
         user_prompt = captured[0][-1]["content"]
@@ -882,10 +884,16 @@ class TestCharacterOutputGuard:
         output, calls = await self._act(
             monkeypatch,
             [
-                {"speech": f"A senha era {MARKER}!", "thought": None,
-                 "action_intent": "guardar o bilhete no bolso"},
-                {"speech": f"Repito: {MARKER}.", "thought": None,
-                 "action_intent": "guardar o bilhete no bolso"},
+                {
+                    "speech": f"A senha era {MARKER}!",
+                    "thought": None,
+                    "action_intent": "guardar o bilhete no bolso",
+                },
+                {
+                    "speech": f"Repito: {MARKER}.",
+                    "thought": None,
+                    "action_intent": "guardar o bilhete no bolso",
+                },
             ],
         )
         assert len(calls) == 2

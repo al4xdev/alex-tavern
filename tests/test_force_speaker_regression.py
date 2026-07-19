@@ -86,9 +86,7 @@ class TestBackendForceHonored:
         return Runner, fake_narrator, fake_character, calls
 
     @pytest.mark.asyncio
-    async def test_skip_with_forced_narrator_produces_no_character_call(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_skip_with_forced_narrator_produces_no_character_call(self, monkeypatch) -> None:  # noqa: ANN001
         runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2", "C3"])
         async with httpx.AsyncClient() as client:
             runner = runner_cls(client, {"auto_event_enabled": False})
@@ -101,9 +99,7 @@ class TestBackendForceHonored:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(runner, "_call_character", fake_character)
-            monkeypatch.setattr(
-                runner, "_render_narration", lambda g, e, t: _fake_prose()
-            )
+            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
             try:
                 result = await runner.player_turn(sid, skip=True, force_speaker="Narrator")
             finally:
@@ -113,9 +109,7 @@ class TestBackendForceHonored:
         assert result["character_responses"] == []
 
     @pytest.mark.asyncio
-    async def test_skip_with_forced_npc_calls_exactly_that_npc(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_skip_with_forced_npc_calls_exactly_that_npc(self, monkeypatch) -> None:  # noqa: ANN001
         runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C3"])
         async with httpx.AsyncClient() as client:
             runner = runner_cls(client, {"auto_event_enabled": False})
@@ -128,9 +122,7 @@ class TestBackendForceHonored:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(runner, "_call_character", fake_character)
-            monkeypatch.setattr(
-                runner, "_render_narration", lambda g, e, t: _fake_prose()
-            )
+            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
             try:
                 result = await runner.player_turn(sid, skip=True, force_speaker="C2")
             finally:
@@ -139,9 +131,7 @@ class TestBackendForceHonored:
         assert result["next_speakers"] == ["C2"]
 
     @pytest.mark.asyncio
-    async def test_forced_controlled_character_never_generates_speech(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_forced_controlled_character_never_generates_speech(self, monkeypatch) -> None:  # noqa: ANN001
         runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2"])
         async with httpx.AsyncClient() as client:
             runner = runner_cls(client, {"auto_event_enabled": False})
@@ -154,13 +144,9 @@ class TestBackendForceHonored:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(runner, "_call_character", fake_character)
-            monkeypatch.setattr(
-                runner, "_render_narration", lambda g, e, t: _fake_prose()
-            )
+            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
             try:
-                result = await runner.player_turn(
-                    sid, speech="Minha vez.", force_speaker="C1"
-                )
+                result = await runner.player_turn(sid, speech="Minha vez.", force_speaker="C1")
             finally:
                 await delete_session(sid)
         assert calls == []

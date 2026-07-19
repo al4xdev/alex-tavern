@@ -206,18 +206,14 @@ class TestEvaluateRoteiro:
         # Actors covered, one anchor landed, one stubborn holdout: after the
         # patience window the beat advances instead of grinding to a stall
         # (the round-1 pinned-beat regression).
-        roteiro = _roteiro(
-            beat=_beat(expected_anchors=["carta lacrada", "adaga"], budget_turns=10)
-        )
+        roteiro = _roteiro(beat=_beat(expected_anchors=["carta lacrada", "adaga"], budget_turns=10))
         history = [_record(1, "C2", "Vi a carta lacrada."), _record(2, "C3", "Nada demais.")]
         decision = evaluate_roteiro(roteiro, history, "C1", 3)
         assert decision.action == "advance"
         assert decision.reason == "coverage_sufficient"
 
     def test_partial_coverage_waits_for_patience(self) -> None:
-        roteiro = _roteiro(
-            beat=_beat(expected_anchors=["carta lacrada", "adaga"], budget_turns=10)
-        )
+        roteiro = _roteiro(beat=_beat(expected_anchors=["carta lacrada", "adaga"], budget_turns=10))
         history = [_record(1, "C2", "Vi a carta lacrada.")]
         decision = evaluate_roteiro(roteiro, history, "C1", 2)
         assert decision.action is None
@@ -310,9 +306,14 @@ class TestReplanBookkeeping:
         async def fake_llm(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
             return {
                 "act_completed": False,
-                "beat": {"beat_id": "act1-beat2", "intent": "novo rumo",
-                         "expected_actors": ["C3"], "expected_anchors": ["adaga"],
-                         "exit_condition": "adaga aparece", "budget_turns": 4},
+                "beat": {
+                    "beat_id": "act1-beat2",
+                    "intent": "novo rumo",
+                    "expected_actors": ["C3"],
+                    "expected_anchors": ["adaga"],
+                    "exit_condition": "adaga aparece",
+                    "budget_turns": 4,
+                },
             }
 
         monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
@@ -333,9 +334,14 @@ class TestReplanBookkeeping:
         async def fake_llm(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
             return {
                 "act_completed": True,
-                "beat": {"beat_id": "act2-beat1", "intent": "confronto",
-                         "expected_actors": [], "expected_anchors": [],
-                         "exit_condition": "", "budget_turns": 5},
+                "beat": {
+                    "beat_id": "act2-beat1",
+                    "intent": "confronto",
+                    "expected_actors": [],
+                    "expected_anchors": [],
+                    "exit_condition": "",
+                    "budget_turns": 5,
+                },
             }
 
         monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
@@ -354,11 +360,17 @@ class TestReplanBookkeeping:
         async def fake_llm(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
             return {
                 "act_completed": False,
-                "acts": [{"act_id": "act2r", "summary": "novo acto 2",
-                          "exit_condition": "novo fim"}],
-                "beat": {"beat_id": "act1-beat9", "intent": "retomada",
-                         "expected_actors": ["C2"], "expected_anchors": [],
-                         "exit_condition": "", "budget_turns": 3},
+                "acts": [
+                    {"act_id": "act2r", "summary": "novo acto 2", "exit_condition": "novo fim"}
+                ],
+                "beat": {
+                    "beat_id": "act1-beat9",
+                    "intent": "retomada",
+                    "expected_actors": ["C2"],
+                    "expected_anchors": [],
+                    "exit_condition": "",
+                    "budget_turns": 3,
+                },
             }
 
         monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
@@ -379,13 +391,25 @@ class TestReplanBookkeeping:
             return {
                 "act_completed": False,
                 "acts": [
-                    {"act_id": "dup", "summary": "A carta chega",  # == current act1
-                     "exit_condition": "carta aberta"},
-                    {"act_id": "act2r", "summary": "O verdadeiro segundo ato",
-                     "exit_condition": "fim"},
+                    {
+                        "act_id": "dup",
+                        "summary": "A carta chega",  # == current act1
+                        "exit_condition": "carta aberta",
+                    },
+                    {
+                        "act_id": "act2r",
+                        "summary": "O verdadeiro segundo ato",
+                        "exit_condition": "fim",
+                    },
                 ],
-                "beat": {"beat_id": "b", "intent": "x", "expected_actors": [],
-                         "expected_anchors": [], "exit_condition": "", "budget_turns": 3},
+                "beat": {
+                    "beat_id": "b",
+                    "intent": "x",
+                    "expected_actors": [],
+                    "expected_anchors": [],
+                    "exit_condition": "",
+                    "budget_turns": 3,
+                },
             }
 
         monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
@@ -403,8 +427,14 @@ class TestReplanBookkeeping:
         async def fake_llm(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
             return {
                 "act_completed": False,
-                "beat": {"beat_id": "b2", "intent": "x", "expected_actors": [],
-                         "expected_anchors": ["novo"], "exit_condition": "", "budget_turns": 3},
+                "beat": {
+                    "beat_id": "b2",
+                    "intent": "x",
+                    "expected_actors": [],
+                    "expected_anchors": ["novo"],
+                    "exit_condition": "",
+                    "budget_turns": 3,
+                },
             }
 
         monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
@@ -456,8 +486,9 @@ class TestConfidentialityAndConsumption:
         assert "carta lacrada" not in lines
 
     def test_director_block_drops_pending_line_when_all_seen(self) -> None:
-        seen = _roteiro(beat=_beat(expected_anchors=["carta lacrada"]),
-                        anchors_seen=["carta lacrada"])
+        seen = _roteiro(
+            beat=_beat(expected_anchors=["carta lacrada"]), anchors_seen=["carta lacrada"]
+        )
         lines = "\n".join(describe_roteiro_for_director(seen, CHARACTERS))
         assert "Not in play yet" not in lines
 
@@ -476,7 +507,12 @@ class TestConfidentialityAndConsumption:
 
 class TestRunnerWiring:
     async def _turn(  # noqa: ANN202
-        self, monkeypatch, config, game_roteiro=None, seed_history=None, narrator_events=None  # noqa: ANN001
+        self,
+        monkeypatch,
+        config,
+        game_roteiro=None,
+        seed_history=None,
+        narrator_events=None,  # noqa: ANN001
     ):
         import src.runner as runner_mod
         from src.runner import Runner
@@ -600,8 +636,15 @@ class TestNarrativeClock:
     """Task 40: the tick always advances; act deadlines force the world event."""
 
     def test_tick_and_act_fields_roundtrip(self) -> None:
-        acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e",
-                           duration_ticks=4, world_event="O sino toca.")]
+        acts = [
+            RoteiroAct(
+                act_id="a1",
+                summary="s",
+                exit_condition="e",
+                duration_ticks=4,
+                world_event="O sino toca.",
+            )
+        ]
         game = _game(roteiro=_roteiro(acts=acts, act_started_tick=3))
         game.narrative_tick = 7
         restored = dict_to_game_state(game_state_to_dict(game))
@@ -611,10 +654,12 @@ class TestNarrativeClock:
         assert restored.roteiro.acts[0].world_event == "O sino toca."
 
     def test_acts_validation_clamps_clock_fields(self) -> None:
-        acts = _validate_acts([
-            {"summary": "ok", "duration_ticks": 99, "world_event": "x" * 400},
-            {"summary": "ok2", "duration_ticks": "junk"},
-        ])
+        acts = _validate_acts(
+            [
+                {"summary": "ok", "duration_ticks": 99, "world_event": "x" * 400},
+                {"summary": "ok2", "duration_ticks": "junk"},
+            ]
+        )
         assert acts[0].duration_ticks == 12
         assert len(acts[0].world_event) == 300
         assert acts[1].duration_ticks == 0
@@ -693,15 +738,20 @@ class TestNarrativeClock:
         from src.store.sessions import delete_session
 
         acts = [
-            RoteiroAct(act_id="a1", summary="s", exit_condition="e",
-                       duration_ticks=2, world_event="O sino da torre soa e o par e anunciado."),
+            RoteiroAct(
+                act_id="a1",
+                summary="s",
+                exit_condition="e",
+                duration_ticks=2,
+                world_event="O sino da torre soa e o par e anunciado.",
+            ),
             RoteiroAct(act_id="a2", summary="s2", exit_condition="e2"),
         ]
         runner, sid, client, hints, replans = await self._clock_session(
             monkeypatch, _roteiro(acts=acts, act_started_tick=0)
         )
         try:
-            await runner.player_turn(sid, speech="Um.")   # tick 0->1
+            await runner.player_turn(sid, speech="Um.")  # tick 0->1
             await runner.player_turn(sid, speech="Dois.")  # tick 1->2
             # Third turn: tick(2) - started(0) >= 2 -> deadline fires BEFORE the
             # narrator: the world_event becomes this beat's UPCOMING EVENT.

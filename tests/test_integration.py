@@ -110,6 +110,7 @@ DEFAULT_SCENE = Scene(
 def _sec_headers() -> dict:
     """Task 19: the per-process access token so ASGI POSTs pass the origin/token gate."""
     import src.main
+
     return {"X-Tavern-Token": src.main.ACCESS_TOKEN}
 
 
@@ -120,7 +121,12 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.models import CharacterPerspective, PersonView
 
     async def fake_initialize(
-        client, viewer_id, characters, controlled_id, config, **kwargs  # noqa: ANN001, ANN003
+        client,
+        viewer_id,
+        characters,
+        controlled_id,
+        config,
+        **kwargs,  # noqa: ANN001, ANN003
     ) -> CharacterPerspective:
         turn_number = kwargs.get("turn_number", 0)
         return CharacterPerspective(
@@ -1135,10 +1141,12 @@ class TestRunnerLogic:
         monkeypatch.setattr(runner_mod, "character_act", fake_act)
 
         game = _make_test_game()
-        own = CharacterPerspective(initialized_turn=0, processed_through_turn=0,
-                                   recent_memory=["so minha memoria"])
-        other = CharacterPerspective(initialized_turn=0, processed_through_turn=0,
-                                     recent_memory=["memoria alheia"])
+        own = CharacterPerspective(
+            initialized_turn=0, processed_through_turn=0, recent_memory=["so minha memoria"]
+        )
+        other = CharacterPerspective(
+            initialized_turn=0, processed_through_turn=0, recent_memory=["memoria alheia"]
+        )
         game.character_perspectives = {"C1": own, "C2": other}
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         await runner._call_character(game, "C1", "ctx", 1)
@@ -1331,9 +1339,7 @@ class TestCompactSession:
             captured["summary"] = game.story_summary
             return {
                 "next_speakers": ["C2"],
-                "perception_events": [
-                    _perception_event("The sealed gate is visible.", "C2")
-                ],
+                "perception_events": [_perception_event("The sealed gate is visible.", "C2")],
                 "scene_update": None,
                 "mood_updates": None,
             }
@@ -1863,9 +1869,7 @@ class TestCustomSessionAndDebug:
             captured["json_schema"] = kwargs["json_schema"]
             return {
                 "next_speakers": ["C1"],
-                "perception_events": [
-                    _perception_event("Only C2 can perceive this.", "C2")
-                ],
+                "perception_events": [_perception_event("Only C2 can perceive this.", "C2")],
             }
 
         monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
@@ -1941,9 +1945,7 @@ class TestCustomSessionAndDebug:
                             "destination_reachable_this_beat": True,
                         },
                         "next_speakers": ["C1"],
-                        "perception_events": [
-                            _perception_event("Você ouve um rangido.", "C1")
-                        ],
+                        "perception_events": [_perception_event("Você ouve um rangido.", "C1")],
                         "scene_update": None,
                         "mood_updates": None,
                         "zone_moves": None,
@@ -2413,7 +2415,9 @@ class TestEdgeCases:
 
         thorn = DEFAULT_CHARACTERS["C1"]
         prompt = _build_user_prompt(
-            "Contexto.", "(none)", thorn.mind.current_mood,
+            "Contexto.",
+            "(none)",
+            thorn.mind.current_mood,
             ledger_memory="Memoria exclusiva do Thorn.",
         )
         assert "Memoria exclusiva do Thorn." in prompt

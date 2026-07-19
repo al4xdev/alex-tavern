@@ -46,7 +46,9 @@ CHARACTERS = {
 }
 
 SCENE = Scene(
-    location="Sala", time_of_day="Noite", present_characters=["C1", "C2", "C3", "Player"],
+    location="Sala",
+    time_of_day="Noite",
+    present_characters=["C1", "C2", "C3", "Player"],
     physical_facts={},
 )
 
@@ -71,9 +73,7 @@ class TestViewerSpeakerLabel:
         perspective = _perspective(
             C1=PersonView(known_name=None, reference="o homem na entrada", source_turn=1)
         )
-        assert (
-            viewer_speaker_label("C1", CHARACTERS, "C1", perspective) == "o homem na entrada"
-        )
+        assert viewer_speaker_label("C1", CHARACTERS, "C1", perspective) == "o homem na entrada"
 
     def test_player_marker_resolves_through_controlled_view(self) -> None:
         perspective = _perspective(
@@ -166,6 +166,7 @@ class TestValidatedPeople:
         )
         assert people["C17"].known_name == "Maelis Ordan"
 
+
 class TestNeedsIdentityUpdate:
     def test_no_strangers_short_circuits(self) -> None:
         perspective = _perspective(
@@ -213,9 +214,7 @@ class TestRunnerWiring:
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
                 people={
-                    "C1": PersonView(
-                        known_name=None, reference="o recém-chegado", source_turn=1
-                    ),
+                    "C1": PersonView(known_name=None, reference="o recém-chegado", source_turn=1),
                     "C3": PersonView(known_name="Fernanda", reference="a ruiva", source_turn=1),
                 },
             )

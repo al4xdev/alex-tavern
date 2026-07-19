@@ -330,9 +330,7 @@ class TestXfailed3Structural:
 
     def test_whisper_audiences_are_the_confidant_only(self) -> None:
         scenario = _load_fixture()
-        audiences = [
-            event["audience"] for event in _turn_events(scenario) if event.get("audience")
-        ]
+        audiences = [event["audience"] for event in _turn_events(scenario) if event.get("audience")]
         assert audiences == [["C5"], ["C5"], ["C5"]]
 
     def test_source_material_exclusions(self) -> None:
@@ -583,11 +581,11 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
             and not _earned_name(game, "C9", "C1", "Alice", record.get("turn_number") or 0)
         ):
             add(
-                    "GLOBAL-anonymous-pair-prompt",
-                    "unearned_identity_familiarity",
-                    record.get("turn_number"),
-                    "delegate prompt carries the signatory's never-learned name",
-                )
+                "GLOBAL-anonymous-pair-prompt",
+                "unearned_identity_familiarity",
+                record.get("turn_number"),
+                "delegate prompt carries the signatory's never-learned name",
+            )
 
     for record in game.history:
         if record.speaker not in game.characters or record.content_type not in (
@@ -610,11 +608,11 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
             and not _earned_name(game, "C9", "C1", "Alice", record.turn_number)
         ):
             add(
-                    "GLOBAL-anonymous-pair-reply",
-                    "unearned_identity_familiarity",
-                    record.turn_number,
-                    f"delegate used the signatory's never-learned name: {record.content[:120]}",
-                )
+                "GLOBAL-anonymous-pair-reply",
+                "unearned_identity_familiarity",
+                record.turn_number,
+                f"delegate used the signatory's never-learned name: {record.content[:120]}",
+            )
 
     for pattern, reason in NARRATION_FORBIDDEN_CANON:
         for record in game.history:
@@ -644,7 +642,7 @@ def _export_artifacts(run: dict[str, Any], violations: list[dict[str, Any]], tie
             text=True,
             check=True,
         ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         revision = "unknown"
     manifest = {
         "tier": tier,

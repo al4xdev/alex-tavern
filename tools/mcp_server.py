@@ -269,9 +269,7 @@ def _load_recorded_calls(session_id: str) -> list[dict[str, Any]]:
     if not path.exists():
         raise ToolError(f"no debug log for session {session_id}")
     return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
 
 

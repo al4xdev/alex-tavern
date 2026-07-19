@@ -150,8 +150,10 @@ def _validated_people(
         if known_name is not None and known_name.casefold() not in evidence:
             known_name = None
         canonical = canonical_names.get(subject_id, "") if canonical_names else ""
-        if known_name is None and canonical and _canonical_name_in_evidence(
-            canonical, evidence_text
+        if (
+            known_name is None
+            and canonical
+            and _canonical_name_in_evidence(canonical, evidence_text)
         ):
             # The sheet is canonical private knowledge. If it explicitly names
             # someone, a conservative model response cannot downgrade that
@@ -198,7 +200,8 @@ async def initialize_perspective(
     user = (
         f"VIEWER: {viewer_id} ({viewer.mind.name})\n"
         f"VIEWER PERSONALITY:\n{viewer.mind.personality}\n"
-        f"VIEWER KNOWLEDGE:\n" + "\n".join(f"  - {fact}" for fact in viewer.mind.knowledge)
+        f"VIEWER KNOWLEDGE:\n"
+        + "\n".join(f"  - {fact}" for fact in viewer.mind.knowledge)
         + "\n\nROSTER (canonical machine metadata):\n"
         + "\n".join(roster)
         + "\n\nReport the viewer's current identity knowledge for every roster person."
@@ -322,9 +325,7 @@ async def update_identity(
         turn_number,
         previous=perspective.people,
         evidence_text=events_text,
-        canonical_names={
-            cid: characters[cid].mind.name for cid in unknown if cid in characters
-        },
+        canonical_names={cid: characters[cid].mind.name for cid in unknown if cid in characters},
     ).items():
         perspective.people[subject_id] = view
 
@@ -465,9 +466,7 @@ async def revise_memory(
     if not older:
         return
     viewer_name = characters[viewer_id].mind.name if viewer_id in characters else viewer_id
-    messages = build_memory_revision_messages(
-        viewer_name, perspective.memory_summary, older
-    )
+    messages = build_memory_revision_messages(viewer_name, perspective.memory_summary, older)
     try:
         result = await chat_completion_json(
             client,
@@ -523,4 +522,4 @@ def capture_memory(
         perspective.memory_through_turn, *(r.turn_number for r in new_records)
     )
     if len(perspective.recent_memory) > MAX_RECENT_MEMORY:
-        del perspective.recent_memory[: -MAX_RECENT_MEMORY]
+        del perspective.recent_memory[:-MAX_RECENT_MEMORY]

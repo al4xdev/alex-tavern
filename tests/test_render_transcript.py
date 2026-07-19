@@ -78,7 +78,9 @@ def test_zone_scoped_speech_renders_without_whisper_wording() -> None:
     from tools.render_transcript import render_session
 
     scene = Scene(
-        location="x", time_of_day="y", present_characters=["C1", "C2", "Player"],
+        location="x",
+        time_of_day="y",
+        present_characters=["C1", "C2", "Player"],
         physical_facts={},
     )
     chars = {
@@ -92,14 +94,20 @@ def test_zone_scoped_speech_renders_without_whisper_wording() -> None:
         ),
     }
     game = GameState(
-        session_id="t", characters=chars, player=Player(controlled_character_id="C1"),
+        session_id="t",
+        characters=chars,
+        player=Player(controlled_character_id="C1"),
         scene=scene,
     )
     game.history.append(
         TurnRecord(
-            turn_number=1, speaker="C1", content="Falei no salao.",
-            content_type="speech", scene_snapshot=scene,
-            audience=["C2"], audience_origin="zone",
+            turn_number=1,
+            speaker="C1",
+            content="Falei no salao.",
+            content_type="speech",
+            scene_snapshot=scene,
+            audience=["C2"],
+            audience_origin="zone",
         )
     )
     rendered = render_session(game)

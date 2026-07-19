@@ -85,9 +85,7 @@ def _transcript_content(
     label = _canonical_name(record.speaker, characters, controlled_id)
     if record.audience is None:
         return f"{label} fala"
-    audience = ", ".join(
-        _canonical_name(cid, characters, controlled_id) for cid in record.audience
-    )
+    audience = ", ".join(_canonical_name(cid, characters, controlled_id) for cid in record.audience)
     return f"{label} fala baixo (só {audience} percebem)"
 
 
@@ -197,9 +195,7 @@ def _strip_echoed_sentences(new_text: str, history: list[TurnRecord]) -> str:
     return " ".join(p.strip() for p in kept if p.strip()).strip()
 
 
-def _staging_lines(
-    scene: Scene, characters: dict[str, Character], controlled_id: str
-) -> list[str]:
+def _staging_lines(scene: Scene, characters: dict[str, Character], controlled_id: str) -> list[str]:
     """STAGING block lines for the zone graph (empty when the scene is flat).
 
     Each zone lists which other zones it can hear, which it is acoustically
@@ -274,11 +270,14 @@ def build_prose_messages(
     user = (
         f"SCENE: {scene.location} | {scene.time_of_day}\n"
         f"PHYSICAL FACTS: {json.dumps(scene.physical_facts, ensure_ascii=False)}\n"
-        "CAST (visible appearance only):\n" + "\n".join(cast_lines) + "\n\n"
+        "CAST (visible appearance only):\n"
+        + "\n".join(cast_lines)
+        + "\n\n"
         + staging_block
-        + "READER TRANSCRIPT (oldest to newest):\n" + "\n".join(transcript) + "\n\n"
-        "CONFIRMED EVENTS OF THIS BEAT (narrate exactly these):\n"
-        + "\n".join(event_lines)
+        + "READER TRANSCRIPT (oldest to newest):\n"
+        + "\n".join(transcript)
+        + "\n\n"
+        "CONFIRMED EVENTS OF THIS BEAT (narrate exactly these):\n" + "\n".join(event_lines)
     )
     return [
         {"role": "system", "content": PROSE_SYSTEM},

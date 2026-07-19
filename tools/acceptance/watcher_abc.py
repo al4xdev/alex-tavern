@@ -251,7 +251,7 @@ def _spawn(args: list[str], data_dir: Path) -> str:
 def _sid_from(stdout: str) -> str:
     for line in stdout.splitlines():
         if line.startswith("ARM_SUMMARY "):
-            return json.loads(line[len("ARM_SUMMARY "):])["session_id"]
+            return json.loads(line[len("ARM_SUMMARY ") :])["session_id"]
     raise SystemExit("no ARM_SUMMARY in arm output")
 
 

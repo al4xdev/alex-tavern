@@ -14,6 +14,7 @@ Usage:
   python tools/acceptance/roteiro_ab.py --arm roteiro --enabled 1   # one arm
   python tools/acceptance/roteiro_ab.py --scan roteiro <sid>        # scan only
 """
+
 import argparse
 import asyncio
 import difflib
@@ -63,6 +64,7 @@ def lexical_metrics(sid: str) -> dict:
         "near_dups": near_dups,
         "worst_pair": worst if max_echo >= 0.8 else None,
     }
+
 
 REPO = Path("/home/alex/git/my/roleplay")
 BASE = REPO / "plans/artifacts/roteiro-ab"
@@ -195,11 +197,13 @@ async def run_arm(roteiro_enabled: bool, scenario: str = "estalagem") -> str:
 
     session_args, inputs = _build_session_args(scenario)
     config = resolve_active_config(load_config(REPO / ".data/config.json"))
-    config.update({
-        "autonomous_burst_max_beats": 1,
-        "roteiro_enabled": roteiro_enabled,
-        "llm_timeout_seconds": 120.0,
-    })
+    config.update(
+        {
+            "autonomous_burst_max_beats": 1,
+            "roteiro_enabled": roteiro_enabled,
+            "llm_timeout_seconds": 120.0,
+        }
+    )
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
         sid = runner.start_session(session_args)
@@ -279,7 +283,10 @@ def _spawn(args: list[str], data_dir: Path) -> str:
     env = dict(os.environ, ROLEPLAY_DATA_DIR=str(data_dir), PYTHONPATH=str(REPO))
     proc = subprocess.run(
         [sys.executable, __file__, *args],
-        env=env, cwd=str(REPO), capture_output=True, text=True,
+        env=env,
+        cwd=str(REPO),
+        capture_output=True,
+        text=True,
     )
     sys.stdout.write(proc.stdout)
     if proc.returncode != 0:
@@ -291,7 +298,7 @@ def _spawn(args: list[str], data_dir: Path) -> str:
 def _sid_from(stdout: str) -> str:
     for line in stdout.splitlines():
         if line.startswith("ARM_SUMMARY "):
-            return json.loads(line[len("ARM_SUMMARY "):])["session_id"]
+            return json.loads(line[len("ARM_SUMMARY ") :])["session_id"]
     raise SystemExit("no ARM_SUMMARY in arm output")
 
 

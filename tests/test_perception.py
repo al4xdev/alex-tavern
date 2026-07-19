@@ -278,9 +278,7 @@ class TestWhisperOutputGuardZoneExposure:
 
 class TestZoneScopedRecords:
     @pytest.mark.asyncio
-    async def test_public_speech_record_gets_zone_computed_audience(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_public_speech_record_gets_zone_computed_audience(self, monkeypatch) -> None:  # noqa: ANN001
         import src.runner as runner_mod
         from src.models import CharacterPerspective
         from src.runner import Runner

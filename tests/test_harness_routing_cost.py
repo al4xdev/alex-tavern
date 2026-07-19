@@ -136,9 +136,9 @@ class TestCostAttribution:
         }
 
     def test_missing_usage_degrades_gracefully(self) -> None:
-        assert turn_usage([{"turn_number": 1, "request": {"messages": []}}], 1)[
-            "prompt_tokens"
-        ] == 0
+        assert (
+            turn_usage([{"turn_number": 1, "request": {"messages": []}}], 1)["prompt_tokens"] == 0
+        )
 
 
 class TestPostSplitAnalyzer:

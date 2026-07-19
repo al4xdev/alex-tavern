@@ -91,9 +91,7 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
             value.get("automatic_compaction_threshold_percent"),
             "automatic_compaction_threshold_percent",
         ),
-        "auto_event_enabled": _boolean(
-            value.get("auto_event_enabled", True), "auto_event_enabled"
-        ),
+        "auto_event_enabled": _boolean(value.get("auto_event_enabled", True), "auto_event_enabled"),
         "auto_event_base_probability": _unit_interval(
             value.get("auto_event_base_probability", 0.05), "auto_event_base_probability"
         ),
@@ -107,9 +105,7 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         "autonomous_burst_max_beats": _positive_integer(
             value.get("autonomous_burst_max_beats", 1), "autonomous_burst_max_beats"
         ),
-        "roteiro_enabled": _boolean(
-            value.get("roteiro_enabled", False), "roteiro_enabled"
-        ),
+        "roteiro_enabled": _boolean(value.get("roteiro_enabled", False), "roteiro_enabled"),
         "providers": {},
     }
     for name in current_provider_names:

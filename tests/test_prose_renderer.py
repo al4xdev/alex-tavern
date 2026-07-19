@@ -142,7 +142,6 @@ class TestAudibleSpeechEventsAreOmitted:
         assert "silence" in PROSE_SYSTEM
 
 
-
 class TestNonSpeechRecordsKeepContent:
     def test_narration_records_keep_full_content(self) -> None:
         history = [_record("Narrator", "A chuva bate nas janelas do salão.", "narration")]
@@ -235,9 +234,7 @@ class TestRepetitionRetry:
 
     async def _render(self, fake: _FakeCompletion, monkeypatch: Any) -> str:
         monkeypatch.setattr(prose, "chat_completion_json", fake)
-        return await render_narration(
-            None, SCENE, CHARACTERS, CONTROLLED_ID, self.HISTORY, [], {}
-        )
+        return await render_narration(None, SCENE, CHARACTERS, CONTROLLED_ID, self.HISTORY, [], {})
 
     async def test_repeated_then_fresh_retries_once_and_returns_second(
         self, monkeypatch: Any
@@ -251,9 +248,7 @@ class TestRepetitionRetry:
             "content": REPETITION_CORRECTION,
         }
 
-    async def test_repeated_twice_all_echoes_keeps_draft(
-        self, monkeypatch: Any
-    ) -> None:
+    async def test_repeated_twice_all_echoes_keeps_draft(self, monkeypatch: Any) -> None:
         # Every sentence echoes prior narration: the backstop cannot strip the
         # whole paragraph, so the draft is kept rather than emptied.
         fake = _FakeCompletion([NEAR_IDENTICAL_PARAGRAPH, NEAR_IDENTICAL_PARAGRAPH])

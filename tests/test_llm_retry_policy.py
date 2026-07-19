@@ -25,9 +25,7 @@ CHARACTERS = {
         body=CharacterBody(name="Thorn", physical_description="Alto.", outfit="Capa."),
     ),
     "C2": Character(
-        mind=CharacterMind(
-            name="Vela", personality="Calma.", knowledge=[], current_mood="neutra"
-        ),
+        mind=CharacterMind(name="Vela", personality="Calma.", knowledge=[], current_mood="neutra"),
         body=CharacterBody(name="Vela", physical_description="Baixa.", outfit="Túnica."),
     ),
 }
@@ -100,9 +98,7 @@ class TestUnifiedRetryPolicy:
         assert len(calls) == 2
 
     @pytest.mark.asyncio
-    async def test_definitive_client_error_fails_fast(
-        self, monkeypatch, no_backoff
-    ) -> None:  # noqa: ANN001
+    async def test_definitive_client_error_fails_fast(self, monkeypatch, no_backoff) -> None:  # noqa: ANN001
         post, calls = _sequenced_post([(400, "bad request")])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)

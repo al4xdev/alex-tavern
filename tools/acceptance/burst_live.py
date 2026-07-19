@@ -1,4 +1,5 @@
 """Task 37 live: one skip -> the world plays several beats and stops with a reason."""
+
 # ruff: noqa: E402  (script: sys.path bootstrap precedes imports)
 import asyncio
 import json
@@ -43,32 +44,45 @@ CH = {
     ),
 }
 
+
 async def main():
     config = resolve_active_config(
         load_config(Path("/home/alex/git/my/roleplay/.data/config.json"))
     )
-    config.update({
-        "autonomous_burst_max_beats": 4,
-        "auto_event_enabled": True,
-        "auto_event_base_probability": 0.9,
-        "llm_timeout_seconds": 120.0,
-    })
+    config.update(
+        {
+            "autonomous_burst_max_beats": 4,
+            "auto_event_enabled": True,
+            "auto_event_base_probability": 0.9,
+            "llm_timeout_seconds": 120.0,
+        }
+    )
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
-        sid = runner.start_session({
-            "characters": dict(CH),
-            "scene": Scene(location="Estalagem - salao", time_of_day="Madrugada",
-                           present_characters=["C1", "C2", "C3", "Player"],
-                           physical_facts={"lareira": "quase apagada"}),
-            "controlled_character_id": "C1",
-        })
+        sid = runner.start_session(
+            {
+                "characters": dict(CH),
+                "scene": Scene(
+                    location="Estalagem - salao",
+                    time_of_day="Madrugada",
+                    present_characters=["C1", "C2", "C3", "Player"],
+                    physical_facts={"lareira": "quase apagada"},
+                ),
+                "controlled_character_id": "C1",
+            }
+        )
         await runner.player_turn(sid, speech="Que noite parada.")
         result = await runner.player_turn(sid, skip=True)
-    print(json.dumps({
-        "beats": len(result.get("beats") or []),
-        "stop_reason": result.get("burst_stop_reason"),
-        "turns": [b["turn_number"] for b in (result.get("beats") or [])],
-    }, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "beats": len(result.get("beats") or []),
+                "stop_reason": result.get("burst_stop_reason"),
+                "turns": [b["turn_number"] for b in (result.get("beats") or [])],
+            },
+            ensure_ascii=False,
+        )
+    )
     for b in result.get("beats") or []:
         print(f"--- beat T{b['turn_number']} (queue={b['next_speakers']})")
         print("  N:", (b.get("narration") or "")[:150])
@@ -80,5 +94,6 @@ async def main():
         if '"autonomous_burst"' in line
     ]
     print("burst log:", burst_logs)
+
 
 asyncio.run(main())

@@ -205,9 +205,7 @@ class TestRunnerInjection:
             )
             try:
                 await runner.player_turn(sid, speech="Oi.")
-                await runner.player_turn(
-                    sid, skip=True, narrator_hint="Evento manual do jogador."
-                )
+                await runner.player_turn(sid, skip=True, narrator_hint="Evento manual do jogador.")
                 await runner.player_turn(sid, skip=True)
                 game = await runner.get_state(sid)
             finally:

@@ -63,7 +63,6 @@ def build_summarizer_json_schema() -> dict:
     }
 
 
-
 def _build_user_prompt(
     characters: dict[str, Character],
     controlled_id: str,
@@ -87,7 +86,6 @@ def _build_user_prompt(
     lines.append("")
 
     return "\n".join(lines)
-
 
 
 def build_summarizer_messages(

@@ -94,9 +94,7 @@ class ReplanDecision:
     progress: BeatProgress | None = None
 
 
-def _beat_records(
-    history: list[TurnRecord], since_turn: int
-) -> list[TurnRecord]:
+def _beat_records(history: list[TurnRecord], since_turn: int) -> list[TurnRecord]:
     return [
         rec
         for rec in history
@@ -154,8 +152,7 @@ def measure_beat_progress(
         actor
         for actor in beat.expected_actors
         if any(
-            _actor_of(rec) == actor and rec.content_type in ("speech", "action")
-            for rec in records
+            _actor_of(rec) == actor and rec.content_type in ("speech", "action") for rec in records
         )
     }
 
@@ -312,7 +309,7 @@ def _validate_beat(raw: object, game: GameState, fallback_id: str) -> RoteiroBea
     ][:MAX_ANCHORS]
     try:
         budget = int(raw.get("budget_turns", 6))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         budget = 6
     return RoteiroBeat(
         beat_id=str(raw.get("beat_id") or fallback_id).strip() or fallback_id,
@@ -333,7 +330,7 @@ def _validate_acts(raw_acts: object) -> list[RoteiroAct]:
             continue
         try:
             duration = int(item.get("duration_ticks", 0))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             duration = 0
         acts.append(
             RoteiroAct(
@@ -361,17 +358,13 @@ def _story_context_lines(game: GameState, recent_turns: int = 12) -> list[str]:
     if game.story_summary.strip():
         lines.append(f"STORY SO FAR: {game.story_summary.strip()[:600]}")
     recent = [
-        rec
-        for rec in game.history[-recent_turns:]
-        if rec.content_type in _PROGRESS_RECORD_TYPES
+        rec for rec in game.history[-recent_turns:] if rec.content_type in _PROGRESS_RECORD_TYPES
     ]
     if recent:
         lines.append("RECENT EVENTS (oldest to newest):")
         for rec in recent:
             speaker = controlled if rec.speaker == "Player" else rec.speaker
-            name = (
-                game.characters[speaker].mind.name if speaker in game.characters else rec.speaker
-            )
+            name = game.characters[speaker].mind.name if speaker in game.characters else rec.speaker
             lines.append(f"  {name}: {rec.content[:160]}")
     return lines
 
@@ -537,9 +530,7 @@ def build_next_beat_messages(
             f"ACT {item.act_id}: {item.summary} | exits when: {item.exit_condition}{marker}"
         )
     if beat is not None:
-        lines.append(
-            f"CURRENT BEAT ({beat.beat_id}): {beat.intent} | exit: {beat.exit_condition}"
-        )
+        lines.append(f"CURRENT BEAT ({beat.beat_id}): {beat.intent} | exit: {beat.exit_condition}")
     if roteiro.beat_log:
         lines.append("BEAT LOG: " + "; ".join(roteiro.beat_log[-6:]))
     lines.append(f"STATUS: {status}")
@@ -654,9 +645,7 @@ async def replan_roteiro(
 
     outcome = decision.reason if decision.action != "advance" else "completed"
     old_id = roteiro.beat.beat_id if roteiro.beat else "none"
-    started_tick = (
-        current_tick if act_index != roteiro.act_index else roteiro.act_started_tick
-    )
+    started_tick = current_tick if act_index != roteiro.act_index else roteiro.act_started_tick
     return Roteiro(
         premise=roteiro.premise,
         acts=acts,

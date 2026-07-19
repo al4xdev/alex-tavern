@@ -152,9 +152,7 @@ class TestBurst:
         # The empty beat writes NO narration record: nothing happened, so the
         # prose renderer is never invited to re-describe the standing tableau.
         assert game is not None
-        narration_turns = [
-            r.turn_number for r in game.history if r.content_type == "narration"
-        ]
+        narration_turns = [r.turn_number for r in game.history if r.content_type == "narration"]
         assert narration_turns == [1]
         assert result["beats"][1]["narration"] == ""
 
@@ -176,18 +174,14 @@ class TestBurst:
 
     @pytest.mark.asyncio
     async def test_default_config_keeps_single_beat_contract(self, monkeypatch) -> None:  # noqa: ANN001
-        result, _ = await _run(
-            monkeypatch, {"auto_event_enabled": False}, [_beat(["C2"])]
-        )
+        result, _ = await _run(monkeypatch, {"auto_event_enabled": False}, [_beat(["C2"])])
         assert result["burst_stop_reason"] is None
         assert len(result["beats"]) == 1
         assert result["character_responses"][0]["speech"] == "Beat de C2."
 
     @pytest.mark.asyncio
     async def test_force_speaker_disables_the_burst(self, monkeypatch) -> None:  # noqa: ANN001
-        result, _ = await _run(
-            monkeypatch, BURST_CONFIG, [_beat(["C2"])], skip=True, force="C2"
-        )
+        result, _ = await _run(monkeypatch, BURST_CONFIG, [_beat(["C2"])], skip=True, force="C2")
         assert result["burst_stop_reason"] is None
         assert len(result["beats"]) == 1
 

@@ -11,6 +11,7 @@ import asyncio
 import copy
 from dataclasses import asdict
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -452,9 +453,8 @@ class Runner:
 
             automatic_compaction: dict[str, Any] | None = None
             context_max = self.config.get("context_max")
-            if (
-                self.config.get("automatic_compaction_enabled", False)
-                and isinstance(context_max, int)
+            if self.config.get("automatic_compaction_enabled", False) and isinstance(
+                context_max, int
             ):
                 probe = copy.deepcopy(game)
                 if not skip:
@@ -651,23 +651,19 @@ class Runner:
                 else:
                     narrator_game = game
                     assert narrator_game is not None
+                    call_director = partial(
+                        self._call_narrator,
+                        narrator_game,
+                        step,
+                        effective_force_speaker,
+                        narrator_hint,
+                        extra_context=extra_context,
+                        extra_schema_properties=extra_schema_properties,
+                        extra_schema_required=extra_schema_required,
+                    )
                     narrator_raw = await self.plugins.hooks.call_wrapped(
                         "narrator.call",
-                        lambda g=narrator_game,
-                        s=step,
-                        f=effective_force_speaker,
-                        h=narrator_hint,
-                        ec=extra_context,
-                        ep=extra_schema_properties,
-                        er=extra_schema_required: self._call_narrator(
-                            g,
-                            s,
-                            f,
-                            h,
-                            extra_context=ec,
-                            extra_schema_properties=ep,
-                            extra_schema_required=er,
-                        ),
+                        call_director,
                         {"game": narrator_game, "turn_number": step, "runner": self},
                     )
                 if self.plugins is not None:
@@ -717,9 +713,7 @@ class Runner:
                     # change unless every present character moved.
                     movers = set(zone_moves)
                     present = {
-                        cid
-                        for cid in game.scene.present_characters
-                        if cid in game.characters
+                        cid for cid in game.scene.present_characters if cid in game.characters
                     }
                     if not present.issubset(movers):
                         scene_up = {k: v for k, v in scene_up.items() if k != "location"}
@@ -1854,9 +1848,7 @@ class Runner:
         """
         audience_origin = "whisper" if audience is not None else "zone"
         if game.scene.zones and content_type in ("speech", "action"):
-            subject = (
-                game.player.controlled_character_id if speaker == "Player" else speaker
-            )
+            subject = game.player.controlled_character_id if speaker == "Player" else speaker
             if subject in game.characters:
                 eligible = eligible_witnesses(game.scene, game.characters, subject)
                 others = {

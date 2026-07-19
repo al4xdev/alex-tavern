@@ -88,6 +88,4 @@ def unsafe_request_allowed(
     valid token AND an allowed Origin."""
     if method.upper() not in UNSAFE_METHODS:
         return True
-    return token_ok(token_header, expected_token) and is_origin_allowed(
-        origin, host, extra_origins
-    )
+    return token_ok(token_header, expected_token) and is_origin_allowed(origin, host, extra_origins)

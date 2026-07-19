@@ -111,7 +111,7 @@ def _build_system_prompt(character: Character) -> str:
         '- "action_intent": what your body ATTEMPTS to do right now (move, grab,\n'
         "  open, strike), stated as an attempt in the third person infinitive\n"
         '  ("caminhar ate a porta e abri-la"). The world decides the outcome:\n'
-        "  never state results, impacts, or others\' reactions. null when you\n"
+        "  never state results, impacts, or others' reactions. null when you\n"
         "  only speak or think. At least one of the three fields must be filled.\n"
         "- Facts may come only from your Knowledge, What you remember, SCENE CONTEXT,\n"
         "  or RECENT EVENTS. If a detail is absent, omit it or clearly express doubt;\n"
@@ -258,8 +258,7 @@ def _format_history_for_character(
         pinned = [
             rec
             for rec in hist
-            if rec.content_type in ("speech", "action")
-            and _CODE_ANCHOR_RE.search(rec.content)
+            if rec.content_type in ("speech", "action") and _CODE_ANCHOR_RE.search(rec.content)
         ][-_MAX_PINNED_RECORDS:]
         trimmed = trim_history_by_tokens(hist, context_max, max_tokens_character)
         kept = set(map(id, trimmed))

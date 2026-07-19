@@ -64,9 +64,7 @@ class TestNormalizeIntent:
 
 class TestRunnerIntentAndMoves:
     @pytest.mark.asyncio
-    async def test_intent_recorded_as_attempt_and_zone_move_applied(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_intent_recorded_as_attempt_and_zone_move_applied(self, monkeypatch) -> None:  # noqa: ANN001
         import src.runner as runner_mod
         from src.runner import Runner
 

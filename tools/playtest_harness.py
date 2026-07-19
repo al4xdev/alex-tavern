@@ -416,9 +416,7 @@ def evaluate_recall_check(
     }
 
 
-def evaluate_routing_check(
-    event: dict[str, Any], result: dict[str, Any]
-) -> dict[str, Any]:
+def evaluate_routing_check(event: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
     """Judge natural routing: did the story reach one of the expected speakers?
 
     Localization mirrors the recall matrix: ``no_character_call`` (the Director
@@ -449,12 +447,15 @@ def evaluate_routing_check(
 
 def turn_usage(records: list[dict[str, Any]], turn_number: int) -> dict[str, int]:
     """Aggregate provider usage for every call of one turn (cost attribution)."""
-    totals = {"prompt_tokens": 0, "completion_tokens": 0, "cache_hit_tokens": 0,
-              "cache_miss_tokens": 0, "calls": 0}
+    totals = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cache_hit_tokens": 0,
+        "cache_miss_tokens": 0,
+        "calls": 0,
+    }
     for record in records:
-        if record.get("turn_number") != turn_number or not isinstance(
-            record.get("request"), dict
-        ):
+        if record.get("turn_number") != turn_number or not isinstance(record.get("request"), dict):
             continue
         totals["calls"] += 1
         usage = record.get("usage") or {}
@@ -702,8 +703,12 @@ def analyze_debug_records(
         for event_result in event_results
         if isinstance(event_result.get("routing"), dict)
     ]
-    usage_totals = {"prompt_tokens": 0, "completion_tokens": 0, "cache_hit_tokens": 0,
-                    "cache_miss_tokens": 0}
+    usage_totals = {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "cache_hit_tokens": 0,
+        "cache_miss_tokens": 0,
+    }
     for record in calls:
         usage = record.get("usage") or {}
         if isinstance(usage, dict):

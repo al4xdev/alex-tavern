@@ -49,6 +49,7 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
 def _sec_headers() -> dict:
     """Task 19 access token so ASGI POSTs pass the origin/token gate."""
     import src.main
+
     return {"X-Tavern-Token": src.main.ACCESS_TOKEN}
 
 
