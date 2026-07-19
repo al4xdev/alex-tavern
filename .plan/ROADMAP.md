@@ -28,6 +28,8 @@ Referência de arquitetura:
 | 21 | Namespace de storage privado por plugin | `.data/plugins/storage/<id>/` + `context.storage` (path-safe: rejeita abs/`..`/symlink escape); contrato + permission + 16 testes + `docs/plugin-storage.md`; cached/ é concern separado (sem migração) |
 | 39 | Memória do ledger (dimensão + revisão semântica + character_notes removidos, schema v9/v10) | revisão replay-validada em digests reais (1ª pessoa, segredos verbatim, sem fusão de referências); never-fail-the-turn; xfailed3 pós-39: **zero violações atribuíveis à memória** (o hit `perspective:memory:C5` era allowlist desatualizado — C5 é o confidente); contrato verbatim test-locked |
 | 41 | Diretor onisciente + reconciliação de canon (emergencial) | replay produção 3/3 no caso real c2e5107b; 9 testes; guard determinístico `hidden_thought_tokens`; zonas dinâmicas + canon-antes-da-prosa; ressalva RESOLVIDA: xfailed3 completo pós-41 com **zero** violações das famílias de vazamento |
+| 42 | Narrador fala pouco (emergencial) | puro curl em payloads reais: piso de 1 linha no FIM do PROSE_SYSTEM; mediana 118→1247 / 271→568 chars, 3/3 em 2 cenas; piso, nunca cap |
+| 29.2 | Estado subjetivo (supertask) | concluída pelos incrementos: inc.1/inc.2 + Tasks 35, 36, 39, 41 (todas fechadas); medição continua no relógio 29.3 |
 
 ## 🔶 Em andamento
 

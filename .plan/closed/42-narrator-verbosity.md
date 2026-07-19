@@ -45,3 +45,12 @@ desejado). "vivid but economical" ficou (contrapeso contra divagação; o piso
 domina — testado). Guards anti-repetição/anti-invenção seguem ativos em
 runtime. Watch item: turno sem eventos (fallback atmosférico fora de rajada)
 agora rende ~150 palavras de atmosfera — se incomodar, tratar na 26.
+
+## FECHADA COM CONFIANÇA (2026-07-19, madrugada)
+
+Método puro curl (AGENTS.md §6) em 2 payloads reais de prosa: o suspeito nº 1
+("vivid but economical") era real mas a troca sozinha não bastou; a variante
+vencedora foi UMA linha de PISO no FIM do PROSE_SYSTEM ("Narrate at least 150
+words; a beat deserves full paragraphs") — mediana 118→1247 e 271→568 chars,
+3/3 nas duas cenas. Piso, nunca cap (regra da casa). A variante validada É a
+shippada (commit "feat(prose): verbosity floor").
