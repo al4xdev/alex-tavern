@@ -252,8 +252,10 @@ SECRET_AUTHORIZED_AGENTS = {
     "summarizer:world",
     "perspective:init:C5",
     "perspective:update:C5",
+    "perspective:memory:C5",
     "perspective:init:C1",
     "perspective:update:C1",
+    "perspective:memory:C1",
 }
 ANONYMOUS_PAIR = {
     # User criterion (2026-07-16): the two strangers deepen their acquaintance

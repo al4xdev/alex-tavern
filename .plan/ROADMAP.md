@@ -26,17 +26,17 @@ Referência de arquitetura:
 | 23 | Gap trim/compactação | pinning de âncoras de código + retenção adaptativa; os 2 xfails-spec verdes; suíte sem nenhum xfail |
 | 37 | Loop autônomo limitado (rajada com paradas tipadas, undo por beat) | 3 runs ao vivo ×4 beats; parada `protagonist_decision` via `return_control`; crítico cego ×2 — classes estruturais zeradas por construção |
 | 21 | Namespace de storage privado por plugin | `.data/plugins/storage/<id>/` + `context.storage` (path-safe: rejeita abs/`..`/symlink escape); contrato + permission + 16 testes + `docs/plugin-storage.md`; cached/ é concern separado (sem migração) |
+| 39 | Memória do ledger (dimensão + revisão semântica + character_notes removidos, schema v9/v10) | revisão replay-validada em digests reais (1ª pessoa, segredos verbatim, sem fusão de referências); never-fail-the-turn; xfailed3 pós-39: **zero violações atribuíveis à memória** (o hit `perspective:memory:C5` era allowlist desatualizado — C5 é o confidente); contrato verbatim test-locked |
+| 41 | Diretor onisciente + reconciliação de canon (emergencial) | replay produção 3/3 no caso real c2e5107b; 9 testes; guard determinístico `hidden_thought_tokens`; zonas dinâmicas + canon-antes-da-prosa; ressalva RESOLVIDA: xfailed3 completo pós-41 com **zero** violações das famílias de vazamento |
 
 ## 🔶 Em andamento
 
 | Task | O que falta |
 |---|---|
-| 39 — Memória do ledger | increment 1 FEITO (dimensão de memória, schema v8, 560 testes). **increment 2 (risco: compactação)**, guia em `HANDOFF-FABLE.md` |
 | 27 — SDK isolado + pipeline de curadoria | **exploração DELIVERED** (`docs/plugin-ecosystem-topology-exploration-2026-07-17.md`); aguarda aceite do dono + verificação com checkout do hub |
 | 38 — Roteiro (opt-in, OFF) | **ENTREGUE COM RESSALVAS, mantida aberta** (não migra pra closed/): ganhos de engine banked, mas o roteiro é cara-ou-coroa em cena procedural (portais 2W/2L). Ver banner na task + relatório em `docs/cases/`. Fixes futuros: disrupção avança o arco; watcher 33b |
-| 41 — Diretor onisciente + reconciliação de canon (EMERGENCIAL) | **ENTREGUE** (replay produção 3/3 no caso real c2e5107b; 9 testes; guard determinístico de thought; zonas dinâmicas; canon-antes-da-prosa); ressalva: revalidar famílias de vazamento no relógio do xfail |
 | 19 — Security hardening | **ENTREGUE COM RESSALVAS**: boundary origem+token + política de alvo de provider implementados e revisados (buraco do origin `null` fechado; same-origin LAN liberado; token nunca persistido; 403-retry pós-restart); falta só o outcome 6 (smoke tests desktop/Docker/Android) |
-| Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run 1 = 0 violações (primeira XPASS do programa); variância semântica restante: cumprimento de promessa, discrição vs auditoria, confabulação de alias |
+| Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** Reais: SP-01 T7 (determinístico 2/2 tiers: o Player ABRE a divisória no meio do T7 e a resposta da C2 gravada depois sai pública — in-fiction defensável; **decisão de calibração intra-turno é do usuário**) e WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: scratchpad `xfailed3_run1_artifacts/` |
 
 > **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
@@ -49,13 +49,13 @@ voltar; `done.sh` ao fim de cada task.
 
 | # | Task | Custo API | Decisões já tomadas |
 |---|---|---|---|
-| 0 | **42 — Narrador fala pouco (EMERGENCIAL)**: prosa curta demais; não é max_tokens, é prompt. Achar FRASE PEQUENA que destrave o deepseek (prompts já estão grandes). Puro curl em payloads reais; suspeito nº 1: "vivid but economical" no PROSE_SYSTEM | baixo | frase mínima, posição no FIM (lição 41); nunca CAP de frases (regra AGENTS) — só piso/riqueza |
-| 1 | 39 inc2(a) — revisão semântica da memória (builder → replay → wire) | baixo | never-fail-the-turn no LLM da revisão |
-| 2 | 39 inc2(b) — remover character_notes + checkpoint | zero | **schema v9 AUTORIZADO** (sessões existentes quebram, ok) |
-| 3 | 39 inc2(c) — reconciliar recall task 23 | zero | pinning de âncora fica |
-| 4 | xfailed3 run 1 (valida 39d + famílias de vazamento da 41) | alto | **1 run; +2 só se limpo; cap 3** |
+| 0 | 42 — Narrador fala pouco | ✅ **ENTREGUE**: piso de 1 linha no FIM do PROSE_SYSTEM ("at least 150 words..."), medido 118→1247 / 271→568 chars medianos, 3/3 em 2 cenas; sem cap (regra AGENTS) |
+| 1 | 39 inc2(a) — revisão semântica da memória | ✅ **ENTREGUE** (replay-validada em digests reais, 2 iterações de regra; never-fail-the-turn) |
+| 2 | 39 inc2(b) — remover character_notes + checkpoint | ✅ **ENTREGUE** (summarizer world-only; schema bump autorizado) |
+| 3 | 39 inc2(c) — reconciliar recall task 23 | ✅ **ENTREGUE** (pinning fica; segredos-verbatim test-locked) |
+| 4 | xfailed3 run 1 | ✅ **RODADO, não limpo → sem runs extras** (decisão). Veredito na linha do relógio: 39/41 validadas (zero violações das famílias novas); 2 reais pré-existentes (SP-01 intra-turno, WT-09 alias) |
 | 5 | 40 — relógio narrativo | ✅ **increment 1 ENTREGUE** (tick code-owned +1/beat; deadline de ato → world_event como UPCOMING EVENT; avanço de ato é do código; replay 2/3). Pendente: time-skip v2, A/B/C |
-| 6 | 33b — exploração curl (delta material + contrato causal em payloads reais) | médio (~20 calls) | **bateria A/B/C só com o usuário acordado** |
+| 6 | 33b — exploração curl | ✅ **ENTREGUE** (delta material: detecta imobilidade semântica nas janelas travadas; contrato causal 3/3 amarrado a threads existentes; ver task 33b). Bateria A/B/C fica com o usuário |
 | F | Fillers (quando bloqueado): MCP curl simples SÓ em tools/ (**autorizado**); medição offline da guarda-por-sentença (26); fakes antigos do test_integration | zero | — |
 
 Pendências que precisam do usuário (NÃO tocar de madrugada): smoke tests da 19

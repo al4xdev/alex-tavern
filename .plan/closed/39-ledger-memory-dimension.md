@@ -71,3 +71,18 @@ authority, no parallel memories).
   fields. Forward-only. Reconcile Task 23's private-recall half.
 - Re-validate xfailed3 retention probes (ribbon, origin) via ledger memory
   across both compactions; secret family stays 0.
+
+## FECHADA COM CONFIANÇA (2026-07-19, madrugada)
+
+Increment 2 completo: (a) revisão semântica (`revise_memory`, agente
+`perspective:memory:<id>`, replay-validada em digests reais — 2 iterações de
+regra até 1ª pessoa + zero fusão de referências; never-fail-the-turn);
+(b) character_notes removido em todo lugar (summarizer world-only, schema
+bump); (c) pinning de âncoras mantido + segredos-verbatim test-locked.
+
+Validação final (xfailed3 pós-39, 2 tiers): ZERO violações atribuíveis à
+memória. O único hit (`perspective:memory:C5` com o instrumento) era allowlist
+desatualizado do oráculo: C5 é o CONFIDENTE do sussurro — memória legítima.
+Allowlist corrigido (perspective:memory:C1/C5). As 2 violações reais do run
+(SP-01 intra-turno, WT-09 alias) são de famílias pré-existentes sem relação
+com memória — registradas na linha do relógio no ROADMAP.

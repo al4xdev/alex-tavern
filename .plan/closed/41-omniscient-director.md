@@ -82,3 +82,10 @@ o C1).
 ### Ressalva (por que não é fecho 100% confiante)
 - Famílias de vazamento do xfailed3 precisam re-validar sob onisciência total
   (thoughts de NPC agora no Diretor) quando o relógio do xfail rodar (`-m llm`).
+
+## RESSALVA RESOLVIDA → FECHADA COM CONFIANÇA (2026-07-19, madrugada)
+
+xfailed3 completo (24 turnos, 2 tiers) pós-41: ZERO violações das famílias de
+vazamento (pensamento privado em prosa/personagem; segredo em prompt não
+autorizado). O guard determinístico + posição-no-fim validada seguram a
+onisciência sem vazar. Migrada pra closed/.
