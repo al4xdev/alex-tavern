@@ -3,6 +3,23 @@
 These tools run outside the normal Alex Tavern runtime. They can reproduce a recorded session
 through the real Roleplay HTTP API without running llama.cpp.
 
+## Curl-replay via MCP
+
+The debug MCP server (`mcp_server.py`) exposes the curl-first validation method as two typed
+tools: `replay_extract_call` locates one recorded LLM call in a session's debug log (exact agent
+name, optional turn and occurrence) and `replay_llm_call` re-fires it at the ACTIVE provider up
+to five times with small prompt edits (an append that lands at the end of the instruction body —
+the validated position for new rules — or a replace that must match exactly once). Extraction
+reads the log straight from disk, so it works with the application stopped.
+
+## Experimental 33b watcher
+
+`watcher_experiment.py` packages the exploration-validated stall probes (material-delta audit,
+causal-intervention contract, deterministic stall ladder) without touching the runner.
+`acceptance/watcher_abc.py` runs the A/B/C battery from the stagnation program (free baseline /
+arbitrary disruption / clock+causal watcher) with isolated per-arm data dirs, arm-neutral offline
+audits, and a blind critic.
+
 ## Prompt-cache probe
 
 `prompt_cache_probe.py` proves provider-native prefix reuse through the same adapter, shared
@@ -20,7 +37,7 @@ only when a repeat reports non-zero cached tokens and the negative control repor
 Its secret-free JSON result is printed to stdout, and complete calls remain in
 `.data/sessions/cache-probe-<provider>-<nonce>/debug.jsonl`.
 
-See [`docs/09-prompt-caching.md`](../docs/09-prompt-caching.md) for the verified DeepSeek and
+See [`docs/cases/06-prompt-caching-evidence-2026-07-12.md`](../docs/cases/06-prompt-caching-evidence-2026-07-12.md) for the verified DeepSeek and
 llama.cpp runs, exact counters, server build, model, limitations, and inspection commands.
 
 ---
