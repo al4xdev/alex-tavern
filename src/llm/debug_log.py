@@ -327,6 +327,29 @@ def log_drive_decision(
     )
 
 
+def log_time_skip(
+    session_id: str,
+    turn_number: int,
+    *,
+    ticks: int,
+    summary: str,
+    narrative_tick_after: int,
+) -> None:
+    """One applied time compression (Task 40 v2): Director request, code clamp."""
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "time_skip",
+            "ticks": ticks,
+            "summary": summary,
+            "narrative_tick_after": narrative_tick_after,
+        },
+    )
+
+
 def log_burst(
     session_id: str,
     turn_number: int,

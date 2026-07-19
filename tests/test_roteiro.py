@@ -712,3 +712,97 @@ class TestNarrativeClock:
         finally:
             await delete_session(sid)
             await client.aclose()
+
+    def test_time_skip_fields_are_required_in_narrator_schema(self) -> None:
+        from src.agents.narrator import build_narrator_json_schema
+
+        schema = build_narrator_json_schema(["C1"])["schema"]
+        assert schema["properties"]["time_skip_ticks"] == {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8,
+        }
+        assert "time_skip_ticks" in schema["required"]
+        assert "time_skip_summary" in schema["required"]
+
+    @pytest.mark.asyncio
+    async def test_pass_turn_invites_time_compression(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.runner import CLOCK_SKIP_INVITE
+        from src.store.sessions import delete_session
+
+        acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e")]
+        runner, sid, client, hints, _ = await self._clock_session(monkeypatch, _roteiro(acts=acts))
+        try:
+            await runner.player_turn(sid, speech="Falo algo.")
+            await runner.player_turn(sid, skip=True)
+            assert hints == ["", CLOCK_SKIP_INVITE]
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_director_skip_request_is_clamped_and_witnessed(self, monkeypatch) -> None:  # noqa: ANN001
+        import src.runner as runner_mod
+        from src.runner import Runner
+        from src.store.sessions import delete_session
+
+        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return CharacterPerspective(
+                initialized_turn=kwargs.get("turn_number", 0),
+                processed_through_turn=kwargs.get("turn_number", 0),
+            )
+
+        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+        requested_ticks = 3
+        prose_events: list[list[dict]] = []
+
+        client = httpx.AsyncClient()
+        runner = Runner(client, {"auto_event_enabled": False})
+        sid = runner.start_session(
+            {
+                "characters": dict(CHARACTERS),
+                "scene": deepcopy_scene(SCENE),
+                "controlled_character_id": "C1",
+            }
+        )
+
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {
+                "next_speakers": ["Narrator"],
+                "perception_events": [],
+                "scene_update": None,
+                "mood_updates": None,
+                "return_control": False,
+                "time_skip_ticks": requested_ticks,
+                "time_skip_summary": "As horas passam; o salao esvazia.",
+            }
+
+        async def fake_prose(game, events, turn_number):  # noqa: ANN001, ANN202
+            prose_events.append(list(events))
+            return ""
+
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(runner, "_render_narration", fake_prose)
+        try:
+            await runner.player_turn(sid, skip=True)
+            game = await runner.get_state(sid)
+            # beat +1 plus the requested compression
+            assert game.narrative_tick == 1 + 3
+            skip_obs = [
+                e for e in prose_events[0] if e["content"] == "As horas passam; o salao esvazia."
+            ]
+            assert len(skip_obs) == 1
+            assert skip_obs[0]["event_kind"] == "observation"
+            assert set(skip_obs[0]["witness_ids"]) == {
+                cid for cid in game.scene.present_characters if cid in game.characters
+            }
+
+            # An absurd request is clamped by CODE, never trusted.
+            requested_ticks = 99
+            await runner.player_turn(sid, skip=True)
+            game = await runner.get_state(sid)
+            assert game.narrative_tick == 4 + 1 + 8
+        finally:
+            await delete_session(sid)
+            await client.aclose()

@@ -98,3 +98,30 @@ Entregue:
 
 Testes: roundtrip, clamps, tick por turno, deadline dispara + avança + hint.
 Suíte 619.
+
+## Increment 2 (time-skip) DELIVERED (2026-07-19, manhã)
+
+Curl primeiro (12 calls, payloads reais):
+- Segurança: cena viva (confronto T20) NUNCA pula — 6/6 zero ticks, mesmo
+  CONVIDADA a comprimir. À prova de convite.
+- Cena travada (sorteio): livre 1/3; convidada 2/3 pulou (2-3 ticks, sumários
+  coerentes: "os alunos seguem ao pátio central..."). O modelo SUB-usa o poder
+  proativo (mesmo padrão da 38/drive) → skip não pode depender de iniciativa
+  da LLM; o CÓDIGO convida.
+- O convite via canal de hint não vira evento encenado (verificado).
+
+Desenho shippado (variante validada = shippada, texto e posição):
+- Schema do Diretor: `time_skip_ticks` (0-8) + `time_skip_summary`,
+  obrigatórios; regra TIME COMPRESSION no FIM do system prompt.
+- Convite (`CLOCK_SKIP_INVITE`) quando o jogador PASSA o turno e nem drive nem
+  deadline ocuparam o hint — o skip do jogador é o sinal humano de
+  "modo-sumário" (doc §4.2). Gatilho por estagnação semântica fica pro watcher
+  33b.
+- Aplicação é do CÓDIGO: clamp 0..8, `narrative_tick += ticks` além do +1 do
+  beat; o sumário entra como observation testemunhada por todos os presentes
+  (prosa/perspectivas/história herdam pelos canais normais); logado
+  (`time_skip` no debug JSONL). Divisão honesta: o deadline GARANTE o avanço;
+  o skip COMPRIME quando oferecido.
+
+Testes: schema required, convite no turno de passe, clamp 99→8 + observation
+testemunhada. Suíte 627. Pendente: A/B/C unificada com 33b (dono).

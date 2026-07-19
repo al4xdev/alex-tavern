@@ -61,6 +61,7 @@ from src.llm.debug_log import (
     log_presence_change,
     log_presence_undo,
     log_drive_decision,
+    log_time_skip,
     log_burst,
     log_restore_compaction,
     log_roteiro_decision,
@@ -92,6 +93,13 @@ from src.store.sessions import (
 
 if TYPE_CHECKING:
     from src.plugins.runtime import PluginRuntime
+
+# Task 40 v2 — exact invite text validated by replay (position: hint channel).
+CLOCK_SKIP_INVITE = (
+    "CLOCK SIGNAL: the scene has produced no material change for 2 turns; "
+    "only waiting remains. Compress time now (time_skip_ticks) unless "
+    "someone is visibly mid-action."
+)
 
 
 class PresenceRevisionConflictError(ValueError):
@@ -594,6 +602,12 @@ class Runner:
                         roll=decision.roll,
                         event_seed=event_seed,
                     )
+                if beat_index == 0 and skip and not narrator_hint.strip():
+                    # Time compression invite (Task 40 v2): the player passing is
+                    # the human "summary mode" signal. The Director DECIDES the
+                    # skip; the code only invites and later clamps the result.
+                    # Validated: a live scene never skips even when invited.
+                    narrator_hint = CLOCK_SKIP_INVITE
 
                 # Roteiro maintenance (Task 38): CODE decides whether the story
                 # direction needs a new rolling beat (coverage/budget/drift over
@@ -724,6 +738,37 @@ class Runner:
                         game.scene.zones[zone] = [
                             other for other in audible if other in game.scene.zones
                         ]
+
+                # Time compression (Task 40 v2): the Director may REQUEST a skip;
+                # the CODE clamps and applies it. The offstage change enters the
+                # world as a typed observation every present character witnesses,
+                # so prose, perspectives and history inherit it through the
+                # normal channels — the clock itself only ever moves forward.
+                raw_ticks = narrator_raw.get("time_skip_ticks")
+                skip_ticks = max(0, min(8, raw_ticks)) if isinstance(raw_ticks, int) else 0
+                if skip_ticks:
+                    skip_summary = str(narrator_raw.get("time_skip_summary") or "").strip()[:300]
+                    game.narrative_tick += skip_ticks
+                    if skip_summary:
+                        narrator_raw["perception_events"].append(
+                            {
+                                "event_kind": "observation",
+                                "subject_id": "Narrator",
+                                "content": skip_summary,
+                                "witness_ids": [
+                                    cid
+                                    for cid in game.scene.present_characters
+                                    if cid in game.characters
+                                ],
+                            }
+                        )
+                    log_time_skip(
+                        game.session_id,
+                        step,
+                        ticks=skip_ticks,
+                        summary=skip_summary,
+                        narrative_tick_after=game.narrative_tick,
+                    )
 
                 # Decision -> Prose split (Task 36): the blind renderer turns the
                 # validated events into reader prose CONCURRENTLY with the routed

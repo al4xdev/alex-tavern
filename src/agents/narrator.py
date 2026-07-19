@@ -179,6 +179,14 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "- Social disapproval may be terse dismissal, impatient looks, whispers, or\n"
         "  loss of standing. Do not turn an arrival into a group interrogation or make\n"
         "  everyone orbit its actor.\n"
+        # Task 40 v2 — validated at THIS closing position (replay: stalled scene
+        # skips 2-3 ticks; live confrontation 6/6 zero skips, even when invited).
+        "\nTIME COMPRESSION: You also decide time_skip_ticks. If the current "
+        "dramatic beat is EXHAUSTED (nothing material left for anyone to do or "
+        "say RIGHT NOW - only waiting remains), set time_skip_ticks 1-8 and "
+        "time_skip_summary: one sentence of what changes offstage while time "
+        "passes. Otherwise time_skip_ticks=0 and time_skip_summary empty. NEVER "
+        "skip while a conversation, confrontation or action is still in motion.\n"
     )
     return prompt
 
@@ -298,6 +306,8 @@ def build_narrator_json_schema(
                     "additionalProperties": {"type": "array", "items": {"type": "string"}},
                 },
                 "return_control": {"type": "boolean"},
+                "time_skip_ticks": {"type": "integer", "minimum": 0, "maximum": 8},
+                "time_skip_summary": {"type": "string"},
                 **(extra_properties or {}),
             },
             "required": [
@@ -308,6 +318,8 @@ def build_narrator_json_schema(
                 "mood_updates",
                 "zone_moves",
                 "zone_link_updates",
+                "time_skip_ticks",
+                "time_skip_summary",
                 *(extra_required or []),
             ],
             "additionalProperties": False,

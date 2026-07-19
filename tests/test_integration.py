@@ -1938,6 +1938,8 @@ class TestCustomSessionAndDebug:
                         "mood_updates": None,
                         "zone_moves": None,
                         "zone_link_updates": None,
+                        "time_skip_ticks": 0,
+                        "time_skip_summary": "",
                     }
                 )
             else:
