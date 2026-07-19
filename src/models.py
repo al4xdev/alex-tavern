@@ -231,11 +231,18 @@ class RoteiroBeat:
 
 @dataclass
 class RoteiroAct:
-    """One act of the stable skeleton (rarely rewritten)."""
+    """One act of the stable skeleton (rarely rewritten).
+
+    ``duration_ticks``/``world_event`` are the narrative clock contract (Task
+    40): if the act has not concluded within its ticks, the CODE stages
+    ``world_event`` and advances the act - the world never waits.
+    """
 
     act_id: str
     summary: str
     exit_condition: str = ""
+    duration_ticks: int = 0  # 0 = no deadline
+    world_event: str = ""
 
 
 @dataclass
@@ -251,6 +258,8 @@ class Roteiro:
     act_index: int = 0
     beat: RoteiroBeat | None = None
     beat_started_turn: int = 0
+    # Tick when the current act began (clock-deadline math is relative to it).
+    act_started_tick: int = 0
     # Anchors of the CURRENT beat already witnessed in play, accumulated from
     # the authoritative evidence as it happens (the Director's typed events and
     # the characters' own words/acts). Reset on every replan. Prose is a lossy
@@ -278,6 +287,8 @@ def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
                 act_id=str(item["act_id"]),
                 summary=str(item["summary"]),
                 exit_condition=str(item.get("exit_condition", "")),
+                duration_ticks=int(item.get("duration_ticks", 0)),
+                world_event=str(item.get("world_event", "")),
             )
             for item in data.get("acts", [])
         ],
@@ -295,6 +306,7 @@ def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
             else None
         ),
         beat_started_turn=int(data.get("beat_started_turn", 0)),
+        act_started_tick=int(data.get("act_started_tick", 0)),
         anchors_seen=list(data.get("anchors_seen", [])),
         cooldown_until_turn=int(data.get("cooldown_until_turn", 0)),
         beat_replans_in_act=int(data.get("beat_replans_in_act", 0)),
@@ -329,6 +341,10 @@ class GameState:
     # Director-only story direction (Task 38). None when disabled or not yet
     # generated; NEVER rendered into character or prose prompts.
     roteiro: Roteiro | None = None
+    # Narrative clock (Task 40): monotonic, code-owned, +1 per committed beat.
+    # Never regresses - not even on undo (time always moves forward; an undone
+    # turn replays at a later tick). Act deadlines are relative to it.
+    narrative_tick: int = 0
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -537,5 +553,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         },
         turns_since_injected_event=int(data.get("turns_since_injected_event", 0)),
         roteiro=dict_to_roteiro(data["roteiro"]) if data.get("roteiro") else None,
+        narrative_tick=int(data.get("narrative_tick", 0)),
         schema_version=int(data.get("schema_version", 1)),
     )

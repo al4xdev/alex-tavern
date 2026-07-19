@@ -493,7 +493,7 @@ class TestRunnerWiring:
             calls["compile"] += 1
             return compiled
 
-        async def fake_replan(client, game, decision, config, turn_number):  # noqa: ANN001, ANN202, ARG001
+        async def fake_replan(client, game, decision, config, turn_number, current_tick=0):  # noqa: ANN001, ANN202, ARG001
             calls["replan"] += 1
             return compiled
 
@@ -592,3 +592,123 @@ class TestRunnerWiring:
         assert "murmurio" in game.roteiro.anchors_seen
         # Budget not exhausted and the anchor is covered -> no replan.
         assert calls["replan"] == 0
+
+
+class TestNarrativeClock:
+    """Task 40: the tick always advances; act deadlines force the world event."""
+
+    def test_tick_and_act_fields_roundtrip(self) -> None:
+        acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e",
+                           duration_ticks=4, world_event="O sino toca.")]
+        game = _game(roteiro=_roteiro(acts=acts, act_started_tick=3))
+        game.narrative_tick = 7
+        restored = dict_to_game_state(game_state_to_dict(game))
+        assert restored.narrative_tick == 7
+        assert restored.roteiro.act_started_tick == 3
+        assert restored.roteiro.acts[0].duration_ticks == 4
+        assert restored.roteiro.acts[0].world_event == "O sino toca."
+
+    def test_acts_validation_clamps_clock_fields(self) -> None:
+        acts = _validate_acts([
+            {"summary": "ok", "duration_ticks": 99, "world_event": "x" * 400},
+            {"summary": "ok2", "duration_ticks": "junk"},
+        ])
+        assert acts[0].duration_ticks == 12
+        assert len(acts[0].world_event) == 300
+        assert acts[1].duration_ticks == 0
+
+    async def _clock_session(self, monkeypatch, roteiro):  # noqa: ANN001, ANN202
+        import src.runner as runner_mod
+        from src.runner import Runner
+
+        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return CharacterPerspective(
+                initialized_turn=kwargs.get("turn_number", 0),
+                processed_through_turn=kwargs.get("turn_number", 0),
+            )
+
+        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+        hints: list[str] = []
+        replans: list[str] = []
+
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            hints.append(narrator_hint)
+            return {
+                "next_speakers": ["Narrator"],
+                "perception_events": [],
+                "scene_update": None,
+                "mood_updates": None,
+                "return_control": False,
+            }
+
+        async def fake_replan(client, game, decision, config, turn_number, current_tick=0):  # noqa: ANN001, ANN202, ARG001
+            replans.append(decision.reason)
+            updated = _roteiro(acts=list(game.roteiro.acts))
+            updated.act_index = game.roteiro.act_index
+            updated.act_started_tick = current_tick
+            return updated
+
+        monkeypatch.setattr(runner_mod, "replan_roteiro", fake_replan)
+
+        async def fake_prose(game, events, turn_number):  # noqa: ANN001, ANN202
+            return ""
+
+        import httpx as _httpx
+
+        client = _httpx.AsyncClient()
+        runner = Runner(client, {"auto_event_enabled": False, "roteiro_enabled": True})
+        sid = runner.start_session(
+            {
+                "characters": dict(CHARACTERS),
+                "scene": deepcopy_scene(SCENE),
+                "controlled_character_id": "C1",
+            }
+        )
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(runner, "_render_narration", fake_prose)
+        game = await runner.get_state(sid)
+        game.roteiro = roteiro
+        runner_mod.save_game(game)
+        return runner, sid, client, hints, replans
+
+    @pytest.mark.asyncio
+    async def test_tick_advances_per_committed_turn(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.store.sessions import delete_session
+
+        acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e")]  # no deadline
+        runner, sid, client, _, _ = await self._clock_session(monkeypatch, _roteiro(acts=acts))
+        try:
+            await runner.player_turn(sid, speech="Um.")
+            await runner.player_turn(sid, speech="Dois.")
+            game = await runner.get_state(sid)
+            assert game.narrative_tick == 2
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_act_deadline_stages_world_event_and_advances(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.store.sessions import delete_session
+
+        acts = [
+            RoteiroAct(act_id="a1", summary="s", exit_condition="e",
+                       duration_ticks=2, world_event="O sino da torre soa e o par e anunciado."),
+            RoteiroAct(act_id="a2", summary="s2", exit_condition="e2"),
+        ]
+        runner, sid, client, hints, replans = await self._clock_session(
+            monkeypatch, _roteiro(acts=acts, act_started_tick=0)
+        )
+        try:
+            await runner.player_turn(sid, speech="Um.")   # tick 0->1
+            await runner.player_turn(sid, speech="Dois.")  # tick 1->2
+            # Third turn: tick(2) - started(0) >= 2 -> deadline fires BEFORE the
+            # narrator: the world_event becomes this beat's UPCOMING EVENT.
+            await runner.player_turn(sid, speech="Tres.")
+            game = await runner.get_state(sid)
+            assert "O sino da torre soa" in hints[2]
+            assert replans == ["act_deadline"]
+            assert game.roteiro.act_index == 1  # advanced by CODE
+            assert game.roteiro.act_started_tick == 2
+        finally:
+            await delete_session(sid)
+            await client.aclose()

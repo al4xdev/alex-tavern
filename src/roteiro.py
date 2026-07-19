@@ -332,11 +332,17 @@ def _validate_acts(raw_acts: object) -> list[RoteiroAct]:
     for index, item in enumerate(raw_acts[:5]):
         if not isinstance(item, dict) or not str(item.get("summary", "")).strip():
             continue
+        try:
+            duration = int(item.get("duration_ticks", 0))
+        except (TypeError, ValueError):
+            duration = 0
         acts.append(
             RoteiroAct(
                 act_id=str(item.get("act_id") or f"act{index + 1}").strip(),
                 summary=str(item["summary"]).strip(),
                 exit_condition=str(item.get("exit_condition", "")).strip(),
+                duration_ticks=max(0, min(12, duration)),
+                world_event=str(item.get("world_event", "")).strip()[:300],
             )
         )
     return acts
@@ -394,6 +400,12 @@ _ARCHITECT_RULES = (
     "  of conversation. Measurable, not abstract.\n"
     "- exit_condition: one observable sentence describing how the beat ends.\n"
     "- budget_turns: how many turns the beat deserves (2-10).\n"
+    "- Each act declares duration_ticks (2-8 turns it deserves) and world_event:\n"
+    "  ONE concrete event the WORLD performs to force the act's conclusion if\n"
+    "  the cast has not finished by then (the bell rings and the first pair is\n"
+    "  announced; the guards arrive; the fire reaches the door). The world\n"
+    "  never waits for conversation to finish. It must CONCLUDE this act's\n"
+    "  business, not open an unrelated thread.\n"
     "- Write beat text in the language of the scene.\n"
 )
 
@@ -426,8 +438,16 @@ def build_roteiro_schema() -> dict:
                             "act_id": {"type": "string"},
                             "summary": {"type": "string"},
                             "exit_condition": {"type": "string"},
+                            "duration_ticks": {"type": "integer"},
+                            "world_event": {"type": "string"},
                         },
-                        "required": ["act_id", "summary", "exit_condition"],
+                        "required": [
+                            "act_id",
+                            "summary",
+                            "exit_condition",
+                            "duration_ticks",
+                            "world_event",
+                        ],
                         "additionalProperties": False,
                     },
                 },
@@ -501,6 +521,11 @@ def build_next_beat_messages(
             "is, and open the next beat with a concrete event that happens now."
         ),
         "no_beat": "There is no current beat.",
+        "act_deadline": (
+            "The narrative CLOCK expired this act: its world_event just happened "
+            "(it is already staged). Open the NEXT act with a beat that follows "
+            "directly from that event."
+        ),
     }.get(reason, reason)
     lines = _story_context_lines(game)
     lines.append("")
@@ -568,6 +593,7 @@ async def replan_roteiro(
     decision: ReplanDecision,
     config: dict,
     turn_number: int,
+    current_tick: int = 0,
 ) -> Roteiro:
     """Apply one replan decision: fetch the next/replacement beat and return
     the updated roteiro. The TRIGGER was code; only beat content is generated.
@@ -613,7 +639,11 @@ async def replan_roteiro(
             ]
             acts = kept + deduped
         replans_in_act = 0
-    if bool(result.get("act_completed")) and act_index < len(acts) - 1:
+    if (
+        bool(result.get("act_completed"))
+        and act_index < len(acts) - 1
+        and decision.reason != "act_deadline"  # deadline advance is code-owned
+    ):
         act_index += 1
         replans_in_act = 0
     if decision.action == "replan_beat" and decision.reason in ("stalled", "drifted"):
@@ -621,12 +651,16 @@ async def replan_roteiro(
 
     outcome = decision.reason if decision.action != "advance" else "completed"
     old_id = roteiro.beat.beat_id if roteiro.beat else "none"
+    started_tick = (
+        current_tick if act_index != roteiro.act_index else roteiro.act_started_tick
+    )
     return Roteiro(
         premise=roteiro.premise,
         acts=acts,
         act_index=act_index,
         beat=beat,
         beat_started_turn=turn_number,
+        act_started_tick=started_tick,
         anchors_seen=[],  # new beat, coverage starts empty
         cooldown_until_turn=turn_number + COOLDOWN_TURNS,
         beat_replans_in_act=replans_in_act,

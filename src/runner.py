@@ -32,6 +32,7 @@ from src.agents.perspective import (
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
 from src.roteiro import (
+    ReplanDecision,
     collect_beat_evidence,
     describe_roteiro_for_director,
     evaluate_roteiro,
@@ -598,7 +599,12 @@ class Runner:
                 # direction needs a new rolling beat (coverage/budget/drift over
                 # history, with hysteresis); a structured call only writes WHAT
                 # the beat says. Runs per beat so bursts stay on-plan too.
-                await self._maintain_roteiro(game, step)
+                clock_event = await self._maintain_roteiro(game, step)
+                if clock_event and not narrator_hint.strip():
+                    # The act deadline's world_event stages THIS beat via the
+                    # UPCOMING EVENT contract (same channel the drive uses).
+                    narrator_hint = clock_event
+                    injected_event = True
 
                 # Call Narrator — extra_context/extra_schema let plugins add read-only
                 # prompt lines and an optional output key (narrator.context/narrator.schema)
@@ -888,6 +894,7 @@ class Runner:
                     newly_seen = collect_beat_evidence(game.roteiro, evidence_texts)
                     if newly_seen:
                         game.roteiro.anchors_seen.extend(newly_seen)
+                game.narrative_tick += 1
                 game.revision += 1
                 save_game(game)
                 if self.plugins is not None:
@@ -1499,7 +1506,7 @@ class Runner:
 
     # ── Private Methods ───────────────────────────────────────────────────
 
-    async def _maintain_roteiro(self, game: GameState, turn_number: int) -> None:
+    async def _maintain_roteiro(self, game: GameState, turn_number: int) -> str | None:
         """Compile the roteiro on first need; replan when the code signals say so.
 
         The replan TRIGGER is deterministic (``evaluate_roteiro``); the LLM only
@@ -1507,11 +1514,54 @@ class Runner:
         audit that zero triggers came from model self-assessment.
         """
         if not bool(self.config.get("roteiro_enabled", False)):
-            return
+            return None
         next_turn = (game.history[-1].turn_number + 1) if game.history else 1
         if game.roteiro is None:
             game.roteiro = await generate_roteiro(self.client, game, self.config, turn_number)
-            return
+            game.roteiro.act_started_tick = game.narrative_tick
+            return None
+
+        # Narrative clock (Task 40): when the current act's tick deadline
+        # expires, the CODE stages its world_event (returned to the caller as
+        # this beat's UPCOMING EVENT) and advances the act - the world never
+        # waits for the conversation to finish. Deterministic; the LLM only
+        # wrote the event text at planning time.
+        act = (
+            game.roteiro.acts[game.roteiro.act_index]
+            if game.roteiro.act_index < len(game.roteiro.acts)
+            else None
+        )
+        if (
+            act is not None
+            and act.duration_ticks > 0
+            and game.narrative_tick - game.roteiro.act_started_tick >= act.duration_ticks
+        ):
+            world_event = act.world_event.strip()
+            log_roteiro_decision(
+                game.session_id,
+                turn_number,
+                action="act_deadline",
+                reason="clock",
+                beat_id=game.roteiro.beat.beat_id if game.roteiro.beat else "none",
+                anchors_missing=[],
+                actors_missing=[],
+            )
+            # The act advance is CODE-owned: the deadline concluded it, whatever
+            # the conversation was doing. The replan only writes the next act's
+            # opening beat (its status text says the world_event just happened).
+            if game.roteiro.act_index + 1 < len(game.roteiro.acts):
+                game.roteiro.act_index += 1
+            game.roteiro.act_started_tick = game.narrative_tick
+            game.roteiro.beat_replans_in_act = 0
+            game.roteiro = await replan_roteiro(
+                self.client,
+                game,
+                ReplanDecision(action="replan_beat", reason="act_deadline"),
+                self.config,
+                turn_number,
+                current_tick=game.narrative_tick,
+            )
+            return world_event or None
         decision = evaluate_roteiro(
             game.roteiro, game.history, game.player.controlled_character_id, next_turn
         )
@@ -1526,8 +1576,14 @@ class Runner:
         )
         if decision.action:
             game.roteiro = await replan_roteiro(
-                self.client, game, decision, self.config, turn_number
+                self.client,
+                game,
+                decision,
+                self.config,
+                turn_number,
+                current_tick=game.narrative_tick,
             )
+        return None
 
     async def _call_narrator(
         self,

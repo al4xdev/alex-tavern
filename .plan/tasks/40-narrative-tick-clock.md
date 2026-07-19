@@ -73,3 +73,28 @@ Só então desenhar o schema de tick + a anotação de ato + o enforcement.
 - [ ] A/B/C (do doc §7): A livre / B disrupção arbitrária / C relógio+consequência
   causal — medir delta material, threads, re-intervenção, coerência causal cega.
   Previsão: C vence drive sustentado + coerência.
+
+## Increment 1 DELIVERED (2026-07-19, madrugada)
+
+Replay primeiro (builder de produção, sessão procedural travada ccb521ab):
+world_event de deadline injetado como UPCOMING EVENT → encenado 2/3 mesmo
+CONTRA uma história que já tinha se movido (o conflito era artefato da injeção
+sintética; no mecanismo real o evento vem do próprio roteiro). Canal já provado
+pelo drive (33) e pela disrupção (38).
+
+Entregue:
+- `GameState.narrative_tick` (+1 por beat commitado, dono do CÓDIGO; nunca
+  regride — decisão: undo NÃO rebobina o relógio; o turno refeito acontece num
+  tick posterior, coerente com "o tempo sempre anda").
+- `RoteiroAct.duration_ticks` (0=sem deadline; clamp 0..12) + `world_event`
+  (clamp 300 chars); `Roteiro.act_started_tick`; arquiteto gera ambos
+  (obrigatórios no schema) com a regra "o mundo nunca espera a conversa".
+- Enforcement determinístico em `_maintain_roteiro`: deadline vencido →
+  world_event vira o UPCOMING EVENT deste beat (mesmo canal do drive),
+  avanço de ato É do código (replan só escreve o beat de abertura; act_completed
+  do modelo é ignorado em replans de deadline — sem double-advance), tudo
+  logado (`roteiro_replan` action=act_deadline).
+- Time-skip (v2) e experimento A/B/C ficam pendentes (33b/usuário).
+
+Testes: roundtrip, clamps, tick por turno, deadline dispara + avança + hint.
+Suíte 619.
