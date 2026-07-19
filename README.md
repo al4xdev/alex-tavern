@@ -10,7 +10,10 @@ happens as typed events (with deterministic zone/witness clamps), a blind **pros
 only confirmed public facts into narration (it never sees minds, thoughts, or even the words
 characters spoke), independent **Character** agents produce speech, private thought, and physical
 *attempts* (never outcomes), and each character carries a private **perspective ledger** — who they
-know, by which name, learned only through events they perceived. A stateless FastAPI Runner
+know, by which name, and what they remember, learned only through events they perceived. A
+code-owned **narrative clock** keeps story time moving strictly forward: every committed beat
+advances it, act deadlines force scheduled world events, and the Director may compress time on a
+pass turn but can never stop it. A stateless FastAPI Runner
 enforces player agency, persistence, and the knowledge boundaries (whispers, acoustic zones,
 per-viewer identity) as code, not prompt promises. The kernel owns narrative physics; roleplay
 mechanics and expansions belong to plugins. It supports local llama.cpp inference and the DeepSeek
@@ -18,8 +21,11 @@ API through provider adapters.
 
 > [!NOTE]
 > **Context Compaction is implemented.** Manual and opt-in automatic actions fold older turns
-> into a running story summary and isolated character notes, keep a recent verbatim window, and
-> append incremental undo checkpoints. Manual progress is measured over SSE. See
+> into a running world story summary, keep a recent verbatim window, and append incremental undo
+> checkpoints; manual progress is measured over SSE. Per-character memory is NOT part of
+> compaction: each character accumulates a private, perception-filtered memory in its
+> perspective ledger every turn, and an LLM revision condenses the oldest lines when they grow
+> past a threshold (secrets, codes and numbers preserved verbatim). See
 > [Context compaction](#-context-compaction) for the exact trigger, privacy, and undo behavior.
 
 > [!NOTE]
@@ -213,14 +219,15 @@ is not required for correctness.
 
 ```mermaid
 graph TD
-    A[Human submits speech, private thought, and/or action] --> B{Observable input?}
-    B -->|Thought only| P[Persist private thought; no LLM call]
+    A[Human submits speech, private thought, and/or action] --> B{Input kind?}
     B -->|Skip with no hint| DS{Drive scheduler fires?}
     DS -->|yes| DE[Event seed call: one external world event]
-    DS -->|no| C
+    DS -->|no| TS[Time-compression invite on the hint channel]
     DE --> C
-    B -->|Speech or action| C[Director: full world state -> typed decisions, zero prose]
-    C -->|"schema JSON"| V[Deterministic clamps: presence, zones, witnesses, moves]
+    TS --> C
+    B -->|Speech, action, or thought| CK[Narrative clock: act deadline may stage a world event]
+    CK --> C[Director: full world state + private thoughts -> typed decisions, zero prose]
+    C -->|"schema JSON"| V[Deterministic clamps: presence, zones, witnesses, moves, thought tokens, time skip]
     V --> R[Blind prose renderer: confirmed public facts only]
     V --> L[Perspective ledgers of the routed speakers]
     R --> H
@@ -229,32 +236,40 @@ graph TD
     Q -->|NPC| F[Character: own mind + ledger-projected view + witnessed events]
     F --> G[speech / private thought / action INTENT]
     G --> H[Scene deltas, moods, zone moves and links applied]
-    P --> I
-    H --> I[(Session history + snapshots for undo)]
+    H --> I[(Session history + snapshots for undo; narrative clock +1)]
 ```
 
-A thought-only turn is persisted privately with no LLM call. An observable turn runs the
-Decision/Prose pipeline:
+Every turn — including a thought-only one — runs the Decision/Prose pipeline. A private thought
+reaches ONLY the Director (marked as interiority no character may perceive); a deterministic
+guard redacts any thought-only payload token from the emitted events, so the world can react in
+timing and pressure but never in content:
 
 1. **Director call** — the world authority. Reads the current scene (including the zone graph
    and positions), the full personality and appearance of every present character, the running
-   `story_summary`, and the active history (trimmed by token budget; private thoughts removed
-   first; human records appear under the controlled character's name like anyone else's). It
-   answers with typed decisions only, zero prose: `perception_events` (what happens this beat,
+   `story_summary`, and the active history (trimmed by token budget; human records appear under
+   the controlled character's name like anyone else's; private thoughts appear marked as
+   PRIVATE THOUGHT — interiority only the Director perceives, used for timing, pressure and
+   dramatic intent, never as public fact). It answers with typed decisions only, zero prose:
+   a mandatory `scene_blocking` spatial draft, `perception_events` (what happens this beat,
    each with `witness_ids`), an ordered `next_speakers` queue (1-3), scene deltas, mood updates,
-   `zone_moves`, and `zone_link_updates` (opening or sealing acoustic paths). Code then CLAMPS
+   `zone_moves` (which may name a NEW zone — canon reconciliation can split the stage),
+   `zone_link_updates` (opening or sealing acoustic paths), and `time_skip_ticks` (compress
+   time when a beat is exhausted — validated to never fire mid-action). Code then CLAMPS
    every proposal: witnesses are intersected with what the zone graph allows, moves and links
-   are validated against existing zones and presence — a model can narrow perception, never
-   widen it.
+   are validated against existing zones and presence, thought-only payload tokens are redacted
+   from events, the scene location changes only when the WHOLE scene moves, and canon applies
+   BEFORE the prose renders — a model can narrow perception, never widen it.
 2. **Blind prose renderer**, run concurrently with the routed speakers' ledger preparation.
    Receives ONLY what a reader is entitled to: the public scene, cast appearance (no minds), a
    reader-facing transcript whose spoken lines are content-free markers, and the confirmed
    events (speech events staged without their words). Dialogue inside narration is impossible
    by construction — the words are simply never loaded.
 3. **Character calls**, in queue order, each hearing the previous replies. A character receives
-   its own mind, its private compacted note, its **perspective-ledger projection** (a stranger
-   stays "o homem de camisa aberta" until a name is learned from a perceived event — false
-   names included), and only events/records it physically witnessed. It replies with nullable
+   its own mind, its **perspective-ledger projection** (a stranger stays "o homem de camisa
+   aberta" until a name is learned from a perceived event — false names included), its private
+   ledger MEMORY ("what you remember": deterministic per-turn digests of what it perceived,
+   plus the LLM-revised summary of older lines with secrets kept verbatim), and only
+   events/records it physically witnessed. It replies with nullable
    `speech`, `thought`, and `action_intent` — an intent is an ATTEMPT recorded for the next
    beat's Director to adjudicate, never a self-declared outcome.
 
@@ -333,16 +348,24 @@ The project began as a "rigid kernel" for a single blind-narrator roleplay; deli
 original brief honestly forced the kernel itself to become a multi-agent system. The philosophy
 did not change — the **scope of what counts as narrative physics did**:
 
-- **Kernel-owned (rigid, structural, test-pinned):** the blind Narrator contract; independent
-  Character agents with typed `{speech, thought}` output; the Summarizer/compaction pipeline;
+- **Kernel-owned (rigid, structural, test-pinned):** the blind Director/Prose contract;
+  independent Character agents with typed `{speech, thought, action_intent}` output; the
+  world-only Summarizer/compaction pipeline and the per-character ledger memory;
   player agency in code; the **audience model** (whispers, witnessed actions, reply-audience
-  inheritance); **deterministic confidentiality guards** on both the Narrator's transient context
-  and the Characters' spoken output (secrets derived from history, never hardcoded — see
-  [`src/confidentiality.py`](src/confidentiality.py)); session persistence with
+  inheritance); the **narrative clock** (a monotonic, code-owned tick — act deadlines force
+  scheduled world events, time compression is clamped by code, undo never rewinds time);
+  **deterministic confidentiality guards** on the Narrator's transient context, the Characters'
+  spoken output, and the Director's thought omniscience (secrets derived from history, never
+  hardcoded — see [`src/confidentiality.py`](src/confidentiality.py)); session persistence with
   **forward-only schema versioning** (incompatible sessions are refused, never migrated).
 - **Plugin territory:** everything that shapes *a particular* roleplay — mechanics, commands,
   experiences, content, presentation. Plugins extend through hooks and contracts; they never
   patch kernel invariants.
+- **Experimental, opt-in (OFF by default):** the roteiro — a story-arc planner whose premise,
+  acts and beats are confidential to the Director (they never reach character or prose prompts —
+  spoilers), whose act deadlines feed the narrative clock, and whose stall watcher
+  (material-delta audit + causal intervention) currently lives outside the canonical turn in
+  `tools/` while its battery matures.
 
 The dividing rule stays the one stated below: kernel mechanisms must solve structural problems
 that exist regardless of model quality. Whether a model is weak or strong, someone outside a
@@ -358,9 +381,9 @@ mechanics beyond that belong to plugins. The full evolution is documented as
 | Role | Can | Cannot | Receives in its prompt |
 |---|---|---|---|
 | **Human player** | Speak, think, and act through three independent inputs | — the human designs the scene at setup time | — |
-| **Director** (blind) | Everything physical: decides typed events and outcomes, who reacts next (a 1-3 speaker queue), scene/mood deltas, zone movement, and opening/sealing acoustic links | Cannot know which character is human-controlled, read private thoughts, or write prose; its witness/move/link proposals are clamped by code | Everything observable about the world: full personality and appearance of every character, the scene with its zone graph and positions, the public story summary, and the active public history window |
+| **Director** (blind) | Everything physical: decides typed events and outcomes, who reacts next (a 1-3 speaker queue), scene/mood deltas, zone movement and creation, opening/sealing acoustic links, and time compression; omniscient over private thoughts as dramaturgical signal | Cannot know which character is human-controlled or write prose; cannot surface a private thought as public fact (a deterministic token guard redacts thought-only payloads from its events); its witness/move/link/skip proposals are clamped by code | Everything observable about the world plus every PRIVATE THOUGHT (marked as perceivable only by it): full personality and appearance of every character, the scene with its zone graph and positions, the public story summary, and the active history window |
 | **Prose renderer** (blind) | Turns the beat's confirmed events into reader-facing narration | Cannot see minds, thoughts, notes, whispers' content, or even the WORDS anyone spoke (speech arrives as content-free markers); cannot invent outcomes or dialogue | Public scene and zone-visible staging, cast appearance only, a content-free reader transcript, and the clamped events of this beat |
-| **Character** | Speak, think, and ATTEMPT physical actions (`action_intent`, adjudicated by the next beat's Director); a reply inside a whispered turn stays whispered | Cannot state action outcomes; cannot perceive across whispers or acoustic zones; addresses strangers by reference until a name is legitimately learned | Only its own mind, private note, perspective-ledger projection (viewer-relative identities), events it witnessed, speech/actions it perceived, and its own prior thoughts |
+| **Character** | Speak, think, and ATTEMPT physical actions (`action_intent`, adjudicated by the next beat's Director); a reply inside a whispered turn stays whispered | Cannot state action outcomes; cannot perceive across whispers or acoustic zones; addresses strangers by reference until a name is legitimately learned | Only its own mind, its perspective ledger (viewer-relative identities + private perception-filtered memory, older lines LLM-revised with secrets verbatim), events it witnessed, speech/actions it perceived, and its own prior thoughts |
 
 Character output uses the structural contract
 `{speech: string|null, thought: string|null, action_intent: string|null}`.
@@ -453,8 +476,11 @@ sensitive session data.
 
 ## ✍️ Generation constraints
 
-- **Narration favors concrete perception.** The Narrator resolves the latest physical consequence
-  first, then grounds prose in sensory detail without a fixed sentence cap.
+- **Narration favors concrete perception.** The prose renderer resolves the latest physical
+  consequence first, then grounds prose in sensory detail without a fixed sentence cap.
+- **Narration has a floor, never a cap.** A single validated line at the end of the prose
+  contract asks for at least 150 words per beat — measured to lift median narration 3-5x on
+  real payloads without any ceiling on longer beats.
 - **Generated text avoids em/en dashes.** The shared client injects this output policy for every
   agent. Dialogue therefore uses quotation marks even in languages where a dash is conventional.
 - **Character thought is subjective, not physical narration.** Prompts distinguish interpretation
@@ -510,33 +536,32 @@ Portuguese for non-technical users.
 
 Context is finite even with large model windows. Alex Tavern keeps scene facts and current moods
 as durable structured state, while compaction condenses old narrative prose into a public
-story summary and isolated per-character notes. No layer is recomputed on every prompt;
-compaction is a discrete state transition:
+world story summary. Per-character memory is deliberately NOT a compaction concern anymore: it
+lives in each character's perspective ledger, accumulates deterministically every turn from
+perceived records only, and is condensed by its own LLM revision when it grows (see below).
+Compaction is a discrete state transition:
 
 1. Read `compaction_keep_recent_turns` (200 by default) and count distinct `turn_number` values,
    not individual history records. If the session has at most that many turns, return without
    creating a checkpoint or calling the model.
-2. Send only public records older than the retained window to the world summarizer, together with
-   the existing public summary. It never receives thoughts or character notes.
-3. In parallel with the world job, run a smaller private-memory call for each relevant character.
-   Each receives
-   public events, that character's existing note, and only that character's thoughts; it cannot
-   see another character's thoughts or note.
-4. Run plugin pre-commit filters against an isolated compaction draft. Replace `story_summary`,
-   merge the isolated character notes, and replace live history with the
-   retained verbatim window.
-5. Write `.data/sessions/{id}/backups/compaction.cNNNNNN.json` with only the evicted records,
-   previous summaries/notes, integrity hashes, and reversible plugin-state delta. Then save the
+2. Send only public records older than the retained window to the world summarizer, together
+   with the existing public summary. It never receives private thoughts.
+3. Run plugin pre-commit filters against an isolated compaction draft. Replace `story_summary`
+   and replace live history with the retained verbatim window. Character ledgers are untouched:
+   their memory already captured what each character perceived, turn by turn, when it happened.
+4. Write `.data/sessions/{id}/backups/compaction.cNNNNNN.json` with only the evicted records,
+   the previous summary, integrity hashes, and reversible plugin-state delta. Then save the
    compacted state atomically with a reference to that checkpoint.
-6. Append a `compact` marker containing trigger, checkpoint ID, cutoff, counts, and automatic
+5. Append a `compact` marker containing trigger, checkpoint ID, cutoff, counts, and automatic
    threshold evidence to the session debug log.
 
 Automatic compaction is disabled by default. When enabled, the Runner prepares the same complete,
 untrimmed Narrator messages used by the real call, estimates them with the shared character-based
 estimator, adds the reserved Narrator output, and compares the result with
-`automatic_compaction_threshold_percent` (80 by default). It runs only when a Narrator call is
-about to happen and at least one complete turn is older than the retained window. A private-only
-thought defers the check. If the Historian or a plugin fails, no checkpoint or compacted state is
+`automatic_compaction_threshold_percent` (80 by default). It runs only when a Director call is
+about to happen and at least one complete turn is older than the retained window (since
+thought-only turns also run the Director now, they participate in the check like any turn). If
+the summarizer or a plugin fails, no checkpoint or compacted state is
 committed, the failure is logged, and the normal token-trimmed turn continues.
 
 The explicit browser operation negotiates `text/event-stream`. Its progress is based on completed
@@ -545,71 +570,49 @@ plugin filtering, checkpoint writing, atomic save, and the terminal result. JSON
 MCP and replay continue to receive the equivalent final object from the same endpoint. The client
 never retries an interrupted compaction automatically.
 
-In practical terms, one compaction fans out into a public summary plus granular private memories:
+In practical terms, compaction owns the WORLD's memory while each ledger owns its character's:
 
 ```text
 Session before compaction
 │
-├── Old records (everything before the last 8 turns)
+├── Old records (everything before the retained window)
 │   │
-│   ├── Public memory call: world
-│   │   ├── receives: previous story_summary
-│   │   ├── receives: old speech, action, and narration
-│   │   ├── never receives: thoughts or character_notes
-│   │   └── writes: new story_summary
-│   │
-│   ├── Private memory call: Thorn (C1)
-│   │   ├── receives: previous character_notes["C1"]
-│   │   ├── receives: old public events
-│   │   ├── receives: only Thorn's old thoughts
-│   │   ├── never receives: Lyra's thoughts/note
-│   │   └── writes: new character_notes["C1"]
-│   │
-│   └── Private memory call: Lyra (C2)
-│       ├── receives: previous character_notes["C2"]
-│       ├── receives: old public events
-│       ├── receives: only Lyra's old thoughts
-│       ├── never receives: Thorn's thoughts/note
-│       └── writes: new character_notes["C2"]
+│   └── Public memory call: world
+│       ├── receives: previous story_summary
+│       ├── receives: old speech, action, and narration
+│       ├── never receives: private thoughts
+│       └── writes: new story_summary
 │
-└── Recent records (last 8 distinct turn numbers)
+└── Recent records (retained distinct turn numbers)
     └── remain verbatim in active history
-```
 
-Private calls run concurrently and only for **relevant** characters: a character is relevant when
-they own an old record or their name appears in one. If no private call is needed, that character's
-existing note remains unchanged. The privacy boundary is deterministic for thoughts: code removes
-other characters' thoughts before building each prompt. Public events are not perception-filtered
-per character at this layer; the private summarizer receives the public slice and is instructed to
-retain only events that character experienced.
+Per-character ledger memory (independent of compaction, every turn)
+│
+├── capture (deterministic, no LLM): one viewer-projected digest line per
+│   speech/action the character PERCEIVED (audience and zone respected),
+│   appended to its recent_memory
+│
+└── revision (LLM, when recent_memory grows past the threshold): condenses
+    the oldest lines into the character's first-person memory_summary —
+    promises, relationship changes and unresolved threads kept; secrets,
+    codes and numbers kept VERBATIM; references never merged ("the man in
+    the open shirt" never becomes a name that was not learned). A revision
+    failure never fails the turn.
+```
 
 Afterward, the Narrator receives `story_summary` as an optional `STORY SO FAR` section followed
-by the active history. A Character receives only its own note as an optional `What you remember`
-line, plus public speech and its own thought records from active history; it never receives another
-character's note/thoughts or the world-level summary.
+by the active history. A Character receives its own ledger memory as `What you remember`
+(memory summary + recent digest lines), plus the events it perceives this beat; it never
+receives another character's memory or the world-level summary.
 
-```text
-Next turn after compaction
-│
-├── Narrator prompt
-│   ├── new story_summary
-│   ├── current scene and character sheets
-│   └── recent public history (thoughts removed before token trimming)
-│
-├── Lyra Character prompt, when routed as an NPC
-│   ├── character_notes["C2"] as "What you remember"
-│   ├── Narrator-filtered current perception
-│   ├── recent public speech
-│   └── only Lyra's recent thoughts
-│
-└── Thorn, while human-controlled
-    ├── character_notes["C1"] remains stored
-    └── no Character LLM is called, so the private note stays dormant
-```
+### Historical probe: an event missed while absent
 
-### Live DeepSeek probe: an event missed while absent
+> **Historical evidence (2026-07-12).** This probe ran against the retired per-character
+> compaction notes (`character_notes`), which the perspective-ledger memory has since replaced.
+> It is preserved because it is the experiment that exposed the perception gap and motivated the
+> deterministic boundary the ledger inherits today.
 
-The public-event caveat above was tested directly on 2026-07-12 against the configured
+The public-event caveat was tested directly on 2026-07-12 against the configured
 `deepseek-v4-flash` API. The probe called Lyra's real private-memory boundary rather than a mock:
 
 ```text
@@ -636,14 +639,14 @@ The exact real output from the leaking absent run included:
 > Ela saiu para buscar seu cajado e, ao retornar, não percebeu que Thorn abriu uma caixa e
 > encontrou um selo real de ouro com o brasão secreto do rei, que ele escondeu antes dela voltar.
 
-That probe motivated Task 35, which later made the boundary deterministic: the private
-Historian now includes a speech/action record only when `record_visible_to` says that character
-perceived it (whispers and zone-scoped records respect their computed audiences), narration never
-enters a private note (characters do not perceive narrator prose — and prose can retell a
-whisper), and world directives never enter (the campaign bible may define secrets as world
-truth). Measured effect on the counter-canon benchmark: the whispered-secret family went from 26
-instances to **0**. What remains model-judged is only the legacy flat-scene case with no zones
-and no audience, where every public record is genuinely perceivable.
+That probe motivated Task 35, which made the boundary deterministic — and the ledger memory
+that replaced the notes inherits it structurally: a character's memory captures a speech/action
+record only when `record_visible_to` says that character perceived it (whispers and zone-scoped
+records respect their computed audiences), narration never enters private memory (characters do
+not perceive narrator prose — and prose can retell a whisper), and world directives never enter
+(the campaign bible may define secrets as world truth). Measured effect on the counter-canon
+benchmark: the whispered-secret family went from 26 instances to **0**, and the full benchmark
+after the ledger-memory migration recorded zero memory-attributable violations.
 
 A normal turn undo operates on the active verbatim window. Compaction undo is separate: it
 rehydrates the evicted records from the newest active checkpoint while preserving every live turn
@@ -654,9 +657,10 @@ Current deliberate constraints and known gaps include:
 - **Automatic compaction is opt-in.** The default remains off because the Historian is a
   semantically non-idempotent model operation. The browser exposes the opt-in and threshold; the
   recent-turn retention remains a server-owned default rather than another common-user control.
-- **Per-character notes** (accumulated memory/relationships, distinct from the world-level
-  rolling summary) are included from the start, scoped per character the same way personality
-  already is — each character only ever sees its own notes, never anyone else's.
+- **Per-character memory is ledger-owned, not compaction-owned.** Each character's memory
+  accumulates deterministically from perceived records every turn and is revised by its own
+  LLM call when it grows — scoped per character the same way personality already is; each
+  character only ever sees its own memory, never anyone else's.
 - **Perception IS a deterministic memory boundary since Task 35** for whispers and zone-scoped
   records; expressing "left the room" as a zone position makes absence structural too. The
   remaining gap is flat scenes without zones, where public records are treated as perceived by
@@ -664,15 +668,15 @@ Current deliberate constraints and known gaps include:
 
 <place_6:screenshot of the compact-session button with its progress bar mid-animation>
 
-Summary and notes are wired into the actual prompts: the Narrator's user prompt has an
+Summary and memory are wired into the actual prompts: the Narrator's user prompt has an
 optional "story so far" section, placed before the current scene, populated only once a
-`story_summary` exists. The Character's system prompt gained an optional "what you remember"
-line, populated only from that character's own notes — matching the same per-role scoping used
+`story_summary` exists. The Character's prompt has a "What you remember" section populated
+only from that character's own ledger memory — matching the same per-role scoping used
 everywhere else in this project.
 
 **Undoing compactions.** `state.json` holds an active LIFO stack of checkpoint references. Undo
 validates the newest checkpoint's parent and hashes, restores its evicted prefix and previous
-summary/note state, and appends every later live turn unchanged. Repeating undo walks backward
+summary state, and appends every later live turn unchanged. Repeating undo walks backward
 across multiple compactations. Checkpoint files are immutable journal evidence and remain until
 the session is deleted, even after their active stack entry is popped. Plugin-owned state is
 reversed path by path; a later divergent path causes a safe conflict unless that same plugin
@@ -773,6 +777,7 @@ contract:
 | `sdk.registerAction` | Add a global or session-scoped frontend action to the slash palette | Shared name/alias namespace; active-plugin provenance and contextual availability |
 | `sdk.registerCommandResultRenderer` | Render a plugin-namespaced backend result | Missing renderer disables the tool before execution |
 | `context.config` | Read/write plugin-owned global configuration | Atomic JSON, separate from session state |
+| `context.storage` | Read/write plugin-owned files under `.data/plugins/storage/<plugin-id>/` | Path-safe namespace (absolute paths, `..` and symlink escapes rejected) |
 | `game.plugin_state[plugin_id]` | Persist plugin-owned session state | Saved, snapshotted, compacted, and undone with the session |
 | `context.model.call_json` | Make a plugin-owned structured LLM call | Core-owned secrets, provider adaptation, schema validation, retries, and debug logging |
 | `context.unsafe` | Reach a core object not covered by the stable SDK | Deliberate trusted-code escape hatch, journaled for review |
@@ -1144,6 +1149,25 @@ Built-in scenarios are immutable application assets under `src/scenarios/`. User
 mutable runtime data under `.data/scenarios/`. Both use the same nested `mind`/`body` character
 shape from browser form through API, storage, and Runner; there is no flat legacy conversion path.
 
+### Browser-boundary security
+
+Mutating endpoints are protected by two independent gates, both enforced server-side:
+
+- **Per-process access token.** The frontend fetches a random token from `/bootstrap` at load
+  and sends it as `X-Tavern-Token` on every mutation. The token lives only in process memory —
+  never persisted, never in the service-worker cache (`/bootstrap` is network-only) — and a
+  restart invalidates it; the frontend transparently re-bootstraps on the first 403.
+- **Origin policy.** Loopback origins match a strict regex; any other origin is accepted only
+  when it is same-origin with the request's `Host` (which is what serves LAN and Docker
+  access). The `null` origin is NEVER allowed — a `file://` page must not be able to read the
+  token and replay it.
+
+Provider targets have their own policy: the DeepSeek adapter only talks HTTPS to
+`api.deepseek.com`, while llama.cpp accepts loopback, private-LAN addresses, single-label
+hostnames (Docker service names), and private DNS suffixes (`.local`, `.internal`, `.lan`,
+`.home.arpa`) — a submitted config cannot silently point a key-bearing adapter at an arbitrary
+host.
+
 ### Runtime switching and concurrency
 
 Changing `active_provider` applies to subsequent operations, including existing sessions, because
@@ -1286,7 +1310,7 @@ The three processes have separate responsibilities:
 
 ### Available tools
 
-The server exposes exactly 15 tools. Naming is part of the safety model: inspection is visibly
+The server exposes exactly 17 tools. Naming is part of the safety model: inspection is visibly
 separate from mutation.
 
 | Read-only tool | Purpose |
@@ -1297,6 +1321,7 @@ separate from mutation.
 | `inspect_session_history` | Read a bounded recent history window |
 | `inspect_debug_log` | Read bounded raw LLM/debug records |
 | `inspect_replay_status` | Inspect tape size, cursor, remaining entries, and next response metadata |
+| `replay_extract_call` | Locate one recorded LLM call in a session's debug log by agent, turn, and occurrence |
 
 | Mutating tool | Purpose |
 |---|---|
@@ -1309,6 +1334,7 @@ separate from mutation.
 | `mutate_restore_compaction` | Undo the newest incremental compaction checkpoint while preserving later turns |
 | `mutate_reset_replay` | Rewind the replay tape to position zero |
 | `mutate_seek_replay` | Move the replay cursor to an absolute position |
+| `replay_llm_call` | Re-fire a recorded call at the ACTIVE provider (up to 5 runs) with small prompt edits — the curl-first validation method as a typed tool |
 
 Session/scenario deletion and retry are intentionally absent. Undo, compaction, and compaction
 restore are exposed because they are essential debugging operations, but each call must include
@@ -1413,11 +1439,11 @@ should be enforced at decode time, not negotiated through instruction-following 
 especially with a smaller local model where instruction-following is weaker than a frontier
 model's.
 
-**Sub-agents with isolated, clean context.** Character and Narrator never share a context window.
-The Character receives only a filtered message, public speech, and its own private memory. During
-compaction, the world summarizer receives only observable events; separate per-character calls
-receive public events plus that Character's thoughts and note. Private thoughts therefore cannot
-enter another Character's note or the public story summary through prompt sharing.
+**Sub-agents with isolated, clean context.** Character and Director never share a context window.
+The Character receives only its perceived events, public speech, and its own ledger memory. The
+world summarizer receives only observable events, and each character's memory revision receives
+only that character's own perception-filtered digest lines. Private thoughts therefore cannot
+enter another Character's memory or the public story summary through prompt sharing.
 
 **Structured note-taking as durable, external memory.** Scene facts and character mood are
 external, structured state that persists cheaply outside the prose, read back in as needed
