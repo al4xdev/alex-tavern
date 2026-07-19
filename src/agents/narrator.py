@@ -13,7 +13,6 @@ from src.confidentiality import (
     hidden_whisper_tokens,
     redact_tokens,
 )
-from src.perception import describe_zones_for_narrator, validate_perception_events
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
 from src.models import (
@@ -23,13 +22,13 @@ from src.models import (
     speaker_label,
     trim_history_by_tokens,
 )
-
+from src.perception import describe_zones_for_narrator, validate_perception_events
 
 MAX_SPEAKERS_PER_TURN = 3
 
 
 def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
-    speakers = ", ".join([*character_ids, "Narrator"])
+    speakers = ", ".join(character_ids)
     prompt = (
         "You are the Director of a roleplay world. You know EVERYTHING about it.\n"
         "You DECIDE what physically happens next and who reacts; a separate blind\n"
@@ -37,13 +36,26 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "never narration.\n"
         "\n"
         "FIELDS:\n"
-        f'- "next_speakers": ordered list (1 to 3) of who reacts next. Each entry is one of: {speakers}.\n'
-        "  - List several characters, in speaking order, when the moment calls for an\n"
-        "    exchange (a question and its answer, a reaction chain); each later speaker\n"
-        "    will have heard the earlier ones before speaking.\n"
-        "  - List a character only when they have a real, present reason to speak now.\n"
-        '  - Use ["Narrator"] when you need to describe something before anyone speaks\n'
-        "    (e.g., an environmental event), or when no reaction is needed yet.\n"
+        '- "scene_blocking": REQUIRED spatial draft completed BEFORE every other\n'
+        "  field. Map every present character ID to their exact current zone in\n"
+        '  "character_zones"; state where the final HISTORY action occurs in\n'
+        '  "action_location"; list concrete distance, wall, door, sight, or sound\n'
+        '  limits in "spatial_constraints"; and set "destination_reachable_this_beat"\n'
+        "  only after accounting for real travel time. This is factual blocking, not\n"
+        "  narration or hidden motives. Every later decision must agree with it.\n"
+        f'- "next_speakers": ordered list (0 to 3) of characters who react next. '
+        f"Each entry is one of: {speakers}.\n"
+        "  - Choose characters with an immediate, natural reason to react. When one\n"
+        "    character's likely reaction gives another a reason to answer, disagree,\n"
+        "    clarify, or intervene, include them in conversational order so the\n"
+        "    Character agents can create the exchange. Each later speaker will have\n"
+        "    heard the earlier speakers before responding.\n"
+        "  - Do not force a crowd response when one reaction is enough.\n"
+        "  - If no character personally witnessed the event, return an EMPTY list.\n"
+        "    This means prose narration only. A character in another place cannot know\n"
+        "    what the remote actor is doing, cannot react to it, and must not be routed\n"
+        "    merely to keep dialogue going. No shared perception means no speaker.\n"
+        "  - Narration is rendered separately and is never a speaker.\n"
         '- "perception_events": the typed record of what happens THIS beat, resolving\n'
         "  the last HISTORY event (an attempted action succeeds, fails, or twists;\n"
         "  a speech lands; the environment moves). This is the ONLY substrate the\n"
@@ -51,9 +63,9 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  Each event:\n"
         '  {"event_kind": one of "observation" | "audible_speech" | "identity_claim" |\n'
         '  "physical_outcome" | "scene_change"; "subject_id": the acting character\'s\n'
-        "  ID (or \"Narrator\" for environmental events); \"content\": ONE short sentence\n"
+        '  ID (or "Narrator" for environmental events); "content": ONE short sentence\n'
         "  describing the event exactly as a witness would perceive it (no inner\n"
-        "  thoughts, no facts a witness could not sense); \"witness_ids\": the IDs of\n"
+        '  thoughts, no facts a witness could not sense); "witness_ids": the IDs of\n'
         "  every present character who could genuinely perceive it given the zones,\n"
         "  distance, and noise. Never include someone who could not perceive it.}\n"
         "  1 to 6 events; make the FIRST events cover what the next speakers need\n"
@@ -91,6 +103,10 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  objective fact. Describe observable evidence and concrete perceptions only.\n"
         "- Dialogue is an attributed claim, not automatically world truth. A character's\n"
         "  action is an attempt until narration confirms its outcome. Preserve uncertainty.\n"
+        "- DIALOGUE OWNERSHIP: never invent new dialogue for a routed character inside\n"
+        "  perception_events. Record only the stimulus or words already spoken in\n"
+        "  HISTORY, then select the reacting characters in next_speakers. Their\n"
+        "  Character agents, not you, decide what they say.\n"
         "- HISTORY entries marked [WHISPERED, perceived only by: ...] were perceived\n"
         "  exclusively by the listed characters. Everyone else does not know that\n"
         "  content: never let them react to it, reference it, or overhear it in your\n"
@@ -126,6 +142,29 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  ignore a declared action, never stage someone as present where they\n"
         "  declared they are not. Facts about the WORLD or OTHER characters remain\n"
         "  canon unless confirmed.\n"
+        "\nSILENT SCENE BLOCKING (mandatory decision order; do not output this reasoning):\n"
+        "1. PLACE EVERYONE. Mentally draw the current stage and its zones. For each\n"
+        "   present character, identify the exact place their latest self-declared\n"
+        "   action puts them. A character running through the city is in the city, not\n"
+        "   arriving at a hall where the others are. When canon and self-location\n"
+        "   differ, create or use a separate isolated zone with zone_moves first.\n"
+        "2. MEASURE THE GAP. Decide what separates each zone: distance, walls, doors,\n"
+        "   noise, and travel time. Meaningful travel takes multiple beats when the\n"
+        "   fiction requires it and ends only after a later explicit arrival. Never\n"
+        "   teleport someone, invent a convenient connection, or skip the journey just\n"
+        "   to bring characters together.\n"
+        "3. RESOLVE LOCALLY. Resolve the final HISTORY action only where its actor\n"
+        "   currently is. Describe only its immediate local consequence before adding\n"
+        "   any event elsewhere.\n"
+        "4. DRAW SIGHT AND SOUND. For every event, compute who can actually see or hear\n"
+        "   it from that blocked scene. Remote characters receive no hint that it\n"
+        "   happened: exclude them from witness_ids and never let them react to it.\n"
+        "5. ROUTE FROM PERCEPTION. Choose next_speakers only among characters with a\n"
+        "   concrete event they personally witnessed. Order multiple speakers when an\n"
+        "   actual conversational chain can follow; do not move or inform anyone merely\n"
+        "   to manufacture dialogue.\n"
+        "6. EMIT ONLY THE DECISION. Return the required JSON. Do not include this map,\n"
+        "   analysis, inferred dialogue, or unobservable reasoning in event content.\n"
     )
     return prompt
 
@@ -148,8 +187,12 @@ def build_narrator_json_schema(
     plugin-specific branch here — the property's own JSON Schema fragment (e.g. its
     ``description``) carries whatever the model needs to understand it.
     """
-    all_speakers = [*character_ids, "Narrator"]
-    if forced_speaker in all_speakers:
+    all_speakers = list(character_ids)
+    if forced_speaker == "Narrator":
+        # Explicit manual narration-only remains available; autonomous routing
+        # cannot choose this sentinel.
+        speakers = ["Narrator"]
+    elif forced_speaker in all_speakers:
         speakers = [forced_speaker]
     else:
         # exclude_speaker is a routing POLICY, not a schema constraint: a
@@ -164,10 +207,32 @@ def build_narrator_json_schema(
         "schema": {
             "type": "object",
             "properties": {
+                "scene_blocking": {
+                    "type": "object",
+                    "properties": {
+                        "character_zones": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"},
+                        },
+                        "action_location": {"type": "string"},
+                        "spatial_constraints": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "destination_reachable_this_beat": {"type": "boolean"},
+                    },
+                    "required": [
+                        "character_zones",
+                        "action_location",
+                        "spatial_constraints",
+                        "destination_reachable_this_beat",
+                    ],
+                    "additionalProperties": False,
+                },
                 "next_speakers": {
                     "type": "array",
                     "items": {"type": "string", "enum": speakers},
-                    "minItems": 1,
+                    "minItems": 1 if forced_speaker else 0,
                     "maxItems": MAX_SPEAKERS_PER_TURN,
                 },
                 "perception_events": {
@@ -222,6 +287,7 @@ def build_narrator_json_schema(
                 **(extra_properties or {}),
             },
             "required": [
+                "scene_blocking",
                 "next_speakers",
                 "perception_events",
                 "scene_update",
@@ -588,6 +654,9 @@ async def narrate(
                 ]
     result["zone_link_updates"] = links
     result["return_control"] = bool(result.get("return_control", False))
+    # Scratch field only: it forces spatial blocking to be materialized before
+    # the decisions, but it is not runtime state and must not escape narrate().
+    result.pop("scene_blocking", None)
     # Deterministic thought guard (Task 41): the Director sees every private
     # thought, but nothing thought-only may surface as a perceivable event.
     thought_secret = hidden_thought_tokens(history, characters, scene)
@@ -596,7 +665,6 @@ async def narrate(
         if thought_secret:
             content = redact_tokens(content, thought_secret)
         event["content"] = content
-
 
     for field in ("scene_update", "mood_updates"):
         values = result.get(field)
