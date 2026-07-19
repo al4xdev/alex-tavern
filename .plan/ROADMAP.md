@@ -65,8 +65,23 @@ Pendências que precisam do usuário (NÃO tocar de madrugada): smoke tests da 1
 ## 🧺 Lane paralela (independentes)
 
 - 26 — Prosa do narrador (acumulador de evidências; boa parte dissolveu na 36;
-  dominante atual: re-descrição de ambiência em cena estática — mitigação
-  candidata: retry-guard fuzzy >0.85)
+  dominante atual: re-descrição de ambiência em cena estática).
+  **Medição offline 2026-07-19** (4 sessões reais, 549 sentenças de narração
+  vs narrações anteriores): eco residual ≥0.8 = 2 casos, ambos PÓS-compactação
+  (a guarda por sentença não enxerga história compactada); banda 0.7–0.8
+  (a re-descrição parafraseada: "estojo continua lacrado" → "jaz esquecido,
+  lacre intacto") = 50/549 ≈ 9%; ≥0.85 praticamente nunca ocorre. Conclusão:
+  o candidato retry-guard fuzzy >0.85 NÃO ganha nada; a família dominante é
+  paráfrase abaixo da barra — mitigação teria que ser semântica (estilo
+  delta-material da 33b) ou prompt. Script: scratchpad `measure26.py`.
+- **Auto narrator_hint (estudo 2026-07-18)** — arquitetura validada em 55
+  calls reais (4 domínios): Reaction Scout + Continuity Scout em paralelo →
+  Judge closed-world escalar → compilador determinístico (nunca usar a string
+  da LLM); `AUTHORIZATIONS` só de fonte estruturada (candidata natural:
+  beat/owner do roteiro 38/40) ou lista vazia. Entra no MESMO canal
+  narrator_hint do drive/relógio. Handoff completo:
+  `.plan/narrator-hint-generalization-handoff.md`. Próximo passo (a decidir
+  com o dono): harness experimental atrás de flag, fora do turno canônico.
 - Fakes antigos de `tests/test_integration.py` (6) — lane do modelo menor
   (padrão: `action_intent` no payload + monkeypatch de `_render_narration`)
 
