@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -259,6 +260,8 @@ async def test_mcp_registry_separates_tools_and_omits_delete_and_retry() -> None
         "mutate_restore_compaction",
         "mutate_reset_replay",
         "mutate_seek_replay",
+        "replay_extract_call",
+        "replay_llm_call",
     }
     assert not any("delete" in name or "retry" in name for name in by_name)
     assert all(
@@ -329,9 +332,157 @@ async def test_mcp_stdio_initializes_and_lists_tools() -> None:
             tools = await session.list_tools()
 
     assert initialized.serverInfo.name == "Alex Tavern Debug"
-    assert len(tools.tools) == 15
+    assert len(tools.tools) == 17
     assert {tool.name for tool in tools.tools} >= {
         "inspect_api_routes",
         "mutate_submit_turn",
         "mutate_compact_session",
     }
+
+
+# ---------------------------------------------------------------------------
+# Curl-replay tools (recorded call -> active provider)
+# ---------------------------------------------------------------------------
+
+
+def _write_debug_log(session_id: str, records: list[dict[str, Any]]) -> None:
+    from src.store.sessions import session_debug_path
+
+    path = session_debug_path(session_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+
+
+def _recorded(agent: str, turn: int, system: str) -> dict[str, Any]:
+    return {
+        "agent": agent,
+        "turn_number": turn,
+        "model": "recorded-model",
+        "provider": "deepseek",
+        "ts": "2026-07-19T03:00:00Z",
+        "request": {
+            "max_tokens": 2048,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": "hello"},
+            ],
+            "response_format": {"type": "json_object"},
+        },
+        "response": {"ok": True},
+    }
+
+
+def _mock_api() -> DebugApiClient:
+    return DebugApiClient(
+        roleplay_transport=httpx.MockTransport(lambda request: _json_response(request, {})),
+        replay_transport=httpx.MockTransport(lambda request: _json_response(request, {})),
+    )
+
+
+@pytest.mark.asyncio
+async def test_replay_extract_selects_agent_turn_and_occurrence() -> None:
+    _write_debug_log(
+        "mcpjog1",
+        [
+            _recorded("narrator", 1, "first"),
+            _recorded("narrator", 2, "second"),
+            _recorded("prose", 2, "prose-sys"),
+        ],
+    )
+    api = _mock_api()
+    server = create_mcp_server(api=api)
+    try:
+        _, latest = await server.call_tool(
+            "replay_extract_call", {"session_id": "mcpjog1", "agent": "narrator"}
+        )
+        assert latest["turn_number"] == 2
+        assert latest["request"]["messages"][0]["content"] == "second"
+
+        _, by_turn = await server.call_tool(
+            "replay_extract_call",
+            {"session_id": "mcpjog1", "agent": "narrator", "turn_number": 1},
+        )
+        assert by_turn["request"]["messages"][0]["content"] == "first"
+
+        with pytest.raises(ToolError, match="agents in this session"):
+            await server.call_tool(
+                "replay_extract_call", {"session_id": "mcpjog1", "agent": "missing"}
+            )
+    finally:
+        await api.aclose()
+
+
+def test_apply_system_edits_keeps_schema_tail_last() -> None:
+    from tools.mcp_server import _apply_system_edits
+
+    messages = [
+        {
+            "role": "system",
+            "content": "Rule one.\n\nReturn only one JSON object matching: {}",
+        },
+        {"role": "user", "content": "hi"},
+    ]
+    edited = _apply_system_edits(
+        messages, append_to_system="New closing rule.", replace_old="Rule one.", replace_new="Rule 1."
+    )
+    content = edited[0]["content"]
+    assert content.startswith("Rule 1.\nNew closing rule.\n")
+    assert content.endswith("Return only one JSON object matching: {}")
+    # original untouched, replace_old must match exactly once
+    assert messages[0]["content"].startswith("Rule one.")
+    with pytest.raises(ToolError, match="exactly once"):
+        _apply_system_edits(messages, replace_old="absent", replace_new="x")
+
+
+@pytest.mark.asyncio
+async def test_replay_llm_call_edits_prompt_and_fires_active_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_debug_log("mcpjog2", [_recorded("prose", 3, "Base.\n\nReturn only one JSON object x")])
+    seen: list[dict[str, Any]] = []
+
+    async def fake_chat_completion(client: Any, messages: list[dict], **kwargs: Any) -> str:
+        seen.append({"messages": messages, "kwargs": kwargs})
+        return '{"narration": "ok"}'
+
+    monkeypatch.setattr("src.llm.client.chat_completion", fake_chat_completion)
+    monkeypatch.setattr(
+        "src.config.load_config",
+        lambda *args, **kwargs: {
+            "provider": "deepseek",
+            "model": "active-model",
+            "api_base": "https://api.deepseek.com",
+            "api_key": "k",
+        },
+    )
+    monkeypatch.setattr("src.config.resolve_active_config", lambda value: value)
+
+    api = _mock_api()
+    server = create_mcp_server(api=api)
+    try:
+        _, result = await server.call_tool(
+            "replay_llm_call",
+            {
+                "session_id": "mcpjog2",
+                "agent": "prose",
+                "append_to_system": "Closing trigger.",
+                "runs": 2,
+            },
+        )
+    finally:
+        await api.aclose()
+
+    assert len(seen) == 2
+    system = seen[0]["messages"][0]["content"]
+    assert "Closing trigger." in system
+    assert system.endswith("Return only one JSON object x")
+    assert seen[0]["kwargs"]["model"] == "active-model"
+    assert seen[0]["kwargs"]["agent"] == "mcp-replay:prose"
+    assert result["active_model"] == "active-model"
+    assert result["recorded_model"] == "recorded-model"
+    assert [run["content"] for run in result["runs"]] == ['{"narration": "ok"}'] * 2
+
+    with pytest.raises(ToolError, match="runs must be between"):
+        await server.call_tool(
+            "replay_llm_call", {"session_id": "mcpjog2", "agent": "prose", "runs": 99}
+        )
