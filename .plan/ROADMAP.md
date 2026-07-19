@@ -3,7 +3,7 @@
 Fonte única de "onde estamos e o que vem". Atualize este arquivo a cada task
 fechada ou mudança de sequência. Este arquivo é a fonte única da fila.
 Referência de arquitetura:
-`tasks/explore-29.2-architecture-map.md`. Artefatos de benchmark: `output29/`.
+`reference/explore-29.2-architecture-map.md`. Artefatos de benchmark: `output29/`.
 
 ## ✅ Fechadas (todas com evidência medida e commit)
 
@@ -37,14 +37,14 @@ Referência de arquitetura:
 | Task | O que falta |
 |---|---|
 | 38 — Roteiro (opt-in, OFF) | ressalvas devem ser resolvidas por 40+33b (decisão do dono 2026-07-19); **o dono fecha pessoalmente** todas as abertas na fase de testes dele, criando tasks menores |
-| 19 — Security hardening | falta só o outcome 6 com o dono: roteiro pronto em **`.plan/19-smoke-tests-para-o-dono.md`** (3 ambientes, ~10 min cada); 3/3 verdes → fecho |
+| 19 — Security hardening | falta só o outcome 6 com o dono: roteiro pronto em **`.plan/para-o-dono/19-smoke-tests.md`** (3 ambientes, ~10 min cada); 3/3 verdes → fecho |
 | 40 v2 — time-skip do relógio | ✅ **ENTREGUE + A/B/C RODADA** (autorizada pelo dono): no braço C o relógio sustentou a cena sozinho (watcher nunca disparou). Artigo Nº 13 em docs/cases |
 | 26b — re-descrição de ambiência via prompt | ⏸️ **PARQUEADA (fallback do dono)**: 24 calls, 3 variantes em 2 iterações — TODAS pioraram a banda (16.4%→21-23%); linha sobre cenário vira ímã de atenção. Direção futura: nível dos eventos (delta-material da 33b), não prompt. Resultado completo na task |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** SP-01 T7 RESOLVIDA por calibração (decisão do dono + amostragem cega 3/3: leitura intra-turno é a mais natural — o som alcança o delegado no momento em que a divisória abre; regra agora isenta registros do turno-limite posteriores à ação de abertura; **tier reduzida retroativamente LIMPA, completa cai pra 1**). Resta WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
 
 > **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
-## 🌙 FILA DA MADRUGADA (2026-07-18, decisões do usuário já resolvidas)
+## 🌙 FILA DA MADRUGADA (2026-07-18) — ✅ CONCLUÍDA INTEGRALMENTE (2026-07-19)
 
 Ordem de execução autônoma. Regras permanentes: commits em inglês sem trailer
 de IA; método curl-first (AGENTS.md §6 — a variante validada É a shippada);
@@ -63,8 +63,8 @@ voltar; `done.sh` ao fim de cada task.
 | F | Fillers | ✅ TODOS ENTREGUES: MCP curl (tools/, 17 testes); medição offline da guarda (26, ver lane); fakes antigos do test_integration modernizados (22 payloads pré-split limpos, 627 verdes) |
 
 Pendências que precisam do dono: smoke tests da 19 (roteiro em
-`.plan/19-smoke-tests-para-o-dono.md`); aceite do desenho da 33b
-(`.plan/33b-desenho-para-o-dono.md`) + 2 decisões abertas pela bateria
+`.plan/para-o-dono/19-smoke-tests.md`); aceite do desenho da 33b
+(`.plan/para-o-dono/33b-desenho-watcher.md`) + 2 decisões abertas pela bateria
 (integrar watcher atrás de flag; drive adotar o contrato causal — ver
 artigo Nº 13); purge do refs/original (classificador me barrou: rodar
 `git update-ref -d refs/original/refs/heads/master; git reflog expire --expire=now --all; git gc --prune=now`).
@@ -88,7 +88,7 @@ artigo Nº 13); purge do refs/original (classificador me barrou: rodar
   da LLM); `AUTHORIZATIONS` só de fonte estruturada (candidata natural:
   beat/owner do roteiro 38/40) ou lista vazia. Entra no MESMO canal
   narrator_hint do drive/relógio. Handoff completo:
-  `.plan/narrator-hint-generalization-handoff.md`. Próximo passo (a decidir
+  `.plan/reference/narrator-hint-study-part2-handoff.md`. Próximo passo (a decidir
   com o dono): harness experimental atrás de flag, fora do turno canônico.
 - ~~Fakes antigos de `tests/test_integration.py`~~ — FEITO 2026-07-19 (22
   payloads pré-split modernizados pro contrato atual; suíte 627)

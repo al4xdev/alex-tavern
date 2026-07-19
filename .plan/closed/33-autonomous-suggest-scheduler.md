@@ -8,7 +8,7 @@ every event manually. Validated manually by the user (2026-07-16, session `091b1
 era): injecting a suggest event "muda tudo completamente" in a stalled scene.
 
 This is the smallest shippable piece of the Drive layer
-(`.plan/tasks/explore-29.2-subjective-state.md` §10) and does not depend on the 29.2
+(`.plan/reference/explore-29.2-subjective-state.md` §10) and does not depend on the 29.2
 core work.
 
 ## Current Problem

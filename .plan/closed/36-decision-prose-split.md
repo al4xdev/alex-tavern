@@ -1,7 +1,7 @@
 # Task 36 — Decision/Prose Split, Character Action Intents, and the Resolver
 
 **Type:** Supertask (the core of the Director/Resolver architecture,
-`.plan/tasks/explore-29.2-architecture-map.md` §Decision layer). Runs under the
+`.plan/reference/explore-29.2-architecture-map.md` §Decision layer). Runs under the
 full protocol: implementation increments, real-run validation, blind critic ×2
 with an uncontexted fixer between cycles.
 

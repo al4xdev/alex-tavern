@@ -4,7 +4,7 @@
 
 Let one narrated turn route SEVERAL characters speaking in sequence, without a
 Narrator call between them. First concrete increment of the Decision-layer
-direction in `.plan/tasks/explore-29.2-architecture-map.md`: the Narrator's
+direction in `.plan/reference/explore-29.2-architecture-map.md`: the Narrator's
 routing output becomes an ordered queue, and later speakers react having heard
 the earlier ones. Requested by the user 2026-07-16 ("pode deixar nessa update
 múltiplos personagens falarem em sequência sem o narrador").
