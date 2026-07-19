@@ -18,7 +18,6 @@ from src.models import (
     Scene,
     TurnRecord,
     record_visible_to,
-    speaker_label,
     trim_history_by_tokens,
 )
 from src.perception import eligible_witnesses

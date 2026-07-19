@@ -465,11 +465,6 @@ def _build_user_prompt(
     return "\n".join(lines)
 
 
-# Kept as the historical import site; the shared implementation lives in
-# src.confidentiality so the Character output guard reuses the same primitives.
-_REDACTION_MARKER = REDACTION_MARKER
-
-
 def redact_whisper_leaks(
     context: str,
     history: list[TurnRecord],

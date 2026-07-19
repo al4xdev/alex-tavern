@@ -13,9 +13,8 @@ never a character prompt, never the prose renderer (it contains spoilers).
 
 from __future__ import annotations
 
-import re
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from difflib import SequenceMatcher
 
 import httpx
@@ -502,7 +501,6 @@ def build_next_beat_messages(
     game: GameState, roteiro: Roteiro, reason: str, scope: str
 ) -> list[dict]:
     beat = roteiro.beat
-    act = roteiro.acts[roteiro.act_index] if roteiro.act_index < len(roteiro.acts) else None
     status = {
         "advance": "The current beat COMPLETED (its actors and anchors all landed).",
         "coverage_complete": "The current beat COMPLETED (its actors and anchors all landed).",

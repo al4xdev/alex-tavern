@@ -10,14 +10,13 @@ knows a human exists, only sees character names (via ``speaker_label``).
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 
 import httpx
 
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
-from src.models import Character, TurnRecord, record_visible_to, speaker_label
+from src.models import Character, TurnRecord, speaker_label
 
 
 def _build_system_prompt(narrator_directives: str = "") -> str:

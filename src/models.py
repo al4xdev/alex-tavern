@@ -274,10 +274,6 @@ class Roteiro:
     beat_log: list[str] = field(default_factory=list)
 
 
-def roteiro_to_dict(roteiro: Roteiro) -> dict[str, Any]:
-    return asdict(roteiro)
-
-
 def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
     beat_data = data.get("beat")
     return Roteiro(
