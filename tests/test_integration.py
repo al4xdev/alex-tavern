@@ -795,7 +795,15 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"narration": "ok", "next_speakers": ["Narrator"], "perception_events": []}
+            return {
+                "next_speakers": ["Narrator"],
+                "perception_events": [],
+                "scene_update": None,
+                "mood_updates": None,
+                "zone_moves": None,
+                "zone_link_updates": None,
+                "return_control": False,
+            }
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -814,7 +822,15 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"narration": "ok", "next_speakers": ["Narrator"], "perception_events": []}
+            return {
+                "next_speakers": ["Narrator"],
+                "perception_events": [],
+                "scene_update": None,
+                "mood_updates": None,
+                "zone_moves": None,
+                "zone_link_updates": None,
+                "return_control": False,
+            }
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -874,11 +890,13 @@ class TestRunnerLogic:
             captured["extra_schema_properties"] = extra_schema_properties
             captured["extra_schema_required"] = extra_schema_required
             return {
-                "narration": "ok",
                 "next_speakers": ["Narrator"],
                 "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
+                "zone_moves": None,
+                "zone_link_updates": None,
+                "return_control": False,
             }
 
         monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
@@ -916,7 +934,6 @@ class TestRunnerLogic:
 
         async def fake_call_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
-                "narration": "C2 leaves the room.",
                 "next_speakers": ["Narrator"],
                 "perception_events": [],
                 "scene_update": None,
@@ -964,7 +981,6 @@ class TestRunnerLogic:
 
         async def fake_call_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
-                "narration": "The room empties.",
                 "next_speakers": ["Narrator"],
                 "perception_events": [],
                 "scene_update": None,
@@ -999,7 +1015,6 @@ class TestRunnerLogic:
 
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
-                "narration": "Silence.",
                 "next_speakers": ["C2"],  # hallucinated/absent — must be gated
                 "perception_events": [],
                 "scene_update": None,
@@ -1037,11 +1052,13 @@ class TestRunnerLogic:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN202
             assert forced_speaker is None  # C2 is absent, so the force is dropped
             return {
-                "narration": "ok",
                 "next_speakers": ["Narrator"],
                 "perception_events": [],
                 "scene_update": None,
                 "mood_updates": None,
+                "zone_moves": None,
+                "zone_link_updates": None,
+                "return_control": False,
             }
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
@@ -1059,7 +1076,6 @@ class TestRunnerLogic:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["forced_speaker"] = forced_speaker
             return {
-                "narration": "The room stills.",
                 "next_speakers": ["C1"],
                 "perception_events": [
                     _perception_event(f"Context filtered for {forced_speaker}", "C2")
@@ -1071,7 +1087,7 @@ class TestRunnerLogic:
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["character_id"] = character_id
             captured["context"] = context
-            return {"speech": "I answer.", "thought": None}
+            return {"speech": "I answer.", "thought": None, "action_intent": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(self.runner, "_call_character", fake_character)
@@ -1114,7 +1130,7 @@ class TestRunnerLogic:
 
         async def fake_act(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {"speech": "fala", "thought": None}
+            return {"speech": "fala", "thought": None, "action_intent": None}
 
         monkeypatch.setattr(runner_mod, "character_act", fake_act)
 
@@ -1314,7 +1330,6 @@ class TestCompactSession:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["summary"] = game.story_summary
             return {
-                "narration": "The gate hums.",
                 "next_speakers": ["C2"],
                 "perception_events": [
                     _perception_event("The sealed gate is visible.", "C2")
@@ -1642,7 +1657,6 @@ class TestPresenceAdmin:
 
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             return {
-                "narration": "A door creaks open.",
                 "next_speakers": ["Narrator"],
                 "perception_events": [],
                 "scene_update": None,
@@ -1790,7 +1804,6 @@ class TestCustomSessionAndDebug:
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
-                "narration": "Algo acontece.",
                 "next_speakers": ["C3"],
                 "perception_events": [_perception_event("ctx", "C3")],
             }
@@ -1819,7 +1832,6 @@ class TestCustomSessionAndDebug:
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
-                "narration": "Algo acontece.",
                 "next_speakers": ["Fantasma"],
                 "perception_events": [],
             }
@@ -1850,7 +1862,6 @@ class TestCustomSessionAndDebug:
             captured["messages"] = messages
             captured["json_schema"] = kwargs["json_schema"]
             return {
-                "narration": "Something happens.",
                 "next_speakers": ["C1"],
                 "perception_events": [
                     _perception_event("Only C2 can perceive this.", "C2")
@@ -1891,7 +1902,6 @@ class TestCustomSessionAndDebug:
 
         async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
-                "narration": "Something happens.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
             }
@@ -2483,7 +2493,6 @@ class TestEdgeCases:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
-                "narration": "The storm rolls in.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2517,7 +2526,6 @@ class TestEdgeCases:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
-                "narration": "A gust of wind tousles the grass.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2628,7 +2636,6 @@ class TestHttpBoundary:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
-                "narration": "The wind stirs.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2680,7 +2687,6 @@ class TestHttpBoundary:
         ) -> dict:
             captured["called"] = True
             return {
-                "narration": "Time passes.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2729,7 +2735,6 @@ class TestHttpBoundary:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             return {
-                "narration": "He swings.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2869,7 +2874,6 @@ class TestHttpBoundary:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
             return {
-                "narration": "The storm passes.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2920,7 +2924,6 @@ class TestHttpBoundary:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
             return {
-                "narration": "Rain begins to fall.",
                 "next_speakers": ["C1"],
                 "perception_events": [],
                 "scene_update": None,
@@ -2974,7 +2977,6 @@ class TestHttpBoundary:
             captured["forced_speaker"] = forced_speaker
             captured["narrator_hint"] = narrator_hint
             return {
-                "narration": "Lyra steps forward.",
                 "next_speakers": ["C1"],
                 "perception_events": [_perception_event("Lyra approaches you.", "C2")],
                 "scene_update": None,
