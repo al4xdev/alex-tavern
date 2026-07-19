@@ -187,7 +187,11 @@ async def initialize_perspective(
         [{"role": "system", "content": _INIT_SYSTEM}, {"role": "user", "content": user}],
         model=config.get("model", ""),
         language=config.get("language", ""),
-        max_tokens=1024,
+        # A large cast produces one identity entry per other character. The
+        # previous fixed 1024-token cap routinely cut the JSON mid-string,
+        # making all three retries fail identically. This is a ceiling, not a
+        # requested output size: the model stops as soon as the ledger closes.
+        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
         timeout=resolve_llm_timeout(config),
         json_schema=build_perspective_json_schema(subject_ids),
         session_id=session_id,
