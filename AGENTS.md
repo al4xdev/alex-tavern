@@ -6,12 +6,15 @@ Runner preserva a agência humana, persiste cada sessão e coordena chamadas a p
 
 Este arquivo é o contrato de trabalho para qualquer agente que modificar o repositório. Ele
 descreve a arquitetura e as decisões vigentes. História, auditorias e implementações concluídas
-ficam em `.plan/closed/`; trabalho ainda aberto fica em `.plan/tasks/`.
+ficam em `.plan/closed/`; trabalho ativo fica em `.plan/tasks/`; ideias futuras
+sem trabalho ativo em `.plan/backlog/`; docs de arquitetura vivos em
+`.plan/reference/`; itens esperando ação do dono em `.plan/para-o-dono/`.
+O mapa completo está em `.plan/README.md` e a fila em `.plan/ROADMAP.md`.
 
 > [!IMPORTANT]
 > **Regra Básica de Execução para Agentes:**
 > Antes de criar qualquer código ou feature nova, você **deve sempre consultar a pasta `.plan/tasks/`** para verificar se já existe uma especificação ou planejamento em andamento, evitando retrabalho e mantendo a consistência arquitetural.
-> Dê prioridade e preferência para implementar ou alinhar suas alterações com as tasks abertas que começam com a letra **`S`**. O prefixo **`S`** indica uma **Supertask**, que planeja uma mudança estrutural e de grande impacto na base de código. Supertasks concluídas, como `S01-plugin-system.md`, ficam em `.plan/closed/`.
+> O prefixo **`S`** indica uma **Supertask**: uma mudança estrutural e de grande impacto planejada. Supertasks concluídas, como `S01-plugin-system.md`, ficam em `.plan/closed/`; as ainda não iniciadas (ex.: `S02`) moram em `.plan/backlog/` até o dono priorizá-las.
 
 ## 1. Visão atual
 
@@ -426,5 +429,8 @@ HTML. Para mudanças de integração, use também o smoke test HTTP ou a ferrame
 - `src/llm/schema.py`: contrato estruturado local.
 - `src/llm/debug_log.py`: observabilidade persistida.
 - `tools/README.md`: operação de replay, MCP e harness.
-- `.plan/tasks/`: trabalho aberto.
+- `.plan/tasks/`: trabalho ativo.
+- `.plan/backlog/`: futuro sem trabalho ativo.
+- `.plan/reference/`: docs de arquitetura vivos.
+- `.plan/para-o-dono/`: espera ação do dono.
 - `.plan/closed/`: decisões e entregas concluídas.
