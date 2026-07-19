@@ -174,9 +174,11 @@ async def test_below_threshold_and_private_thought_do_not_call_historian(
     below = await runner.player_turn(session_id, action="Wait.")
     assert below["automatic_compaction"]["status"] == "not_needed"
     assert calls == 1
+    # Thought-only turns now run the full Director pipeline (omniscience), so
+    # the automatic check runs too - what matters is the historian never fires.
     thought = await runner.player_turn(session_id, thought="A private doubt.")
-    assert thought["automatic_compaction"] is None
-    assert calls == 1
+    assert thought["automatic_compaction"]["status"] == "not_needed"
+    assert calls == 2
     assert list(session_backups_dir(session_id).glob("compaction.c*.json")) == []
     await runner.client.aclose()
 

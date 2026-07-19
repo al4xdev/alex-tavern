@@ -455,6 +455,26 @@ def test_concurrent_uninstall_leaves_one_clean_result(tmp_path: Path) -> None:
     assert installed_plugins() == []
 
 
+def _stub_turn_pipeline(runner) -> None:  # noqa: ANN001
+    """Thought-only turns now run the full Director pipeline (omniscience);
+    plugin tests only exercise hooks, so the LLM boundary is stubbed out."""
+
+    async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return {
+            "next_speakers": ["Narrator"],
+            "perception_events": [],
+            "scene_update": None,
+            "mood_updates": None,
+            "return_control": False,
+        }
+
+    async def fake_prose(game, events, turn_number):  # noqa: ANN001, ANN202
+        return ""
+
+    runner._call_narrator = fake_narrator
+    runner._render_narration = fake_prose
+
+
 @pytest.mark.asyncio
 async def test_runner_discards_crashed_precommit_plugin_draft() -> None:
     runtime = PluginRuntime()
@@ -466,6 +486,7 @@ async def test_runner_discards_crashed_precommit_plugin_draft() -> None:
     runtime.hooks.register("broken", "turn.before_commit", "filter", crash)
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
+        _stub_turn_pipeline(runner)
         session_id = runner.start_session()
         result = await runner.player_turn(session_id, thought="secret")
     assert result["turn_number"] == 1
@@ -563,6 +584,7 @@ async def test_turn_input_filter_records_raw_and_effective_values() -> None:
     runtime.hooks.register("dev.test.correct", "turn.input", "filter", correct)
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
+        _stub_turn_pipeline(runner)
         session_id = runner.start_session()
         result = await runner.player_turn(session_id, thought="eu esta aqui")
 

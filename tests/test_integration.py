@@ -1400,7 +1400,7 @@ class TestRestoreCompaction:
         from src import runner as runner_mod
 
         async def fake_summarize(**kwargs):  # noqa: ANN003, ANN202
-            return "Resumo.", {}
+            return "Resumo."
 
         monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
 
@@ -1924,6 +1924,12 @@ class TestCustomSessionAndDebug:
             if schema_name == "narrator_turn":
                 content = json_module.dumps(
                     {
+                        "scene_blocking": {
+                            "character_zones": {"C1": "taverna", "C2": "taverna"},
+                            "action_location": "taverna",
+                            "spatial_constraints": [],
+                            "destination_reachable_this_beat": True,
+                        },
                         "next_speakers": ["C1"],
                         "perception_events": [
                             _perception_event("Você ouve um rangido.", "C1")
@@ -2028,7 +2034,6 @@ class TestSummarizerAgent:
             characters=DEFAULT_CHARACTERS,
             controlled_id="C1",
             story_summary="",
-            character_notes={},
             evicted_turns=evicted,
             narrator_directives="Fantasia sombria.",
         )
