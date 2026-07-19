@@ -125,3 +125,12 @@ Desenho shippado (variante validada = shippada, texto e posição):
 
 Testes: schema required, convite no turno de passe, clamp 99→8 + observation
 testemunhada. Suíte 627. Pendente: A/B/C unificada com 33b (dono).
+
+
+## Bateria A/B/C (2026-07-19): o relógio carregou a cena
+
+No braço C da bateria (artigo Nº 13), relógio+roteiro sustentaram 6 turnos
+produtivos consecutivos SEM nenhuma intervenção do watcher — o mecanismo do
+increment 1+2 foi suficiente neste run. Time compression ativa em todos os
+braços absorveu parte da estagnação (ticks 16/15/17 em 10 turnos). A/B/C
+pendência da task: CUMPRIDA.

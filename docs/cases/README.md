@@ -30,10 +30,11 @@ part of the variant.
 | 10 | [Token economics as an architectural enabler](./10-token-economics-agentic-architecture-2026-07-16.md) | An 89.57% cache-hit ratio is what makes the six-agent fan-out economically rational. |
 | 11 | [Roteiro, drive and scene stagnation](./11-roteiro-drive-scene-stagnation-2026-07-17.md) | A concrete disruptive beat breaks a stall 3/3; an abstract instruction 0/3. |
 | 12 | [Scene stagnation as absent state transition](./12-scene-state-transition-theory-2026-07-17.md) | The theory: two clocks, material delta, causal contract, recovery ladder — the active program. |
+| 13 | [The world as a clock: the A/B/C battery](./13-clock-causal-watcher-battery-2026-07-19.md) | The clock alone sustained the scene (watcher never fired); every reader-flagged incoherence was an unanchored drive seed. |
 
 ## Reading paths
 
-- **The stagnation program** (active): 11 → 12, then the delivered mechanisms in
+- **The stagnation program** (active): 11 → 12 → 13, then the delivered mechanisms in
   `.plan/tasks/40-narrative-tick-clock.md` (narrative clock + time compression)
   and `.plan/tasks/33b-continuous-roteiro-watcher.md` (material-delta watcher,
   validated by exploration; A/B/C battery in `tools/acceptance/watcher_abc.py`).

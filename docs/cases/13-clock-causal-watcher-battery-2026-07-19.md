@@ -1,0 +1,140 @@
+# The world as a clock: code-owned time, a causal watcher, and the A/B/C battery
+
+| | |
+|---|---|
+| **Series** | Alex Tavern Engineering Cases, No. 13 |
+| **Date** | 2026-07-19 (overnight + autonomous session) |
+| **Provider** | DeepSeek V4 Flash, real API, Portuguese payloads |
+| **Predecessors** | No. 11 (empirical stall evidence), No. 12 (theory and program) |
+| **Tasks** | 40 (clock + time compression, delivered), 33b (watcher, exploration validated), 42 (verbosity floor, delivered), 26b (prompt attack, parked negative) |
+| **Artifacts** | `plans/artifacts/watcher-abc/`; harness `tools/acceptance/watcher_abc.py` |
+
+## Abstract
+
+No. 12 predicted that stalled scenes need a world that owns its own clock and interventions that
+transform what is already in play. This article records the mechanisms that delivered the
+program and the battery that tested it. The code-owned narrative clock shipped in two
+replay-validated increments: act deadlines stage scheduled world events deterministically, and
+time compression is requested by the Director but invited and clamped by code (a live
+confrontation never skips, 6/6, even when invited). The watcher's two probes validated on real
+payloads: the material-delta audit detects semantic immobility lexical anchors cannot see, and
+the causal-intervention contract tied 3/3 interventions to existing threads. In the A/B/C
+battery (same scenario, same passive player), the clock+causal arm sustained the highest
+material-delta rate (6/10 with six consecutive productive turns) with ZERO watcher
+interventions - the clock alone carried the scene - while the arbitrary-template arm re-stalled
+mid-run and needed re-intervention, confirming the re-intervention prediction. The blind critic
+scored the arbitrary arm highest, an honest surprise; yet the only events it flagged as
+incoherent in any arm were unanchored drive seeds - the arbitrary family - never a clock or
+roteiro event. A separate negative result: every prompt-level attack on ambience re-description
+measurably backfired, closing that road.
+
+## 1. The narrative clock (Task 40)
+
+`narrative_tick` is code-owned and monotonic: +1 per committed beat, undo never rewinds time.
+Each roteiro act declares `duration_ticks` and a `world_event`; on deadline the CODE stages the
+event through the same UPCOMING EVENT channel the drive uses and advances the act itself (the
+model's `act_completed` opinion is ignored on deadline replans). Replay: the deadline event was
+enacted 2/3 even against a synthetically conflicting history.
+
+Time compression (increment 2) was replayed before design: the safety half is free - a live
+confrontation NEVER skips, 6/6 zero ticks even when explicitly invited - but the proactive half
+is not: a stalled waiting scene skips 2-3 ticks with coherent offstage summaries only reliably
+when INVITED (free 1/3, invited 2/3). Design consequence, matching the house doctrine that
+proactive powers cannot depend on the model noticing: the Director REQUESTS
+(`time_skip_ticks` 0-8, one closing rule at the validated position), the CODE invites (on a
+player pass turn) and clamps the application; the skip summary enters the world as an
+observation every present character witnesses. The deadline guarantees forward motion; the skip
+only compresses when offered.
+
+## 2. The watcher probes (Task 33b exploration)
+
+Two small structured calls, validated on real session windows before any harness existed:
+
+- **Material-delta audit** (one ~400-token call per turn): returned empty delta lists for the
+  semantically immobile turns of the stalled draw scene ("continues reacting to the explosion
+  that already happened") while crediting real progress in an escalation scene with the correct
+  categories - the semantic signal that lexical echo guards cannot see.
+- **Causal-intervention contract**: 3/3 runs listed the genuinely open threads with turn-cited
+  evidence and produced interventions grown from an EXISTING thread (the metallic sound becomes
+  the arch creaking open; the residual smoke materializes a silhouette) - zero unrelated hooded
+  figures. The contract format itself forces causality.
+
+A deterministic stall ladder (threshold 2 no-delta turns, refractory 3) owns WHEN; the model
+only ever answers the two questions. The watcher lives in `tools/` outside the canonical turn.
+
+## 3. Negative result: prompting against ambience re-description (Task 26b)
+
+Measured first: residual near-verbatim echo at the production 0.8 bar is 2/549 sentences across
+four real sessions (both cases explained by compaction hiding the prior sentence from the
+guard); the dominant family is PARAPHRASE in the 0.7-0.8 band (~9%): "the silver case remains
+sealed" becomes "the silver case lies forgotten, its seal intact". Every one-line prompt
+variant tested on the three worst measured turns - budget redirection, callback allowance,
+outright prohibition - RAISED the band (16.4% baseline to 21-23%) while inflating length. A
+rule that mentions established scenery is an attention magnet: the model re-asserts the
+unchanged state by contrast. Parked by owner decision; the honest direction is event-level (the
+delta audit), not prose prompting.
+
+## 4. The A/B/C battery
+
+Same procedural team-selection scenario (the stall-prone case), same passive player script
+(3 inert lines + 7 passes), one arm each, isolated data dirs:
+
+- **A - free**: current engine only (drive and time compression are core and stay active).
+- **B - arbitrary**: watcher trigger -> fixed unrelated template ("a hooded figure bursts in").
+- **C - clock+causal**: roteiro/clock ON; watcher trigger -> causal intervention from the live
+  transcript.
+
+B and C share the same deterministic trigger, isolating the intervention CONTRACT as the
+variable. Measurement is arm-neutral: offline per-turn delta audits over the final histories
+and a blind critic scoring unlabeled transcripts twice per arm.
+
+### Results
+
+| Arm | Material delta (offline) | No-delta turns | Watcher fired | Critic progress | Critic coherence | Stagnation stretches | Flagged incoherent |
+|---|---|---|---|---|---|---|---|
+| A free | 4/10 | 1,3,4,5,8,10 | - | 2, 3 | 3, 4 | 2, 1 | wind from nowhere (drive seed) |
+| B arbitrary | 5/10 | 1,2,4,6,7 | T2, T10 (2nd wasted) | 4, 4 | **5, 4** | 0, 1 | none |
+| C clock+causal | **6/10** | 1,2,3,10 | **never** (ladder quiet) | 3, 3 | 4, 4 | 1, 1 | crystal without cause (drive seed) |
+
+Narrative ticks after 10 turns: A 16, B 15, C 17 - time compression absorbed part of the
+stagnation in every arm (the Director skipped time on exhausted pass turns).
+
+### Reading
+
+1. **The clock alone sustained the scene.** Arm C produced six consecutive productive turns
+   (T4-T9) and its watcher NEVER fired: the act deadlines and the roteiro's scheduled world
+   events kept material change flowing without any stall intervention. The watcher is the
+   fallback layer, and in this run the fallback was never needed.
+2. **Arbitrary disruption needs re-intervention.** Arm B's template broke the initial stall but
+   the scene re-stalled mid-run (turns 4, 6, 7) and the ladder fired again at the end - exactly
+   the re-intervention signature No. 12 predicted for events that do not grow from the scene's
+   own threads.
+3. **The honest surprise: the blind critic liked B best** (progress 4/4, coherence 5/4). A
+   hooded figure bursting through a door is agent-shaped drama, and a blind reader grants
+   agents narrative license. The prediction "C beats B on coherence" was NOT confirmed at the
+   score level.
+4. **But every event flagged incoherent belongs to the arbitrary family.** Across all six
+   critiques, the only quoted no-cause events were unanchored DRIVE seeds (indoor wind in A, a
+   crystal shattering in C) - physics-shaped anomalies without agency. No clock event, roteiro
+   event, or causal intervention was ever flagged. The causal contract's value shows up exactly
+   where the theory put it: in what the reader refuses to accept without a root.
+
+## 5. Threats to validity
+
+- One run per arm, one scenario; the roteiro was previously measured coin-flip on procedural
+  scenes, so arm C carries that variance.
+- The passive player script removes the human co-driver entirely; real play interleaves
+  player-driven deltas.
+- The live and offline audits disagree on individual turns (audit variance is real); only the
+  offline, arm-neutral audit is used for comparison.
+- The blind critic is the same model family as the generator, and agent-shaped drama biases its
+  coherence scores (finding 3/4).
+- Arms B and C paid the auditor's latency inside the run; arm A did not.
+
+## 6. What ships and what waits
+
+Shipped and test-locked: the clock, act deadlines, time compression (627-test suite). Validated
+but deliberately outside the canonical turn: the watcher module and battery harness in
+`tools/`. Next (owner decisions): whether the watcher integrates behind a flag as the drive's
+semantic upgrade, and whether the drive's unanchored seed generator - the source of every
+flagged incoherence - should adopt the causal contract.

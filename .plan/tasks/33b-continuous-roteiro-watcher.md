@@ -107,3 +107,27 @@ toggle OFF por padrão.
 Bateria A/B/C (doc §7) + integração: detector como gatilho da ladder
 (consumindo o relógio da 40 — increment 1 já entregue), intervenção causal no
 degrau final.
+
+
+## Bateria A/B/C EXECUTADA (2026-07-19, autônoma — autorizada pelo dono)
+
+Harness `tools/acceptance/watcher_abc.py`; artigo completo:
+`docs/cases/13-clock-causal-watcher-battery-2026-07-19.md`. Resumo honesto:
+
+- **C (relógio+causal): melhor taxa de delta material (6/10, T4-T9 todos
+  produtivos) com o watcher NUNCA disparando** — deadlines de ato + eventos
+  do roteiro sustentaram a cena sozinhos. O watcher é a camada de fallback, e
+  neste run o fallback não foi necessário.
+- **B (template arbitrário): re-estagnou no meio (T4/T6/T7) e a ladder
+  re-disparou** — a assinatura de re-intervenção que o doc §12 previu.
+- **Surpresa honesta: o crítico cego pontuou B mais alto** (drama com agência
+  ganha licença narrativa do leitor). A previsão "C vence em coerência" NÃO
+  se confirmou no score.
+- **Mas TODA incoerência apontada pelo crítico (2 eventos em 6 críticas) veio
+  da família arbitrária — seeds do DRIVE sem âncora** (vento indoor no A,
+  cristal sem causa no C). Nenhum evento do relógio/roteiro/contrato causal
+  foi apontado.
+
+Decisões que isso abre (dono): (1) integrar o watcher atrás de flag como
+upgrade semântico do drive; (2) o gerador de seeds do drive — a fonte de toda
+incoerência apontada — adotar o contrato causal.

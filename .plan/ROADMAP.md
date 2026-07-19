@@ -38,7 +38,7 @@ Referência de arquitetura:
 |---|---|
 | 38 — Roteiro (opt-in, OFF) | ressalvas devem ser resolvidas por 40+33b (decisão do dono 2026-07-19); **o dono fecha pessoalmente** todas as abertas na fase de testes dele, criando tasks menores |
 | 19 — Security hardening | falta só o outcome 6 com o dono: roteiro pronto em **`.plan/19-smoke-tests-para-o-dono.md`** (3 ambientes, ~10 min cada); 3/3 verdes → fecho |
-| 40 v2 — time-skip do relógio | ✅ **ENTREGUE** (2026-07-19): Diretor PEDE (schema 0-8 + regra no fim, validada 12 calls: cena viva 6/6 nunca pula, mesmo convidada), CÓDIGO convida no turno de passe e aplica clampado; sumário vira observation testemunhada; suíte 627. Falta só A/B/C unificada com 33b (dono) |
+| 40 v2 — time-skip do relógio | ✅ **ENTREGUE + A/B/C RODADA** (autorizada pelo dono): no braço C o relógio sustentou a cena sozinho (watcher nunca disparou). Artigo Nº 13 em docs/cases |
 | 26b — re-descrição de ambiência via prompt | ⏸️ **PARQUEADA (fallback do dono)**: 24 calls, 3 variantes em 2 iterações — TODAS pioraram a banda (16.4%→21-23%); linha sobre cenário vira ímã de atenção. Direção futura: nível dos eventos (delta-material da 33b), não prompt. Resultado completo na task |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** SP-01 T7 RESOLVIDA por calibração (decisão do dono + amostragem cega 3/3: leitura intra-turno é a mais natural — o som alcança o delegado no momento em que a divisória abre; regra agora isenta registros do turno-limite posteriores à ação de abertura; **tier reduzida retroativamente LIMPA, completa cai pra 1**). Resta WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: scratchpad `xfailed3_run1_artifacts/` |
 
@@ -64,7 +64,10 @@ voltar; `done.sh` ao fim de cada task.
 
 Pendências que precisam do dono: smoke tests da 19 (roteiro em
 `.plan/19-smoke-tests-para-o-dono.md`); aceite do desenho da 33b
-(`.plan/33b-desenho-para-o-dono.md`); bateria A/B/C unificada (33b + 40).
+(`.plan/33b-desenho-para-o-dono.md`) + 2 decisões abertas pela bateria
+(integrar watcher atrás de flag; drive adotar o contrato causal — ver
+artigo Nº 13); purge do refs/original (classificador me barrou: rodar
+`git update-ref -d refs/original/refs/heads/master; git reflog expire --expire=now --all; git gc --prune=now`).
 
 
 ## 🧺 Lane paralela (independentes)
