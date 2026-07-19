@@ -74,3 +74,36 @@ reincorporar thread → só então disromper), contrato causal de intervenção
 (source_thread/target_state/event_now/expected_delta/refractory_turns) e cobertura
 de atores representativa (silêncio permitido). Consome o relógio narrativo da
 **Task 40** (o tempo sempre anda). Experimento A/B/C no doc §7.
+
+## Exploração curl EXECUTADA (2026-07-19, madrugada) — conceito validado
+
+Método AGENTS.md §6, janelas REAIS (sorteio travado ccb521ab; incêndio e7760040).
+
+### A) Detector de DELTA MATERIAL (auditoria por turno, call pequena)
+- Janela travada: T7=[] e T8=[] com justificativas precisas ("continua a reação
+  à explosão já ocorrida"; "apenas detalha o estado pós-explosão") — detectou a
+  IMOBILIDADE SEMÂNTICA que âncoras lexicais não veem. T5/T6 corretamente
+  creditados (marcas de espera; explosão da lâmpada).
+- Janela de ação: deltas certos em 3/4 turnos com categorias corretas
+  (decision_taken, attempt_got_consequence, threat_advanced); o turno inerte
+  do Rui corretamente zerado.
+=> O sinal de progresso do controlador FUNCIONA como classificador por turno.
+
+### B) Contrato de intervenção CAUSAL (no ponto travado)
+- 3/3 extraíram threads abertos REAIS com evidência citada por turno (carta
+  lacrada, som metálico dos arcos, explosão/fumaça, ordem do pátio).
+- 3/3 intervenções cresceram de um thread EXISTENTE (arco range e se abre;
+  porta se escancara no caminho ao pátio; silhueta se materializa DA fumaça) —
+  zero thread desconexo. refractory_turns=3 consistente.
+=> O formato do contrato força causalidade — confirma a previsão do doc §7
+(C bate B em coerência) no nível da geração; falta o A/B/C completo (usuário).
+
+### Custo/latência estimados p/ produção
+1 call pequena (~400 tokens out) por turno auditado (ou a cada K turnos) + 1
+call de intervenção só quando a ladder chega ao degrau 5. Compatível com o
+toggle OFF por padrão.
+
+### Próximo (com o usuário)
+Bateria A/B/C (doc §7) + integração: detector como gatilho da ladder
+(consumindo o relógio da 40 — increment 1 já entregue), intervenção causal no
+degrau final.
