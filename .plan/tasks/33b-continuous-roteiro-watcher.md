@@ -131,3 +131,45 @@ Harness `tools/acceptance/watcher_abc.py`; artigo completo:
 Decisões que isso abre (dono): (1) integrar o watcher atrás de flag como
 upgrade semântico do drive; (2) o gerador de seeds do drive — a fonte de toda
 incoerência apontada — adotar o contrato causal.
+
+
+## Decisões de desenho CONGELADAS (2026-07-19, aceite do dono)
+
+Todas as 8 fechadas. 1/2/3/5/6 + as 2 da bateria aceitas pelo dono direto.
+A #4 estava em dúvida → resolvida por curl (não hipótese), regra pré-registrada.
+
+1. Auditor a cada turno na fase experimental — ACEITA (afinável com custo real).
+2. Ladder 100% código, LLM só responde as 2 perguntas — ACEITA (firme).
+3. `refractory_turns=3` — ACEITA (número empírico, afinável na bateria).
+4. Confidencialidade só-Diretor — **ACEITA por evidência** (ver abaixo).
+5. Fronteira com a 40 (deadline por tempo / watcher por estagnação) — ACEITA.
+6. Log `watcher:delta`/`watcher:intervention` no JSONL — ACEITA.
+- Bateria A: integrar o watcher atrás de flag como upgrade do drive — SIM.
+- Bateria B: gerador de seeds do drive adota o contrato causal — SIM (alvo
+  mais quente; ver coerência 0.00 do evento chapado abaixo).
+
+### #4 — experimento (curl-first, AGENTS §6)
+
+Janelas reais (sorteio `ccb521ab`, incêndio `e7760040`), deepseek-v4-flash,
+4 runs/braço, juiz cego. Artefatos: `plans/artifacts/watcher-decision4/`
+(`exp4.py`, `exp4_results.json`, `exp4_raw_outputs.json`). Regra de decisão
+pré-registrada: *4b ≈ 4a em agência → mantém #4; 4b >> 4a sem vazar/colidir →
+relaxa*.
+
+- Personagem: iniciativa 4a=**1.88** vs 4b(pressão difusa)=**2.00** (teto já
+  saturado pelo prompt-base); inventa evento externo 0/8 em ambos; meta 0/8;
+  4b não vazou o evento do Diretor.
+- Evento: coerência causal (ancorado em thread) **1.83** vs chapado **0.00**
+  (média de 3 runs cegas; fogo 2.0 / sorteio 1.67 no causal, 0 em ambos no
+  chapado).
+- Veredito: **manter #4 (só-Diretor).** O travamento não é déficit de
+  iniciativa do personagem (que o prompt-base já satura sem produzir delta) —
+  é falta de consequência externa nova, que só o evento do Diretor entrega e
+  que o personagem não deve fabricar (colisão que a #4 previne). O valor do
+  watcher é o EVENTO causal (0.00 do chapado prova onde está o ganho), Diretor-
+  side — que é onde a #4 o mantém. Colateral: reforça a Decisão B da bateria.
+
+### Próximo (implementação, trabalho novo quando priorizado)
+Peça [1] auditor de delta + [2] ladder (código, consome relógio da 40) +
+[3] intervenção causal Diretor-side; tudo atrás de toggle OFF. E os seeds do
+drive migram pro contrato causal (Decisão B).

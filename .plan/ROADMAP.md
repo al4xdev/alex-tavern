@@ -63,11 +63,13 @@ voltar; `done.sh` ao fim de cada task.
 | F | Fillers | ✅ TODOS ENTREGUES: MCP curl (tools/, 17 testes); medição offline da guarda (26, ver lane); fakes antigos do test_integration modernizados (22 payloads pré-split limpos, 627 verdes) |
 
 Pendências que precisam do dono: smoke tests da 19 (roteiro em
-`.plan/para-o-dono/19-smoke-tests.md`); aceite do desenho da 33b
-(`.plan/para-o-dono/33b-desenho-watcher.md`) + 2 decisões abertas pela bateria
-(integrar watcher atrás de flag; drive adotar o contrato causal — ver
-artigo Nº 13); purge do refs/original (classificador me barrou: rodar
-`git update-ref -d refs/original/refs/heads/master; git reflog expire --expire=now --all; git gc --prune=now`).
+`.plan/para-o-dono/19-smoke-tests.md`) — **única aberta**. Desenho da 33b:
+✅ ACEITO (2026-07-19 noite) — 8/8 decisões fechadas; #4 (confidencialidade)
+resolvida por curl em janela real (mantém só-Diretor; ver
+`.plan/para-o-dono/33b-desenho-watcher.md` e `plans/artifacts/watcher-decision4/`),
+as 2 decisões da bateria = SIM/SIM. Implementação vira trabalho novo quando
+priorizado. Purge do refs/original: ✅ FEITO (verificado 2026-07-19 —
+`refs/original` vazio, reflog expirado; git local e GitHub limpos).
 
 
 ## 🧺 Lane paralela (independentes)
