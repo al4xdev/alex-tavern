@@ -115,10 +115,25 @@ class TestValidateEvents:
         events = validate_perception_events(
             [
                 {"event_kind": "telepathy", "subject_id": "C1", "content": "x", "witness_ids": []},
-                {"event_kind": "observation", "subject_id": "GHOST", "content": "x", "witness_ids": []},
-                {"event_kind": "observation", "subject_id": "C1", "content": "  ", "witness_ids": []},
+                {
+                    "event_kind": "observation",
+                    "subject_id": "GHOST",
+                    "content": "x",
+                    "witness_ids": [],
+                },
+                {
+                    "event_kind": "observation",
+                    "subject_id": "C1",
+                    "content": "  ",
+                    "witness_ids": [],
+                },
                 "not-a-dict",
-                {"event_kind": "observation", "subject_id": "C1", "content": "ok", "witness_ids": ["C2"]},
+                {
+                    "event_kind": "observation",
+                    "subject_id": "C1",
+                    "content": "ok",
+                    "witness_ids": ["C2"],
+                },
             ],
             FLAT_SCENE,
             CHARACTERS,

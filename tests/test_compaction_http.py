@@ -76,7 +76,9 @@ async def test_compact_endpoint_preserves_json_and_streams_equivalent_sse(
     monkeypatch.setattr(runner, "get_state", get_state)
     monkeypatch.setattr(runner, "compact_session", compact)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=main_mod.app), base_url="http://test", headers=_sec_headers()
+        transport=httpx.ASGITransport(app=main_mod.app),
+        base_url="http://test",
+        headers=_sec_headers(),
     ) as client:
         json_response = await client.post(
             "/session/streamtest/compact", headers={"Accept": "application/json"}
@@ -129,7 +131,9 @@ async def test_sse_failure_has_one_sanitized_terminal_event(monkeypatch) -> None
     monkeypatch.setattr(runner, "get_state", get_state)
     monkeypatch.setattr(runner, "compact_session", fail)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=main_mod.app), base_url="http://test", headers=_sec_headers()
+        transport=httpx.ASGITransport(app=main_mod.app),
+        base_url="http://test",
+        headers=_sec_headers(),
     ) as client:
         response = await client.post(
             "/session/streamtest/compact", headers={"Accept": "text/event-stream"}
@@ -182,7 +186,9 @@ async def test_unresolved_plugin_undo_conflict_returns_409(monkeypatch) -> None:
 
     monkeypatch.setattr(runtime.runner, "restore_last_compaction", conflict)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=main_mod.app), base_url="http://test", headers=_sec_headers()
+        transport=httpx.ASGITransport(app=main_mod.app),
+        base_url="http://test",
+        headers=_sec_headers(),
     ) as client:
         response = await client.post("/session/conflict/restore_compaction")
 

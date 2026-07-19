@@ -39,7 +39,7 @@ def _rec(turn: int, speaker: str, content: str, ctype: str = "speech") -> TurnRe
 
 
 def _perspective(**over) -> CharacterPerspective:  # noqa: ANN003
-    fields = dict(initialized_turn=0, processed_through_turn=0, people={})
+    fields = {"initialized_turn": 0, "processed_through_turn": 0, "people": {}}
     fields.update(over)
     return CharacterPerspective(**fields)
 
@@ -47,7 +47,9 @@ def _perspective(**over) -> CharacterPerspective:  # noqa: ANN003
 class TestCaptureMemory:
     def test_folds_visible_speech_projected(self) -> None:
         # Viewer C3 has not learned C2's name -> the digest uses the reference.
-        p = _perspective(people={"C2": PersonView(known_name=None, reference="a estalajadeira", source_turn=0)})
+        p = _perspective(
+            people={"C2": PersonView(known_name=None, reference="a estalajadeira", source_turn=0)}
+        )
         history = [_rec(1, "C2", "Marta serve o vinho para Rui.")]
         capture_memory(p, history, "C3", CHARACTERS, controlled_id="C1")
         assert len(p.recent_memory) == 1
@@ -149,7 +151,11 @@ class TestUndoPreservesMemory:
             }
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {"speech": f"Resposta no turno {turn_number}.", "thought": None, "action_intent": None}
+            return {
+                "speech": f"Resposta no turno {turn_number}.",
+                "thought": None,
+                "action_intent": None,
+            }
 
         async def fake_prose() -> str:
             return "Narracao."
@@ -205,13 +211,17 @@ class TestMemoryRevision:
     def test_trigger_threshold(self) -> None:
         from src.agents.perspective import MEMORY_REVISION_TRIGGER, needs_memory_revision
 
-        assert not needs_memory_revision(_perspective(recent_memory=["x"] * (MEMORY_REVISION_TRIGGER - 1)))
+        assert not needs_memory_revision(
+            _perspective(recent_memory=["x"] * (MEMORY_REVISION_TRIGGER - 1))
+        )
         assert needs_memory_revision(_perspective(recent_memory=["x"] * MEMORY_REVISION_TRIGGER))
 
     def test_builder_carries_rules_and_lines(self) -> None:
         from src.agents.perspective import build_memory_revision_messages
 
-        msgs = build_memory_revision_messages("Marta", "resumo atual", ["T1 A disse: oi", "T2 B fez: saiu"])
+        msgs = build_memory_revision_messages(
+            "Marta", "resumo atual", ["T1 A disse: oi", "T2 B fez: saiu"]
+        )
         system, user = msgs[0]["content"], msgs[1]["content"]
         assert "FIRST PERSON" in system
         assert "never merge" in system

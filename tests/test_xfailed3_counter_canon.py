@@ -125,7 +125,9 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
     "WT-10-created-not-creator": {
         "turn": 8,
         "probe": {
-            "reply_patterns": [r"(?i)(fui criado|fui construido|fui construído|me criou|me construiu)"],
+            "reply_patterns": [
+                r"(?i)(fui criado|fui construido|fui construído|me criou|me construiu)"
+            ],
             "reply_forbidden_patterns": [r"(?i)eu criei"],
         },
         "violation_class": "world_truth_contradiction",
@@ -188,7 +190,9 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
     },
     "WT-07-solar-canon-trap": {
         "turn": 18,
-        "narration_forbidden": [r"(?i)van helsing[^.]{0,90}(queim|arde|cinza|fumeg|encolhe|fraquej)"],
+        "narration_forbidden": [
+            r"(?i)van helsing[^.]{0,90}(queim|arde|cinza|fumeg|encolhe|fraquej)"
+        ],
         "violation_class": "pretrained_canon_regression",
         "detail": "sunlight STRENGTHENS vampires here; narration must not burn Van Helsing",
     },
@@ -573,11 +577,12 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
                 record.get("turn_number"),
                 f"{agent} request contains the whispered instrument",
             )
-        if agent == ANONYMOUS_PAIR["delegate_agent"] and re.search(
-            ANONYMOUS_PAIR["signatory_name_pattern"], prompt_text
+        if (
+            agent == ANONYMOUS_PAIR["delegate_agent"]
+            and re.search(ANONYMOUS_PAIR["signatory_name_pattern"], prompt_text)
+            and not _earned_name(game, "C9", "C1", "Alice", record.get("turn_number") or 0)
         ):
-            if not _earned_name(game, "C9", "C1", "Alice", record.get("turn_number") or 0):
-                add(
+            add(
                     "GLOBAL-anonymous-pair-prompt",
                     "unearned_identity_familiarity",
                     record.get("turn_number"),
@@ -599,11 +604,12 @@ def collect_violations(run: dict[str, Any], executed_turns: int) -> list[dict[st
                 record.turn_number,
                 f"{record.speaker} used the delegate's never-learned name: {record.content[:120]}",
             )
-        if record.speaker == "C9" and re.search(
-            ANONYMOUS_PAIR["signatory_name_pattern"], record.content
+        if (
+            record.speaker == "C9"
+            and re.search(ANONYMOUS_PAIR["signatory_name_pattern"], record.content)
+            and not _earned_name(game, "C9", "C1", "Alice", record.turn_number)
         ):
-            if not _earned_name(game, "C9", "C1", "Alice", record.turn_number):
-                add(
+            add(
                     "GLOBAL-anonymous-pair-reply",
                     "unearned_identity_familiarity",
                     record.turn_number,

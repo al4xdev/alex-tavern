@@ -5,8 +5,6 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from src.store.sessions import delete_session
-
 from src.config import ConfigValidationError, _unit_interval
 from src.drive import build_event_seed_messages, evaluate_event_hazard
 from src.models import (
@@ -19,6 +17,7 @@ from src.models import (
     TurnRecord,
     deepcopy_scene,
 )
+from src.store.sessions import delete_session
 
 
 async def _fake_prose() -> str:

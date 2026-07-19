@@ -21,7 +21,6 @@ from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
 from src.agents.narrator import build_narrator_messages, narrate, redact_whisper_leaks
 from src.agents.narrator import suggest as narrator_suggest
-from src.agents.prose import render_narration
 from src.agents.perspective import (
     capture_memory,
     initialize_perspective,
@@ -30,16 +29,7 @@ from src.agents.perspective import (
     revise_memory,
     update_identity,
 )
-from src.drive import evaluate_event_hazard, generate_event_seed
-from src.roteiro import (
-    ReplanDecision,
-    collect_beat_evidence,
-    describe_roteiro_for_director,
-    evaluate_roteiro,
-    generate_roteiro,
-    replan_roteiro,
-)
-from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
+from src.agents.prose import render_narration
 from src.agents.summarizer import summarize
 from src.compaction import (
     CompactionDraft,
@@ -52,19 +42,20 @@ from src.compaction import (
     history_hash,
     invert_plugin_delta,
 )
+from src.drive import evaluate_event_hazard, generate_event_seed
 from src.llm.debug_log import (
+    log_burst,
     log_command_input,
     log_command_result,
     log_compact,
     log_compaction_status,
+    log_drive_decision,
     log_effective_turn_input,
     log_presence_change,
     log_presence_undo,
-    log_drive_decision,
-    log_time_skip,
-    log_burst,
     log_restore_compaction,
     log_roteiro_decision,
+    log_time_skip,
     log_turn_input,
     log_undo,
 )
@@ -80,6 +71,15 @@ from src.models import (
     dict_to_turn_record,
     perspective_to_dict,
     validate_present_characters,
+)
+from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
+from src.roteiro import (
+    ReplanDecision,
+    collect_beat_evidence,
+    describe_roteiro_for_director,
+    evaluate_roteiro,
+    generate_roteiro,
+    replan_roteiro,
 )
 from src.store.sessions import (
     _get_lock,
@@ -653,14 +653,20 @@ class Runner:
                     assert narrator_game is not None
                     narrator_raw = await self.plugins.hooks.call_wrapped(
                         "narrator.call",
-                        lambda: self._call_narrator(
-                            narrator_game,
-                            step,
-                            effective_force_speaker,
-                            narrator_hint,
-                            extra_context=extra_context,
-                            extra_schema_properties=extra_schema_properties,
-                            extra_schema_required=extra_schema_required,
+                        lambda g=narrator_game,
+                        s=step,
+                        f=effective_force_speaker,
+                        h=narrator_hint,
+                        ec=extra_context,
+                        ep=extra_schema_properties,
+                        er=extra_schema_required: self._call_narrator(
+                            g,
+                            s,
+                            f,
+                            h,
+                            extra_context=ec,
+                            extra_schema_properties=ep,
+                            extra_schema_required=er,
                         ),
                         {"game": narrator_game, "turn_number": step, "runner": self},
                     )
@@ -794,10 +800,11 @@ class Runner:
                         *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids)
                     )
                 else:
-                    narration, *_ = await asyncio.gather(
+                    render_results = await asyncio.gather(
                         self._render_narration(game, narrator_raw["perception_events"], step),
                         *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
                     )
+                    narration = str(render_results[0] or "")
                 if narration:
                     self._append_history(game, "Narrator", narration, "narration", step)
 
@@ -809,10 +816,13 @@ class Runner:
                 # (the runner never generates their speech). A whispered exchange stays
                 # whispered: when a replying character is part of the turn's audience,
                 # its reply keeps the same audience.
-                for position, speaker in enumerate(queue):
+                for speaker in queue:
                     if speaker == controlled:
                         break
-                    if speaker not in game.characters or speaker not in game.scene.present_characters:
+                    if (
+                        speaker not in game.characters
+                        or speaker not in game.scene.present_characters
+                    ):
                         continue
                     reply_audience = (
                         audience if audience is not None and speaker in audience else None
@@ -841,7 +851,9 @@ class Runner:
                     # occasionally leaks whispered content into an event rendered for
                     # a character outside the whisper's audience. Strip it here,
                     # before the character ever sees it; audience members unaffected.
-                    ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
+                    ctx = redact_whisper_leaks(
+                        ctx, game.history, speaker, game.characters, game.scene
+                    )
                     if self.plugins is None:
                         character_response = await self._call_character(
                             game, speaker, ctx, step, reply_audience=reply_audience
@@ -851,8 +863,8 @@ class Runner:
                         assert character_game is not None
                         character_response = await self.plugins.hooks.call_wrapped(
                             "character.call",
-                            lambda g=character_game, s=speaker, c=ctx, ra=reply_audience: (
-                                self._call_character(g, s, c, step, reply_audience=ra)
+                            lambda g=character_game, s=speaker, c=ctx, st=step, ra=reply_audience: (
+                                self._call_character(g, s, c, st, reply_audience=ra)
                             ),
                             {
                                 "game": character_game,
@@ -885,7 +897,8 @@ class Runner:
                             step,
                             audience=reply_audience,
                         )
-                    if character_response.get("action_intent"):
+                    action_intent = character_response.get("action_intent")
+                    if action_intent:
                         # An intent is an ATTEMPT: it becomes an action record (the
                         # existing physics — resolved by the next beat's Director),
                         # never an outcome. Zone-scoped audience is computed by
@@ -893,7 +906,7 @@ class Runner:
                         self._append_history(
                             game,
                             speaker,
-                            character_response["action_intent"],
+                            action_intent,
                             "action",
                             step,
                         )
@@ -943,7 +956,9 @@ class Runner:
                 game.revision += 1
                 save_game(game)
                 if self.plugins is not None:
-                    await self.plugins.hooks.action("turn.after_commit", {"game": game, "kind": "turn"})
+                    await self.plugins.hooks.action(
+                        "turn.after_commit", {"game": game, "kind": "turn"}
+                    )
 
                 beat_result = {
                     "narration": narration,

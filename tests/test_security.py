@@ -50,7 +50,8 @@ class TestOriginAndToken:
         tok = "secret"
         assert unsafe_request_allowed("POST", "http://localhost:3000", "secret", tok)
         assert not unsafe_request_allowed("POST", "http://localhost:3000", None, tok)  # no token
-        assert not unsafe_request_allowed("POST", "http://localhost:3000", "bad", tok)  # wrong token
+        # wrong token
+        assert not unsafe_request_allowed("POST", "http://localhost:3000", "bad", tok)
         assert not unsafe_request_allowed("POST", "http://evil.com", "secret", tok)  # bad origin
         assert unsafe_request_allowed("DELETE", None, "secret", tok)  # native + token
 
@@ -80,7 +81,12 @@ class TestApiBasePolicy:
             DeepSeekAdapter().validate_api_base("https://evil.example.com")  # wrong host
 
     def test_llama_cpp_loopback_or_lan_only(self) -> None:
-        for ok in ("http://127.0.0.1:8888", "http://192.168.0.183:8888", "http://localhost:5000", ""):
+        for ok in (
+            "http://127.0.0.1:8888",
+            "http://192.168.0.183:8888",
+            "http://localhost:5000",
+            "",
+        ):
             LlamaCppAdapter().validate_api_base(ok)
         with pytest.raises(ApiBasePolicyError):
             LlamaCppAdapter().validate_api_base("https://evil.example.com")  # public host

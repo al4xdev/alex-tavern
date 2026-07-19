@@ -86,8 +86,9 @@ class PluginStorage:
         if any(flag in mode for flag in ("w", "a", "x", "+")):
             emit("permission_access", self.plugin_id, permission="storage.write")
             target.parent.mkdir(parents=True, exist_ok=True)
-        binary = "b" in mode
-        return open(target, mode, **({} if binary else {"encoding": "utf-8"}), **kwargs)
+        if "b" in mode:
+            return open(target, mode, **kwargs)
+        return open(target, mode, encoding="utf-8", **kwargs)
 
     def remove(self, *parts: str, recursive: bool = False) -> None:
         """Remove a file or directory inside the namespace (no-op if absent)."""

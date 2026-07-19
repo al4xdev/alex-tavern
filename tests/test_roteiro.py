@@ -466,8 +466,8 @@ class TestConfidentialityAndConsumption:
         receive a roteiro — the parameter does not exist on their signatures."""
         import inspect
 
-        from src.agents.character import act
         from src.agents.character import _build_user_prompt as character_user_prompt
+        from src.agents.character import act
         from src.agents.prose import build_prose_messages, render_narration
 
         for builder in (act, character_user_prompt, build_prose_messages, render_narration):
@@ -475,7 +475,9 @@ class TestConfidentialityAndConsumption:
 
 
 class TestRunnerWiring:
-    async def _turn(self, monkeypatch, config, game_roteiro=None, seed_history=None, narrator_events=None):  # noqa: ANN001, ANN202
+    async def _turn(  # noqa: ANN202
+        self, monkeypatch, config, game_roteiro=None, seed_history=None, narrator_events=None  # noqa: ANN001
+    ):
         import src.runner as runner_mod
         from src.runner import Runner
 

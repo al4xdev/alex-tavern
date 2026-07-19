@@ -89,9 +89,9 @@ class TestBackendForceHonored:
     async def test_skip_with_forced_narrator_produces_no_character_call(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        Runner, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2", "C3"])
+        runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2", "C3"])
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {"auto_event_enabled": False})
+            runner = runner_cls(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
@@ -116,9 +116,9 @@ class TestBackendForceHonored:
     async def test_skip_with_forced_npc_calls_exactly_that_npc(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        Runner, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C3"])
+        runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C3"])
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {"auto_event_enabled": False})
+            runner = runner_cls(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
@@ -142,9 +142,9 @@ class TestBackendForceHonored:
     async def test_forced_controlled_character_never_generates_speech(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        Runner, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2"])
+        runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2"])
         async with httpx.AsyncClient() as client:
-            runner = Runner(client, {"auto_event_enabled": False})
+            runner = runner_cls(client, {"auto_event_enabled": False})
             sid = runner.start_session(
                 {
                     "characters": dict(CHARACTERS),

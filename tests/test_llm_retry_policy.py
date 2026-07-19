@@ -92,7 +92,11 @@ class TestUnifiedRetryPolicy:
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
             output = await _act(client)
-        assert output == {"speech": "Oi.", "thought": "Ele parece tranquilo.", "action_intent": None}
+        assert output == {
+            "speech": "Oi.",
+            "thought": "Ele parece tranquilo.",
+            "action_intent": None,
+        }
         assert len(calls) == 2
 
     @pytest.mark.asyncio

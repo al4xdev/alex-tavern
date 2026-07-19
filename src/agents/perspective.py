@@ -161,11 +161,13 @@ def _validated_people(
         reference = str(item.get("reference", "")).strip()[:200]
         if not reference:
             reference = FALLBACK_REFERENCE
-        if known_name is None and canonical_names:
-            if canonical and re.search(
-                rf"\b{re.escape(canonical)}\b", reference, flags=re.IGNORECASE
-            ):
-                reference = FALLBACK_REFERENCE
+        if (
+            known_name is None
+            and canonical_names
+            and canonical
+            and re.search(rf"\b{re.escape(canonical)}\b", reference, flags=re.IGNORECASE)
+        ):
+            reference = FALLBACK_REFERENCE
         source = turn_number
         if previous is not None and subject_id in previous:
             before = previous[subject_id]

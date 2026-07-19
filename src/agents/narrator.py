@@ -8,7 +8,6 @@ from typing import Any
 import httpx
 
 from src.confidentiality import (
-    REDACTION_MARKER,
     hidden_thought_tokens,
     hidden_whisper_tokens,
     redact_tokens,

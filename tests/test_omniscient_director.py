@@ -42,7 +42,7 @@ class TestHiddenThoughtTokens:
     def test_specific_thought_content_is_guarded(self) -> None:
         history = [_rec(1, "Player", "O codigo GIRASSOL-222 esta no cofre da torre.", "thought")]
         secret = hidden_thought_tokens(history, CHARACTERS, SCENE)
-        assert "girassol" in secret or "girassol-222" in {t for t in secret}
+        assert "girassol" in secret or "girassol-222" in set(secret)
 
     def test_spoken_content_stops_being_secret(self) -> None:
         history = [
@@ -53,7 +53,9 @@ class TestHiddenThoughtTokens:
         assert not any("girassol" in token for token in secret)
 
     def test_ordinary_feeling_thought_contributes_nothing(self) -> None:
-        history = [_rec(1, "Player", "nossa estou atrasado, o evento ja deve ter comecado", "thought")]
+        history = [
+            _rec(1, "Player", "nossa estou atrasado, o evento ja deve ter comecado", "thought")
+        ]
         assert hidden_thought_tokens(history, CHARACTERS, SCENE) == set()
 
     def test_no_thoughts_no_secrets(self) -> None:

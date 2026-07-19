@@ -928,7 +928,8 @@ def build_markdown_report(manifest: dict[str, Any]) -> str:
         if "analysis" not in run:
             lines.append(
                 f"| {run['scenario']} | {run['repetition']} | ERROR | "
-                f"{run.get('queue', {}).get('wait_ms', 0)} | - | - | - | - | - | - | - | - | - | - |"
+                f"{run.get('queue', {}).get('wait_ms', 0)} | - | - | - | - | - | - | "
+                "- | - | - | - |"
             )
             continue
         analysis = run["analysis"]
@@ -937,7 +938,8 @@ def build_markdown_report(manifest: dict[str, Any]) -> str:
             f"| {run['scenario']} | {run['repetition']} | {session_cell} | "
             f"{run['queue']['wait_ms']} | {analysis.get('llm_calls', '-')} | "
             f"{analysis.get('llm_errors', '-')} | {analysis.get('max_prompt_chars', '-')} | "
-            f"{analysis.get('total_prompt_tokens', '-')} | {analysis.get('cache_hit_tokens', '-')} | "
+            f"{analysis.get('total_prompt_tokens', '-')} | "
+            f"{analysis.get('cache_hit_tokens', '-')} | "
             f"{analysis.get('character_action_heuristic_hits', '-')} | "
             f"{analysis.get('second_person_narrations', '-')} | "
             f"{analysis.get('nested_physical_facts_outputs', '-')} | "

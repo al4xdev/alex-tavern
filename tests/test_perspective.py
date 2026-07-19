@@ -23,6 +23,7 @@ from src.models import (
     deepcopy_scene,
 )
 
+
 async def _fake_prose() -> str:
     return "Narracao de teste."
 

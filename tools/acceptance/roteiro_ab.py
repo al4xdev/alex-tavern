@@ -69,15 +69,30 @@ BASE = REPO / "plans/artifacts/roteiro-ab"
 
 CHARACTER_SPEC = {
     "C1": {
-        "mind": {"name": "Rui", "personality": "Viajante cansado.", "knowledge": [], "current_mood": "entediado"},
+        "mind": {
+            "name": "Rui",
+            "personality": "Viajante cansado.",
+            "knowledge": [],
+            "current_mood": "entediado",
+        },
         "body": {"name": "Rui", "physical_description": "Botas sujas.", "outfit": "Capa"},
     },
     "C2": {
-        "mind": {"name": "Marta", "personality": "Estalajadeira faladeira que puxa os outros para a conversa.", "knowledge": ["Ouviu lobos mais cedo"], "current_mood": "inquieta"},
+        "mind": {
+            "name": "Marta",
+            "personality": "Estalajadeira faladeira que puxa os outros para a conversa.",
+            "knowledge": ["Ouviu lobos mais cedo"],
+            "current_mood": "inquieta",
+        },
         "body": {"name": "Marta", "physical_description": "Avental.", "outfit": "Avental"},
     },
     "C3": {
-        "mind": {"name": "Bento", "personality": "Cacador pratico que age quando algo acontece.", "knowledge": ["A trilha do norte esta perigosa"], "current_mood": "alerta"},
+        "mind": {
+            "name": "Bento",
+            "personality": "Cacador pratico que age quando algo acontece.",
+            "knowledge": ["A trilha do norte esta perigosa"],
+            "current_mood": "alerta",
+        },
         "body": {"name": "Bento", "physical_description": "Barba rala.", "outfit": "Couro"},
     },
 }
@@ -174,6 +189,7 @@ def _build_session_args(scenario: str):  # noqa: ANN202
 async def run_arm(roteiro_enabled: bool, scenario: str = "estalagem") -> str:
     """Run one arm in THIS process — env var must already be set by the caller."""
     import httpx
+
     from src.config import load_config, resolve_active_config
     from src.runner import Runner
 
@@ -229,7 +245,19 @@ def confidentiality_scan(sid: str) -> None:
         record = json.loads(line)
         agent = record.get("agent", "")
         if agent == "roteiro_replan":
-            replans.append({k: record.get(k) for k in ("turn_number", "action", "reason", "beat_id", "anchors_missing", "actors_missing")})
+            replans.append(
+                {
+                    k: record.get(k)
+                    for k in (
+                        "turn_number",
+                        "action",
+                        "reason",
+                        "beat_id",
+                        "anchors_missing",
+                        "actors_missing",
+                    )
+                }
+            )
         request = record.get("request")
         if not request:
             continue
@@ -238,7 +266,10 @@ def confidentiality_scan(sid: str) -> None:
         if hit and agent != "director" and not agent.startswith("roteiro"):
             violations.append({"agent": agent, "turn": record.get("turn_number"), "hits": hit})
     print("REPLAN_DECISIONS " + json.dumps(replans, ensure_ascii=False))
-    print("CONFIDENTIALITY " + ("NONE" if not violations else json.dumps(violations, ensure_ascii=False)))
+    print(
+        "CONFIDENTIALITY "
+        + ("NONE" if not violations else json.dumps(violations, ensure_ascii=False))
+    )
 
 
 def _spawn(args: list[str], data_dir: Path) -> str:
@@ -266,8 +297,14 @@ def _sid_from(stdout: str) -> str:
 
 def orchestrate(scenario: str) -> None:
     base = BASE if scenario == "estalagem" else BASE.parent / f"roteiro-ab-{scenario}"
-    control_out = _spawn(["--arm", "control", "--enabled", "0", "--scenario", scenario], base / "control" / "data")
-    roteiro_out = _spawn(["--arm", "roteiro", "--enabled", "1", "--scenario", scenario], base / "roteiro" / "data")
+    control_out = _spawn(
+        ["--arm", "control", "--enabled", "0", "--scenario", scenario],
+        base / "control" / "data",
+    )
+    roteiro_out = _spawn(
+        ["--arm", "roteiro", "--enabled", "1", "--scenario", scenario],
+        base / "roteiro" / "data",
+    )
     sid_control = _sid_from(control_out)
     sid_roteiro = _sid_from(roteiro_out)
     _spawn(["--scan", sid_roteiro], base / "roteiro" / "data")

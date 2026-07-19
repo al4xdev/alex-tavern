@@ -291,7 +291,7 @@ _BEAT_SCHEMA_PROPERTIES = {
 _BEAT_REQUIRED = ["beat_id", "intent", "expected_actors", "expected_anchors", "exit_condition"]
 
 
-def _validate_beat(raw: dict, game: GameState, fallback_id: str) -> RoteiroBeat:
+def _validate_beat(raw: object, game: GameState, fallback_id: str) -> RoteiroBeat:
     """Clamp a generated beat: NPC-only actors, capped anchors, sane budget.
 
     The controlled character is excluded from expected_actors — the player is
@@ -504,7 +504,10 @@ def build_next_beat_messages(
     status = {
         "advance": "The current beat COMPLETED (its actors and anchors all landed).",
         "coverage_complete": "The current beat COMPLETED (its actors and anchors all landed).",
-        "coverage_sufficient": "The current beat is essentially DONE (actors and nearly all anchors landed); move the story on rather than dwell.",
+        "coverage_sufficient": (
+            "The current beat is essentially DONE (actors and nearly all anchors "
+            "landed); move the story on rather than dwell."
+        ),
         "stalled": (
             "The current beat STALLED: the scene is STUCK, circling one topic "
             "without a new development (measured: the same events/subject repeat). "
@@ -530,7 +533,9 @@ def build_next_beat_messages(
     lines.append(f"PREMISE: {roteiro.premise}")
     for index, item in enumerate(roteiro.acts):
         marker = " <- current" if index == roteiro.act_index else ""
-        lines.append(f"ACT {item.act_id}: {item.summary} | exits when: {item.exit_condition}{marker}")
+        lines.append(
+            f"ACT {item.act_id}: {item.summary} | exits when: {item.exit_condition}{marker}"
+        )
     if beat is not None:
         lines.append(
             f"CURRENT BEAT ({beat.beat_id}): {beat.intent} | exit: {beat.exit_condition}"

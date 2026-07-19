@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from difflib import SequenceMatcher
-from typing import TypedDict
+from typing import TypedDict, cast
 
 import httpx
 
@@ -327,7 +327,7 @@ def _echoed_output_field(
         return None
     for field in ("thought", "speech"):
         value = output.get(field)
-        if not value or len(value) < _ECHO_MIN_CHARS:
+        if not isinstance(value, str) or len(value) < _ECHO_MIN_CHARS:
             continue
         norm = _normalize_sentence(value)
         if any(SequenceMatcher(None, norm, prior).ratio() >= _ECHO_THRESHOLD for prior in recent):
@@ -520,6 +520,6 @@ async def act(
                 continue
             other = "speech" if echoed == "thought" else "thought"
             if output.get(other):
-                output = {**output, echoed: None}
+                output = cast(CharacterOutput, {**output, echoed: None})
         return output
     raise ValueError(f"Invalid Character response after correction: {last_error}")

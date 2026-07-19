@@ -2313,7 +2313,7 @@ class TestEdgeCases:
             context_max=4096,
         )
         assert "Segredo do Thorn." in prompt
-        thought_line = next(l for l in prompt.splitlines() if "Segredo do Thorn." in l)
+        thought_line = next(ln for ln in prompt.splitlines() if "Segredo do Thorn." in ln)
         assert "PRIVATE THOUGHT" in thought_line
         assert "only you perceive this" in thought_line
         assert "Pode me ouvir?" in prompt

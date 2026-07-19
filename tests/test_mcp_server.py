@@ -423,7 +423,10 @@ def test_apply_system_edits_keeps_schema_tail_last() -> None:
         {"role": "user", "content": "hi"},
     ]
     edited = _apply_system_edits(
-        messages, append_to_system="New closing rule.", replace_old="Rule one.", replace_new="Rule 1."
+        messages,
+        append_to_system="New closing rule.",
+        replace_old="Rule one.",
+        replace_new="Rule 1.",
     )
     content = edited[0]["content"]
     assert content.startswith("Rule 1.\nNew closing rule.\n")
