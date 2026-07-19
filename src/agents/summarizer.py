@@ -48,13 +48,8 @@ def _build_system_prompt(narrator_directives: str = "") -> str:
     return prompt
 
 
-def build_summarizer_json_schema(character_ids: list[str] | None = None) -> dict:
-    """Build the public world-summary schema.
-
-    ``character_ids`` remains accepted for source compatibility; private notes
-    now use isolated calls and are never part of the public response.
-    """
-    del character_ids
+def build_summarizer_json_schema() -> dict:
+    """Build the public world-summary schema."""
     return {
         "name": "summarizer_output",
         "schema": {

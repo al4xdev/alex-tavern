@@ -213,13 +213,12 @@ def test_first_difference_returns_none_for_equal_values() -> None:
 
 
 def test_checkpoint_input_comparison_uses_incremental_domains() -> None:
-    state = _source_state() | {"story_summary": "before", "character_notes": {"C1": "note"}}
+    state = _source_state() | {"story_summary": "before"}
     checkpoint = {
         "schema_version": 1,
         "cutoff_turn_number": 2,
         "evicted_history": [dict(record) for record in state["history"][:2]],
         "before_story_summary": "before",
-        "before_character_notes": {"C1": "note"},
     }
 
     assert compare_checkpoint_input(checkpoint, state) is None

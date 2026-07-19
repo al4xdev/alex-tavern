@@ -2099,7 +2099,7 @@ class TestSummarizerAgent:
     def test_summarizer_schema_is_public_only(self) -> None:
         from src.agents.summarizer import build_summarizer_json_schema
 
-        schema = build_summarizer_json_schema(["hero", "guide"])["schema"]
+        schema = build_summarizer_json_schema()["schema"]
         assert set(schema["properties"]) == {"story_summary"}
         assert schema["additionalProperties"] is False
 

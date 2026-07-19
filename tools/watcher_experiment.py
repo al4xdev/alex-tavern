@@ -11,7 +11,6 @@ the harness (tools/acceptance/watcher_abc.py) drives it from outside.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -19,8 +18,6 @@ import httpx
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, resolve_llm_timeout
 from src.models import GameState, TurnRecord, speaker_label
-
-REPO = Path(__file__).resolve().parents[1]
 
 DELTA_KINDS = [
     "decision_taken",
