@@ -47,3 +47,28 @@ redirecionar essa tinta pro que aconteceu AGORA.
 - [ ] Zero novas regras além de 1 linha; nunca cap.
 - [ ] Se não atingir em ~2 iterações de variante: **parquear** (decisão do
       dono) e registrar o resultado negativo aqui.
+
+## RESULTADO (2026-07-19): NEGATIVO em 2 iterações → PARQUEADA (fallback do dono)
+
+24 calls em 3 payloads reais de prosa (T9/T12/T19 de ce87167b, turnos com
+re-descrição medida), 2 runs por variante por turno; métrica: % de sentenças
+na banda ≥0.7 vs narrações anteriores + palavras (piso da 42):
+
+| Variante | banda ≥0.7 | palavras med |
+|---|---|---|
+| V0 baseline | **16.4%** (9/55) | 146 |
+| V1 "silent backdrop" | 22.4% (15/67) | 179 |
+| V2 V1+callback | 21.3% (16/75) | 213 |
+| V3 proibição direta ("zero words") | 22.8% (13/57) | 192 |
+
+TODAS as variantes PIORARAM a banda. Leitura: qualquer linha que menciona
+cenário/re-descrição funciona como ímã de atenção — o modelo re-afirma o
+estado parado por contraste ("o estojo continua lacrado") justamente porque a
+regra o fez pensar nos objetos estabelecidos. O piso da 42 não foi violado
+(min 118-151), mas as linhas também INFLAM o tamanho.
+
+Direção futura (se despertar de novo): não é prompt — é o nível dos EVENTOS.
+O renderizador cego só orna o que o Diretor emite; a re-descrição residual
+entra quando eventos re-encenam estado parado. Candidato real: auditoria de
+delta material da 33b marcando evento-sem-delta antes da prosa. Fica pra
+depois da integração do watcher.
