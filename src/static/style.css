@@ -1082,7 +1082,8 @@ select.text-input { cursor: pointer; }
 
 /* ══════════════════ App / Game view ══════════════════ */
 .app {
-    max-width: 860px;
+    width: 100%;
+    max-width: 1440px;
     margin: 0 auto;
     padding: 16px;
     padding-top: max(16px, env(safe-area-inset-top));
