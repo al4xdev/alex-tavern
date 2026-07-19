@@ -54,7 +54,7 @@ voltar; `done.sh` ao fim de cada task.
 | 2 | 39 inc2(b) — remover character_notes + checkpoint | zero | **schema v9 AUTORIZADO** (sessões existentes quebram, ok) |
 | 3 | 39 inc2(c) — reconciliar recall task 23 | zero | pinning de âncora fica |
 | 4 | xfailed3 run 1 (valida 39d + famílias de vazamento da 41) | alto | **1 run; +2 só se limpo; cap 3** |
-| 5 | 40 — relógio narrativo (curl-replay → increment 1) | baixo | v1: tick próprio no GameState, +1/turno commitado, dono do código; time-skip do Diretor = v2 |
+| 5 | 40 — relógio narrativo | ✅ **increment 1 ENTREGUE** (tick code-owned +1/beat; deadline de ato → world_event como UPCOMING EVENT; avanço de ato é do código; replay 2/3). Pendente: time-skip v2, A/B/C |
 | 6 | 33b — exploração curl (delta material + contrato causal em payloads reais) | médio (~20 calls) | **bateria A/B/C só com o usuário acordado** |
 | F | Fillers (quando bloqueado): MCP curl simples SÓ em tools/ (**autorizado**); medição offline da guarda-por-sentença (26); fakes antigos do test_integration | zero | — |
 
