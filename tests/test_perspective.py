@@ -135,6 +135,35 @@ class TestValidatedPeople:
         people = _validated_people(result, {"C1"}, turn_number=9, previous=previous)
         assert people["C1"].source_turn == 1
 
+    def test_explicit_name_in_private_sheet_overrides_model_null(self) -> None:
+        result = {
+            "people": [
+                {"subject_id": "C1", "known_name": None, "reference": "o rapaz de uniforme cinza"}
+            ]
+        }
+        people = _validated_people(
+            result,
+            {"C1"},
+            turn_number=7,
+            evidence_text="Asword já defendeu Link de veteranos.",
+            canonical_names={"C1": "Link"},
+        )
+        assert people["C1"].known_name == "Link"
+
+    def test_first_name_in_private_sheet_establishes_multiword_identity(self) -> None:
+        result = {
+            "people": [
+                {"subject_id": "C17", "known_name": None, "reference": "a diretora grisalha"}
+            ]
+        }
+        people = _validated_people(
+            result,
+            {"C17"},
+            turn_number=7,
+            evidence_text="Maelis supervisiona a seleção.",
+            canonical_names={"C17": "Maelis Ordan"},
+        )
+        assert people["C17"].known_name == "Maelis Ordan"
 
 class TestNeedsIdentityUpdate:
     def test_no_strangers_short_circuits(self) -> None:

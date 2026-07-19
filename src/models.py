@@ -23,8 +23,11 @@ from typing import Any
 # 8 = memory dimension on CharacterPerspective (recent_memory + memory_summary);
 # 9 = character_notes removed — the perspective ledger is the ONLY private
 # memory (continuous capture + semantic revision); compaction keeps only the
-# world summarizer and checkpoints drop the notes fields (Task 39 inc.2).
-SESSION_SCHEMA_VERSION = 9
+# world summarizer and checkpoints drop the notes fields (Task 39 inc.2);
+# 10 = identity ledgers treat canonical names explicitly present in a viewer's
+# private sheet as known, preventing established acquaintances from becoming
+# visual strangers.
+SESSION_SCHEMA_VERSION = 10
 
 
 @dataclass

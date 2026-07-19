@@ -111,6 +111,17 @@ def _roster_lines(
     return subject_ids, lines
 
 
+def _canonical_name_in_evidence(canonical: str, evidence_text: str) -> bool:
+    first_name = canonical.split(maxsplit=1)[0]
+    return bool(
+        re.search(
+            rf"\b(?:{re.escape(canonical)}|{re.escape(first_name)})\b",
+            evidence_text,
+            flags=re.IGNORECASE,
+        )
+    )
+
+
 def _validated_people(
     result: dict[str, Any],
     allowed_ids: set[str],
@@ -138,11 +149,19 @@ def _validated_people(
             known_name = str(known_name).strip()[:80] or None
         if known_name is not None and known_name.casefold() not in evidence:
             known_name = None
+        canonical = canonical_names.get(subject_id, "") if canonical_names else ""
+        if known_name is None and canonical and _canonical_name_in_evidence(
+            canonical, evidence_text
+        ):
+            # The sheet is canonical private knowledge. If it explicitly names
+            # someone, a conservative model response cannot downgrade that
+            # established acquaintance to a visual stranger. Accept either the
+            # full canonical name or its first-name form used naturally in prose.
+            known_name = canonical
         reference = str(item.get("reference", "")).strip()[:200]
         if not reference:
             reference = FALLBACK_REFERENCE
         if known_name is None and canonical_names:
-            canonical = canonical_names.get(subject_id, "")
             if canonical and re.search(
                 rf"\b{re.escape(canonical)}\b", reference, flags=re.IGNORECASE
             ):
