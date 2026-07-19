@@ -295,6 +295,16 @@ Não existem chamadas LLM invisíveis.
 
 Prompts são compartilhados entre providers e descrevem regras de papel de forma declarativa.
 
+> **Regra curl-first (não chute — teste antes).** Toda afirmação sobre
+> comportamento de LLM (um prompt, um contrato, um esquema, uma fronteira de
+> confidencialidade, "isso vai vazar / melhorar / colidir") é hipótese até um
+> `curl` em payload REAL confirmar. Não decida por hipótese e não escreva
+> "provavelmente X"; isole a chamada, replay via `curl` (método abaixo),
+> conte a taxa em 3-4 runs e decida com o número. Pré-registre a regra de
+> decisão ANTES de rodar (ex.: "se 4b ≈ 4a → mantenho"), pra não mover a trave
+> depois. Barato: uma call de modelo flash por variante. O custo de chutar
+> errado é muito maior.
+
 - não criar prompt narrativo especial para um fornecedor;
 - não repetir a mesma regra em várias camadas;
 - não introduzir macros, injeção por profundidade ou parser textual;
