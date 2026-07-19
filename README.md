@@ -12,8 +12,8 @@ characters spoke), independent **Character** agents produce speech, private thou
 *attempts* (never outcomes), and each character carries a private **perspective ledger** — who they
 know, by which name, and what they remember, learned only through events they perceived. A
 code-owned **narrative clock** keeps story time moving strictly forward: every committed beat
-advances it, act deadlines force scheduled world events, and the Director may compress time on a
-pass turn but can never stop it. A stateless FastAPI Runner
+advances it, act deadlines force scheduled world events when the opt-in roteiro is enabled, and
+the Director may compress time on a pass turn but can never stop it. A FastAPI Runner (session state loaded per request under a per-session lock)
 enforces player agency, persistence, and the knowledge boundaries (whispers, acoustic zones,
 per-viewer identity) as code, not prompt promises. The kernel owns narrative physics; roleplay
 mechanics and expansions belong to plugins. It supports local llama.cpp inference and the DeepSeek
@@ -58,7 +58,7 @@ API through provider adapters.
 > Python/browser process and may replace core behavior. Curated means full-source review; installing
 > anything else accepts its full risk.
 
-<place_2:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
+<place_1:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
 ---
 
@@ -223,19 +223,20 @@ graph TD
     B -->|Skip with no hint| DS{Drive scheduler fires?}
     DS -->|yes| DE[Event seed call: one external world event]
     DS -->|no| TS[Time-compression invite on the hint channel]
-    DE --> C
-    TS --> C
-    B -->|Speech, action, or thought| CK[Narrative clock: act deadline may stage a world event]
-    CK --> C[Director: full world state + private thoughts -> typed decisions, zero prose]
+    B -->|Speech, action, or thought| CK
+    DE --> CK
+    TS --> CK
+    CK[Narrative clock: act deadline may stage a world event] --> C[Director: full world state + private thoughts -> typed decisions, zero prose]
     C -->|"schema JSON"| V[Deterministic clamps: presence, zones, witnesses, moves, thought tokens, time skip]
-    V --> R[Blind prose renderer: confirmed public facts only]
-    V --> L[Perspective ledgers of the routed speakers]
-    R --> H
-    L --> Q{Speaker queue, 1-3 in order}
+    V --> CN[Canon applied BEFORE prose: scene deltas, zone moves and links, time skip]
+    CN --> R[Blind prose renderer: confirmed public facts only]
+    CN --> L[Perspective ledgers of the routed speakers]
+    R --> Q
+    L --> Q{Speaker queue, 0-3 in order}
     Q -->|Human-controlled| E[Runner pauses — control returns to the human]
     Q -->|NPC| F[Character: own mind + ledger-projected view + witnessed events]
     F --> G[speech / private thought / action INTENT]
-    G --> H[Scene deltas, moods, zone moves and links applied]
+    G --> H[Moods applied after the queue]
     H --> I[(Session history + snapshots for undo; narrative clock +1)]
 ```
 
@@ -251,7 +252,7 @@ timing and pressure but never in content:
    PRIVATE THOUGHT — interiority only the Director perceives, used for timing, pressure and
    dramatic intent, never as public fact). It answers with typed decisions only, zero prose:
    a mandatory `scene_blocking` spatial draft, `perception_events` (what happens this beat,
-   each with `witness_ids`), an ordered `next_speakers` queue (1-3), scene deltas, mood updates,
+   each with `witness_ids`), an ordered `next_speakers` queue (0-3; an empty queue is normalized in code to the Narrator sentinel), scene deltas, mood updates,
    `zone_moves` (which may name a NEW zone — canon reconciliation can split the stage),
    `zone_link_updates` (opening or sealing acoustic paths), and `time_skip_ticks` (compress
    time when a beat is exhausted — validated to never fire mid-action). Code then CLAMPS
@@ -286,8 +287,9 @@ Two details are part of the prompt contract:
   dashes entirely) is appended to the system message inside the shared LLM client wrapper after
   the narrator/character prompt builders finish. The "debug preview" of a prompt, built without
   calling the LLM, is intentionally the pre-language version.
-- **The two calls are fully independent.** The Character agent re-reads the history itself; it
-  isn't handed anything precomputed by the Narrator beyond the one filtered context string.
+- **The three stages stay independent.** Director, prose renderer, and Character agents never
+  share a context window; a Character receives only the typed events it witnessed, rendered
+  through its own ledger — never the Director's reasoning or another stage's prompt.
 
 ---
 
@@ -338,7 +340,7 @@ assembled.
 > 
 > In Alex Tavern, because the LLMs are completely blind to the presence of a 'User' (every human input is translated into their character's name at the prompt boundary), the engine treats the player's character as just another natural actor in the physical world. For example, if you write a physical action trying to force another character to do something, the Narrator maintains strict physical consistency and mediates/restricts it just as it would for any NPC. This physical boundary reinforcement is what makes the engine feel so immersive. To actually override the world, the operator must use application-level controls (like 'God-Mode' GM overrides) rather than breaking character inside the narrative."
 
-<place_3:screenshot of the debug/observability panel with the raw LLM call log open, showing narrator + character calls for one turn>
+<place_2:screenshot of the debug/observability panel with the raw LLM call log open, showing narrator + character calls for one turn>
 
 ---
 
@@ -354,7 +356,7 @@ did not change — the **scope of what counts as narrative physics did**:
   player agency in code; the **audience model** (whispers, witnessed actions, reply-audience
   inheritance); the **narrative clock** (a monotonic, code-owned tick — act deadlines force
   scheduled world events, time compression is clamped by code, undo never rewinds time);
-  **deterministic confidentiality guards** on the Narrator's transient context, the Characters'
+  **deterministic confidentiality guards** on the Director's transient context, the Characters'
   spoken output, and the Director's thought omniscience (secrets derived from history, never
   hardcoded — see [`src/confidentiality.py`](src/confidentiality.py)); session persistence with
   **forward-only schema versioning** (incompatible sessions are refused, never migrated).
@@ -376,11 +378,23 @@ mechanics beyond that belong to plugins. The full evolution is documented as
 
 ---
 
+## 🗒️ Glossary: one agent, one name
+
+Historical sections and config keys still say "Narrator" — the original name of the decision
+role before the Decision/Prose split. Canonical names:
+
+| Canonical name | Also appears as | What it is |
+|---|---|---|
+| **Director** | "Narrator" (historical prose, `max_tokens_narrator`, agent id `director`) | The blind decision agent: typed events, routing, canon |
+| **Prose renderer** | "blind Narrator" in older cases | Blind narration from confirmed events only |
+| **Summarizer** | "Historian" in older cases/prompts | The world-only compaction agent |
+| **Narrator** (literal) | — | Only a routing sentinel ("no one reacts") and the narration speaker label |
+
 ## 👥 Role Model
 
 | Role | Can | Cannot | Receives in its prompt |
 |---|---|---|---|
-| **Human player** | Speak, think, and act through three independent inputs | — the human designs the scene at setup time | — |
+| **Human player** | Speak, think, and act through three independent inputs; design the scene and cast at setup time | Cannot dictate world outcomes from inside the fiction — attempts are adjudicated like any character's; overrides go through application-level controls | — |
 | **Director** (blind) | Everything physical: decides typed events and outcomes, who reacts next (a 1-3 speaker queue), scene/mood deltas, zone movement and creation, opening/sealing acoustic links, and time compression; omniscient over private thoughts as dramaturgical signal | Cannot know which character is human-controlled or write prose; cannot surface a private thought as public fact (a deterministic token guard redacts thought-only payloads from its events); its witness/move/link/skip proposals are clamped by code | Everything observable about the world plus every PRIVATE THOUGHT (marked as perceivable only by it): full personality and appearance of every character, the scene with its zone graph and positions, the public story summary, and the active history window |
 | **Prose renderer** (blind) | Turns the beat's confirmed events into reader-facing narration | Cannot see minds, thoughts, notes, whispers' content, or even the WORDS anyone spoke (speech arrives as content-free markers); cannot invent outcomes or dialogue | Public scene and zone-visible staging, cast appearance only, a content-free reader transcript, and the clamped events of this beat |
 | **Character** | Speak, think, and ATTEMPT physical actions (`action_intent`, adjudicated by the next beat's Director); a reply inside a whispered turn stays whispered | Cannot state action outcomes; cannot perceive across whispers or acoustic zones; addresses strangers by reference until a name is legitimately learned | Only its own mind, its perspective ledger (viewer-relative identities + private perception-filtered memory, older lines LLM-revised with secrets verbatim), events it witnessed, speech/actions it perceived, and its own prior thoughts |
@@ -408,7 +422,7 @@ snapshot those records carry.
 Scene and mood restoration use the snapshots stored with the removed turn records, so one undo
 reverts the complete step rather than only its visible messages.
 
-<place_4:short gif of the undo button reverting a mood + scene change in one click>
+<place_3:short gif of the undo button reverting a mood + scene change in one click>
 
 Session load and undo always re-render from the authoritative backend history. Typed speech,
 thought, and action records sharing a speaker and turn number are grouped into the same bubble,
@@ -424,14 +438,14 @@ The action menu next to Send provides two explicit routing controls:
   the Narrator, that collapses whatever `next_speakers` queue the Director actually chose down
   to that one speaker. If the forced speaker is the human-controlled character, the runner still
   pauses instead of generating for them — agency is never bypassed by this mechanism.
-- **Suggest** — a separate endpoint that asks the (still fully blind) Narrator for three
+- **Suggest** — a separate endpoint that asks the (still fully blind) Director for three
   candidate `{speech, action}` pairs for the human-controlled character, worded generically
   ("suggest three plausible next moves for C1"), never revealing that character is the human.
   Nothing is persisted by this call; the frontend fills speech/action and clears the private
   thought field, while the human still
   has to press send, so it enters the world through the completely normal path.
 
-<place_5:screenshot of the suggestion popup with three candidate speech/action pairs>
+<place_4:screenshot of the suggestion popup with three candidate speech/action pairs>
 
 An entirely empty turn is rejected. A force-speaker override is meaningful only with observable
 speech or action; a thought-only submission remains private, is persisted as its own undoable
@@ -462,7 +476,7 @@ this:
 ```
 
 `session_id`, `turn_number`, append order, and `agent` make the causal chain machine-readable:
-input → Narrator decision → Character response → retry/error → state mutation. A connected agent
+input → Director decision → Character response → retry/error → state mutation. A connected agent
 can call the MCP `inspect_debug_log` tool, compare the JSONL with persisted session state, and
 identify whether a problem originated in player input, prompt assembly, provider adaptation,
 model output, validation, routing, or undo/compaction. This evidence path is intentionally usable
@@ -666,7 +680,7 @@ Current deliberate constraints and known gaps include:
   remaining gap is flat scenes without zones, where public records are treated as perceived by
   everyone present.
 
-<place_6:screenshot of the compact-session button with its progress bar mid-animation>
+<place_5:screenshot of the compact-session button with its progress bar mid-animation>
 
 Summary and memory are wired into the actual prompts: the Narrator's user prompt has an
 optional "story so far" section, placed before the current scene, populated only once a
@@ -711,7 +725,7 @@ The interface is dependency-free and built from native ES modules. Current behav
 - a session-list landing screen with load, fork, delete, and new-session controls;
 - a responsive debug drawer that becomes a full-screen sheet on narrow displays.
 
-<place_7:screenshot of the session list landing screen>
+<place_6:screenshot of the session list landing screen>
 
 ---
 
@@ -1015,7 +1029,7 @@ A structured Narrator or Historian call follows this path:
    retry path.
 8. Only a successfully parsed and validated value reaches the agent and application state.
 
-Character responses use a JSON Schema with nullable `speech` and `thought` fields. Provider
+Character responses use a JSON Schema with nullable `speech`, `thought`, and `action_intent` fields (at least one must be populated). Provider
 switching does not create separate implementations of Narrator, Character, Suggestion, or
 Historian.
 
@@ -1093,10 +1107,12 @@ is:
 ```json
 {
   "active_provider": "llama_cpp",
-  "language": "English",
+  "language": "Portuguese",
   "compaction_keep_recent_turns": 200,
   "automatic_compaction_enabled": false,
   "automatic_compaction_threshold_percent": 80,
+  "autonomous_burst_max_beats": 1,
+  "roteiro_enabled": false,
   "auto_event_enabled": true,
   "auto_event_base_probability": 0.05,
   "auto_event_growth_per_quiet_turn": 0.12,
@@ -1157,10 +1173,12 @@ Mutating endpoints are protected by two independent gates, both enforced server-
   and sends it as `X-Tavern-Token` on every mutation. The token lives only in process memory —
   never persisted, never in the service-worker cache (`/bootstrap` is network-only) — and a
   restart invalidates it; the frontend transparently re-bootstraps on the first 403.
-- **Origin policy.** Loopback origins match a strict regex; any other origin is accepted only
-  when it is same-origin with the request's `Host` (which is what serves LAN and Docker
-  access). The `null` origin is NEVER allowed — a `file://` page must not be able to read the
-  token and replay it.
+- **Origin policy.** Loopback origins match a strict regex; any other browser origin is
+  accepted only when it is same-origin with the request's `Host` (which is what serves LAN and
+  Docker access). The `null` origin can never READ the token — `/bootstrap`'s CORS excludes it,
+  so a `file://` page cannot obtain it — while a null/absent-Origin request is admitted on the
+  mutation gate only when it already carries a valid token (the trusted native/WebView caller
+  path).
 
 Provider targets have their own policy: the DeepSeek adapter only talks HTTPS to
 `api.deepseek.com`, while llama.cpp accepts loopback, private-LAN addresses, single-label
@@ -1260,7 +1278,7 @@ stopped. Scenarios (character and scene starting points) live under `.data/scena
 For a containerized installation, run `./start_docker.sh` on Linux or use the Docker Desktop
 command from [Docker](#-docker).
 
-<place_8:gif of ./start.sh booting and a fresh session being created from a scenario>
+<place_7:gif of ./start.sh booting and a fresh session being created from a scenario>
 
 ---
 
@@ -1484,9 +1502,9 @@ are development records rather than a second product specification: later closur
 current source supersede intermediate assumptions.
 
 > [!IMPORTANT]
-> **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](file:///home/alex/git/my/roleplay/.plan/) directory.
-> - **Always consult [`.plan/tasks/`](file:///home/alex/git/my/roleplay/.plan/tasks/) and [`AGENTS.md`](file:///home/alex/git/my/roleplay/AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
-> - **Prioritize open tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes. Completed Supertasks are historical records under [`.plan/closed/`](file:///home/alex/git/my/roleplay/.plan/closed/), including [S01-plugin-system.md](file:///home/alex/git/my/roleplay/.plan/closed/S01-plugin-system.md); current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
+> **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](.plan/) directory.
+> - **Always consult [`.plan/tasks/`](.plan/tasks/) and [`AGENTS.md`](AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
+> - **Prioritize open tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes. Completed Supertasks are historical records under [`.plan/closed/`](.plan/closed/), including [S01-plugin-system.md](.plan/closed/S01-plugin-system.md); current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
 
 ---
 
