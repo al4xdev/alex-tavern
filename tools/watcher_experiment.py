@@ -139,7 +139,10 @@ async def audit_turn(
         client,
         [
             {"role": "system", "content": AUDIT_SYSTEM},
-            {"role": "user", "content": f"PRIOR CONTEXT:\n{ctx_text}\n\nTURN UNDER AUDIT:\n{turn_text}"},
+            {
+                "role": "user",
+                "content": f"PRIOR CONTEXT:\n{ctx_text}\n\nTURN UNDER AUDIT:\n{turn_text}",
+            },
         ],
         model=config.get("model", ""),
         language=config.get("language", ""),

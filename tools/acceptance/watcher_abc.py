@@ -60,7 +60,6 @@ async def run_arm(arm: str) -> str:
     import httpx
 
     from src.runner import Runner
-    from src.store.sessions import load_game
     from tools.acceptance.roteiro_ab import SCENARIOS, _build_session_args
     from tools.watcher_experiment import StallLadder, audit_turn, causal_intervention
 
@@ -90,7 +89,9 @@ async def run_arm(arm: str) -> str:
                 continue
             game = await runner.get_state(sid)
             audit = await audit_turn(client, config, game, turn)
-            audits.append({"turn": turn, "deltas": audit.get("deltas"), "j": audit.get("justification")})
+            audits.append(
+                {"turn": turn, "deltas": audit.get("deltas"), "j": audit.get("justification")}
+            )
             if ladder.observe(turn, list(audit.get("deltas") or [])):
                 if arm == "b_arbitrary":
                     pending_hint = ARBITRARY_EVENT
@@ -166,8 +167,8 @@ async def blind_critic(transcripts: dict[str, str]) -> None:
 
     import httpx
 
-    from src.llm.client import chat_completion_json, resolve_llm_timeout
     from src.config import llm_request_options
+    from src.llm.client import chat_completion_json, resolve_llm_timeout
 
     config = _config()
     schema = {
