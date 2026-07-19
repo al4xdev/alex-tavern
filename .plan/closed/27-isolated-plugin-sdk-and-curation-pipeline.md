@@ -537,3 +537,11 @@ MCP. NON-GOALS honored: no repo/source/package/token/PR/release created.
 
 Task stays in tasks/ until the owner reviews and accepts the exploration (§14
 acceptance is an owner action) and the hub-checkout items are verified.
+
+## FECHADA (2026-07-19) — exploração ACEITA pelo dono
+
+Aceite registrado ("27. aceito"). A topologia proposta em
+`docs/plugin-ecosystem-topology-exploration-2026-07-17.md` vale como decisão
+de arquitetura; a implementação (SDK isolado + pipeline de curadoria) vira
+trabalho novo quando o dono priorizar — a verificação com checkout real do
+hub acontece nesse momento, como primeiro passo da implementação.

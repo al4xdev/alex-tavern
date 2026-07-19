@@ -30,15 +30,17 @@ Referência de arquitetura:
 | 41 | Diretor onisciente + reconciliação de canon (emergencial) | replay produção 3/3 no caso real c2e5107b; 9 testes; guard determinístico `hidden_thought_tokens`; zonas dinâmicas + canon-antes-da-prosa; ressalva RESOLVIDA: xfailed3 completo pós-41 com **zero** violações das famílias de vazamento |
 | 42 | Narrador fala pouco (emergencial) | puro curl em payloads reais: piso de 1 linha no FIM do PROSE_SYSTEM; mediana 118→1247 / 271→568 chars, 3/3 em 2 cenas; piso, nunca cap |
 | 29.2 | Estado subjetivo (supertask) | concluída pelos incrementos: inc.1/inc.2 + Tasks 35, 36, 39, 41 (todas fechadas); medição continua no relógio 29.3 |
+| 27 | SDK isolado + pipeline de curadoria (exploração) | topologia ACEITA pelo dono (2026-07-19); implementação vira trabalho novo quando priorizado |
 
 ## 🔶 Em andamento
 
 | Task | O que falta |
 |---|---|
-| 27 — SDK isolado + pipeline de curadoria | **exploração DELIVERED** (`docs/plugin-ecosystem-topology-exploration-2026-07-17.md`); aguarda aceite do dono + verificação com checkout do hub |
-| 38 — Roteiro (opt-in, OFF) | **ENTREGUE COM RESSALVAS, mantida aberta** (não migra pra closed/): ganhos de engine banked, mas o roteiro é cara-ou-coroa em cena procedural (portais 2W/2L). Ver banner na task + relatório em `docs/cases/`. Fixes futuros: disrupção avança o arco; watcher 33b |
-| 19 — Security hardening | **ENTREGUE COM RESSALVAS**: boundary origem+token + política de alvo de provider implementados e revisados (buraco do origin `null` fechado; same-origin LAN liberado; token nunca persistido; 403-retry pós-restart); falta só o outcome 6 (smoke tests desktop/Docker/Android) |
-| Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** Reais: SP-01 T7 (determinístico 2/2 tiers: o Player ABRE a divisória no meio do T7 e a resposta da C2 gravada depois sai pública — in-fiction defensável; **decisão de calibração intra-turno é do usuário**) e WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: scratchpad `xfailed3_run1_artifacts/` |
+| 38 — Roteiro (opt-in, OFF) | ressalvas devem ser resolvidas por 40+33b (decisão do dono 2026-07-19); **o dono fecha pessoalmente** todas as abertas na fase de testes dele, criando tasks menores |
+| 19 — Security hardening | falta só o outcome 6 com o dono: roteiro pronto em **`.plan/19-smoke-tests-para-o-dono.md`** (3 ambientes, ~10 min cada); 3/3 verdes → fecho |
+| 40 v2 — time-skip do relógio | **AUTORIZADO pelo dono (2026-07-19: "quero")**. Compressão de tempo num turno (modo-sumário humano, doc §4.2); método curl-first; A/B/C unificada com a da 33b |
+| 26b — re-descrição de ambiência via prompt | task experimental criada por decisão do dono ("via prompt; se não der, parquear"): `tasks/26b-ambience-redescription-prompt-experiment.md`; alvo 9%→<4% na banda 0.7–0.8 sem quebrar o piso da 42 |
+| Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** Reais: SP-01 T7 (determinístico 2/2 tiers: o Player ABRE a divisória no meio do T7 e a resposta da C2 gravada depois sai pública — in-fiction defensável; decisão do dono 2026-07-19: calibrar pela opção que gerar a NARRATIVA mais natural — amostragem curl feita por mim antes de fixar a regra) e WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: scratchpad `xfailed3_run1_artifacts/` |
 
 > **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
@@ -60,8 +62,9 @@ voltar; `done.sh` ao fim de cada task.
 | 6 | 33b — exploração curl | ✅ **ENTREGUE** (delta material: detecta imobilidade semântica nas janelas travadas; contrato causal 3/3 amarrado a threads existentes; ver task 33b). Bateria A/B/C fica com o usuário |
 | F | Fillers | MCP curl ✅ **ENTREGUE** (`replay_extract_call`/`replay_llm_call` no MCP de debug, só tools/, 17 testes). Restam: medição offline da guarda-por-sentença (26); fakes antigos do test_integration |
 
-Pendências que precisam do usuário (NÃO tocar de madrugada): smoke tests da 19
-(desktop/Docker/Android); aceite da exploração 27; bateria A/B/C da 33b.
+Pendências que precisam do dono: smoke tests da 19 (roteiro em
+`.plan/19-smoke-tests-para-o-dono.md`); aceite do desenho da 33b
+(`.plan/33b-desenho-para-o-dono.md`); bateria A/B/C unificada (33b + 40).
 
 
 ## 🧺 Lane paralela (independentes)
