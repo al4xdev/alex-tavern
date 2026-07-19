@@ -56,7 +56,7 @@ voltar; `done.sh` ao fim de cada task.
 | 4 | xfailed3 run 1 | ✅ **RODADO, não limpo → sem runs extras** (decisão). Veredito na linha do relógio: 39/41 validadas (zero violações das famílias novas); 2 reais pré-existentes (SP-01 intra-turno, WT-09 alias) |
 | 5 | 40 — relógio narrativo | ✅ **increment 1 ENTREGUE** (tick code-owned +1/beat; deadline de ato → world_event como UPCOMING EVENT; avanço de ato é do código; replay 2/3). Pendente: time-skip v2, A/B/C |
 | 6 | 33b — exploração curl | ✅ **ENTREGUE** (delta material: detecta imobilidade semântica nas janelas travadas; contrato causal 3/3 amarrado a threads existentes; ver task 33b). Bateria A/B/C fica com o usuário |
-| F | Fillers (quando bloqueado): MCP curl simples SÓ em tools/ (**autorizado**); medição offline da guarda-por-sentença (26); fakes antigos do test_integration | zero | — |
+| F | Fillers | MCP curl ✅ **ENTREGUE** (`replay_extract_call`/`replay_llm_call` no MCP de debug, só tools/, 17 testes). Restam: medição offline da guarda-por-sentença (26); fakes antigos do test_integration |
 
 Pendências que precisam do usuário (NÃO tocar de madrugada): smoke tests da 19
 (desktop/Docker/Android); aceite da exploração 27; bateria A/B/C da 33b.
