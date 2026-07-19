@@ -1504,7 +1504,7 @@ current source supersede intermediate assumptions.
 > [!IMPORTANT]
 > **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](.plan/) directory.
 > - **Always consult [`.plan/tasks/`](.plan/tasks/) and [`AGENTS.md`](AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
-> - **Prioritize open tasks beginning with `S` (Supertasks)**, as they represent large structural codebase changes. Completed Supertasks are historical records under [`.plan/closed/`](.plan/closed/), including [S01-plugin-system.md](.plan/closed/S01-plugin-system.md); current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
+> - **`S`-prefixed tasks are Supertasks** — large structural changes. Completed ones are historical records under [`.plan/closed/`](.plan/closed/), including [S01-plugin-system.md](.plan/closed/S01-plugin-system.md); unstarted ones live in `.plan/backlog/` until the owner prioritizes them. Current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
 
 ---
 

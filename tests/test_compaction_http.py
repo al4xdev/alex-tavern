@@ -13,10 +13,9 @@ from src.compaction import CompactionProgress
 
 
 def _sec_headers() -> dict:
-    """Task 19 access token so ASGI POSTs pass the origin/token gate."""
-    import src.main
+    from tests.conftest import sec_headers
 
-    return {"X-Tavern-Token": src.main.ACCESS_TOKEN}
+    return sec_headers()
 
 
 def _install_runtime(main_mod, monkeypatch):  # noqa: ANN001, ANN202

@@ -32,3 +32,10 @@ def _guard_test_data_root() -> None:
 
     assert_safe_test_data_root(paths.DATA_DIR)
     assert paths.DATA_DIR.resolve() == TEST_DATA_DIR.resolve()
+
+
+def sec_headers() -> dict:
+    """Task 19 access token so ASGI requests pass the origin/token gate."""
+    import src.main
+
+    return {"X-Tavern-Token": src.main.ACCESS_TOKEN}

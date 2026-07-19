@@ -47,10 +47,9 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
 
 
 def _sec_headers() -> dict:
-    """Task 19 access token so ASGI POSTs pass the origin/token gate."""
-    import src.main
+    from tests.conftest import sec_headers
 
-    return {"X-Tavern-Token": src.main.ACCESS_TOKEN}
+    return sec_headers()
 
 
 @pytest.fixture(autouse=True)
