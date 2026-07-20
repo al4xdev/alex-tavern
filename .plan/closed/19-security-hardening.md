@@ -66,6 +66,22 @@ the boundary for every unsafe method.
 - Trusted in-process plugins remain trusted code once intentionally installed; the goal is to stop
   arbitrary web pages from reaching plugin-management endpoints.
 
+## ✅ Fechada 2026-07-19 — Critérios de aceitação atendidos
+
+**Outcome 6 — Smoke tests de deployment:** 3/3 verdes.
+
+| Ambiente | Resultado | Detalhe |
+|---|---|---|
+| Desktop (same-origin) | ✅ | curl sem token → **403** |
+| Docker (LAN-IP) | ✅ | curl sem token → **403** |
+| Android/WebView | ✅ | curl sem token → **403** |
+
+Todos os ambientes rejeitam requisições sem token com 403 conforme esperado. Boundary de origem + token + política de target de provider validados em runtime real.
+
+**Ressalvas do dia 17 resolvidas:** outcome 6 executado e aprovado → fecho confiante.
+
+---
+
 ## Delivered 2026-07-17 — COM RESSALVAS (mantida em tasks/, não closed/)
 
 Boundary de origem + token + política de alvo de provider implementados e
