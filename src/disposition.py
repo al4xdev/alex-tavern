@@ -63,6 +63,17 @@ AXIS_BANDS: dict[str, tuple[str, ...]] = {
     AXIS_COMPOSURE: ("em frangalhos", "abalado", "firme", "calmo", "imperturbável"),
 }
 
+# Human-facing axis word for the prompt note ("Your composure right now: ...").
+AXIS_PROMPT_LABEL: dict[str, str] = {
+    AXIS_TRUST: "trust",
+    AXIS_WARMTH: "warmth",
+    AXIS_COMPOSURE: "composure",
+}
+
+
+def axis_label(axis: str) -> str:
+    return AXIS_PROMPT_LABEL.get(axis, axis)
+
 
 # --- Scalars (code-owned) ----------------------------------------------------
 def clamp(x: float) -> float:

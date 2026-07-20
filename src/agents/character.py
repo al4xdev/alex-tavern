@@ -212,17 +212,17 @@ def _build_disposition_note(
     if dispositions is None:
         return ""
     from src.disposition import (
-        AXIS_COMPOSURE,
         AXIS_TRUST,
         AXIS_WARMTH,
+        axis_label,
         character_bands,
         dyad_bands,
     )
 
     lines: list[str] = []
-    composure = character_bands(dispositions, character_id).get(AXIS_COMPOSURE)
-    if composure:
-        lines.append(f"- Your composure right now: {composure}")
+    # Every seeded GLOBAL axis (composure today; a future axis renders the same way).
+    for axis, band in character_bands(dispositions, character_id).items():
+        lines.append(f"- Your {axis_label(axis)} right now: {band}")
 
     present = list(scene.present_characters) if scene is not None else []
     for other in present:
