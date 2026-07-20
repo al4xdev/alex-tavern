@@ -216,3 +216,31 @@ watcher disparar). Entrada explícita (`LadderContext`): a derivação dos flags
 partir do estado (roteiro→transição pronta; histórico de auditoria→tentativa
 pendente; extrator causal→thread aberto) é a peça de integração, depois de [3].
 9 testes unitários exaustivos (portões + escalada). ruff+mypy limpos.
+
+### Peça [3] intervenção causal — ✅ ENTREGUE (2026-07-20, madrugada autônoma)
+`src/watcher.py::generate_causal_intervention` — gerador Diretor-side do último
+degrau (`causal_disruption`). Não inventa choque desconexo: faz UM evento
+externo CRESCER de um thread já aberto na cena, sob contrato tipado
+`source_thread → target_state → event_now → expected_delta → refractory_turns`.
+`event_now` vira hint de MUNDO pro Narrador cego; nunca dita vontade de
+personagem (invariante de agência), como o seed do drive. `refractory_turns`
+clampeado em [2,4].
+
+**Curl-first, 9 intervenções (3 pontos travados reais × 3), juiz de causalidade
+CEGO por intervenção (nunca sabe que é intervenção do watcher) — SHIP:**
+- **9/9 grounded** pelo juiz cego + TODAS estruturalmente usáveis. Cada uma
+  citou thread real e cresceu dele: anomalia da masmorra que adiou a seleção
+  (arco D range e abre), resíduo de mana inexplicado da explosão (fissura na
+  mancha; arranhado metálico dos arcos selados), vazamento de gás + viga em
+  brasa (cano rompe; viga desaba e bloqueia a porta da rua). Zero desconexo.
+- reforça o 3/3 da exploração para 9/9 no prompt shippado. A variante validada
+  É a shippada.
+- artefato: `plans/artifacts/watcher-causal-intervention/` (VALIDATION.md +
+  harness + raw). 3 testes unitários offline (grounded property, contrato no
+  prompt, schema). ruff+mypy limpos.
+
+**Status 33b:** as 3 peças construídas e curl-validadas, isoladas, toggle OFF,
+NÃO fiadas no runner. Falta só a INTEGRAÇÃO (wiring): auditor por turno →
+acumula `quiet_turns` → ladder escolhe degrau → deriva flags do estado
+(roteiro/histórico de auditoria/thread) → dispara intervenção no degrau final,
+tudo atrás de `watcher_enabled`. Trabalho novo quando priorizado pelo dono.

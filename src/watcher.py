@@ -22,6 +22,7 @@ context. Toggle OFF by default.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass, field
 
 import httpx
@@ -293,3 +294,133 @@ def select_recovery_step(ctx: LadderContext, config: dict) -> RecoveryStep:
     if ctx.open_thread:
         return RecoveryStep(RUNG_REINCORPORATE_THREAD, "an open thread can be reincorporated")
     return RecoveryStep(RUNG_CAUSAL_DISRUPTION, "no gentler recovery remains")
+
+
+# --------------------------------------------------------------------------
+# Piece 3: the causal intervention (Director-side, fires at the disruption rung).
+# --------------------------------------------------------------------------
+#
+# The last rung does not invent a disconnected shock. It grows an external event
+# CAUSALLY from a thread already open in the scene, under a typed contract:
+# source_thread -> target_state -> event_now -> expected_delta -> refractory_turns.
+# The exploration validated the contract 3/3 on real windows (every intervention
+# grew from a cited existing thread; zero disconnected elements). Like the drive
+# seed, ``event_now`` becomes a WORLD hint for the blind Narrator and must never
+# dictate a character's will (agency invariant).
+
+
+@dataclass(frozen=True)
+class CausalIntervention:
+    source_thread: str
+    target_state: str
+    event_now: str
+    expected_delta: str
+    refractory_turns: int
+
+    @property
+    def grounded(self) -> bool:
+        """A usable intervention cites a thread and proposes an event from it."""
+        return bool(self.source_thread.strip()) and bool(self.event_now.strip())
+
+
+def build_causal_intervention_messages(game: GameState) -> list[dict]:
+    recent = [
+        record
+        for record in game.history[-12:]
+        if record.content_type in ("speech", "action", "narration")
+    ]
+    lines = [
+        f"LOCATION: {game.scene.location} | TIME: {game.scene.time_of_day}",
+        f"PHYSICAL FACTS: {game.scene.physical_facts}",
+        "RECENT EVENTS (oldest to newest):",
+        *(
+            f"  {speaker_label(r.speaker, game.characters, game.player.controlled_character_id)}:"
+            f" {r.content[:160]}"
+            for r in recent
+        ),
+    ]
+    if game.story_summary:
+        lines.insert(0, f"STORY SO FAR: {game.story_summary[:600]}")
+    system = (
+        "The scene has stalled: nothing has materially changed for several\n"
+        "turns and gentler recoveries are exhausted. Intervene, as a json\n"
+        "object, with ONE external event that forces the story to move — but it\n"
+        "must GROW from something already in play, never a shock from nowhere.\n"
+        "Fill the causal contract:\n"
+        "- source_thread: ONE open thread ALREADY present — a tension, an\n"
+        "  unanswered question, an object in play, a pending action, an\n"
+        "  approaching force. Quote its concrete evidence from the events above.\n"
+        "- target_state: the state the scene should reach once this lands (what\n"
+        "  the characters must now confront).\n"
+        "- event_now: ONE short EXTERNAL event, one or two sentences in the\n"
+        "  language of the scene, that escalates, answers, or complicates the\n"
+        "  source_thread. It MUST be traceable to it; never introduce a figure,\n"
+        "  object, sound, or force disconnected from it.\n"
+        "- expected_delta: what materially changes because of the event.\n"
+        "- refractory_turns: how many turns to let this land before intervening\n"
+        "  again (2 to 4).\n"
+        "Hard rule: the event is external to the characters' wills — never\n"
+        "dictate any character's action, dialogue, thought, or decision, and\n"
+        "never resolve an open mystery outright. Stay consistent with the\n"
+        "location and physical facts.\n"
+    )
+    return [
+        {"role": "system", "content": system},
+        {"role": "user", "content": "\n".join(lines)},
+    ]
+
+
+def build_causal_intervention_schema() -> dict:
+    return {
+        "name": "watcher_causal_intervention",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "source_thread": {"type": "string"},
+                "target_state": {"type": "string"},
+                "event_now": {"type": "string"},
+                "expected_delta": {"type": "string"},
+                "refractory_turns": {"type": "integer"},
+            },
+            "required": [
+                "source_thread",
+                "target_state",
+                "event_now",
+                "expected_delta",
+                "refractory_turns",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+async def generate_causal_intervention(
+    client: httpx.AsyncClient,
+    game: GameState,
+    config: dict,
+    turn_number: int,
+) -> CausalIntervention:
+    """Grow a disruptive WORLD event from a cited open thread (last rung)."""
+    result = await chat_completion_json(
+        client,
+        build_causal_intervention_messages(game),
+        model=config.get("model", ""),
+        language=config.get("language", ""),
+        max_tokens=384,
+        timeout=resolve_llm_timeout(config),
+        json_schema=build_causal_intervention_schema(),
+        session_id=game.session_id,
+        turn_number=turn_number,
+        agent="watcher:causal_intervention",
+        **llm_request_options(config),
+    )
+    refractory = WATCHER_DEFAULTS["watcher_refractory_turns"]
+    with contextlib.suppress(TypeError, ValueError):
+        refractory = max(2, min(4, int(result.get("refractory_turns", refractory))))
+    return CausalIntervention(
+        source_thread=str(result.get("source_thread", "")).strip(),
+        target_state=str(result.get("target_state", "")).strip(),
+        event_now=str(result.get("event_now", "")).strip(),
+        expected_delta=str(result.get("expected_delta", "")).strip(),
+        refractory_turns=refractory,
+    )

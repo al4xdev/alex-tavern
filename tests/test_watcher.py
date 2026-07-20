@@ -20,9 +20,12 @@ from src.watcher import (
     RUNG_EXECUTE_TRANSITION,
     RUNG_NONE,
     RUNG_REINCORPORATE_THREAD,
+    CausalIntervention,
     DeltaAudit,
     LadderContext,
     _normalize_categories,
+    build_causal_intervention_messages,
+    build_causal_intervention_schema,
     build_delta_audit_messages,
     build_delta_audit_schema,
     select_recovery_step,
@@ -197,3 +200,36 @@ class TestRecoveryLadderClimb:
         assert step.rung == RUNG_CAUSAL_DISRUPTION
         assert "no gentler recovery" in step.reason
         assert step.intervenes is True
+
+
+class TestCausalIntervention:
+    def test_grounded_requires_thread_and_event(self) -> None:
+        full = CausalIntervention("a tension", "a target", "an event", "a delta", 3)
+        assert full.grounded is True
+        assert CausalIntervention("", "t", "an event", "d", 3).grounded is False
+        assert CausalIntervention("a tension", "t", "", "d", 3).grounded is False
+
+    def test_prompt_carries_scene_and_the_causal_contract(self) -> None:
+        game = _game()
+        game.history.append(
+            _record(1, "C2", "Uma carta lacrada chega às mãos do diretor.", "narration")
+        )
+        joined = "\n".join(m["content"] for m in build_causal_intervention_messages(game))
+        assert "Estalagem" in joined
+        assert "Uma carta lacrada" in joined
+        # the full causal contract + agency invariant travel in the prompt
+        assert "source_thread" in joined and "expected_delta" in joined
+        assert "refractory_turns" in joined
+        assert "disconnected" in joined.lower()
+        assert "never" in joined.lower() and "dictate" in joined.lower()
+
+    def test_schema_requires_the_full_contract(self) -> None:
+        schema = build_causal_intervention_schema()
+        assert schema["schema"]["required"] == [
+            "source_thread",
+            "target_state",
+            "event_now",
+            "expected_delta",
+            "refractory_turns",
+        ]
+        assert schema["schema"]["properties"]["refractory_turns"]["type"] == "integer"
