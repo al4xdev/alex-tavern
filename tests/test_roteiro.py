@@ -734,6 +734,28 @@ class TestNarrativeClock:
             await client.aclose()
 
     @pytest.mark.asyncio
+    async def test_undo_does_not_regress_the_clock(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.store.sessions import delete_session
+
+        acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e")]  # no deadline
+        runner, sid, client, _, _ = await self._clock_session(monkeypatch, _roteiro(acts=acts))
+        try:
+            await runner.player_turn(sid, speech="Um.")
+            await runner.player_turn(sid, speech="Dois.")
+            before = await runner.get_state(sid)
+            assert before.narrative_tick == 2
+            last_turn = before.history[-1].turn_number
+            # Time always moves forward: undoing a turn rewinds scene/history but
+            # NEVER the clock (an undone turn replays at a later tick).
+            await runner.undo_turn(sid)
+            game = await runner.get_state(sid)
+            assert game.history[-1].turn_number < last_turn  # a turn was undone
+            assert game.narrative_tick == 2  # clock held, did not regress to 1
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
     async def test_act_deadline_stages_world_event_and_advances(self, monkeypatch) -> None:  # noqa: ANN001
         from src.store.sessions import delete_session
 

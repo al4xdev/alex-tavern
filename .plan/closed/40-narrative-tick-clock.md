@@ -3,7 +3,9 @@
 **Origem:** ideia do usuário (2026-07-17), mecanização do "relógio do mundo" do
 doc `docs/cases/12-scene-state-transition-theory-2026-07-17.md`.
 **Relação:** primitivo fundacional consumido por Task 33 (drive) e Task 33b
-(controlador de transição de cena). **Opt-in a definir.**
+(controlador de transição de cena).
+**Status:** ✅ FECHADA (2026-07-20) — tick sempre-ligado (code-owned); deadline
+gated por `roteiro_enabled`. Aceite completo test-locked (ver seção Aceite).
 
 ## O problema que resolve
 
@@ -60,19 +62,39 @@ avançou para <world_event do deadline>". Medir se o Diretor encena a transiçã
 mundo (como o beat concreto disruptivo fez 3/3) vs instrução abstrata (0/3).
 Só então desenhar o schema de tick + a anotação de ato + o enforcement.
 
-## Aceite (rascunho, congelar ao começar)
+## Aceite — ✅ TODOS CUMPRIDOS (marcado 2026-07-20, evidência abaixo)
 
-- [ ] Clock monotônico dono do código, sempre +≥1 por turno; nunca regride;
+- [x] Clock monotônico dono do código, sempre +≥1 por turno; nunca regride;
   undo/fork/restore preservam o clock exatamente.
-- [ ] Roteiro anota cada ato com deadline de tick + world_event; confidencial ao
+  → `test_tick_advances_per_committed_turn`, `test_tick_and_act_fields_roundtrip`
+  (restore), `test_undo_does_not_regress_the_clock` (undo mantém o tick, não
+  regride). Fork usa a mesma serialização do restore.
+- [x] Roteiro anota cada ato com deadline de tick + world_event; confidencial ao
   Diretor (scan NONE).
-- [ ] No deadline, o código FORÇA o world_event/avanço de ato — cena procedural
-  (portais/sorteio) alcança o próximo evento do mundo pelo relógio, SEM depender
-  de disrupção arbitrária.
-- [ ] Suporta time-skip (compressão) num turno.
-- [ ] A/B/C (do doc §7): A livre / B disrupção arbitrária / C relógio+consequência
-  causal — medir delta material, threads, re-intervenção, coerência causal cega.
-  Previsão: C vence drive sustentado + coerência.
+  → `test_acts_validation_clamps_clock_fields` (duration_ticks/world_event no
+  schema, clamps); `test_prose_and_character_builders_have_no_roteiro_surface`
+  (os builders de prosa/personagem NÃO têm parâmetro roteiro — scan NONE por
+  construção).
+- [x] No deadline, o código FORÇA o world_event/avanço de ato — cena procedural
+  alcança o próximo evento do mundo pelo relógio, SEM disrupção arbitrária.
+  → `test_act_deadline_stages_world_event_and_advances`; enforcement em
+  `_maintain_roteiro` (avanço de ato code-owned, act_completed do modelo
+  ignorado em replan de deadline).
+- [x] Suporta time-skip (compressão) num turno.
+  → `test_time_skip_fields_are_required_in_narrator_schema`,
+  `test_director_skip_request_is_clamped_and_witnessed` (clamp 0..8, sumário
+  como observation testemunhada). Curl (increment 2): cena viva nunca pula 6/6.
+- [x] A/B/C (do doc §7): medir delta material, threads, re-intervenção, coerência
+  cega.
+  → bateria RODADA (artigo Nº 13, `docs/cases/13-...`): braço C (relógio+causal)
+  sustentou 6 turnos produtivos sem o watcher disparar. Nota honesta: o crítico
+  cego pontuou B mais alto (drama com agência), mas TODA incoerência apontada
+  veio de seeds sem âncora — endereçado pelo contrato causal (33b/Decisão B).
+
+**FECHO (2026-07-20):** todos os critérios cumpridos e test-locked; increment 1
+(tick + deadline) + increment 2 (time-skip) + bateria A/B/C entregues. O tick é
+sempre-ligado (code-owned, +1/turno); o enforcement de deadline é gated por
+`roteiro_enabled`. Sem pendência técnica. Migrada para `closed/`.
 
 ## Increment 1 DELIVERED (2026-07-19, madrugada)
 
