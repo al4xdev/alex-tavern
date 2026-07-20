@@ -44,6 +44,12 @@ from src.compaction import (
     invert_plugin_delta,
 )
 from src.confidentiality import hidden_whisper_tokens, redact_tokens
+from src.disposition import (
+    apply_gravity,
+    appraise_relationships,
+    integrate_appraisal,
+    seed_character,
+)
 from src.drive import evaluate_event_hazard, generate_event_seed
 from src.llm.debug_log import (
     log_burst,
@@ -238,6 +244,11 @@ class Runner:
             narrator_directives=cfg.get("narrator_directives", ""),
             character_preset_ids=character_preset_ids,
         )
+        # Seed the disposition substrate (Task 43) at character add. Neutral
+        # set-points for now; a preset-declared temperament plugs in via
+        # ``seed_character(..., baselines=...)`` when the preset schema carries it.
+        for cid in characters:
+            seed_character(game.dispositions, cid)
         if self.plugins is not None:
             game = self.plugins.hooks.filter_sync(
                 "session.before_commit", game, {"kind": "start", "runner": self}
@@ -1021,6 +1032,7 @@ class Runner:
                         game.roteiro.anchors_seen.extend(newly_seen)
                 game.narrative_tick += 1
                 await self._audit_turn_for_watcher(game, step)
+                await self._apply_disposition_feedback(game, step)
                 game.revision += 1
                 save_game(game)
                 if self.plugins is not None:
@@ -1650,6 +1662,20 @@ class Runner:
         else:
             game.watcher_quiet_turns += 1
 
+    async def _apply_disposition_feedback(self, game: GameState, turn_number: int) -> None:
+        """Fold the turn's relationship shifts into the disposition substrate
+        (Task 43, Phase 3). One blind appraisal call per committed turn integrates
+        directional trust/warmth deltas (scope: trust+warmth; composure is parked);
+        then every live axis relaxes one step toward its baseline, so a one-off nudge
+        fades over calm turns while a sustained shift accumulates. No-op unless the
+        feedback loop is enabled (OFF by default — it is an extra call per turn).
+        """
+        if not bool(self.config.get("disposition_feedback_enabled", False)):
+            return
+        deltas = await appraise_relationships(self.client, game, self.config, turn_number)
+        integrate_appraisal(game.dispositions, deltas)
+        apply_gravity(game.dispositions)
+
     async def _maybe_watcher_recovery(self, game: GameState, turn_number: int) -> str | None:
         """Run the recovery ladder; return a causal-disruption hint or None.
 
@@ -1906,6 +1932,7 @@ class Runner:
             scene=game.scene,
             reply_audience=reply_audience,
             viewer_perspective=game.character_perspectives.get(character_id),
+            dispositions=game.dispositions,
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:

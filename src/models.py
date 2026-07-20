@@ -26,8 +26,10 @@ from typing import Any
 # world summarizer and checkpoints drop the notes fields (Task 39 inc.2);
 # 10 = identity ledgers treat canonical names explicitly present in a viewer's
 # private sheet as known, preventing established acquaintances from becoming
-# visual strangers.
-SESSION_SCHEMA_VERSION = 11
+# visual strangers; 11 = roteiro watcher accumulators on GameState (Task 33b);
+# 12 = character disposition substrate on GameState (Task 43: code-owned scalars
+# for trust/warmth/composure that drift over the arc).
+SESSION_SCHEMA_VERSION = 12
 
 
 @dataclass
@@ -142,6 +144,38 @@ def dict_to_perspective(data: dict[str, Any]) -> CharacterPerspective:
             for subject_id, item in data["people"].items()
         },
     )
+
+
+@dataclass
+class Disposition:
+    """One disposition-axis scalar (Task 43, Phase 1).
+
+    THE SCALAR IS CODE-OWNED. It is never shown to a model; only the projected
+    qualitative band (``src.disposition.project_band``) reaches a prompt. ``value``
+    and ``baseline`` live in [0, 1]; ``gravity`` is the fraction of the gap to
+    ``baseline`` relaxed per calm tick (a shock knocks ``value`` off, gravity eases
+    it back toward the preset set-point). See docs/cases/15.
+    """
+
+    baseline: float
+    value: float
+    gravity: float
+
+
+@dataclass
+class DispositionState:
+    """Character disposition substrate (Task 43, Phase 1).
+
+    ``per_character`` holds GLOBAL axes ``{cid: {axis: Disposition}}`` (e.g.
+    composure — I am rattled at everyone). ``per_dyad`` holds DYADIC axes
+    ``{observer: {target: {axis: Disposition}}}`` (e.g. trust/warmth — I trust her,
+    not him), materialized LAZILY: an ``observer->target`` entry exists only where a
+    live divergence has been recorded. This single global/dyadic cut is what keeps
+    the substrate off the O(N^2) prompt-budget cliff.
+    """
+
+    per_character: dict[str, dict[str, Disposition]] = field(default_factory=dict)
+    per_dyad: dict[str, dict[str, dict[str, Disposition]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -350,6 +384,10 @@ class GameState:
     watcher_quiet_turns: int = 0
     watcher_last_intervention_tick: int = -999
     watcher_silence_spent: bool = False
+    # Character disposition substrate (Task 43): code-owned scalars that drift over
+    # the arc (trust/warmth per-dyad, composure global). Seeded at character add;
+    # only the projected band ever reaches a model. See src/disposition.py.
+    dispositions: DispositionState = field(default_factory=DispositionState)
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -463,6 +501,35 @@ def dict_to_character(data: dict[str, Any]) -> Character:
     )
 
 
+def dict_to_disposition_state(data: dict[str, Any] | None) -> DispositionState:
+    """Reconstruct the disposition substrate from its serialized dict (Task 43).
+
+    Generic over the axis registry: rebuilds whatever axes were persisted, so the
+    registry can grow without a migration.
+    """
+    data = data or {}
+
+    def _axes(raw: dict[str, Any]) -> dict[str, Disposition]:
+        return {
+            axis: Disposition(
+                baseline=float(v["baseline"]),
+                value=float(v["value"]),
+                gravity=float(v["gravity"]),
+            )
+            for axis, v in raw.items()
+        }
+
+    return DispositionState(
+        per_character={
+            cid: _axes(axes) for cid, axes in data.get("per_character", {}).items()
+        },
+        per_dyad={
+            observer: {target: _axes(axes) for target, axes in targets.items()}
+            for observer, targets in data.get("per_dyad", {}).items()
+        },
+    )
+
+
 def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
     """Build the current forward-only TurnRecord representation."""
     snap = data["scene_snapshot"]
@@ -562,5 +629,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         watcher_quiet_turns=int(data.get("watcher_quiet_turns", 0)),
         watcher_last_intervention_tick=int(data.get("watcher_last_intervention_tick", -999)),
         watcher_silence_spent=bool(data.get("watcher_silence_spent", False)),
+        dispositions=dict_to_disposition_state(data.get("dispositions")),
         schema_version=int(data.get("schema_version", 1)),
     )
