@@ -45,6 +45,14 @@ e fica **local** ao campo que governa.
 - Portanto: **nada de migração piecemeal.** Ou é uma campanha deliberada e orçada com
   A/B por-agente (variante system vs variante schema, gate cego), ou não é.
 
+## Pilotos vivos (onde a técnica se prova barato)
+
+**Task 45 (`next_speakers`)** é o piloto mais natural: narrator.py:219-224 já provou
+que o **enum duro** quebra (validator rejeita), mas o **`description` do campo** nunca
+foi testado. O gate da 45 é um A/B pronto — baseline (prosa no user message) vs
+variante (description por-beat nomeando o inelegível), medindo validade estrutural,
+exclusão honrada e menos slots dropados. Ver `.plan/tasks/45`.
+
 ## Piloto barato proposto (primeiro passo de baixo risco)
 
 A schema de **disposição/appraisal** (`build_appraisal_schema`) é nova, tem

@@ -62,6 +62,17 @@ def _percentage(value: object, label: str) -> int:
     return value
 
 
+def _bounded_integer(value: object, label: str, low: int, high: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        raise ConfigValidationError(f"{label} must be an integer from {low} to {high}")
+    return value
+
+
+# Multi-beat continuation (Task 45): a burst runs at most this many autonomous
+# beats. Safe upper bound so a single "continue" cannot fan out unbounded LLM calls.
+MAX_BURST_BEATS = 24
+
+
 def _required_string(value: object, label: str, *, allow_empty: bool = False) -> str:
     if not isinstance(value, str) or (not allow_empty and not value.strip()):
         raise ConfigValidationError(f"{label} must be a string")
@@ -102,8 +113,11 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         "auto_event_max_probability": _unit_interval(
             value.get("auto_event_max_probability", 0.85), "auto_event_max_probability"
         ),
-        "autonomous_burst_max_beats": _positive_integer(
-            value.get("autonomous_burst_max_beats", 1), "autonomous_burst_max_beats"
+        "autonomous_burst_max_beats": _bounded_integer(
+            value.get("autonomous_burst_max_beats", 6),
+            "autonomous_burst_max_beats",
+            1,
+            MAX_BURST_BEATS,
         ),
         "roteiro_enabled": _boolean(value.get("roteiro_enabled", False), "roteiro_enabled"),
         "providers": {},

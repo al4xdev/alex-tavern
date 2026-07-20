@@ -890,6 +890,7 @@ class TestRunnerLogic:
             extra_context=None,
             extra_schema_properties=None,
             extra_schema_required=None,  # noqa: ANN001
+            exclude_controlled=True,  # noqa: ANN001
         ):
             captured["extra_context"] = extra_context
             captured["extra_schema_properties"] = extra_schema_properties

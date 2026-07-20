@@ -117,6 +117,12 @@ CLOCK_SKIP_INVITE = (
     "someone is visibly mid-action."
 )
 
+# Multi-beat continuation (Task 45): how many opening beats of a burst keep the
+# controlled character out of next_speakers so the world reacts before the story
+# can pull the human back. Owner decision (2026-07-20): 2, so the return is not
+# too fast. From this beat on, the protagonist is eligible again.
+BURST_PROTAGONIST_EXCLUDE_BEATS = 2
+
 
 class PresenceRevisionConflictError(ValueError):
     """Raised by ``Runner.set_presence`` when the caller's revision is stale."""
@@ -669,6 +675,12 @@ class Runner:
                     extra_schema_properties = dict(schema_extension.get("properties", {}))
                     extra_schema_required = list(schema_extension.get("required", []))
 
+                # Hybrid protagonist routing (Task 45): keep the controlled character
+                # out of next_speakers for the first BURST_PROTAGONIST_EXCLUDE_BEATS
+                # beats of a continuation so the world reacts before the story can
+                # pull the human back in; from then on they are eligible again, and
+                # the Narrator choosing them ends the burst (player_addressed).
+                exclude_controlled = beat_index < BURST_PROTAGONIST_EXCLUDE_BEATS
                 if self.plugins is None:
                     narrator_raw = await self._call_narrator(
                         game,
@@ -678,6 +690,7 @@ class Runner:
                         extra_context=extra_context,
                         extra_schema_properties=extra_schema_properties,
                         extra_schema_required=extra_schema_required,
+                        exclude_controlled=exclude_controlled,
                     )
                 else:
                     narrator_game = game
@@ -691,6 +704,7 @@ class Runner:
                         extra_context=extra_context,
                         extra_schema_properties=extra_schema_properties,
                         extra_schema_required=extra_schema_required,
+                        exclude_controlled=exclude_controlled,
                     )
                     narrator_raw = await self.plugins.hooks.call_wrapped(
                         "narrator.call",
@@ -1797,11 +1811,15 @@ class Runner:
         extra_context: list[str] | None = None,
         extra_schema_properties: dict[str, Any] | None = None,
         extra_schema_required: list[str] | None = None,
+        exclude_controlled: bool = True,
     ) -> dict:
         """Calls Narrator agent (blind) with full context. Returns result."""
         # The player initiated this turn (actively or by skipping/passing), so exclude them
-        # from being chosen as the next speaker to prevent immediate dialogue loops.
-        exclude_speaker = game.player.controlled_character_id
+        # from being chosen as the next speaker to prevent immediate dialogue loops. During a
+        # multi-beat continuation (Task 45) this holds for the first BURST_PROTAGONIST_EXCLUDE_BEATS
+        # beats so the world reacts first, then the protagonist becomes eligible again and the
+        # Narrator choosing them ends the burst.
+        exclude_speaker = game.player.controlled_character_id if exclude_controlled else None
 
         roteiro_lines = (
             describe_roteiro_for_director(game.roteiro, game.characters)

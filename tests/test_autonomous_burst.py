@@ -107,6 +107,46 @@ class TestBurst:
         assert game is not None and game.history[-1].turn_number == 4
 
     @pytest.mark.asyncio
+    async def test_protagonist_excluded_for_first_two_beats(self, monkeypatch) -> None:  # noqa: ANN001
+        """Task 45 hybrid routing: the controlled character stays out of
+        next_speakers for the first two beats of a burst, then becomes eligible."""
+        import src.runner as runner_mod
+        from src.runner import Runner
+
+        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return CharacterPerspective(initialized_turn=0, processed_through_turn=0)
+
+        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+        recorded: list[object] = []
+
+        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            recorded.append(kwargs.get("exclude_controlled"))
+            return _beat(["C2"])  # C2 replies every beat so the burst runs to budget
+
+        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {"speech": f"Beat de {character_id}.", "thought": None, "action_intent": None}
+
+        async with httpx.AsyncClient() as client:
+            runner = Runner(client, dict(BURST_CONFIG))  # max_beats=4
+            sid = runner.start_session(
+                {
+                    "characters": dict(CHARACTERS),
+                    "scene": deepcopy_scene(SCENE),
+                    "controlled_character_id": "C1",
+                }
+            )
+            monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+            monkeypatch.setattr(runner, "_call_character", fake_character)
+            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
+            try:
+                await runner.player_turn(sid, skip=True)
+            finally:
+                await delete_session(sid)
+
+        assert recorded == [True, True, False, False]
+
+    @pytest.mark.asyncio
     async def test_stops_when_player_is_addressed(self, monkeypatch) -> None:  # noqa: ANN001
         result, _ = await _run(
             monkeypatch, BURST_CONFIG, [_beat(["C2"]), _beat(["C3", "C1"]), _beat(["C2"])]
@@ -225,3 +265,31 @@ class TestBurst:
             finally:
                 await delete_session(sid)
         assert game is not None and game.history[-1].turn_number == 1
+
+
+class TestBurstConfigValidation:
+    """Task 45: canonical default 6 and a safe upper bound for the burst size."""
+
+    def test_default_is_six(self) -> None:
+        from src.config import DEFAULT_CONFIG, validate_config
+
+        canonical = validate_config(DEFAULT_CONFIG)
+        assert canonical["autonomous_burst_max_beats"] == 6
+
+    def test_accepts_a_valid_custom_value(self) -> None:
+        from src.config import DEFAULT_CONFIG, validate_config
+
+        canonical = validate_config({**DEFAULT_CONFIG, "autonomous_burst_max_beats": 3})
+        assert canonical["autonomous_burst_max_beats"] == 3
+
+    def test_rejects_out_of_range_and_wrong_types(self) -> None:
+        from src.config import (
+            DEFAULT_CONFIG,
+            MAX_BURST_BEATS,
+            ConfigValidationError,
+            validate_config,
+        )
+
+        for bad in (0, -1, MAX_BURST_BEATS + 1, True, 2.5, "6"):
+            with pytest.raises(ConfigValidationError):
+                validate_config({**DEFAULT_CONFIG, "autonomous_burst_max_beats": bad})
