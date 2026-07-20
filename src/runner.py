@@ -43,6 +43,7 @@ from src.compaction import (
     history_hash,
     invert_plugin_delta,
 )
+from src.confidentiality import hidden_whisper_tokens, redact_tokens
 from src.drive import evaluate_event_hazard, generate_event_seed
 from src.llm.debug_log import (
     log_burst,
@@ -925,25 +926,25 @@ class Runner:
                         )
                     character_responses.append({"character_id": speaker, **character_response})
 
-                # Persist the Director's PUBLIC audible_speech events as spoken
-                # records (WT-09 fix). A fact read aloud to the whole room — a
-                # decoded cipher, a name, a verdict — is a real world event: every
-                # witness must be able to RECALL it on a later turn, not only
-                # whoever happened to reply this turn. These events were rendered
-                # to this turn's repliers and the prose, then discarded, so a
-                # witness who did not speak never got the fact and memory (which
-                # reads history) never had it.
+                # Persist the Director's audible_speech events as spoken records
+                # (WT-09 fix). A fact voiced to the room — a decoded cipher, a
+                # name, a verdict — is a real world event: every witness must be
+                # able to RECALL it on a later turn, not only whoever happened to
+                # reply this turn. These events were rendered to this turn's
+                # repliers and the prose, then discarded, so a witness who did not
+                # speak never got the fact and memory (which reads history) never
+                # had it. Scoped to who heard it (witness_ids), zone origin.
                 #
-                # ONLY genuinely public events are persisted (every present
-                # character heard it). Public speech carries no secret — everyone
-                # present is authorized — so recording it cannot leak. A
-                # PARTIAL-audience audible_speech is skipped on purpose: the
-                # Director sometimes re-narrates a WHISPER with broad "just audible
-                # to those nearby" scope but the secret content inside; the
-                # transient render path redacts that per viewer, but a persisted
-                # record could not, and would leak the secret to non-confidants.
-                # Recorded AFTER the reply loop so this turn's repliers still get
-                # it through perception alone, never doubled into RECENT EVENTS.
+                # Leak guard: the Director sometimes re-narrates a WHISPER with a
+                # broad "just audible to those nearby" scope but the secret
+                # content inside. The transient render path redacts that per
+                # viewer; a persisted shared record cannot, so we SKIP any event
+                # whose content would hand a whisper secret to a listener who is
+                # not that whisper's confidant. A public reveal of Director canon
+                # (a name never whispered) carries no whisper token, so it
+                # persists. Recorded AFTER the reply loop so this turn's repliers
+                # still get it through perception alone, never doubled into
+                # RECENT EVENTS (and after the whisper records exist in history).
                 for event in narrator_raw["perception_events"]:
                     if event.get("event_kind") != "audible_speech":
                         continue
@@ -957,11 +958,22 @@ class Runner:
                         if cid in game.characters and cid != subject
                     }
                     witnesses = {w for w in event.get("witness_ids", []) if w in game.characters}
-                    if not witnesses >= present_others:
-                        continue  # not fully public -> may be a whisper-narration
+                    heard_by = None if witnesses >= present_others else sorted(witnesses)
+                    listeners = present_others if heard_by is None else set(heard_by)
+                    if any(
+                        redact_tokens(
+                            spoken,
+                            hidden_whisper_tokens(
+                                game.history, vid, game.characters, game.scene
+                            ),
+                        )
+                        != spoken
+                        for vid in listeners
+                    ):
+                        continue  # would leak a whisper secret to a non-confidant
                     self._append_history(
                         game, subject, spoken, "speech", step,
-                        audience=None, audience_origin="zone",
+                        audience=heard_by, audience_origin="zone",
                     )
 
                 # Update characters' moods

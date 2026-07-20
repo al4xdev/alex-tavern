@@ -103,27 +103,27 @@ async def test_audible_speech_event_reaches_history(monkeypatch) -> None:  # noq
 
 
 @pytest.mark.asyncio
-async def test_partial_audience_audible_speech_is_not_persisted(monkeypatch) -> None:  # noqa: ANN001
-    """Leak-safety: an audible_speech that only SOME present characters hear is
-    NOT recorded. The Director sometimes re-narrates a whisper with a broad
-    "just audible to those nearby" scope carrying the secret content; persisting
-    that would leak it to non-confidants (the transient path redacts per viewer,
-    a shared record cannot). Only genuinely public reveals persist.
+async def test_whisper_narration_audible_speech_is_not_persisted(monkeypatch) -> None:  # noqa: ANN001
+    """Leak-safety: when the Director re-narrates a WHISPER with a broad scope
+    carrying the secret inside, that audible_speech is NOT persisted — it would
+    hand the secret to a listener outside the whisper. A shared record cannot be
+    redacted per viewer, so the whole event is skipped.
     """
     from src.runner import Runner
 
-    secret = "Le em voz baixa, audivel so aos proximos: 'a Dama do Norte e Glinda.'"
+    secret = "XILVAROK9"  # a distinctive payload token only C2 is told
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        # The Director broadly re-narrates the whisper, secret and all, to C2+C3.
         return {
-            "narration": "Um sussurro corre a sala.",
+            "narration": "Alice murmura algo.",
             "next_speakers": ["Narrator"],
             "perception_events": [
                 {
                     "event_kind": "audible_speech",
                     "subject_id": "C1",
-                    "content": secret,
-                    "witness_ids": ["C2"],  # C3 is present but did NOT hear -> partial
+                    "content": f"Alice murmura, audivel aos proximos: 'o codigo e {secret}'.",
+                    "witness_ids": ["C2", "C3"],  # C3 is NOT a confidant of the whisper
                 }
             ],
             "scene_update": None,
@@ -144,11 +144,20 @@ async def test_partial_audience_audible_speech_is_not_persisted(monkeypatch) -> 
             runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
         )
         try:
-            await runner.player_turn(sid, speech="Falo baixo com Dorothy.")
+            # Turn 1: the player whispers the secret to C2 only (a whisper record).
+            await runner.player_turn(
+                sid, speech=f"So entre nos: o codigo e {secret}.", audience=["C2"]
+            )
+            # Turn 2: the Director broadly re-narrates it -> must be skipped.
+            await runner.player_turn(sid, speech="Prossigo.")
             game = await runner.get_state(sid)
         finally:
             await delete_session(sid)
 
     assert game is not None
-    # The partial-audience reveal must NOT enter history at all (leak-safe).
-    assert not any("Glinda" in r.content for r in game.history)
+    # The whisper record itself keeps the secret (scoped to C2); the Director's
+    # broad re-narration must NOT have created a zone-origin record with it.
+    zone_leaks = [
+        r for r in game.history if r.audience_origin == "zone" and secret in r.content
+    ]
+    assert not zone_leaks
