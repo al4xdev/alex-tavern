@@ -120,6 +120,25 @@ adjudication rule (world-response + return_control, never dictating will).
   function a topic-stagnation input so it injects novelty in BOTH arms.
 - Disconnected-disruption pile-up + procedural-arc weakness -> future roteiro
   work (make disruptions advance the planned arc, not interrupt loosely).
+  **↑ RESSALVA ENDEREÇADA (2026-07-20, autorizada pelo dono) — pela camada 33b,
+  não pelo prompt do roteiro.** Duas frentes testadas via curl:
+  1. **Re-escrever o prompt `stalled` do roteiro pra contrato causal (A/B):**
+     NÃO ganhou. OLD (loose "arrival/bursting in") 5/6 vs NEW (causal) 5/6 em
+     janelas travadas reais, juiz de causalidade cego. FIRE não discrimina (cena
+     em chamas = qualquer disrupção cresce dela, 3/3 nos dois); no SORTEIO
+     (procedural, thread fraco) cada arm errou 1 — OLD com mensageiro-do-nada,
+     NEW com escalada FORÇADA contradizendo a cena ("fumaça já dissipada
+     explode"). Regra pré-registrada exigia NEW>OLD → revertido, não shippado
+     (`plans/artifacts/roteiro-causal-stall-ab/`). Confirma o veredito da task:
+     a fraqueza procedural é arquitetura+variância, não um prompt.
+  2. **Rotear a recuperação de stall pela intervenção causal do watcher (33b
+     peça 3):** ESSA é a resolução. O contrato causal `source_thread→event_now`
+     validou **9/9 grounded** por juiz cego (vs o pile-up desconexo). Entregue e
+     fiado atrás de `watcher_enabled` (ver task 33b). Quando o watcher está
+     ligado, a disrupção de recuperação cresce de um thread aberto (9/9), em vez
+     da disrupção solta do roteiro. A bateria A/B/C já tinha apontado que TODA
+     incoerência do crítico vinha de seeds sem âncora — o contrato causal fecha
+     essa fonte.
 - Re-narrated whole beats (cross-turn event dup) + semantic character echo +
   action_intent repetition -> Task 26.
 - Perspective-ledger init overflow at 20+ present chars (fixed 1024 budget) ->
