@@ -5,11 +5,13 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v16';
+const CACHE = 'rpt-shell-v17';
 const SHELL = [
     '/',
     '/index.html',
     '/style.css',
+    '/fonts/source-serif-4-regular.woff2',
+    '/fonts/source-serif-4-italic.woff2',
     '/api.js',
     '/i18n.js',
     '/runtime-config.js',

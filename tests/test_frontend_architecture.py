@@ -58,7 +58,7 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v16" in service_worker
+    assert "rpt-shell-v17" in service_worker
     assert "'/slash-commands.js'" in service_worker
     assert "'/slash-command-parser.js'" in service_worker
     assert "'/slash-registry.js'" in service_worker

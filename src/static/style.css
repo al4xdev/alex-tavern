@@ -2,6 +2,22 @@
    Alex Tavern — premium dark design system
    ══════════════════════════════════════════════════════════════════════ */
 
+@font-face {
+    font-family: "Source Serif 4";
+    src: url("fonts/source-serif-4-regular.woff2") format("woff2");
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Source Serif 4";
+    src: url("fonts/source-serif-4-italic.woff2") format("woff2");
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+}
+
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -10,9 +26,9 @@
 
 :root {
     /* Surfaces */
-    --bg-0: #08080c;
-    --bg-1: #0f0f16;
-    --bg-2: #16161f;
+    --bg-0: #101017;
+    --bg-1: #161620;
+    --bg-2: #1d1d29;
     --surface: rgba(28, 28, 40, 0.72);
     --surface-solid: #1a1a26;
     --surface-hi: rgba(40, 40, 56, 0.8);
@@ -20,9 +36,9 @@
     --glass-border-hi: rgba(255, 255, 255, 0.14);
 
     /* Text */
-    --text-1: #edecf5;
-    --text-2: #a6a5be;
-    --text-3: #6d6c85;
+    --text-1: #ebe9f1;
+    --text-2: #c8c5d1;
+    --text-3: #9d9aac;
 
     /* Accent — indigo→violet gradient */
     --accent: #7c6cff;
@@ -44,8 +60,12 @@
     --radius: 14px;
     --radius-sm: 9px;
     --radius-lg: 20px;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-             Ubuntu, Cantarell, sans-serif;
+    /* Noto is native to Android and common on Linux; the remaining entries
+       keep the same metrics and clarity on Apple and Windows hosts. */
+    --font-ui: "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+               Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    --font-story: "Source Serif 4", "Noto Serif", Georgia, Cambria, "Times New Roman", serif;
+    --font: var(--font-ui);
     --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
 
     --dur: 0.28s;
@@ -57,7 +77,9 @@ html, body {
     overflow: hidden;
     font-family: var(--font);
     color: var(--text-1);
-    line-height: 1.55;
+    line-height: 1.6;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
     background:
         radial-gradient(1200px 600px at 75% -10%, rgba(124, 108, 255, 0.12), transparent 60%),
         radial-gradient(900px 500px at 10% 110%, rgba(176, 108, 255, 0.10), transparent 55%),
@@ -1083,7 +1105,7 @@ select.text-input { cursor: pointer; }
 /* ══════════════════ App / Game view ══════════════════ */
 .app {
     width: 100%;
-    max-width: 1440px;
+    max-width: 1560px;
     margin: 0 auto;
     padding: 16px;
     padding-top: max(16px, env(safe-area-inset-top));
@@ -1276,21 +1298,21 @@ select.text-input { cursor: pointer; }
 
 /* Message bubbles */
 .msg {
-    padding: 11px 15px;
+    padding: 13px 17px;
     border-radius: var(--radius);
     max-width: 82%;
-    line-height: 1.55;
+    line-height: 1.68;
     animation: msgIn 0.35s var(--ease);
     border: 1px solid var(--glass-border);
     position: relative;
 }
 .msg-narrator {
     background: rgba(255, 255, 255, 0.03);
-    color: var(--text-2);
-    font-style: italic;
+    color: var(--text-1);
+    font-style: normal;
     max-width: 100%;
     text-align: left;
-    font-size: 0.88rem;
+    font-size: 1rem;
     border-color: transparent;
     border-left: 2px solid var(--glass-border-hi);
     border-right: 2px solid var(--glass-border-hi);
@@ -1306,7 +1328,8 @@ select.text-input { cursor: pointer; }
     background: var(--surface);
 }
 .msg-header {
-    font-size: 0.74rem;
+    font-family: var(--font-ui);
+    font-size: 0.78rem;
     font-weight: 700;
     margin-bottom: 5px;
     display: flex;
@@ -1573,8 +1596,15 @@ select.text-input { cursor: pointer; }
     .command-panel:not([hidden]), .command-panel:not([hidden]) .command-sigil { animation: none; }
     .slash-option::after { content: none; }
 }
-.msg-content { font-size: 0.92rem; white-space: pre-wrap; word-break: break-word; }
-.msg-content .thought { font-style: italic; opacity: 0.72; }
+.msg-content {
+    font-family: var(--font-story);
+    font-size: 1rem;
+    line-height: 1.68;
+    letter-spacing: 0.006em;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.msg-content .thought { font-style: italic; opacity: 0.86; }
 .msg-transform-badge {
     margin-left: auto;
     padding: 1px 6px;
@@ -1802,7 +1832,8 @@ select.text-input { cursor: pointer; }
     padding: 11px 13px;
     color: var(--text-1);
     font-family: var(--font);
-    font-size: 0.88rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
     outline: none;
     transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
@@ -2132,10 +2163,10 @@ select.text-input { cursor: pointer; }
 }
 .empty-kicker {
     color: #9386d6;
-    font: 800 0.62rem/1.3 var(--mono);
+    font: 800 0.68rem/1.3 var(--mono);
     letter-spacing: 0.17em;
 }
-.empty-state p { max-width: 30ch; color: var(--text-2); font-size: 0.94rem; }
+.empty-state p { max-width: 34ch; color: var(--text-2); font-size: 1rem; line-height: 1.6; }
 .empty-state.session-ready p { color: var(--text-1); }
 .empty-scroll-cue {
     display: none;
@@ -2391,10 +2422,29 @@ select.text-input { cursor: pointer; }
 }
 .help-article-content h1 { font-size: 1.15rem; margin-bottom: 6px; font-weight: 700; color: var(--accent-2); }
 .help-article-content h2 { font-size: 0.95rem; margin-top: 10px; margin-bottom: 4px; font-weight: 600; color: var(--text-1); }
-.help-article-content p { font-size: 0.84rem; line-height: 1.45; color: var(--text-2); margin-bottom: 6px; }
-.help-article-content ul { padding-left: 18px; margin-bottom: 6px; font-size: 0.84rem; color: var(--text-2); display: flex; flex-direction: column; gap: 4px; }
-.help-article-content li { line-height: 1.4; }
+.help-article-content p { font-size: 0.94rem; line-height: 1.65; color: var(--text-2); margin-bottom: 8px; }
+.help-article-content ul { padding-left: 20px; margin-bottom: 8px; font-size: 0.94rem; color: var(--text-2); display: flex; flex-direction: column; gap: 6px; }
+.help-article-content li { line-height: 1.55; }
 .help-article-content strong { color: var(--text-1); font-weight: 600; }
+
+/* 2K desktop: scale the reading environment with the canvas instead of
+   leaving a 1440px island surrounded by unused space. Line lengths remain
+   bounded by message geometry while type gains one comfortable step. */
+@media (min-width: 2200px) and (min-height: 1200px) {
+    html { font-size: 18px; }
+    .app {
+        max-width: 1760px;
+        padding-inline: 24px;
+        gap: 14px;
+    }
+    .header { padding-bottom: 16px; }
+    .scene-panel { min-height: 48px; max-height: 48px; }
+    .scene-panel.expanded { max-height: 500px; }
+    .chat-log { gap: 13px; padding-block: 12px; }
+    .msg { max-width: min(82%, 78ch); }
+    .msg-narrator { max-width: 92ch; }
+    .input-area { padding-top: 14px; }
+}
 
 /* ══════════════════ Responsive / mobile ══════════════════ */
 @media (max-width: 760px) {
