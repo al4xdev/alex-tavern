@@ -69,6 +69,34 @@ def _record(turn: int, speaker: str, content: str, ctype: str = "speech") -> Tur
     )
 
 
+class TestRoteiroConfidentiality:
+    """33b acceptance: the watcher never sees the roteiro's future secrets, and
+    its output rides the blind narrator_hint channel — scan NONE by construction.
+    """
+
+    def test_watcher_prompts_carry_no_roteiro_surface(self) -> None:
+        import inspect
+
+        from src import watcher
+        from src.models import Roteiro, RoteiroAct
+
+        game = _game()
+        secret = "SPOILER-PREMISE-o-traidor-e-o-mordomo"
+        game.roteiro = Roteiro(
+            premise=secret,
+            acts=[RoteiroAct(act_id="a1", summary="ato secreto", world_event="reviravolta")],
+        )
+        game.history.append(_record(1, "C2", "A porta range.", "narration"))
+        audit = "\n".join(m["content"] for m in watcher.build_delta_audit_messages(game))
+        interv = "\n".join(m["content"] for m in watcher.build_causal_intervention_messages(game))
+        assert secret not in audit and "reviravolta" not in audit
+        assert secret not in interv and "reviravolta" not in interv
+        # the builders take no roteiro parameter at all
+        builders = (watcher.build_delta_audit_messages, watcher.build_causal_intervention_messages)
+        for builder in builders:
+            assert "roteiro" not in str(inspect.signature(builder)).lower()
+
+
 class TestNormalizeCategories:
     def test_keeps_known_in_taxonomy_order(self) -> None:
         # given out of order, returns in DELTA_CATEGORIES order
