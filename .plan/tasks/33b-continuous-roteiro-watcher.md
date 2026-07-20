@@ -173,3 +173,28 @@ relaxa*.
 Peça [1] auditor de delta + [2] ladder (código, consome relógio da 40) +
 [3] intervenção causal Diretor-side; tudo atrás de toggle OFF. E os seeds do
 drive migram pro contrato causal (Decisão B).
+
+### Peça [1] auditor de delta — ✅ ENTREGUE (2026-07-20, madrugada autônoma)
+`src/watcher.py::audit_delta` — call isolada e cega (espelha `drive.py`), sem
+jogar lance. Audita o BLOCO do último turno (narração + fala/ação de cada
+personagem daquele `turn_number`) contra o contexto anterior e devolve os
+deltas materiais GENUINAMENTE NOVOS. Taxonomia congelada de 8 categorias;
+`moved = categories and != ("none",)` é o único bit que a ladder consome.
+
+**Curl-first (AGENTS §6), 2 janelas reais de produção, 4 rodadas/turno, gate
+bidirecional pré-registrado — passou SHIP:**
+- imobilidade sinalizada: sorteio T7 (re-narração da explosão) none 4/4;
+  T8 (rescaldo, descrição) none 4/4.
+- evento real capturado: fogo T5 (ignição) moved 4/4; T9 (viga desaba e bloqueia
+  a saída) moved 4/4. Prova cruzada: fogo T9 divide vocabulário de fogo/faísca
+  com os turnos imóveis do sorteio e ainda assim é `moved` — âncora lexical não
+  separa, o auditor de delta material separa.
+- 1 iteração de prompt: v1 solta errava os 3 (perdia evento real, perdia
+  repetição, contava descrição pura); v2 com NOVELTY GATE + `information_revealed`
+  exigindo mudança de stake acertou tudo. A variante validada É a shippada.
+- turnos ambíguos deixados FORA do gate (report-only): sorteio T6 (explosão pós
+  lâmpada-já-falhando + contagem = ~50/50 entre culminação-prevista e escalada
+  nova) e T3 (mensageiro só CHEGA em T3; revelação "antecipado" cai em T4).
+- artefato: `plans/artifacts/watcher-delta-audit/` (VALIDATION.md + harness +
+  raw). 9 testes unitários offline em `tests/test_watcher.py`. NÃO fiado no
+  runner ainda (toggle/wiring é a peça de integração, depois de [2]/[3]).
