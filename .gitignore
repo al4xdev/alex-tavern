@@ -9,4 +9,6 @@ plans/
 .deepcode/
 unsloth_compiled_cache/
 output/
+output29/
+scratchpad/
 z_image_universal.log
