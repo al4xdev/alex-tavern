@@ -1,5 +1,12 @@
 # Task 26 — Narrator Prose Quality and Staging Continuity
 
+> **Status (2026-07-20): ABERTA — lane acumuladora, não fechável hoje.** Boa
+> parte dissolveu na 36. Dominante atual: paráfrase semântica abaixo da barra
+> (medição offline 2026-07-19: retry-guard fuzzy >0.85 não ganha nada; banda
+> 0.7–0.8 ≈ 9% das sentenças). Mitigação teria que ser SEMÂNTICA (estilo
+> delta-material da 33b, agora construído) ou prompt. Sem trabalho acionável
+> confiável fechado.
+
 ## Goal
 
 Remove the reader-visible style defects that make long sessions feel mechanical:

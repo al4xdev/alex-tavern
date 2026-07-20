@@ -1,5 +1,10 @@
 # Task 26b — Re-descrição de ambiência: ataque via PROMPT (experimental)
 
+> **Status: ⏸️ PARQUEADA — resultado NEGATIVO (documentado no artigo No. 13).**
+> 24 calls, 3 variantes em 2 iterações: TODAS pioraram a banda (16.4%→21-23%) —
+> a linha sobre cenário vira ímã de atenção. Ataque via prompt fechado como
+> beco. Direção futura: nível dos eventos (delta-material da 33b), não prompt.
+
 **Origem:** decisão do dono (2026-07-19): "via prompt, se não der fallback
 pra tentarmos parquear". Task experimental, filha da lane 26.
 
