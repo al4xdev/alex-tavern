@@ -115,14 +115,36 @@
                                 <p class="compaction-control-intro" data-i18n="engine.burstBeatsIntro">When you continue without acting, the world can play several beats on its own before control returns to you.</p>
                             </div>
                         </div>
-                        <div class="compaction-threshold">
+                        <div class="compaction-threshold" id="burst-beats-threshold">
                             <div class="compaction-threshold-head">
                                 <label for="runtime-burst-max-beats" data-i18n="engine.burstBeatsLabel">Maximum beats per continuation</label>
+                                <output id="burst-beats-value" for="runtime-burst-max-beats"></output>
                             </div>
-                            <input id="runtime-burst-max-beats" type="number" min="1" max="24" step="1"
+                            <input id="runtime-burst-max-beats" type="range" min="1" max="10" step="1"
                                 aria-describedby="burst-beats-explanation">
-                            <p id="burst-beats-explanation" class="compaction-threshold-explanation" data-i18n="engine.burstBeatsHint">This is a maximum. The story stops earlier when you're needed or the scene settles.</p>
+                            <div class="compaction-threshold-scale" aria-hidden="true">
+                                <span data-i18n="engine.burstBeatsShort">Shorter</span>
+                                <span data-i18n="engine.burstBeatsLong">Longer</span>
+                            </div>
+                            <p id="burst-beats-explanation" class="compaction-threshold-explanation"></p>
                         </div>
+                    </div>
+
+                    <div class="compaction-control" id="roteiro-control">
+                        <div class="compaction-control-head">
+                            <div>
+                                <div class="compaction-control-title" data-i18n="engine.roteiro">Story screenplay</div>
+                                <p class="compaction-control-intro" data-i18n="engine.roteiroIntro">Lets the Director follow a private plan of acts and beats instead of improvising.</p>
+                            </div>
+                        </div>
+                        <label class="toggle compaction-toggle" for="runtime-roteiro-enabled">
+                            <input id="runtime-roteiro-enabled" type="checkbox">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="compaction-toggle-copy">
+                                <strong id="roteiro-state"></strong>
+                                <small data-i18n="engine.roteiroToggleHint">On: the Director steers toward a planned story. Off: it improvises from what is happening now.</small>
+                            </span>
+                        </label>
                     </div>
 
                     <div id="provider-panels"></div>

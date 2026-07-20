@@ -20,6 +20,10 @@ export const RuntimeConfig = (() => {
     const compactionThresholdEl = document.getElementById('compaction-threshold');
     const compactionHelpBtn = document.getElementById('compaction-help-btn');
     const burstMaxBeatsEl = document.getElementById('runtime-burst-max-beats');
+    const burstBeatsValueEl = document.getElementById('burst-beats-value');
+    const burstBeatsExplanationEl = document.getElementById('burst-beats-explanation');
+    const roteiroEnabledEl = document.getElementById('runtime-roteiro-enabled');
+    const roteiroStateEl = document.getElementById('roteiro-state');
 
     let selectedProvider = '';
     let compactionKeepRecentTurns = 8;
@@ -76,6 +80,23 @@ export const RuntimeConfig = (() => {
         return Math.min(24, Math.max(1, beats));
     }
 
+    function burstBand(value) {
+        if (value <= 3) return 'short';
+        if (value <= 7) return 'balanced';
+        return 'long';
+    }
+
+    function refreshBurstControl() {
+        const value = readBurstBeats();
+        const band = burstBand(value);
+        burstBeatsValueEl.textContent = `${value} · ${t(`engine.burstBeatsBand.${band}`)}`;
+        burstBeatsExplanationEl.textContent = t(`engine.burstBeatsExplanation.${band}`);
+    }
+
+    function refreshRoteiroControl() {
+        roteiroStateEl.textContent = t(roteiroEnabledEl.checked ? 'engine.roteiroOn' : 'engine.roteiroOff');
+    }
+
     function refreshCompactionControl() {
         const enabled = autoCompactEl.checked;
         const value = Number.parseInt(autoCompactThresholdEl.value, 10) || 80;
@@ -108,7 +129,10 @@ export const RuntimeConfig = (() => {
         autoCompactEl.checked = config.automatic_compaction_enabled;
         autoCompactThresholdEl.value = config.automatic_compaction_threshold_percent;
         burstMaxBeatsEl.value = config.autonomous_burst_max_beats;
+        roteiroEnabledEl.checked = Boolean(config.roteiro_enabled);
         refreshCompactionControl();
+        refreshBurstControl();
+        refreshRoteiroControl();
         providerAdapters.forEach((adapter) => adapter.populate(config.providers[adapter.id]));
         chooseProvider(config.active_provider);
         setError();
@@ -124,6 +148,7 @@ export const RuntimeConfig = (() => {
                 autoCompactThresholdEl.value, 10
             ),
             autonomous_burst_max_beats: readBurstBeats(),
+            roteiro_enabled: roteiroEnabledEl.checked,
             providers: Object.fromEntries(
                 providerAdapters.map((adapter) => [adapter.id, adapter.read()]),
             ),
@@ -176,10 +201,14 @@ export const RuntimeConfig = (() => {
         saveBtn.addEventListener('click', save);
         autoCompactEl.addEventListener('change', refreshCompactionControl);
         autoCompactThresholdEl.addEventListener('input', refreshCompactionControl);
+        burstMaxBeatsEl.addEventListener('input', refreshBurstControl);
+        roteiroEnabledEl.addEventListener('change', refreshRoteiroControl);
         compactionHelpBtn.addEventListener('click', openCompactionHelp);
         onLocaleChange(() => {
             if (selectedProvider) chooseProvider(selectedProvider);
             refreshCompactionControl();
+            refreshBurstControl();
+            refreshRoteiroControl();
             queueLanguageSync();
         });
         refresh();
