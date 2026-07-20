@@ -84,5 +84,14 @@ Validação final (xfailed3 pós-39, 2 tiers): ZERO violações atribuíveis à
 memória. O único hit (`perspective:memory:C5` com o instrumento) era allowlist
 desatualizado do oráculo: C5 é o CONFIDENTE do sussurro — memória legítima.
 Allowlist corrigido (perspective:memory:C1/C5). As 2 violações reais do run
-(SP-01 intra-turno, WT-09 alias) são de famílias pré-existentes sem relação
-com memória — registradas na linha do relógio no ROADMAP.
+(SP-01 intra-turno, WT-09 alias) são de famílias pré-existentes registradas na
+linha do relógio no ROADMAP.
+
+> **Correção (2026-07-20):** a nota original dizia que WT-09 era "sem relação
+> com memória". Errado — a raiz É de propagação de memória, só que UPSTREAM do
+> digest: a revelação do alias no T20 foi um `audible_speech` do Diretor, e
+> eventos `audible_speech` do Diretor não são persistidos no history, então a
+> memória nunca teve o nome pra reter/revisar. Não é defeito do digest da 39
+> (esse funciona: retém o que recebe); é o record que nunca chegou. Fix é de
+> código (persistir audible_speech), não do prompt de memória. Ver ROADMAP e
+> `tests/test_audible_speech_persistence.py`.
