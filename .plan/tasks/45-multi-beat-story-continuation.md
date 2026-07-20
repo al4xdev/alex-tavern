@@ -1,6 +1,33 @@
 # Task 45 — Continuação automática multi-beat no core
 
-**Status:** 🟡 ABERTA (escopo definido com o dono, 2026-07-20)
+**Status:** 🟡 ABERTA — backend do núcleo ENTREGUE (2026-07-20), frontend + gates de
+navegador/curl pendentes.
+
+## Progresso (2026-07-20)
+
+**Feito (backend, test-locked, commit `694f682`):**
+- `autonomous_burst_max_beats` default 1→6 + limite superior seguro
+  (`MAX_BURST_BEATS=24`, validador `_bounded_integer`). Testes: default 6, valor
+  custom, rejeição de 0/negativo/bool/float/string/acima-do-teto.
+- Roteamento híbrido: exclusão do protagonista nos **2 primeiros beats**
+  (`BURST_PROTAGONIST_EXCLUDE_BEATS=2`), depois elegível. Via
+  `_call_narrator(exclude_controlled=...)` + normalização no código (caminho
+  provado). Teste: sequência `[T,T,F,F]`.
+- Muito do contrato de burst (stop conditions, persistência por beat, undo) já
+  vinha da Task 37 (fechada) e continua verde (suíte 700).
+
+**Pendente:**
+- **Frontend:** campo numérico de beats em Settings (espelho de
+  `compaction_keep_recent_turns` em `runtime-config.js` + markup no `index.html` +
+  i18n PT/EN) e o rename skip→"continuar história". Precisa de verificação
+  Playwright 1080p/2K (boundary de navegador — não dá pra confirmar sem browser).
+- **Gate curl do `next_speakers.description`** (variante Task 46, NÃO enum duro) —
+  ver seção "Gate curl-first do schema".
+- Smoke HTTP real (config→skip→múltiplos beats→motivo de parada) e README.
+
+---
+
+**Status original:** 🟡 ABERTA (escopo definido com o dono, 2026-07-20)
 **Origem:** playtest da sessão `380ea657` e necessidade de deixar o mundo avançar
 por vários beats sem depender continuamente de uma nova ação do protagonista.
 **Fronteira:** implementação no core, sem plugin.
