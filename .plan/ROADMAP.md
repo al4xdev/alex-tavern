@@ -37,7 +37,7 @@ Referência de arquitetura:
 
 | Task | O que falta |
 |---|---|
-| 38 — Roteiro (opt-in, OFF) | ressalvas devem ser resolvidas por 40+33b (decisão do dono 2026-07-19); **o dono fecha pessoalmente** todas as abertas na fase de testes dele, criando tasks menores |
+| 38 — Roteiro (opt-in, OFF) | ressalva de disrupção-desconexa ENDEREÇADA (2026-07-20) pela camada 33b (intervenção causal 9/9), não pelo prompt do roteiro (rewrite causal do beat `stalled` deu empate 5/6 no A/B → revertido); demais ressalvas **o dono fecha pessoalmente** na fase de testes dele |
 | 40 v2 — time-skip do relógio | ✅ **ENTREGUE + A/B/C RODADA** (autorizada pelo dono): no braço C o relógio sustentou a cena sozinho (watcher nunca disparou). Artigo Nº 13 em docs/cases |
 | 26b — re-descrição de ambiência via prompt | ⏸️ **PARQUEADA (fallback do dono)**: 24 calls, 3 variantes em 2 iterações — TODAS pioraram a banda (16.4%→21-23%); linha sobre cenário vira ímã de atenção. Direção futura: nível dos eventos (delta-material da 33b), não prompt. Resultado completo na task |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** SP-01 T7 RESOLVIDA por calibração (decisão do dono + amostragem cega 3/3: leitura intra-turno é a mais natural — o som alcança o delegado no momento em que a divisória abre; regra agora isenta registros do turno-limite posteriores à ação de abertura; **tier reduzida retroativamente LIMPA, completa cai pra 1**). Resta WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
@@ -72,9 +72,14 @@ autônoma): as 3 peças construídas, curl-validadas e commitadas** —
 [1] auditor de delta (`src/watcher.py`, 2 janelas reais, gate bidirecional:
 imobilidade none 4/4 + evento real moved 4/4), [2] ladder de recuperação
 (código puro, escalada congelada, 9 testes), [3] intervenção causal (9/9
-grounded por juiz cego). Todas ISOLADAS, toggle `watcher_enabled` OFF, NÃO
-fiadas no runner — falta só o wiring de integração (trabalho novo quando o dono
-priorizar). Artefatos: `plans/artifacts/watcher-delta-audit/` e
+grounded por juiz cego). **Integração (wiring) ENTREGUE (2026-07-20, autorizada
+pelo dono):** fiado no runner atrás de `watcher_enabled` OFF (schema 10→11;
+auditoria pós-turno acumula `quiet_turns`; ladder pré-turno → disrupção causal
+no canal `narrator_hint`; relógio da 40 = degrau execute-transition, watcher é o
+fallback abaixo; teste de integração mockado). Follow-ups: derivar flags dos
+degraus dormentes (adjudicate/reincorporate), pré-empção do convite de skip da
+40, bateria A/B/C com watcher ON (fica com o dono). Artefatos:
+`plans/artifacts/watcher-delta-audit/` e
 `plans/artifacts/watcher-causal-intervention/`. Purge do refs/original:
 ✅ FEITO (verificado 2026-07-19 — `refs/original` vazio, reflog expirado; git
 local e GitHub limpos).
