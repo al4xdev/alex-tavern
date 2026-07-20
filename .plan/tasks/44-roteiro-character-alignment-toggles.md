@@ -7,6 +7,20 @@ modo capaz de interromper essa direção. Exemplo observado: diante do líquido 
 perto do portal, Cassian pediu o fechamento dos portais. A reação é plausível numa
 simulação, mas pode desmontar o beat que pretende fazer o grupo atravessá-los.
 
+## Progresso (2026-07-20)
+
+**Feito — Toggle 1 (roteiro on/off):** `roteiro_enabled` exposto em Settings
+(`index.html` + `runtime-config.js` populate/collect + i18n PT/EN). Round-trips (o
+bug do reset — collect omitia o campo — some pra ele) e **aplica em runtime sem
+restart** (PUT /config reconstrói o Runner, main.py:709-712). Falta verificação
+Playwright (dono confere no olho).
+
+**Pendente — Toggle 2 (personagens seguem o roteiro):**
+`character_roteiro_alignment_enabled`, condicional ao primeiro, com o AVISO
+permanente. Precisa do mecanismo de alinhamento (contexto dramático derivado →
+Character) e do gate curl "roteiro completo vs direção local derivada". É o grosso
+da task. Ver também a ponte com a Ousadia (43) abaixo.
+
 ## A conclusão afiada (por que o toggle existe) — do dono, 2026-07-20
 
 A simulação ficou boa demais: personagens coerentes viram gente real discutindo
