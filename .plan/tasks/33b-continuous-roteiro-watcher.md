@@ -239,8 +239,30 @@ CEGO por intervenção (nunca sabe que é intervenção do watcher) — SHIP:**
   harness + raw). 3 testes unitários offline (grounded property, contrato no
   prompt, schema). ruff+mypy limpos.
 
-**Status 33b:** as 3 peças construídas e curl-validadas, isoladas, toggle OFF,
-NÃO fiadas no runner. Falta só a INTEGRAÇÃO (wiring): auditor por turno →
-acumula `quiet_turns` → ladder escolhe degrau → deriva flags do estado
-(roteiro/histórico de auditoria/thread) → dispara intervenção no degrau final,
-tudo atrás de `watcher_enabled`. Trabalho novo quando priorizado pelo dono.
+### Integração (wiring) — ✅ ENTREGUE (2026-07-20, autorizada pelo dono)
+Fiado no runner atrás de `watcher_enabled` (OFF por padrão). Schema bump 10→11
+(3 campos novos em `GameState`: `watcher_quiet_turns`,
+`watcher_last_intervention_tick`, `watcher_silence_spent`).
+- **Pós-turno** (`Runner._audit_turn_for_watcher`, antes do `save_game`): 1
+  call de auditoria de delta por turno commitado; `moved` → zera quiet+silence,
+  `none` → quiet++.
+- **Pré-turno** (`Runner._maybe_watcher_recovery`, depois do relógio, mesmo
+  canal `narrator_hint`): monta `LadderContext`, roda o ladder; `allow_silence`
+  gasta a graça de 1 beat (sem hint), `causal_disruption` gera a intervenção
+  (peça 3) e injeta `event_now`, marca refratário (tick) e zera quiet.
+- **Fronteira honesta do wiring:** o relógio da 40 JÁ é o degrau
+  `execute_promised_transition`, então o flag fica False no wiring (o watcher é
+  o fallback ABAIXO dele). `adjudicate_attempt` e `reincorporate_thread` ficam
+  DORMENTES (flags sempre False) até existir a derivação de estado deles —
+  definidos e testados na função pura, nunca disparam ainda. Em **skip nu**, o
+  convite de compressão de tempo da 40 ocupa o canal e o watcher cede; o watcher
+  dispara em turnos de participação e beats de rajada (canal livre). Pré-emptar
+  o convite em skip travado = follow-up (precisa reconciliar com a 40).
+- teste de integração mockado (`tests/test_watcher_integration.py`): stall
+  acumula → graça de silêncio → disrupção causal no canal → refratário
+  suprime; e OFF nunca audita/intervém. Suíte 654 verde; ruff+mypy limpos.
+
+**Status 33b:** 3 peças + integração entregues, toggle OFF. Follow-ups
+documentados: derivar flags de `adjudicate_attempt`/`reincorporate_thread`;
+pré-empção do convite de skip da 40; bateria A/B/C com o watcher LIGADO (fica
+com o dono).

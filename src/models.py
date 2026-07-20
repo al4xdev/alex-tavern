@@ -27,7 +27,7 @@ from typing import Any
 # 10 = identity ledgers treat canonical names explicitly present in a viewer's
 # private sheet as known, preventing established acquaintances from becoming
 # visual strangers.
-SESSION_SCHEMA_VERSION = 10
+SESSION_SCHEMA_VERSION = 11
 
 
 @dataclass
@@ -341,6 +341,15 @@ class GameState:
     # Never regresses - not even on undo (time always moves forward; an undone
     # turn replays at a later tick). Act deadlines are relative to it.
     narrative_tick: int = 0
+    # Roteiro watcher (Task 33b) accumulators — only touched when the watcher is
+    # enabled. ``watcher_quiet_turns`` counts consecutive audited turns whose
+    # material delta was `none` (reset when a turn moves the story);
+    # ``watcher_last_intervention_tick`` anchors the refractory window on the
+    # narrative clock; ``watcher_silence_spent`` records the one-beat silence
+    # grace of the recovery ladder (reset when the scene moves again).
+    watcher_quiet_turns: int = 0
+    watcher_last_intervention_tick: int = -999
+    watcher_silence_spent: bool = False
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -550,5 +559,8 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         turns_since_injected_event=int(data.get("turns_since_injected_event", 0)),
         roteiro=dict_to_roteiro(data["roteiro"]) if data.get("roteiro") else None,
         narrative_tick=int(data.get("narrative_tick", 0)),
+        watcher_quiet_turns=int(data.get("watcher_quiet_turns", 0)),
+        watcher_last_intervention_tick=int(data.get("watcher_last_intervention_tick", -999)),
+        watcher_silence_spent=bool(data.get("watcher_silence_spent", False)),
         schema_version=int(data.get("schema_version", 1)),
     )

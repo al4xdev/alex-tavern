@@ -91,6 +91,14 @@ from src.store.sessions import (
     save_game,
     write_compaction_checkpoint,
 )
+from src.watcher import (
+    RUNG_ALLOW_SILENCE,
+    RUNG_CAUSAL_DISRUPTION,
+    LadderContext,
+    audit_delta,
+    generate_causal_intervention,
+    select_recovery_step,
+)
 
 if TYPE_CHECKING:
     from src.plugins.runtime import PluginRuntime
@@ -620,6 +628,17 @@ class Runner:
                     narrator_hint = clock_event
                     injected_event = True
 
+                # Roteiro watcher (Task 33b): the semantic fallback. When the
+                # delta auditor has seen the scene stand still for several turns
+                # and nothing gentler carried it (the clock above owns promised
+                # transitions), the recovery ladder grows a causal disruption
+                # from a thread already open — same blind narrator_hint channel.
+                if not narrator_hint.strip():
+                    watch_hint = await self._maybe_watcher_recovery(game, step)
+                    if watch_hint:
+                        narrator_hint = watch_hint
+                        injected_event = True
+
                 # Call Narrator — extra_context/extra_schema let plugins add read-only
                 # prompt lines and an optional output key (narrator.context/narrator.schema)
                 # without a provider- or plugin-specific branch here.
@@ -947,6 +966,7 @@ class Runner:
                     if newly_seen:
                         game.roteiro.anchors_seen.extend(newly_seen)
                 game.narrative_tick += 1
+                await self._audit_turn_for_watcher(game, step)
                 game.revision += 1
                 save_game(game)
                 if self.plugins is not None:
@@ -1559,6 +1579,55 @@ class Runner:
             }
 
     # ── Private Methods ───────────────────────────────────────────────────
+
+    async def _audit_turn_for_watcher(self, game: GameState, turn_number: int) -> None:
+        """Accumulate the roteiro watcher's immobility signal (Task 33b, piece 1).
+
+        One blind delta-audit call per committed turn: if the story moved, the
+        quiet counter and the silence grace reset; if it stood still, the quiet
+        counter climbs. No-op unless the watcher is enabled.
+        """
+        if not bool(self.config.get("watcher_enabled", False)):
+            return
+        audit = await audit_delta(self.client, game, self.config, turn_number)
+        if audit.moved:
+            game.watcher_quiet_turns = 0
+            game.watcher_silence_spent = False
+        else:
+            game.watcher_quiet_turns += 1
+
+    async def _maybe_watcher_recovery(self, game: GameState, turn_number: int) -> str | None:
+        """Run the recovery ladder; return a causal-disruption hint or None.
+
+        The ladder is pure code (piece 2). The clock (Task 40) already owns the
+        `execute_promised_transition` rung, so the wired ladder handles the rungs
+        below it: it tolerates one beat of silence, then grows a causal
+        intervention (piece 3) from an open thread. The `adjudicate_attempt` and
+        `reincorporate_thread` rungs stay dormant until their state derivation
+        exists (they never fire while their flags are False).
+        """
+        if not bool(self.config.get("watcher_enabled", False)):
+            return None
+        ctx = LadderContext(
+            quiet_turns=game.watcher_quiet_turns,
+            turns_since_intervention=game.narrative_tick - game.watcher_last_intervention_tick,
+            silence_spent=game.watcher_silence_spent,
+        )
+        step = select_recovery_step(ctx, self.config)
+        if step.rung == RUNG_ALLOW_SILENCE:
+            game.watcher_silence_spent = True
+            return None
+        if step.rung != RUNG_CAUSAL_DISRUPTION:
+            return None
+        intervention = await generate_causal_intervention(
+            self.client, game, self.config, turn_number
+        )
+        if not intervention.grounded:
+            return None
+        game.watcher_last_intervention_tick = game.narrative_tick
+        game.watcher_quiet_turns = 0
+        game.watcher_silence_spent = False
+        return intervention.event_now
 
     async def _maintain_roteiro(self, game: GameState, turn_number: int) -> str | None:
         """Compile the roteiro on first need; replan when the code signals say so.
