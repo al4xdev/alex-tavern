@@ -78,6 +78,22 @@ API through provider adapters.
 > - **No public-vs-real persona split for the player character yet** — deliberate bluff/disguise
 >   (presenting power you lack, or hiding what you have) is not a first-class mechanic. Backlog.
 
+> [!NOTE]
+> **Truth or story — the toggle at the heart of the engine.** The better the character simulation
+> gets, the more it *fights* your plot: a coherent agent never splits the party, never opens the
+> door, never crosses the rotten bridge. That is correct behavior, not a bug — real people don't
+> know a screenplay exists, and left alone they argue about nothing while the story stalls, even
+> with the Narrator present. So Alex Tavern treats *"should characters serve the drama?"* as an
+> explicit, **warned** choice instead of hiding the railroading. **Free simulation** is true but can
+> be dull; the **directed** mode licenses the dramatically productive "bad" choice a real person
+> would refuse. The honest mechanism is disposition, not puppetry — alignment pushes what a
+> character *feels* (bolder, warier), it never dictates what they *do*, so the agency lock always
+> holds. Whoever wants something real has it available; the cost is a quieter story. (The two
+> toggles — roteiro on/off and character alignment on/off — are
+> [planned work](.plan/tasks/44-roteiro-character-alignment-toggles.md); the disposition substrate
+> they ride on is
+> [documented here](docs/cases/15-character-disposition-substrate-2026-07-20.md).)
+
 <place_1:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
 ---
