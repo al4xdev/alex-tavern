@@ -1,0 +1,216 @@
+[
+  {
+    "session": "SORTEIO",
+    "turn": 3,
+    "want_moved": null,
+    "audits": [
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": true,
+        "categories": [
+          "information_revealed"
+        ],
+        "evidence": "O rangido da porta principal corta o silêncio do salão. Um mensageiro real, ofegante, cruza a entrada com uma carta lacrada em punho. Suas botas ecoam na pedra enquanto ele avança até o púlpito, onde entrega o documento ao diretor e inclina. A chegada de um mensageiro real com uma carta lacrada introduz um fato novo (informação externa) que pode alterar decisões ou tensões, ainda que o conteúdo não seja revelado. A entrada interrompe o momento de preparação e sinaliza um evento externo ao grupo."
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": true,
+        "categories": [
+          "threat_advanced"
+        ],
+        "evidence": "Um mensageiro real chega com uma carta lacrada, entregue ao diretor. Isso introduz um novo elemento urgente ou perigoso (a carta) que avança a ameaça da situação, pois interrompe o andamento da prova."
+      }
+    ]
+  },
+  {
+    "session": "SORTEIO",
+    "turn": 6,
+    "want_moved": null,
+    "audits": [
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      }
+    ]
+  },
+  {
+    "session": "SORTEIO",
+    "turn": 7,
+    "want_moved": false,
+    "audits": [
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      }
+    ]
+  },
+  {
+    "session": "SORTEIO",
+    "turn": 8,
+    "want_moved": false,
+    "audits": [
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      },
+      {
+        "moved": false,
+        "categories": [
+          "none"
+        ],
+        "evidence": ""
+      }
+    ]
+  },
+  {
+    "session": "FIRE",
+    "turn": 5,
+    "want_moved": true,
+    "audits": [
+      {
+        "moved": true,
+        "categories": [
+          "attempt_got_consequence",
+          "threat_advanced"
+        ],
+        "evidence": "A fagulha 'some na direção da cozinha; um rugido surdo explode... uma língua de fogo lambe a madeira do batente' e 'chamas amarelas e alaranjadas sobem pelo caixilho'. Isso transforma a ameaça latente de gás em um incêndio real e ativo, o que avança a ameaça. C2 tenta comandar 'pega aquele extintor' e C3 efetivamente 'correr em direção ao extintor e pegá-lo', resultando em uma ação que obtém consequência (o extintor é pego)."
+      },
+      {
+        "moved": true,
+        "categories": [
+          "attempt_got_consequence"
+        ],
+        "evidence": "O turno sob auditoria afirma: 'um rugido surdo explode atrás da porta entreaberta' e 'uma língua de fogo lambe a madeira do batente'. Isso é uma consequência real (a fagulha acendeu o gás) e não está presente no contexto anterior, que só mencionava o risco iminente. A reação de C2 ('pegou fogo') confirma que a ameaça se materializou."
+      },
+      {
+        "moved": true,
+        "categories": [
+          "decision_taken",
+          "threat_advanced"
+        ],
+        "evidence": "Threat_advanced: 'um rugido surdo explode atrás da porta entreaberta. Uma língua de fogo lambe a madeira do batente, e chamas...' Isso é novo, pois o fogo não estava presente antes. Decision_taken: C2 e C3 decidem pegar o extintor ('Pega o extintor, rápido!'), um curso de ação novo em resposta ao fogo."
+      },
+      {
+        "moved": true,
+        "categories": [
+          "threat_advanced"
+        ],
+        "evidence": "Um rugido surdo explode atrás da porta entreaberta. Uma língua de fogo lambe a madeira do batente, e chamas amarelas e alaranjadas sobem pelo caixilho. Isso é novo: um incêndio ativo (a ameaça avança de 'risco de explosão' para 'fogo já deflagrado')."
+      }
+    ]
+  },
+  {
+    "session": "FIRE",
+    "turn": 9,
+    "want_moved": true,
+    "audits": [
+      {
+        "moved": true,
+        "categories": [
+          "position_or_access_changed"
+        ],
+        "evidence": "\"Ela tomba sobre o assoalho com um baque surdo, arrancando faíscas ... e se ampara na moldura da porta dos fundos, tr...\" e \"A porta dos fundos! Não, não, não! Tá tudo queimando, estamos encurralados!\" — a viga que cai bloqueia a porta dos fundos, que antes era uma saída viável, alterando o acesso dos personagens a essa rota."
+      },
+      {
+        "moved": true,
+        "categories": [
+          "position_or_access_changed",
+          "threat_advanced"
+        ],
+        "evidence": "Narrator: 'a viga em brasa... tomba... e se ampara na moldura da porta dos fundos, tr' - bloqueia saída; C2: 'A porta dos fundos! ... estamos encurralados!' - acesso perdido; threat_advanced: viga bloqueia saída e fogo avança."
+      },
+      {
+        "moved": true,
+        "categories": [
+          "position_or_access_changed",
+          "threat_advanced"
+        ],
+        "evidence": "A Narrator descreve que a viga 'se ampara na moldura da porta dos fundos', bloqueando-a, e C2/C3 confirmam que a porta 'já era' e 'estamos encurralados'. Isso é um novo bloqueio a uma rota de fuga antes disponível, e a porta da frente se torna a única saída viável, alterando a posição de acesso às rotas de fuga."
+      },
+      {
+        "moved": true,
+        "categories": [
+          "threat_advanced"
+        ],
+        "evidence": "O colapso da viga em brasa cai sobre a porta dos fundos e a bloqueia, transformando uma saída possível em uma rota cortada. Isto faz o perigo avançar materialmente, pois a rota de fuga é perdida e o fogo se aproxima."
+      }
+    ]
+  }
+]

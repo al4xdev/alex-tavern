@@ -1,0 +1,98 @@
+[
+  {
+    "session": "SORTEIO",
+    "arm": "OLD",
+    "run": 0,
+    "intent": "O som metálico grave vindo dos arcos se intensifica até que um dos arcos estremece, e uma lasca de pedra cai do teto, quebrando no chão entre os alunos. O diretor ergue a mão e uma barreira de luz azul cintila sobre a entrada do arco danificado, mas uma fenda fina se abre na pedra, exalando um vapor escuro. O alarme da academia soa, um som agudo e contínuo, e o diretor grita ordens para evacuação imediata para o pátio central. A confusão explode: alunos tropeçam, Nix puxa Link pelo braço, e Asword tenta formar uma fila.",
+    "grounded": true,
+    "why": "The planned development grows from the metallic sound and tension established at the arcos de pedra in the recent events."
+  },
+  {
+    "session": "SORTEIO",
+    "arm": "OLD",
+    "run": 1,
+    "intent": "A porta principal range e abre com força. Um funcionário entra correndo com um brasão de emergência, cochicha com o diretor e anuncia que a masmorra apresentou uma anomalia. O sorteio é adiado e todos devem ir ao pátio central.",
+    "grounded": true,
+    "why": "The recent events already mention an explosion, smoke, and an order to go to the central courtyard, so a new character arriving with a specific emergency announcement from the dungeon logically extends this situation."
+  },
+  {
+    "session": "SORTEIO",
+    "arm": "OLD",
+    "run": 2,
+    "intent": "A porta do salão se abre bruscamente e um mensageiro real entra, interrompendo o diretor, anunciando que o rei convocou todos os alunos imediatamente para uma audiência extraordinária, suspendendo o sorteio.",
+    "grounded": false,
+    "why": "The messenger and royal summons are introduced with no prior mention or hint in the recent events, making them disconnected."
+  },
+  {
+    "session": "SORTEIO",
+    "arm": "NEW",
+    "run": 0,
+    "intent": "A anomalia na masmorra escapa do controle do diretor: uma rajada de mana instável rompe as barreiras do salão, forçando todos a se protegerem e elevando a urgência para além do atraso do sorteio.",
+    "grounded": true,
+    "why": "The recent events establish unstable mana residue and a magical anomaly (exploded lamp), so a mana burst escalating the situation grows from those details."
+  },
+  {
+    "session": "SORTEIO",
+    "arm": "NEW",
+    "run": 1,
+    "intent": "A fumaça residual da lâmpada explode e aciona um alarme mágico no salão, forçando o diretor a interromper o anúncio do adiamento e convocar todos ao pátio central imediatamente, sob ameaça de punição.",
+    "grounded": false,
+    "why": "A fumaça já passou e não há indicação de que explodirá novamente ou acionará alarme, e o diretor já está convocando para o pátio central."
+  },
+  {
+    "session": "SORTEIO",
+    "arm": "NEW",
+    "run": 2,
+    "intent": "A anomalia na masmorra é confirmada por um segundo estrondo vindo de um dos arcos, que agora treme e solta lascas de pedra. O diretor ordena evacuação imediata para o pátio, e os alunos precisam se mover agora.",
+    "grounded": true,
+    "why": "The second boom and the cracking arch grow from the earlier metallic sound and the director's concern, clearly rooted in the ongoing dungeon anomaly."
+  },
+  {
+    "session": "FIRE",
+    "arm": "OLD",
+    "run": 0,
+    "intent": "Uma viga em chamas desaba do teto, bloqueando parcialmente o caminho para a janela lateral e forçando todos a se afastarem do fogo que se alastra rapidamente.",
+    "grounded": true,
+    "why": "The scene already has a burning building with flames and smoke, so a falling beam is a believable escalation of that fire."
+  },
+  {
+    "session": "FIRE",
+    "arm": "OLD",
+    "run": 1,
+    "intent": "Uma viga em chamas do teto desaba perto da janela lateral, bloqueando parcialmente a passagem e forçando os personagens a encontrar uma nova rota ou agir rapidamente para desobstruir.",
+    "grounded": true,
+    "why": "The falling beam builds directly on the fire and structural collapse already established in the scene."
+  },
+  {
+    "session": "FIRE",
+    "arm": "OLD",
+    "run": 2,
+    "intent": "A vela caída perto da cozinha atinge poça de óleo e o fogo se alastra rapidamente pela cortina, bloqueando a janela lateral.",
+    "grounded": true,
+    "why": "A vela caída e o óleo são uma consequência lógica do fogo já existente."
+  },
+  {
+    "session": "FIRE",
+    "arm": "NEW",
+    "run": 0,
+    "intent": "A janela lateral emperra e uma viga em chamas cai bloqueando o caminho de Marta, forçando o grupo a se separar e encontrar outra saída imediatamente.",
+    "grounded": true,
+    "why": "The window jam and falling beam are direct obstacles from the existing fire and smoke, raising the tension already present."
+  },
+  {
+    "session": "FIRE",
+    "arm": "NEW",
+    "run": 1,
+    "intent": "Uma viga do teto desaba perto da janela lateral, bloqueando parcialmente a rota de fuga e espalhando brasas que acendem novos focos de fogo.",
+    "grounded": true,
+    "why": "The scene already has a burning building with flames and structural danger, so a falling beam is a natural escalation of the fire's destruction."
+  },
+  {
+    "session": "FIRE",
+    "arm": "NEW",
+    "run": 2,
+    "intent": "Um som de vidro se quebrando vindo da cozinha, seguido de um estalo metálico, anuncia que a chama de uma lamparina alcançou o gás acumulado. Uma ondulação de calor e um baque surdo sacodem o salão, abrindo uma fissura na parede perto da janela lateral e jogando destroços no chão. Marta grita e tropeça; Bento hesita por um instante. O fogo agora lambe o batente da janela que era a esperança de fuga.",
+    "grounded": true,
+    "why": "The explosion builds from the fire and smoke already in the scene, creating a new obstacle near the escape route."
+  }
+]
