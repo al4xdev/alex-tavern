@@ -198,3 +198,21 @@ bidirecional pré-registrado — passou SHIP:**
 - artefato: `plans/artifacts/watcher-delta-audit/` (VALIDATION.md + harness +
   raw). 9 testes unitários offline em `tests/test_watcher.py`. NÃO fiado no
   runner ainda (toggle/wiring é a peça de integração, depois de [2]/[3]).
+
+### Peça [2] ladder de recuperação — ✅ ENTREGUE (2026-07-20, madrugada autônoma)
+`src/watcher.py::select_recovery_step` — núcleo de decisão 100% código,
+determinístico, sem falar com a LLM. Consome o sinal da peça [1]
+(`moved is False` acumulado em `quiet_turns`) contra o relógio da 40 e escolhe
+o degrau de recuperação. Ordem congelada, mais gentil primeiro:
+`execute_promised_transition → adjudicate_attempt → allow_silence →
+reincorporate_thread → causal_disruption`. Dois portões antes da escalada:
+limiar de quiet (default 2 — um turno quieto é lull, não stall) e refratário
+(default 3, casa com o `refractory_turns=3` validado no contrato causal). O
+`allow_silence` é uma graça de UM beat antes de reincorporar/disromper
+(cobertura de atores representativa). `RecoveryStep.intervenes` é False para
+`none`/`allow_silence`. Toggle `watcher_enabled` OFF por padrão (é camada de
+fallback — a bateria A/B/C mostrou relógio+causal segurando a cena sem o
+watcher disparar). Entrada explícita (`LadderContext`): a derivação dos flags a
+partir do estado (roteiro→transição pronta; histórico de auditoria→tentativa
+pendente; extrator causal→thread aberto) é a peça de integração, depois de [3].
+9 testes unitários exaustivos (portões + escalada). ruff+mypy limpos.

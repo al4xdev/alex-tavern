@@ -1,17 +1,23 @@
-"""Roteiro watcher, piece 1 (Task 33b): the per-turn delta auditor.
+"""Roteiro watcher (Task 33b): delta auditor (piece 1) + recovery ladder (piece 2).
 
 A stalled scene is not a scene where nothing is *said* — the characters keep
 talking — it is one where nothing materially *changes*: no decision is taken,
 no information is revealed, no position shifts, no attempt earns a consequence.
 Lexical anchors (task 23) miss this: the words move, the story does not.
 
-This module isolates ONE structured LLM call that reads the most recent
-narrating turn against the scene that preceded it and reports which material
-deltas — if any — that turn realized. An empty verdict (or the explicit
-``none``) is the signal of semantic immobility that the recovery ladder
-(piece 2) consumes against the task-40 narrative clock. Like ``drive.py`` it
-is a blind, isolated auditor: it never plays a move and never sees which arm
-produced the turn.
+Piece 1 (LLM) isolates ONE structured call that reads the most recent narrating
+turn against the scene that preceded it and reports which material deltas — if
+any — that turn realized. An empty verdict (or the explicit ``none``) is the
+signal of semantic immobility. Like ``drive.py`` it is a blind, isolated
+auditor: it never plays a move and never sees which arm produced the turn.
+
+Piece 2 (pure code) is the recovery ladder that CONSUMES that signal against
+the task-40 narrative clock. As immobility persists it climbs a fixed
+escalation — execute a promised transition, adjudicate a dangling attempt,
+allow one beat of silence, reincorporate an open thread, and only THEN disrupt
+with a causal intervention (piece 3). The ladder never talks to the model: it
+decides which recovery *kind* to take, deterministically, from an explicit
+context. Toggle OFF by default.
 """
 
 from __future__ import annotations
@@ -183,3 +189,107 @@ async def audit_delta(
         categories=_normalize_categories(result.get("categories")),
         evidence=str(result.get("evidence", "")).strip(),
     )
+
+
+# --------------------------------------------------------------------------
+# Piece 2: the recovery ladder (pure code, consumes the piece-1 signal).
+# --------------------------------------------------------------------------
+
+WATCHER_DEFAULTS = {
+    # OFF by default: the watcher is a fallback layer. The A/B/C battery showed
+    # the task-40 clock + causal seeds can carry a scene with the watcher never
+    # firing; it exists for when they do not.
+    "watcher_enabled": False,
+    # Escalate only after this many consecutive immobile audited turns. One
+    # quiet turn is a lull, not a stall.
+    "watcher_quiet_threshold": 2,
+    # After any intervention, suppress the ladder this many turns so the last
+    # push has room to land (matches the causal contract's validated
+    # refractory_turns=3).
+    "watcher_refractory_turns": 3,
+}
+
+# The recovery ladder, gentlest first (design freeze, 2026-07-19). Disruption
+# is the LAST resort — every rung above it reuses material already in play.
+RUNG_NONE = "none"
+RUNG_EXECUTE_TRANSITION = "execute_promised_transition"
+RUNG_ADJUDICATE_ATTEMPT = "adjudicate_attempt"
+RUNG_ALLOW_SILENCE = "allow_silence"
+RUNG_REINCORPORATE_THREAD = "reincorporate_thread"
+RUNG_CAUSAL_DISRUPTION = "causal_disruption"
+
+RECOVERY_LADDER: tuple[str, ...] = (
+    RUNG_EXECUTE_TRANSITION,
+    RUNG_ADJUDICATE_ATTEMPT,
+    RUNG_ALLOW_SILENCE,
+    RUNG_REINCORPORATE_THREAD,
+    RUNG_CAUSAL_DISRUPTION,
+)
+
+
+@dataclass(frozen=True)
+class LadderContext:
+    """Everything the ladder needs, made explicit so the decision is pure.
+
+    The runner derives these from state at integration time: ``quiet_turns``
+    accumulates from piece-1's ``moved is False`` verdicts; the availability
+    flags come from the roteiro (a promised ``world_event``), the audit history
+    (a dangling attempt), and the causal extractor (a citable open thread).
+    """
+
+    quiet_turns: int
+    turns_since_intervention: int
+    promised_transition_ready: bool = False
+    unadjudicated_attempt: bool = False
+    open_thread: bool = False
+    # Whether the one-beat silence grace was already spent in THIS stall.
+    silence_spent: bool = False
+
+
+@dataclass(frozen=True)
+class RecoveryStep:
+    rung: str
+    reason: str
+
+    @property
+    def intervenes(self) -> bool:
+        """Whether this rung actually acts (allow_silence and none do not)."""
+        return self.rung not in (RUNG_NONE, RUNG_ALLOW_SILENCE)
+
+
+def select_recovery_step(ctx: LadderContext, config: dict) -> RecoveryStep:
+    """Pick the recovery rung for the current immobility, deterministically.
+
+    Two gates precede the climb: the scene must have been immobile past the
+    quiet threshold, and any prior intervention must be out of its refractory
+    window. Then the gentlest applicable rung wins, in frozen order, so a
+    causal disruption only fires once every reuse of existing material — a
+    promised transition, a dangling attempt, a tolerated beat of silence, an
+    open thread to reincorporate — has been exhausted.
+    """
+    if not bool(config.get("watcher_enabled", WATCHER_DEFAULTS["watcher_enabled"])):
+        return RecoveryStep(RUNG_NONE, "disabled")
+
+    threshold = int(
+        config.get("watcher_quiet_threshold", WATCHER_DEFAULTS["watcher_quiet_threshold"])
+    )
+    if ctx.quiet_turns < threshold:
+        return RecoveryStep(RUNG_NONE, f"scene moving (quiet {ctx.quiet_turns} < {threshold})")
+
+    refractory = int(
+        config.get("watcher_refractory_turns", WATCHER_DEFAULTS["watcher_refractory_turns"])
+    )
+    if ctx.turns_since_intervention < refractory:
+        return RecoveryStep(
+            RUNG_NONE, f"refractory ({ctx.turns_since_intervention} < {refractory})"
+        )
+
+    if ctx.promised_transition_ready:
+        return RecoveryStep(RUNG_EXECUTE_TRANSITION, "a promised act transition is ready")
+    if ctx.unadjudicated_attempt:
+        return RecoveryStep(RUNG_ADJUDICATE_ATTEMPT, "a recent attempt earned no consequence")
+    if not ctx.silence_spent:
+        return RecoveryStep(RUNG_ALLOW_SILENCE, "tolerate one beat of silence before disrupting")
+    if ctx.open_thread:
+        return RecoveryStep(RUNG_REINCORPORATE_THREAD, "an open thread can be reincorporated")
+    return RecoveryStep(RUNG_CAUSAL_DISRUPTION, "no gentler recovery remains")

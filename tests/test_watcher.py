@@ -14,11 +14,21 @@ from src.models import (
 )
 from src.watcher import (
     DELTA_CATEGORIES,
+    RUNG_ADJUDICATE_ATTEMPT,
+    RUNG_ALLOW_SILENCE,
+    RUNG_CAUSAL_DISRUPTION,
+    RUNG_EXECUTE_TRANSITION,
+    RUNG_NONE,
+    RUNG_REINCORPORATE_THREAD,
     DeltaAudit,
+    LadderContext,
     _normalize_categories,
     build_delta_audit_messages,
     build_delta_audit_schema,
+    select_recovery_step,
 )
+
+ON = {"watcher_enabled": True}
 
 
 def _char(name: str) -> Character:
@@ -109,3 +119,81 @@ class TestAuditPromptShape:
         enum = schema["schema"]["properties"]["categories"]["items"]["enum"]
         assert tuple(enum) == DELTA_CATEGORIES
         assert schema["schema"]["required"] == ["categories", "evidence"]
+
+
+def _ctx(**over) -> LadderContext:  # noqa: ANN003
+    base = {
+        "quiet_turns": 5,
+        "turns_since_intervention": 99,
+        "promised_transition_ready": False,
+        "unadjudicated_attempt": False,
+        "open_thread": False,
+        "silence_spent": False,
+    }
+    base.update(over)
+    return LadderContext(**base)  # type: ignore[arg-type]
+
+
+class TestRecoveryLadderGates:
+    def test_disabled_never_intervenes(self) -> None:
+        # even a long stall with a disruption-worthy context yields nothing
+        step = select_recovery_step(_ctx(silence_spent=True), {"watcher_enabled": False})
+        assert step.rung == RUNG_NONE
+        assert step.intervenes is False
+
+    def test_below_quiet_threshold_holds(self) -> None:
+        step = select_recovery_step(_ctx(quiet_turns=1), ON)
+        assert step.rung == RUNG_NONE
+        assert "moving" in step.reason
+
+    def test_refractory_window_suppresses(self) -> None:
+        step = select_recovery_step(
+            _ctx(turns_since_intervention=1, silence_spent=True, open_thread=True), ON
+        )
+        assert step.rung == RUNG_NONE
+        assert "refractory" in step.reason
+
+    def test_custom_threshold_and_refractory(self) -> None:
+        cfg = {"watcher_enabled": True, "watcher_quiet_threshold": 4, "watcher_refractory_turns": 6}
+        assert select_recovery_step(_ctx(quiet_turns=3), cfg).rung == RUNG_NONE
+        assert select_recovery_step(
+            _ctx(quiet_turns=4, turns_since_intervention=5, silence_spent=True), cfg
+        ).rung == RUNG_NONE  # still inside the wider refractory
+
+
+class TestRecoveryLadderClimb:
+    def test_promised_transition_is_gentlest(self) -> None:
+        # every rung's precondition is available; the gentlest wins
+        step = select_recovery_step(
+            _ctx(
+                promised_transition_ready=True,
+                unadjudicated_attempt=True,
+                open_thread=True,
+                silence_spent=True,
+            ),
+            ON,
+        )
+        assert step.rung == RUNG_EXECUTE_TRANSITION
+        assert step.intervenes is True
+
+    def test_adjudicate_when_no_transition(self) -> None:
+        step = select_recovery_step(
+            _ctx(unadjudicated_attempt=True, open_thread=True, silence_spent=True), ON
+        )
+        assert step.rung == RUNG_ADJUDICATE_ATTEMPT
+
+    def test_silence_grace_precedes_reincorporate_and_disruption(self) -> None:
+        # nothing gentle available and the grace is unspent -> tolerate silence
+        step = select_recovery_step(_ctx(open_thread=True, silence_spent=False), ON)
+        assert step.rung == RUNG_ALLOW_SILENCE
+        assert step.intervenes is False  # silence is a held beat, not an action
+
+    def test_reincorporate_after_silence_spent(self) -> None:
+        step = select_recovery_step(_ctx(open_thread=True, silence_spent=True), ON)
+        assert step.rung == RUNG_REINCORPORATE_THREAD
+
+    def test_disruption_is_last_resort(self) -> None:
+        step = select_recovery_step(_ctx(open_thread=False, silence_spent=True), ON)
+        assert step.rung == RUNG_CAUSAL_DISRUPTION
+        assert "no gentler recovery" in step.reason
+        assert step.intervenes is True
