@@ -58,6 +58,26 @@ API through provider adapters.
 > Python/browser process and may replace core behavior. Curated means full-source review; installing
 > anything else accepts its full risk.
 
+> [!WARNING]
+> **Known behavioral limitations (measured, not hidden).** The *structural* guarantees above hold;
+> *narrative quality* over long horizons is measured honestly and has real limits — the same
+> blind-critic, curl-first method that built the engine also documents where it falls short:
+> - **Long-horizon canon consistency is variance-bound, not guaranteed.** A 24-turn counter-canon
+>   stress test slips on ~1 single-turn canon family per run (origin refusal, alias recall,
+>   promise-through-compaction, …); it is one-turn model noise spread across many independent
+>   families, not a single fixable bug, so "clean every run" is a distribution, not a gate. See
+>   [case No. 14](docs/cases/14-audible-speech-persistence-wt09-2026-07-20.md).
+> - **The opt-in roteiro is scene-dependent.** It reliably improves narrative drive in tight action
+>   scenes but is roughly a coin-flip on large procedural/ceremony scenes. OFF by default. See
+>   [case No. 11](docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md).
+> - **Narrator prose can still paraphrase-echo below the dedup guard** (~9% of sentences in a static
+>   scene are re-descriptions the exact-match guard does not catch; a purely semantic mitigation is
+>   open work).
+> - **NPCs can dominate a scene opening.** Assertive characters may pull the first beats toward their
+>   own conflict before the player re-asserts.
+> - **No public-vs-real persona split for the player character yet** — deliberate bluff/disguise
+>   (presenting power you lack, or hiding what you have) is not a first-class mechanic. Backlog.
+
 <place_1:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
 ---
