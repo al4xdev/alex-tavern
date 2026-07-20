@@ -31,13 +31,13 @@ Referência de arquitetura:
 | 42 | Narrador fala pouco (emergencial) | puro curl em payloads reais: piso de 1 linha no FIM do PROSE_SYSTEM; mediana 118→1247 / 271→568 chars, 3/3 em 2 cenas; piso, nunca cap |
 | 29.2 | Estado subjetivo (supertask) | concluída pelos incrementos: inc.1/inc.2 + Tasks 35, 36, 39, 41 (todas fechadas); medição continua no relógio 29.3 |
 | 27 | SDK isolado + pipeline de curadoria (exploração) | topologia ACEITA pelo dono (2026-07-19); implementação vira trabalho novo quando priorizado |
+| 19 | Security hardening (fronteira de origem + alvos de provider) | token por-servidor + guarda de origem em toda mutação; política de `api_base` no contrato do adapter (deepseek HTTPS/host fixo; llama_cpp loopback/rede privada); token nunca persistido, rotação em 403. **Smoke tests 3/3 verdes** (desktop/Docker/Android) — outcome 6 fechado pelo dono |
 
 ## 🔶 Em andamento
 
 | Task | O que falta |
 |---|---|
 | 38 — Roteiro (opt-in, OFF) | ressalvas devem ser resolvidas por 40+33b (decisão do dono 2026-07-19); **o dono fecha pessoalmente** todas as abertas na fase de testes dele, criando tasks menores |
-| 19 — Security hardening | falta só o outcome 6 com o dono: roteiro pronto em **`.plan/para-o-dono/19-smoke-tests.md`** (3 ambientes, ~10 min cada); 3/3 verdes → fecho |
 | 40 v2 — time-skip do relógio | ✅ **ENTREGUE + A/B/C RODADA** (autorizada pelo dono): no braço C o relógio sustentou a cena sozinho (watcher nunca disparou). Artigo Nº 13 em docs/cases |
 | 26b — re-descrição de ambiência via prompt | ⏸️ **PARQUEADA (fallback do dono)**: 24 calls, 3 variantes em 2 iterações — TODAS pioraram a banda (16.4%→21-23%); linha sobre cenário vira ímã de atenção. Direção futura: nível dos eventos (delta-material da 33b), não prompt. Resultado completo na task |
 | Relógio de saída do xfail (29.3 §15) | 3 runs completas limpas consecutivas com o oráculo calibrado; run pré-39/41 = 0 violações (primeira XPASS). **Run pós-39/41 (2026-07-19, madrugada): NÃO limpo — relógio segue em 0.** SP-01 T7 RESOLVIDA por calibração (decisão do dono + amostragem cega 3/3: leitura intra-turno é a mais natural — o som alcança o delegado no momento em que a divisória abre; regra agora isenta registros do turno-limite posteriores à ação de abertura; **tier reduzida retroativamente LIMPA, completa cai pra 1**). Resta WT-09 T24 (família conhecida: confabulação de alias — C2 recorda a revelação mas com enquadramento benevolente de cânon familiar, evita "Glinda"). Famílias da 41 (pensamento/segredo): **zero**. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
