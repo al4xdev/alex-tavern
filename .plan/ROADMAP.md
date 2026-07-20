@@ -67,9 +67,17 @@ Pendências que precisam do dono: smoke tests da 19 (roteiro em
 ✅ ACEITO (2026-07-19 noite) — 8/8 decisões fechadas; #4 (confidencialidade)
 resolvida por curl em janela real (mantém só-Diretor; ver
 `.plan/para-o-dono/33b-desenho-watcher.md` e `plans/artifacts/watcher-decision4/`),
-as 2 decisões da bateria = SIM/SIM. Implementação vira trabalho novo quando
-priorizado. Purge do refs/original: ✅ FEITO (verificado 2026-07-19 —
-`refs/original` vazio, reflog expirado; git local e GitHub limpos).
+as 2 decisões da bateria = SIM/SIM. **Implementação 33b (2026-07-20, madrugada
+autônoma): as 3 peças construídas, curl-validadas e commitadas** —
+[1] auditor de delta (`src/watcher.py`, 2 janelas reais, gate bidirecional:
+imobilidade none 4/4 + evento real moved 4/4), [2] ladder de recuperação
+(código puro, escalada congelada, 9 testes), [3] intervenção causal (9/9
+grounded por juiz cego). Todas ISOLADAS, toggle `watcher_enabled` OFF, NÃO
+fiadas no runner — falta só o wiring de integração (trabalho novo quando o dono
+priorizar). Artefatos: `plans/artifacts/watcher-delta-audit/` e
+`plans/artifacts/watcher-causal-intervention/`. Purge do refs/original:
+✅ FEITO (verificado 2026-07-19 — `refs/original` vazio, reflog expirado; git
+local e GitHub limpos).
 
 
 ## 🧺 Lane paralela (independentes)
