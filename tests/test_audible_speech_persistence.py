@@ -66,7 +66,7 @@ async def test_audible_speech_event_reaches_history(monkeypatch) -> None:  # noq
                     "event_kind": "audible_speech",
                     "subject_id": "C1",
                     "content": REVEAL,
-                    "witness_ids": ["C2"],
+                    "witness_ids": ["C2", "C3"],  # every present character hears it -> public
                 }
             ],
             "scene_update": None,
@@ -103,13 +103,16 @@ async def test_audible_speech_event_reaches_history(monkeypatch) -> None:  # noq
 
 
 @pytest.mark.asyncio
-async def test_scoped_audible_speech_stays_scoped_and_is_not_a_whisper_secret(monkeypatch) -> None:  # noqa: ANN001
-    """A reveal only SOME present characters hear must not leak to the others,
-    and must be zone perception (not a whisper secret the guards would redact)."""
-    from src.models import record_visible_to
+async def test_partial_audience_audible_speech_is_not_persisted(monkeypatch) -> None:  # noqa: ANN001
+    """Leak-safety: an audible_speech that only SOME present characters hear is
+    NOT recorded. The Director sometimes re-narrates a whisper with a broad
+    "just audible to those nearby" scope carrying the secret content; persisting
+    that would leak it to non-confidants (the transient path redacts per viewer,
+    a shared record cannot). Only genuinely public reveals persist.
+    """
     from src.runner import Runner
 
-    secret = "Le em voz baixa para C2 apenas: 'a Dama do Norte e Glinda.'"
+    secret = "Le em voz baixa, audivel so aos proximos: 'a Dama do Norte e Glinda.'"
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
         return {
@@ -120,7 +123,7 @@ async def test_scoped_audible_speech_stays_scoped_and_is_not_a_whisper_secret(mo
                     "event_kind": "audible_speech",
                     "subject_id": "C1",
                     "content": secret,
-                    "witness_ids": ["C2"],  # C3 is present but did NOT hear
+                    "witness_ids": ["C2"],  # C3 is present but did NOT hear -> partial
                 }
             ],
             "scene_update": None,
@@ -147,11 +150,5 @@ async def test_scoped_audible_speech_stays_scoped_and_is_not_a_whisper_secret(mo
             await delete_session(sid)
 
     assert game is not None
-    reveal = [r for r in game.history if "Glinda" in r.content]
-    assert reveal
-    rec = reveal[0]
-    assert record_visible_to(rec, "C2")  # the witness heard it
-    assert not record_visible_to(rec, "C3")  # a present non-witness did NOT
-    # It is perception scoping, never a whisper secret (whisper origin would
-    # route it through the secret-protection guards).
-    assert rec.audience_origin == "zone"
+    # The partial-audience reveal must NOT enter history at all (leak-safe).
+    assert not any("Glinda" in r.content for r in game.history)

@@ -925,17 +925,25 @@ class Runner:
                         )
                     character_responses.append({"character_id": speaker, **character_response})
 
-                # Persist the Director's audible_speech events as spoken records
-                # (WT-09 fix). A fact read aloud in the room — a decoded cipher, a
-                # name, a verdict — is a real world event: every witness must be
-                # able to RECALL it on a later turn, not only whoever happened to
-                # reply this turn. Until now these events were rendered to this
-                # turn's repliers and the prose, then discarded, so a witness who
-                # did not speak never got the fact and memory (which reads history)
-                # never had it. Recorded AFTER the reply loop so this turn's
-                # repliers still receive it through their perception context alone,
-                # never doubled into their RECENT EVENTS. These are zone perception
-                # (who could hear), scoped by witness_ids — never a whisper secret.
+                # Persist the Director's PUBLIC audible_speech events as spoken
+                # records (WT-09 fix). A fact read aloud to the whole room — a
+                # decoded cipher, a name, a verdict — is a real world event: every
+                # witness must be able to RECALL it on a later turn, not only
+                # whoever happened to reply this turn. These events were rendered
+                # to this turn's repliers and the prose, then discarded, so a
+                # witness who did not speak never got the fact and memory (which
+                # reads history) never had it.
+                #
+                # ONLY genuinely public events are persisted (every present
+                # character heard it). Public speech carries no secret — everyone
+                # present is authorized — so recording it cannot leak. A
+                # PARTIAL-audience audible_speech is skipped on purpose: the
+                # Director sometimes re-narrates a WHISPER with broad "just audible
+                # to those nearby" scope but the secret content inside; the
+                # transient render path redacts that per viewer, but a persisted
+                # record could not, and would leak the secret to non-confidants.
+                # Recorded AFTER the reply loop so this turn's repliers still get
+                # it through perception alone, never doubled into RECENT EVENTS.
                 for event in narrator_raw["perception_events"]:
                     if event.get("event_kind") != "audible_speech":
                         continue
@@ -949,10 +957,11 @@ class Runner:
                         if cid in game.characters and cid != subject
                     }
                     witnesses = {w for w in event.get("witness_ids", []) if w in game.characters}
-                    heard_by = None if witnesses >= present_others else sorted(witnesses)
+                    if not witnesses >= present_others:
+                        continue  # not fully public -> may be a whisper-narration
                     self._append_history(
                         game, subject, spoken, "speech", step,
-                        audience=heard_by, audience_origin="zone",
+                        audience=None, audience_origin="zone",
                     )
 
                 # Update characters' moods
