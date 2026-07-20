@@ -925,6 +925,36 @@ class Runner:
                         )
                     character_responses.append({"character_id": speaker, **character_response})
 
+                # Persist the Director's audible_speech events as spoken records
+                # (WT-09 fix). A fact read aloud in the room — a decoded cipher, a
+                # name, a verdict — is a real world event: every witness must be
+                # able to RECALL it on a later turn, not only whoever happened to
+                # reply this turn. Until now these events were rendered to this
+                # turn's repliers and the prose, then discarded, so a witness who
+                # did not speak never got the fact and memory (which reads history)
+                # never had it. Recorded AFTER the reply loop so this turn's
+                # repliers still receive it through their perception context alone,
+                # never doubled into their RECENT EVENTS. These are zone perception
+                # (who could hear), scoped by witness_ids — never a whisper secret.
+                for event in narrator_raw["perception_events"]:
+                    if event.get("event_kind") != "audible_speech":
+                        continue
+                    spoken = str(event.get("content", "")).strip()
+                    subject = event.get("subject_id")
+                    if not spoken or subject not in game.characters:
+                        continue
+                    present_others = {
+                        cid
+                        for cid in game.scene.present_characters
+                        if cid in game.characters and cid != subject
+                    }
+                    witnesses = {w for w in event.get("witness_ids", []) if w in game.characters}
+                    heard_by = None if witnesses >= present_others else sorted(witnesses)
+                    self._append_history(
+                        game, subject, spoken, "speech", step,
+                        audience=heard_by, audience_origin="zone",
+                    )
+
                 # Update characters' moods
                 mood_updates = narrator_raw.get("mood_updates")
                 if mood_updates:
@@ -1900,6 +1930,7 @@ class Runner:
         turn_number: int,
         input_transformed: bool = False,
         audience: list[str] | None = None,
+        audience_origin: str | None = None,
     ) -> None:
         """Creates a TurnRecord with deepcopy of the Scene/moods and adds it to history.
 
@@ -1914,22 +1945,32 @@ class Runner:
         cannot whisper to someone who cannot hear you); a public record that not
         everyone can perceive becomes zone-scoped by construction, reusing the
         whisper visibility machinery end to end.
+
+        ``audience_origin`` defaults to the usual rule (``whisper`` when an
+        audience is supplied, else ``zone``) AND runs the zone recomputation.
+        Passing it explicitly takes the given ``audience`` as AUTHORITATIVE
+        (no zone recompute) with that origin — used to persist a Director
+        ``audible_speech`` event, whose ``witness_ids`` are already zone-clamped
+        and are perception scoping, never a whisper secret.
         """
-        audience_origin = "whisper" if audience is not None else "zone"
-        if game.scene.zones and content_type in ("speech", "action"):
-            subject = game.player.controlled_character_id if speaker == "Player" else speaker
-            if subject in game.characters:
-                eligible = eligible_witnesses(game.scene, game.characters, subject)
-                others = {
-                    cid
-                    for cid in game.scene.present_characters
-                    if cid in game.characters and cid != subject
-                }
-                if audience is None:
-                    if eligible != others:
-                        audience = sorted(eligible)
-                else:
-                    audience = sorted(set(audience) & (eligible | {subject}))
+        if audience_origin is not None:
+            pass  # authoritative audience + origin; skip the zone recompute below
+        else:
+            audience_origin = "whisper" if audience is not None else "zone"
+            if game.scene.zones and content_type in ("speech", "action"):
+                subject = game.player.controlled_character_id if speaker == "Player" else speaker
+                if subject in game.characters:
+                    eligible = eligible_witnesses(game.scene, game.characters, subject)
+                    others = {
+                        cid
+                        for cid in game.scene.present_characters
+                        if cid in game.characters and cid != subject
+                    }
+                    if audience is None:
+                        if eligible != others:
+                            audience = sorted(eligible)
+                    else:
+                        audience = sorted(set(audience) & (eligible | {subject}))
         record = TurnRecord(
             turn_number=turn_number,
             speaker=speaker,
