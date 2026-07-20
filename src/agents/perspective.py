@@ -310,7 +310,11 @@ async def update_identity(
         [{"role": "system", "content": _UPDATE_SYSTEM}, {"role": "user", "content": user}],
         model=config.get("model", ""),
         language=config.get("language", ""),
-        max_tokens=768,
+        # Updates can still contain nearly the whole cast while many identities
+        # remain unknown. A fixed 768-token cap truncated those ledgers at the
+        # same byte on every retry, so retries could never produce valid JSON.
+        # Keep this aligned with initialization's large-cast ceiling.
+        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
         timeout=resolve_llm_timeout(config),
         json_schema=build_perspective_json_schema(sorted(unknown)),
         session_id=session_id,

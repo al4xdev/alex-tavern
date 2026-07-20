@@ -10,6 +10,7 @@ from src.agents.perspective import (
     _validated_people,
     needs_identity_update,
     project_text_for_viewer,
+    update_identity,
     viewer_speaker_label,
 )
 from src.models import (
@@ -196,6 +197,34 @@ class TestNeedsIdentityUpdate:
         perspective.processed_through_turn = 2
         history = [_record(2, "Player", "Sou o Alex.")]
         assert needs_identity_update(history, "C2", perspective) is False
+
+
+@pytest.mark.asyncio
+async def test_large_cast_identity_update_is_not_capped_at_768_tokens(monkeypatch) -> None:  # noqa: ANN001
+    captured: dict = {}
+
+    async def fake_completion(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
+        captured.update(kwargs)
+        return {"people": []}
+
+    monkeypatch.setattr("src.agents.perspective.chat_completion_json", fake_completion)
+    perspective = _perspective(
+        C1=PersonView(known_name=None, reference="o desconhecido", source_turn=1)
+    )
+
+    async with httpx.AsyncClient() as client:
+        await update_identity(
+            client,
+            "C2",
+            perspective,
+            [_record(2, "C1", "Meu nome é Alex.")],
+            CHARACTERS,
+            "C1",
+            {"max_tokens_character": 12000},
+            turn_number=2,
+        )
+
+    assert captured["max_tokens"] == 12000
 
 
 class TestRunnerWiring:
