@@ -108,6 +108,23 @@
                         </div>
                     </div>
 
+                    <div class="compaction-control" id="burst-beats-control">
+                        <div class="compaction-control-head">
+                            <div>
+                                <div class="compaction-control-title" data-i18n="engine.burstBeats">Continue story: how far the world runs</div>
+                                <p class="compaction-control-intro" data-i18n="engine.burstBeatsIntro">When you continue without acting, the world can play several beats on its own before control returns to you.</p>
+                            </div>
+                        </div>
+                        <div class="compaction-threshold">
+                            <div class="compaction-threshold-head">
+                                <label for="runtime-burst-max-beats" data-i18n="engine.burstBeatsLabel">Maximum beats per continuation</label>
+                            </div>
+                            <input id="runtime-burst-max-beats" type="number" min="1" max="24" step="1"
+                                aria-describedby="burst-beats-explanation">
+                            <p id="burst-beats-explanation" class="compaction-threshold-explanation" data-i18n="engine.burstBeatsHint">This is a maximum. The story stops earlier when you're needed or the scene settles.</p>
+                        </div>
+                    </div>
+
                     <div id="provider-panels"></div>
 
                     <div class="runtime-config-actions">

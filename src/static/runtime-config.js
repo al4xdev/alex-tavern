@@ -19,6 +19,7 @@ export const RuntimeConfig = (() => {
     );
     const compactionThresholdEl = document.getElementById('compaction-threshold');
     const compactionHelpBtn = document.getElementById('compaction-help-btn');
+    const burstMaxBeatsEl = document.getElementById('runtime-burst-max-beats');
 
     let selectedProvider = '';
     let compactionKeepRecentTurns = 8;
@@ -67,6 +68,14 @@ export const RuntimeConfig = (() => {
         return 'later';
     }
 
+    // Multi-beat continuation (Task 45): keep the field within the backend's
+    // validated bound [1, 24] so a blank or out-of-range entry never fails the save.
+    function readBurstBeats() {
+        const beats = Number.parseInt(burstMaxBeatsEl.value, 10);
+        if (!Number.isFinite(beats)) return 6;
+        return Math.min(24, Math.max(1, beats));
+    }
+
     function refreshCompactionControl() {
         const enabled = autoCompactEl.checked;
         const value = Number.parseInt(autoCompactThresholdEl.value, 10) || 80;
@@ -98,6 +107,7 @@ export const RuntimeConfig = (() => {
         compactionKeepRecentTurns = config.compaction_keep_recent_turns;
         autoCompactEl.checked = config.automatic_compaction_enabled;
         autoCompactThresholdEl.value = config.automatic_compaction_threshold_percent;
+        burstMaxBeatsEl.value = config.autonomous_burst_max_beats;
         refreshCompactionControl();
         providerAdapters.forEach((adapter) => adapter.populate(config.providers[adapter.id]));
         chooseProvider(config.active_provider);
@@ -113,6 +123,7 @@ export const RuntimeConfig = (() => {
             automatic_compaction_threshold_percent: Number.parseInt(
                 autoCompactThresholdEl.value, 10
             ),
+            autonomous_burst_max_beats: readBurstBeats(),
             providers: Object.fromEntries(
                 providerAdapters.map((adapter) => [adapter.id, adapter.read()]),
             ),
