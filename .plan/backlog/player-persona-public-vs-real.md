@@ -4,6 +4,10 @@
 **Origin:** owner observation on session `17b66db3` (Academia, seleção), turns 1-2.
 **Related:** 29.2 (subjective state / perspective ledgers), 35 (perception
 boundary / Historian), 41 (omniscient Director), 08 (speech audience model).
+**Roadmap:** absorbed as **Phase 4 of Task 43** (character disposition substrate)
+— public persona = default *prior*, a dyadic Trust/Warmth entry = an observer's
+*posterior* deviating from it. See `.plan/tasks/43-character-disposition-substrate.md`
+and `docs/cases/15-character-disposition-substrate-2026-07-20.md` §6.
 
 ## 1. The motivating moment
 

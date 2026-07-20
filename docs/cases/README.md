@@ -31,6 +31,8 @@ part of the variant.
 | 11 | [Roteiro, drive and scene stagnation](./11-roteiro-drive-scene-stagnation-2026-07-17.md) | A concrete disruptive beat breaks a stall 3/3; an abstract instruction 0/3. |
 | 12 | [Scene stagnation as absent state transition](./12-scene-state-transition-theory-2026-07-17.md) | The theory: two clocks, material delta, causal contract, recovery ladder — the active program. |
 | 13 | [The world as a clock: the A/B/C battery](./13-clock-causal-watcher-battery-2026-07-19.md) | In the clock+causal arm the clock alone sustained the scene (its watcher never fired); every reader-flagged incoherence was an unanchored drive seed. |
+| 14 | [When the room hears but nobody remembers](./14-audible-speech-persistence-wt09-2026-07-20.md) | WT-09 was a data-flow gap, not model confabulation: audible-speech events never reached history. Fixed leak-safely; a second, variance-bound mode remains. |
+| 15 | [Characters that change: a governed disposition substrate](./15-character-disposition-substrate-2026-07-20.md) | The frontier definition: the scalar is the code's, the band is the model's; an axis earns its place only if a blind reader can name its pole. Roadmap = Task 43. |
 
 ## Reading paths
 
@@ -38,8 +40,11 @@ part of the variant.
   `.plan/tasks/40-narrative-tick-clock.md` (narrative clock + time compression)
   and `.plan/tasks/33b-continuous-roteiro-watcher.md` (material-delta watcher,
   validated by exploration; A/B/C battery in `tools/acceptance/watcher_abc.py`).
-- **Confidentiality by construction**: 07 → 08 → 09, then the perception ledger
-  and omniscient-Director work in `.plan/closed/` (Tasks 29.2, 35, 39, 41).
+- **Confidentiality by construction**: 07 → 08 → 09 → 14, then the perception
+  ledger and omniscient-Director work in `.plan/closed/` (Tasks 29.2, 35, 39, 41).
+- **Characters that change** (frontier, opening): 15, with the roadmap in
+  `.plan/tasks/43-character-disposition-substrate.md`; builds on the subjective
+  state of 29.2 and the delta machinery of 33b.
 - **Provider and cost**: 02 → 05 → 06 → 10.
 
 ## Closed-task records referenced by the series
