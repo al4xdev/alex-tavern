@@ -54,12 +54,23 @@ público e nenhuma persistência resolve. Modo estocástico, Director-side.
 parcial (o Diretor re-narra um WHISPER com escopo "audível aos próximos" mas
 conteúdo secreto) → vazou LUMEN-17 em 8 prompts (`GLOBAL-secret-in-unauthorized`,
 família zerada). Regra público-apenas eliminou (reduced tier: 8 vazamentos → 0).
-**Relógio do xfail = VARIANCE-BOUND:** 4 runs, cada um com slips estocásticos
-diferentes (LUMEN leaks → WT-10 → WT-02 Kansas → WT-12 ribbon → WT-09 modo 2).
-As "3 runs limpas consecutivas" NÃO são alcançáveis por esforço/budget agora — é
-ruído de LLM entre famílias, não regressão. O fix de persistência é strictly
-better (resolve modo 1, zero regressão). Artefatos:
-`plans/artifacts/wt09-audible-speech-fix/`, `plans/artifacts/xfailed3-leaksafe/`. Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
+**Fix final (whisper-token guard):** persiste audible_speech escopado por quem
+ouviu, EXCETO se o conteúdo entregaria um token de whisper a um ouvinte fora do
+sussurro (reusa `hidden_whisper_tokens`/`redact_tokens`). A revelação do alias
+(nunca sussurrada, cânon do Diretor) persiste; a re-narração de whisper
+(LUMEN-17) é pulada. **Run 3 confirmou: reduced tier LIMPO (0 violações — a
+regressão de vazamento que EU introduzi está fechada).**
+**Relógio do xfail = VARIANCE-BOUND:** 5 runs, cada um com slips estocásticos
+diferentes (LUMEN leaks → WT-10 → WT-02 Kansas → WT-12 ribbon → GLOBAL-anonymous-
+pair → WT-09 modo 2). As "3 runs limpas consecutivas" NÃO são alcançáveis por
+esforço/budget — é ruído de LLM de 1 turno entre MUITAS famílias de cânon, não
+regressão. Fixar só o WT-09 não zera o relógio (a sopa estocástica persiste). O
+fix de persistência é strictly better (resolve modo 1, zero regressão de leak).
+Modo 2 (Diretor difere a nomeação) pediria mudança no prompt do Diretor (nudge
+testado: naming 1/5→4/5 mas frequentemente escopado; blast radius exige validar
+no oráculo) — baixo valor marginal pro relógio já que não zera de todo jeito.
+Artefatos: `plans/artifacts/wt09-audible-speech-fix/`, `.../xfailed3-leaksafe/`,
+`.../xfailed3-whispertoken/` (reduced tier limpo). Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
 
 > **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
