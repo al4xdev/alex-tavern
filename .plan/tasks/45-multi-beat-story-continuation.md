@@ -16,11 +16,14 @@ navegador/curl pendentes.
 - Muito do contrato de burst (stop conditions, persistência por beat, undo) já
   vinha da Task 37 (fechada) e continua verde (suíte 700).
 
+**Feito (frontend, commit seguinte):**
+- Campo numérico de beats (1–24) em Settings, ligado a `autonomous_burst_max_beats`
+  (`runtime-config.js` populate/collect com clamp + markup `index.html` + i18n PT/EN).
+- Rename do botão skip→"continuar história" (title/aria, PT/EN). Teste de i18n verde.
+- ⚠️ Verificação Playwright 1080p/2K PENDENTE — não dá pra rodar navegador aqui; o
+  dono confere no olho.
+
 **Pendente:**
-- **Frontend:** campo numérico de beats em Settings (espelho de
-  `compaction_keep_recent_turns` em `runtime-config.js` + markup no `index.html` +
-  i18n PT/EN) e o rename skip→"continuar história". Precisa de verificação
-  Playwright 1080p/2K (boundary de navegador — não dá pra confirmar sem browser).
 - **Gate curl do `next_speakers.description`** (variante Task 46, NÃO enum duro) —
   ver seção "Gate curl-first do schema".
 - Smoke HTTP real (config→skip→múltiplos beats→motivo de parada) e README.

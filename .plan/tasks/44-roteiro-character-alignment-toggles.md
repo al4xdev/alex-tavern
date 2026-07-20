@@ -109,6 +109,20 @@ documentar a decisão. O toggle continua significando “personagens seguem o
 roteiro” para o usuário, mesmo que a fronteira interna compartilhe apenas o recorte
 necessário.
 
+## Bug pré-existente descoberto (2026-07-20) — provável causa do "roteiro OFF"
+
+`PUT /config` usa `merge_config_update`, que só preserva os **segredos de provider**;
+os demais campos top-level vêm do corpo enviado, e `save_config → validate_config`
+**re-defaulta o que faltar**. O `collect()` do frontend (`runtime-config.js`) envia
+apenas `active_provider`, `language`, `compaction_*`, `providers` e (agora)
+`autonomous_burst_max_beats` — **omite `roteiro_enabled` e `auto_event_*`**. Logo,
+**todo save pela UI reseta `roteiro_enabled` para False** (e `auto_event_*` para os
+defaults). É a causa mais provável de o roteiro ter sido encontrado desligado.
+Esta task DEVE corrigir isso ao expor `roteiro_enabled` no frontend: o `collect()`
+tem que round-tripar o campo (populate lê, collect envia), e idealmente todo save
+deve ser não-destrutivo para campos que a UI não edita (merge completo, não replace
+com defaults). Testar as 4 combinações + que salvar a UI não zera `roteiro_enabled`.
+
 ## Contrato e ownership
 
 - Config canônica e validação: `src/config.py`.
