@@ -642,7 +642,7 @@ def _export_artifacts(run: dict[str, Any], violations: list[dict[str, Any]], tie
             text=True,
             check=True,
         ).stdout.strip()
-    except OSError, subprocess.CalledProcessError:
+    except (OSError, subprocess.CalledProcessError):
         revision = "unknown"
     manifest = {
         "tier": tier,

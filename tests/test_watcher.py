@@ -187,9 +187,12 @@ class TestRecoveryLadderGates:
     def test_custom_threshold_and_refractory(self) -> None:
         cfg = {"watcher_enabled": True, "watcher_quiet_threshold": 4, "watcher_refractory_turns": 6}
         assert select_recovery_step(_ctx(quiet_turns=3), cfg).rung == RUNG_NONE
-        assert select_recovery_step(
-            _ctx(quiet_turns=4, turns_since_intervention=5, silence_spent=True), cfg
-        ).rung == RUNG_NONE  # still inside the wider refractory
+        assert (
+            select_recovery_step(
+                _ctx(quiet_turns=4, turns_since_intervention=5, silence_spent=True), cfg
+            ).rung
+            == RUNG_NONE
+        )  # still inside the wider refractory
 
 
 class TestRecoveryLadderClimb:

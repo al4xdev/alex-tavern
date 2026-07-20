@@ -157,7 +157,5 @@ async def test_whisper_narration_audible_speech_is_not_persisted(monkeypatch) ->
     assert game is not None
     # The whisper record itself keeps the secret (scoped to C2); the Director's
     # broad re-narration must NOT have created a zone-origin record with it.
-    zone_leaks = [
-        r for r in game.history if r.audience_origin == "zone" and secret in r.content
-    ]
+    zone_leaks = [r for r in game.history if r.audience_origin == "zone" and secret in r.content]
     assert not zone_leaks

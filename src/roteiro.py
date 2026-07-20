@@ -309,7 +309,7 @@ def _validate_beat(raw: object, game: GameState, fallback_id: str) -> RoteiroBea
     ][:MAX_ANCHORS]
     try:
         budget = int(raw.get("budget_turns", 6))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         budget = 6
     return RoteiroBeat(
         beat_id=str(raw.get("beat_id") or fallback_id).strip() or fallback_id,
@@ -330,7 +330,7 @@ def _validate_acts(raw_acts: object) -> list[RoteiroAct]:
             continue
         try:
             duration = int(item.get("duration_ticks", 0))
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             duration = 0
         acts.append(
             RoteiroAct(

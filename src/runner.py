@@ -963,17 +963,20 @@ class Runner:
                     if any(
                         redact_tokens(
                             spoken,
-                            hidden_whisper_tokens(
-                                game.history, vid, game.characters, game.scene
-                            ),
+                            hidden_whisper_tokens(game.history, vid, game.characters, game.scene),
                         )
                         != spoken
                         for vid in listeners
                     ):
                         continue  # would leak a whisper secret to a non-confidant
                     self._append_history(
-                        game, subject, spoken, "speech", step,
-                        audience=heard_by, audience_origin="zone",
+                        game,
+                        subject,
+                        spoken,
+                        "speech",
+                        step,
+                        audience=heard_by,
+                        audience_origin="zone",
                     )
 
                 # Update characters' moods
