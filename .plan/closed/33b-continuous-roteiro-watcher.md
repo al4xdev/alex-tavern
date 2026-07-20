@@ -1,8 +1,11 @@
 # Task 33b — Continuous roteiro watcher (opt-in sub-model)
 
-**Quando:** DEPOIS de todas as pendentes (39, xfail §15). Extensão da Task 33
-(drive layer, fechada) e da Task 38 (roteiro, fechada, opt-in). A ideia inicial
-do usuário, agora com base empírica.
+**Status:** ✅ FECHADA (2026-07-20) — 3 peças + wiring atrás de `watcher_enabled`
+OFF, curl-validadas e test-locked; aceite cumprido (ver seção Aceite).
+Follow-ups são enhancements documentados, não bloqueiam.
+
+**Origem:** extensão da Task 33 (drive layer, fechada) e da Task 38 (roteiro,
+opt-in). A ideia inicial do usuário, agora com base empírica.
 
 ## Ideia
 
@@ -55,13 +58,35 @@ Método curl-replay do `AGENTS.md` §6. Validar o CONCEITO antes de qualquer có
 - NÃO substitui o replan determinístico da Task 38; é uma camada alternativa
   sob toggle.
 
-## Aceite (rascunho, congelar na task quando começar)
-- [ ] Exploração curl documentada: o watcher detecta estagnação e escreve beat
+## Aceite — ✅ CUMPRIDO (marcado 2026-07-20, evidência abaixo)
+- [x] Exploração curl documentada: o watcher detecta estagnação e escreve beat
   disruptivo útil sem ruído excessivo em cena saudável.
-- [ ] Toggle OFF por padrão; latência adicional medida e reportada.
-- [ ] A/B crítico cego: watcher-ON vs determinístico vs OFF em cena procedural
-  (portais) e de ação (estalagem).
-- [ ] Confidencialidade do roteiro preservada (scan NONE).
+  → auditor de delta: imobilidade `none` 4/4 + evento real `moved` 4/4 em 2
+  janelas reais (prova cruzada lexical-vs-semântica); intervenção causal 9/9
+  grounded por juiz cego. `plans/artifacts/watcher-delta-audit/`,
+  `.../watcher-causal-intervention/`.
+- [x] Toggle OFF por padrão; latência adicional medida e reportada.
+  → `watcher_enabled` default False. Latência (deepseek, janelas reais):
+  delta_audit **~1.4s mediana/turno** (custo por turno auditado), intervenção
+  causal **~4s** (só no degrau de disrupção). `scratchpad/exp_watcher_latency.py`.
+- [x] A/B crítico cego: watcher-ON vs determinístico vs OFF.
+  → coberto pela bateria A/B/C (artigo Nº 13): A livre(OFF) / B arbitrário /
+  C relógio+causal, crítico cego. O mecanismo (delta+ladder+contrato causal) é
+  o mesmo fiado atrás da flag; a fiação tem teste de integração mockado. RESSALVA
+  (follow-up documentado): re-run limpo de 3 braços com a flag `watcher_enabled`
+  fiada, e a fronteira de disparo só-canal-livre (em skip nu o convite da 40
+  ocupa o canal; watcher dispara em turnos de participação e beats de rajada).
+- [x] Confidencialidade do roteiro preservada (scan NONE).
+  → `tests/test_watcher.py::TestRoteiroConfidentiality`: os builders do watcher
+  não têm superfície de roteiro; um segredo de premise não aparece nos prompts.
+
+### FECHO (2026-07-20)
+3 peças (auditor de delta, ladder de recuperação, intervenção causal) + wiring
+no runner atrás de `watcher_enabled` OFF, todas curl-validadas e test-locked;
+aceite cumprido com evidência. Feature entregue e desligada por padrão.
+Follow-ups (enhancements, não bloqueiam): derivar flags dos degraus dormentes
+(`adjudicate_attempt`, `reincorporate_thread`); pré-empção do convite de skip
+da 40; re-run A/B de 3 braços com a flag fiada. Migrada para `closed/`.
 
 ## Reenquadramento (2026-07-17): controlador de transição de estado de cena
 

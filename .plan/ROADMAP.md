@@ -33,6 +33,7 @@ Referência de arquitetura:
 | 27 | SDK isolado + pipeline de curadoria (exploração) | topologia ACEITA pelo dono (2026-07-19); implementação vira trabalho novo quando priorizado |
 | 19 | Security hardening (fronteira de origem + alvos de provider) | token por-servidor + guarda de origem em toda mutação; política de `api_base` no contrato do adapter (deepseek HTTPS/host fixo; llama_cpp loopback/rede privada); token nunca persistido, rotação em 403. **Smoke tests 3/3 verdes** (desktop/Docker/Android) — outcome 6 fechado pelo dono |
 | 40 | Relógio narrativo (tick sempre anda) | inc.1 (tick code-owned +1/turno; deadline de ato força world_event + avança) + inc.2 (time-skip: cena viva nunca pula 6/6, clamp 0..8) + bateria A/B/C (braço C sustentou 6 turnos sem watcher). Aceite completo test-locked; tick sempre-on, deadline gated por `roteiro_enabled` |
+| 33b | Watcher contínuo do roteiro (opt-in, OFF) | 3 peças (auditor de delta imobilidade 4/4 + evento real 4/4; ladder de recuperação código puro; intervenção causal 9/9 grounded) + wiring atrás de `watcher_enabled` OFF; latência ~1.4s/turno audit; confidencialidade test-locked. A/B pelo mecanismo na bateria artigo Nº 13. Follow-ups (enhancements): degraus dormentes, pré-empção do skip da 40, re-run A/B com flag |
 
 ## 🔶 Em andamento
 
@@ -70,7 +71,7 @@ Modo 2 (Diretor difere a nomeação) pediria mudança no prompt do Diretor (nudg
 testado: naming 1/5→4/5 mas frequentemente escopado; blast radius exige validar
 no oráculo) — baixo valor marginal pro relógio já que não zera de todo jeito.
 Artefatos: `plans/artifacts/wt09-audible-speech-fix/`, `.../xfailed3-leaksafe/`,
-`.../xfailed3-whispertoken/` (reduced tier limpo). Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
+`.../xfailed3-whispertoken/` (reduced tier limpo). **Artigo científico completo: `docs/cases/14-audible-speech-persistence-wt09-2026-07-20.md`.** Falso positivo do allowlist (`perspective:memory:*` novo) corrigido no oráculo. Artefatos: `plans/artifacts/xfailed3-post-39-41/` (sessões das 2 tiers + violations.txt) |
 
 > **Convenção (2026-07-17):** só migra pra `.plan/closed/` a tarefa fechada COM CONFIANÇA. Tarefa entregue com ressalvas / sem fecho confiante fica em `.plan/tasks/` com as ressalvas no topo.
 
