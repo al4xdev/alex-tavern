@@ -166,19 +166,24 @@ def _build_user_prompt(
     current_mood: str,
     whisper_note: str = "",
     ledger_memory: str = "",
+    disposition_note: str = "",
 ) -> str:
     """Put append-only history before the Character's changing state and context.
 
     ``ledger_memory`` is the viewer's durable, viewer-projected memory (Task 39)
-    — the single "What you remember" source.
+    — the single "What you remember" source. ``disposition_note`` is the Task 43
+    band projection of this character's drifting disposition (the qualitative face
+    of code-owned scalars — the number itself never reaches here).
     """
     memory = ledger_memory.strip() or "(none yet)"
+    disposition_block = f"{disposition_note}\n" if disposition_note else ""
     return (
         "RECENT EVENTS:\n"
         f"{history_text}\n"
         "\n"
         "CURRENT PRIVATE STATE:\n"
         f"Current mood: {current_mood}\n"
+        f"{disposition_block}"
         f"What you remember: {memory}\n"
         "\n"
         "SCENE CONTEXT (what you perceive right now):\n"
@@ -186,6 +191,60 @@ def _build_user_prompt(
         "\n"
         + (f"{whisper_note}\n\n" if whisper_note else "")
         + "Return your audible speech and private thought in the requested fields."
+    )
+
+
+def _build_disposition_note(
+    dispositions,  # noqa: ANN001 — DispositionState | None, kept loose to avoid a hard import cycle
+    character_id: str,
+    scene: Scene | None,
+    characters: dict[str, Character],
+    controlled_id: str,
+    viewer_perspective=None,  # noqa: ANN001
+) -> str:
+    """Project this character's drifting disposition (Task 43) into a prompt note.
+
+    Only the qualitative BAND is rendered — never the scalar. Composure (global) is
+    shown whenever seeded; trust/warmth (dyadic) appear only for a present other
+    whose dyad has materialized (a live divergence), keeping idle pairs silent.
+    Names travel through the viewer's ledger, so no canonical id/name leaks.
+    """
+    if dispositions is None:
+        return ""
+    from src.disposition import (
+        AXIS_COMPOSURE,
+        AXIS_TRUST,
+        AXIS_WARMTH,
+        character_bands,
+        dyad_bands,
+    )
+
+    lines: list[str] = []
+    composure = character_bands(dispositions, character_id).get(AXIS_COMPOSURE)
+    if composure:
+        lines.append(f"- Your composure right now: {composure}")
+
+    present = list(scene.present_characters) if scene is not None else []
+    for other in present:
+        if other == character_id or other not in characters:
+            continue
+        bands = dyad_bands(dispositions, character_id, other)
+        if not bands:
+            continue
+        stance = []
+        if AXIS_TRUST in bands:
+            stance.append(f"trust {bands[AXIS_TRUST]}")
+        if AXIS_WARMTH in bands:
+            stance.append(f"warmth {bands[AXIS_WARMTH]}")
+        name = viewer_speaker_label(other, characters, controlled_id, viewer_perspective)
+        lines.append(f"- Toward {name}: {', '.join(stance)}")
+
+    if not lines:
+        return ""
+    return (
+        "YOUR INNER DISPOSITION (let it color your voice, word choice and choices — "
+        "do NOT announce these words or state them as facts about yourself):\n"
+        + "\n".join(lines)
     )
 
 
@@ -380,6 +439,7 @@ async def act(
     scene: Scene | None = None,
     reply_audience: list[str] | None = None,
     viewer_perspective=None,
+    dispositions=None,  # noqa: ANN001 — DispositionState | None (Task 43)
 ) -> CharacterOutput:
     """Build the Character prompt and return separate speech/thought fields.
 
@@ -437,6 +497,14 @@ async def act(
                     viewer_perspective=viewer_perspective,
                 ),
                 ledger_memory=_ledger_memory_text(viewer_perspective),
+                disposition_note=_build_disposition_note(
+                    dispositions,
+                    character_id,
+                    scene,
+                    characters,
+                    controlled_id,
+                    viewer_perspective=viewer_perspective,
+                ),
             ),
         },
     ]
