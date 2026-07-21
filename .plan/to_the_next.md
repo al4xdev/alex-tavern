@@ -6,41 +6,20 @@ touching anything.
 
 ---
 
-## 0. State of the working tree
+## 0. State of the working tree — clean, everything committed
+
+Committed on 2026-07-21, oldest first:
 
 ```
- M .plan/closed/45-multi-beat-story-continuation.md
- RM .plan/closed/44-…  ->  .plan/tasks/44-roteiro-character-alignment-toggles.md
- M README.md
- M src/agents/narrator.py
- M src/llm/debug_log.py
- M src/models.py
- M src/roteiro.py
- M src/runner.py
- M src/static/app.js
- M src/static/i18n.js
- M tests/test_autonomous_burst.py
- M tests/test_integration.py
- M tests/test_roteiro.py
+b076ad3 fix(45): count player actions, not committed turns, toward the beat budget
+f233506 fix(narrator): ensure audible player speech receives a response
+23a2fcc fix(ui): reserve long-wait copy for continuations and label swipe intent
+50ae992 test(37): lock down that normal player turns never burst
+e345a02 docs(44): reopen with restored gate evidence and an honest checklist
 ```
 
-Verification at the moment of writing: **717 passed**, 2 deselected; `ruff check`
-clean; `ruff format --check` clean; `mypy src` clean.
-
-Suggested commit split (English, **no AI attribution trailer** — see §8):
-
-1. `fix(45): beat budget counts player actions, not committed turns`
-   — `src/models.py`, `src/roteiro.py`, `src/runner.py`, `tests/test_roteiro.py`,
-   `.plan/closed/45-…`
-2. `fix(narrator): a message to a room that hears it is never answered by nobody`
-   — `src/agents/narrator.py`, `src/llm/debug_log.py`, `src/runner.py`,
-   `tests/test_integration.py`
-3. `fix(ui): only a continuation promises a multi-step wait; label the swipe gesture`
-   — `src/static/app.js`, `src/static/i18n.js`
-4. `test(37): pin that a normal player turn never bursts`
-   — `tests/test_autonomous_burst.py`
-5. `docs(44): reopen with restored curl evidence and the honest remaining list`
-   — `.plan/tasks/44-…`, `README.md`
+Verification at that point: **717 passed**, 2 deselected; `ruff check` clean;
+`ruff format --check` clean; `mypy src` clean. Nothing is pushed.
 
 ---
 
