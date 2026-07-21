@@ -93,6 +93,7 @@ class TestSchemaAndMessages:
         assert "ponte podre" in joined  # the private beat feeds the Director-side call
         assert "Asword" in joined
         assert "never reveal" in joined.lower() and "enum" in joined.lower()
+        assert "desired resolution" in joined and "stopping, containing" in joined
 
 
 class TestGatingAndAgencyLock:
@@ -115,6 +116,33 @@ class TestGatingAndAgencyLock:
         return out, calls["n"]
 
     BOTH_ON = {"roteiro_enabled": True, "character_roteiro_alignment_enabled": True}
+
+    @pytest.mark.parametrize(
+        ("roteiro_enabled", "alignment_enabled", "expects_impulse"),
+        [
+            (False, False, False),
+            (False, True, False),
+            (True, False, False),
+            (True, True, True),
+        ],
+    )
+    async def test_all_toggle_combinations(
+        self,
+        monkeypatch,
+        roteiro_enabled: bool,
+        alignment_enabled: bool,
+        expects_impulse: bool,
+    ) -> None:  # noqa: ANN001
+        out, calls = await self._impulse(
+            monkeypatch,
+            {
+                "roteiro_enabled": roteiro_enabled,
+                "character_roteiro_alignment_enabled": alignment_enabled,
+            },
+            "C2",
+        )
+        assert bool(out) is expects_impulse
+        assert calls == int(expects_impulse)
 
     @pytest.mark.asyncio
     async def test_expected_actor_gets_the_impulse(self, monkeypatch) -> None:  # noqa: ANN001
@@ -167,3 +195,36 @@ class TestPromptInjection:
         assert "cauteloso" in prompt and "SEU ÍMPETO" in prompt
         # the injected line is nothing but the fixed vocabulary (no plot could ride it)
         assert impulse in IMPULSES["cautious"] or "cauteloso" in IMPULSES["cautious"]
+
+
+class TestRuntimeSwap:
+    @pytest.mark.asyncio
+    async def test_config_update_replaces_runner_with_new_toggle_values(self, monkeypatch) -> None:  # noqa: ANN001
+        from src import main
+        from src.main import RuntimeState
+        from src.runner import Runner
+
+        old_client = httpx.AsyncClient()
+        old_runner = Runner(old_client, {"roteiro_enabled": False})
+        runtime = RuntimeState(
+            stored_config={"roteiro_enabled": False},
+            server_config={"roteiro_enabled": False},
+            llm_client=old_client,
+            runner=old_runner,
+        )
+        main.app.state.runtime = runtime
+        submitted = {
+            "roteiro_enabled": True,
+            "character_roteiro_alignment_enabled": True,
+        }
+        monkeypatch.setattr(main, "merge_config_update", lambda body: dict(body))
+        monkeypatch.setattr(main, "resolve_active_config", lambda stored: dict(stored))
+        monkeypatch.setattr(main, "public_config", lambda stored: dict(stored))
+
+        result = main.put_runtime_config(submitted)
+
+        assert result == submitted
+        assert runtime.runner is not old_runner
+        assert runtime.runner.config["roteiro_enabled"] is True
+        assert runtime.runner.config["character_roteiro_alignment_enabled"] is True
+        await old_client.aclose()

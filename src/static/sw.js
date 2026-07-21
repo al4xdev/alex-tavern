@@ -5,7 +5,7 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v17';
+const CACHE = 'rpt-shell-v18';
 const SHELL = [
     '/',
     '/index.html',

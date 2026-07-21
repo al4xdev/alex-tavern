@@ -58,7 +58,7 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v17" in service_worker
+    assert "rpt-shell-v18" in service_worker
     assert "'/slash-commands.js'" in service_worker
     assert "'/slash-command-parser.js'" in service_worker
     assert "'/slash-registry.js'" in service_worker
@@ -427,6 +427,22 @@ def test_plugin_center_tabs_are_accessible_and_touch_draggable() -> None:
     assert "reducedMotion.matches" in source
     assert "touch-action: pan-y" in styles
     assert ".plugin-view-track" in styles
+
+
+def test_shared_toggle_remains_keyboard_focusable() -> None:
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+    start = styles.index(".toggle input {")
+    toggle_input = styles[start : styles.index(".toggle-track {", start)]
+
+    assert "display: none" not in toggle_input
+    assert "clip-path: inset(50%)" in toggle_input
+    assert ".toggle input:focus-visible + .toggle-track" in styles
+
+
+def test_disabled_alignment_keeps_mandatory_warning_readable() -> None:
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+
+    assert ".compaction-control.disabled > :not(.compaction-warning-box)" in styles
 
 
 def test_empty_session_invites_first_move_and_mobile_input_opens_directly() -> None:

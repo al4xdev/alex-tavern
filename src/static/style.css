@@ -567,6 +567,9 @@ html, body {
     transition: opacity var(--dur) var(--ease);
 }
 .compaction-control.disabled {
+    opacity: 1;
+}
+.compaction-control.disabled > :not(.compaction-warning-box) {
     opacity: 0.45;
 }
 .compaction-control.disabled input[type='checkbox'] {
@@ -1170,7 +1173,18 @@ select.text-input { cursor: pointer; }
     cursor: pointer;
     user-select: none;
 }
-.toggle input { display: none; }
+.toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
 .toggle-track {
     width: 38px;
     height: 21px;
@@ -1191,6 +1205,10 @@ select.text-input { cursor: pointer; }
 .toggle input:checked + .toggle-track {
     background: var(--accent-grad);
     border-color: transparent;
+}
+.toggle input:focus-visible + .toggle-track {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 3px;
 }
 .toggle input:checked + .toggle-track .toggle-thumb {
     transform: translateX(17px);

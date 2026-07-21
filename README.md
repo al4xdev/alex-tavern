@@ -423,9 +423,8 @@ preserving their voice and the human agency lock; it must never hand them the pr
 or leak future events into the fiction. Both toggles (`roteiro_enabled` and `character_roteiro_alignment_enabled`)
 are runtime-configurable in Settings. The alignment mechanism ships as a transient dramatic impulse
 and is [documented here](docs/cases/15-character-disposition-substrate-2026-07-20.md); its evidence
-so far is one character on one beat, so
-[Task 44](.plan/tasks/44-roteiro-character-alignment-toggles.md) stays open until the replication
-and the deriver validation land.
+includes a 6-beat/6-character deriver benchmark and a second character/beat replication, recorded
+with the completed [Task 44](.plan/closed/44-roteiro-character-alignment-toggles.md).
 
 > **Note on turn latency:** When screenplay beats, multi-beat bursts, or character alignment are enabled, a turn executes multiple LLM calls (Director, alignment deriver, Narrator, Character) sequentially/simultaneously while the UI displays the loading screen. Streamlining message delivery for faster turn release is planned for future work; for now, multi-beat execution prioritizes state correctness and dramatic alignment.
 

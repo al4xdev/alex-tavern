@@ -79,6 +79,10 @@ def build_alignment_messages(beat_intent: str, character: Character) -> list[dic
         "exploring, risking) rather than passive threats mentioned in the text. Beats that "
         "require proactive risk-taking or splitting should favor `bold` or `urgent` "
         "over `cautious`.\n"
+        "Choose the impulse that CAUSES the beat's desired resolution, not one that "
+        "merely amplifies an action mentioned in its wording. If the beat requires "
+        "stopping, containing, or preventing a reckless action, choose the braking "
+        "impulse (usually `cautious`), not `bold`, `urgent`, or `defiant`.\n"
         'Return json: {"impulse": <key>}.'
     )
     user = (
