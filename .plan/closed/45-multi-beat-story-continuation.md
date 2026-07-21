@@ -10,6 +10,24 @@ Follow-ups documentados, NÃO bloqueiam:
   do dono.
 Commits: `694f682` (backend), `772b578`/`feat(44,45) slider` (frontend).
 
+## Regressão encontrada depois do fechamento (2026-07-21) — corrigida
+
+A revisão de sessões reais (`29caff75`, `503bb018`) mostrou que a continuação
+multi-beat quebrou a calibragem da Task 38: cada beat da rajada commita como um
+turno próprio, então **uma única ação do jogador consumia 6 turnos** e estourava o
+`HARD_BEAT_TURN_CAP = 3` dentro dela mesma. Resultado observado: `replan_beat /
+reason: stalled` **depois de toda continuação**, sempre — o roteiro era reescrito a
+cada ação do jogador, com uma chamada LLM extra de brinde, e a história dava a
+impressão de "descontrolada". Ver `debug.jsonl`: burst turnos 4-9 → stalled no 10;
+burst 7-12 → stalled no 13.
+
+Correção: o orçamento do beat passa a contar **ações do jogador**, não turnos
+commitados (`Roteiro.beat_actions_elapsed`; `BeatProgress.actions_elapsed`;
+`evaluate_roteiro` usa a nova unidade). Com rajada desligada os números são
+idênticos aos da Task 38, então a calibragem original continua valendo.
+Pinado por `test_burst_turns_do_not_stall_a_beat` e
+`test_multi_beat_continuation_spends_one_action`.
+
 ## Progresso (2026-07-20)
 
 **Feito (backend, test-locked, commit `694f682`):**

@@ -28,9 +28,11 @@ ROTEIRO_DEFAULTS = {
 }
 
 # Replan tuning (module constants; measured before ever becoming config).
+# All three count PLAYER ACTIONS, not committed turns — one action can commit
+# several turns since Task 45 (see ``evaluate_roteiro``).
 DRIFT_WINDOW_TURNS = 3  # M consecutive disengaged turns = drifted
-PARTIAL_ADVANCE_PATIENCE = 2  # turns before a near-covered beat advances anyway
-# Hard ceiling on how many turns one beat may stay active, regardless of its
+PARTIAL_ADVANCE_PATIENCE = 2  # actions before a near-covered beat advances anyway
+# Hard ceiling on how many actions one beat may stay active, regardless of its
 # declared budget or how many anchors remain. Beyond this the scene is moving
 # on: a beat held longer makes the Director re-stage the same tableau (measured
 # on the portais scene, where a 5-turn beat produced three identical turns).
@@ -85,6 +87,11 @@ class BeatProgress:
     actors_missing: tuple[str, ...]
     turns_elapsed: int
     disengaged_streak: int  # trailing committed turns with no actor/anchor touch
+    # Player actions (turn submissions) since the beat began. A multi-beat
+    # continuation (Task 45) commits several turns per action, so committed
+    # turns stopped being the unit this budget was calibrated in — see
+    # ``evaluate_roteiro``.
+    actions_elapsed: int = 0
 
 
 @dataclass(frozen=True)
@@ -176,6 +183,9 @@ def measure_beat_progress(
         actors_missing=tuple(a for a in beat.expected_actors if a not in actors_hit),
         turns_elapsed=len(turn_numbers),
         disengaged_streak=disengaged,
+        # Sessions written before the counter existed fall back to committed
+        # turns, which is the same number whenever bursts are off.
+        actions_elapsed=roteiro.beat_actions_elapsed or len(turn_numbers),
     )
 
 
@@ -212,15 +222,21 @@ def evaluate_roteiro(
         and len(progress.anchors_hit) >= 1
         and len(progress.anchors_missing) <= 1
     )
-    if substantial and progress.turns_elapsed >= PARTIAL_ADVANCE_PATIENCE:
+    if substantial and progress.actions_elapsed >= PARTIAL_ADVANCE_PATIENCE:
         return ReplanDecision(action="advance", reason="coverage_sufficient", progress=progress)
 
-    # A beat stalls at its declared budget OR the hard turn cap, whichever comes
-    # first — the cap guarantees no beat can pin the scene into static repetition.
+    # A beat stalls at its declared budget OR the hard cap, whichever comes
+    # first — the cap guarantees no beat can pin the scene into static
+    # repetition. The unit is PLAYER ACTIONS, not committed turns: a multi-beat
+    # continuation (Task 45) commits up to `autonomous_burst_max_beats` turns
+    # from one click, which blew past a 3-turn cap inside a single action and
+    # made every continuation replan the beat as "stalled" (observed in
+    # sessions 29caff75 and 503bb018, 2026-07-20). Counting actions restores
+    # the calibration this budget was measured under in Task 38.
     stall_at = min(roteiro.beat.budget_turns, HARD_BEAT_TURN_CAP)
-    stalled = progress.turns_elapsed >= stall_at
+    stalled = progress.actions_elapsed >= stall_at
     drifted = (
-        progress.turns_elapsed >= DRIFT_WINDOW_TURNS
+        progress.actions_elapsed >= DRIFT_WINDOW_TURNS
         and progress.disengaged_streak >= DRIFT_WINDOW_TURNS
     )
     if not stalled and not drifted:

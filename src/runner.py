@@ -66,6 +66,7 @@ from src.llm.debug_log import (
     log_roteiro_decision,
     log_time_skip,
     log_turn_input,
+    log_unanswered_player,
     log_undo,
 )
 from src.llm.tokens import estimate_prompt_tokens
@@ -639,8 +640,10 @@ class Runner:
                 # Roteiro maintenance (Task 38): CODE decides whether the story
                 # direction needs a new rolling beat (coverage/budget/drift over
                 # history, with hysteresis); a structured call only writes WHAT
-                # the beat says. Runs per beat so bursts stay on-plan too.
-                clock_event = await self._maintain_roteiro(game, step)
+                # the beat says. Runs per beat so bursts stay on-plan too, but
+                # the beat's budget only advances on the FIRST beat: the unit is
+                # the player's action, not the turns one action commits.
+                clock_event = await self._maintain_roteiro(game, step, first_beat=(beat_index == 0))
                 if clock_event and not narrator_hint.strip():
                     # The act deadline's world_event stages THIS beat via the
                     # UPCOMING EVENT contract (same channel the drive uses).
@@ -741,6 +744,19 @@ class Runner:
                 )
                 controlled = game.player.controlled_character_id
                 character_responses: list[dict[str, Any]] = []
+
+                # Observability for the "the world ignored my message" symptom:
+                # the player wrote something and the Director routed nobody. The
+                # queue is already normalized to ["Narrator"] by then, so this is
+                # the only place the two cases are still distinguishable.
+                if beat_index == 0 and not skip and (speech or action) and queue == ["Narrator"]:
+                    log_unanswered_player(
+                        game.session_id,
+                        step,
+                        present_characters=len(
+                            [c for c in game.scene.present_characters if c != "Player"]
+                        ),
+                    )
 
                 # Canon applies BEFORE the prose renders (Task 41): the renderer
                 # must stage the reconciled scene, not the stale one — rendering
@@ -1724,12 +1740,18 @@ class Runner:
         game.watcher_silence_spent = False
         return intervention.event_now
 
-    async def _maintain_roteiro(self, game: GameState, turn_number: int) -> str | None:
+    async def _maintain_roteiro(
+        self, game: GameState, turn_number: int, first_beat: bool = True
+    ) -> str | None:
         """Compile the roteiro on first need; replan when the code signals say so.
 
         The replan TRIGGER is deterministic (``evaluate_roteiro``); the LLM only
         writes beat content. Every evaluation is logged so acceptance runs can
         audit that zero triggers came from model self-assessment.
+
+        ``first_beat`` marks the opening beat of a player action. The beat's
+        replan budget is spent per ACTION, so a multi-beat continuation costs it
+        exactly one — see ``evaluate_roteiro``.
         """
         if not bool(self.config.get("roteiro_enabled", False)):
             return None
@@ -1738,6 +1760,8 @@ class Runner:
             game.roteiro = await generate_roteiro(self.client, game, self.config, turn_number)
             game.roteiro.act_started_tick = game.narrative_tick
             return None
+        if first_beat:
+            game.roteiro.beat_actions_elapsed += 1
 
         # Narrative clock (Task 40): when the current act's tick deadline
         # expires, the CODE stages its world_event (returned to the caller as

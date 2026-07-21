@@ -29,6 +29,12 @@ from typing import Any
 # visual strangers; 11 = roteiro watcher accumulators on GameState (Task 33b);
 # 12 = character disposition substrate on GameState (Task 43: code-owned scalars
 # for trust/warmth/composure that drift over the arc).
+#
+# NOT bumped for Roteiro.beat_actions_elapsed (2026-07-21): the field is purely
+# additive and an absent one reads back as the old behaviour by construction
+# (``dict_to_roteiro`` defaults it to 0, ``measure_beat_progress`` then falls
+# back to committed turns), so a version 12 session cannot be misread. Bumping
+# would have burned every playtest session for a convention, not a hazard.
 SESSION_SCHEMA_VERSION = 12
 
 
@@ -300,6 +306,10 @@ class Roteiro:
     # downstream paraphrase and must never be the coverage surface: audible
     # speech events, for one, never reach the renderer at all (Task 37).
     anchors_seen: list[str] = field(default_factory=list)
+    # Player actions (turn submissions) spent on the current beat. A multi-beat
+    # continuation commits several turns per action, so the replan budget counts
+    # this instead of committed turns. Reset on every replan.
+    beat_actions_elapsed: int = 0
     # Replans are blocked until this turn number (hysteresis after any replan).
     cooldown_until_turn: int = 0
     # Consecutive stall/drift replans inside the current act (act-replan input).
@@ -337,6 +347,7 @@ def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
         ),
         beat_started_turn=int(data.get("beat_started_turn", 0)),
         act_started_tick=int(data.get("act_started_tick", 0)),
+        beat_actions_elapsed=int(data.get("beat_actions_elapsed", 0)),
         anchors_seen=list(data.get("anchors_seen", [])),
         cooldown_until_turn=int(data.get("cooldown_until_turn", 0)),
         beat_replans_in_act=int(data.get("beat_replans_in_act", 0)),

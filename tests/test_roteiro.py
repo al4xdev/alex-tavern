@@ -259,6 +259,31 @@ class TestEvaluateRoteiro:
         decision = evaluate_roteiro(roteiro, history, "C1", 2)
         assert decision.action == "advance"
 
+    def test_burst_turns_do_not_stall_a_beat(self) -> None:
+        """One continuation costs the beat ONE action, not one per beat.
+
+        Regression (observed 2026-07-20 in sessions 29caff75 and 503bb018): a
+        6-beat continuation committed 6 turns from a single click, blowing past
+        the 3-turn cap inside one player action, so the screenplay replanned as
+        "stalled" after every continuation.
+        """
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["selo real"], budget_turns=10),
+            beat_actions_elapsed=1,
+        )
+        history = [_record(turn, "C2", "Preciso agir logo.") for turn in range(1, 7)]
+        decision = evaluate_roteiro(roteiro, history, "C1", 7)
+        assert decision.action is None
+        assert decision.reason == "in_progress"
+        # Three real actions still stall it — the cap itself is untouched.
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["selo real"], budget_turns=10),
+            beat_actions_elapsed=3,
+        )
+        decision = evaluate_roteiro(roteiro, history, "C1", 7)
+        assert decision.action == "replan_beat"
+        assert decision.reason == "stalled"
+
     def test_repeated_replans_escalate_to_act_rewrite(self) -> None:
         roteiro = _roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD)
         history = [_record(turn, "C3", "Conversa fiada.") for turn in range(1, 5)]
@@ -513,6 +538,7 @@ class TestRunnerWiring:
         game_roteiro=None,
         seed_history=None,
         narrator_events=None,  # noqa: ANN001
+        skip=False,
     ):
         import src.runner as runner_mod
         from src.runner import Runner
@@ -538,14 +564,22 @@ class TestRunnerWiring:
         monkeypatch.setattr(runner_mod, "generate_roteiro", fake_generate)
         monkeypatch.setattr(runner_mod, "replan_roteiro", fake_replan)
 
+        speaker_cycle = iter(["C2", "C3"] * 8) if skip else None
+
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            # On a continuation each beat must actually commit, so a character
+            # speaks every beat and the burst runs to its budget.
+            queue = [next(speaker_cycle)] if speaker_cycle is not None else ["Narrator"]
             return {
-                "next_speakers": ["Narrator"],
+                "next_speakers": queue,
                 "perception_events": list(narrator_events or []),
                 "scene_update": None,
                 "mood_updates": None,
                 "return_control": False,
             }
+
+        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {"speech": "Falo agora.", "thought": None, "action_intent": None}
 
         async def fake_prose() -> str:
             return "Prosa."
@@ -561,6 +595,8 @@ class TestRunnerWiring:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
+            if skip:
+                monkeypatch.setattr(runner, "_call_character", fake_character)
             try:
                 if game_roteiro is not None or seed_history:
                     game = await runner.get_state(sid)
@@ -568,7 +604,10 @@ class TestRunnerWiring:
                     game.roteiro = game_roteiro
                     game.history.extend(seed_history or [])
                     runner_mod.save_game(game)
-                await runner.player_turn(sid, speech="Que noite.")
+                if skip:
+                    await runner.player_turn(sid, skip=True)
+                else:
+                    await runner.player_turn(sid, speech="Que noite.")
                 game = await runner.get_state(sid)
             finally:
                 await delete_session(sid)
@@ -594,6 +633,7 @@ class TestRunnerWiring:
         stalled = _roteiro(
             beat=_beat(budget_turns=2, expected_anchors=["inatingivel"]),
             beat_started_turn=1,
+            beat_actions_elapsed=1,  # one action already spent on this beat
         )
         seed_history = [
             _record(1, "C2", "Falando do tempo."),
@@ -602,10 +642,28 @@ class TestRunnerWiring:
         calls, game = await self._turn(
             monkeypatch, config, game_roteiro=stalled, seed_history=seed_history
         )
-        # 2 seeded chatter turns + the player's own = budget exceeded without
-        # anchor coverage -> the deterministic engine ordered one beat replan.
+        # 1 spent action + the player's own = budget exceeded without anchor
+        # coverage -> the deterministic engine ordered one beat replan.
         assert calls["replan"] == 1
         assert game is not None and game.roteiro is not None
+
+    @pytest.mark.asyncio
+    async def test_multi_beat_continuation_spends_one_action(self, monkeypatch) -> None:  # noqa: ANN001
+        """A continuation commits several turns but costs the beat ONE action."""
+        config = {
+            "auto_event_enabled": False,
+            "roteiro_enabled": True,
+            "autonomous_burst_max_beats": 4,
+        }
+        _, game = await self._turn(
+            monkeypatch,
+            config,
+            game_roteiro=_roteiro(beat_started_turn=1),
+            skip=True,
+        )
+        assert game is not None and game.roteiro is not None
+        assert len(game.history) > 1, "the burst must have committed several turns"
+        assert game.roteiro.beat_actions_elapsed == 1
 
     @pytest.mark.asyncio
     async def test_anchor_from_event_accumulates_into_seen(self, monkeypatch) -> None:  # noqa: ANN001
