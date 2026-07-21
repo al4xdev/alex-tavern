@@ -1,9 +1,11 @@
 # Task 26b — Ambience redescription: attack via PROMPT (experimental)
 
-> **Status: ⏸️ PARKED — NEGATIVE result (documented in article No. 13).**
+> **Status: CLOSED NEGATIVE (2026-07-21) — parked direction, documented in article No. 13.**
 > 24 calls, 3 variants in 2 iterations: ALL worsened the band (16.4%→21-23%) —
 > the line about setting becomes an attention magnet. Prompt-based attack closed
-> as a dead end. Future direction: event level (material delta from 33b), not prompt.
+> as a dead end. The owner-prescribed fallback was reached, so this experiment is
+> complete rather than active. Future evidence belongs to Task 26 at the event
+> level (material delta from 33b), not to another prompt variant.
 
 **Origin:** owner decision (2026-07-19): "via prompt, if it doesn't work, fallback to park it". Experimental task, child of lane 26.
 
@@ -30,9 +32,9 @@ The prose renderer re-describes unchanged objects/states because nothing in the 
 
 ## Acceptance Criteria
 
-- [ ] 0.7–0.8 band falls consistently in measured payloads (target: ~9% → <4%) without breaking the verbosity floor of 42 (3/3 above floor).
-- [ ] Zero new rules beyond 1 line; never cap.
-- [ ] If not achieved in ~2 variant iterations: **park** (owner decision) and log the negative result here.
+- [ ] 0.7–0.8 band falls consistently in measured payloads (target: ~9% → <4%) without breaking the verbosity floor of 42 (not met: every variant worsened it).
+- [x] Zero new prompt rules shipped; never cap.
+- [x] Not achieved in 2 variant iterations: **parked** per owner decision and negative result logged here and in article No. 13.
 
 ## RESULT (2026-07-19): NEGATIVE in 2 iterations → PARKED (owner fallback)
 
@@ -48,3 +50,10 @@ The prose renderer re-describes unchanged objects/states because nothing in the 
 ALL variants WORSENED the band. Analysis: any line mentioning setting/redescription acts as an attention magnet — the model re-asserts the static state by contrast ("the case remains sealed") precisely because the rule made it think about the established objects. The verbosity floor of 42 was not violated (min 118-151), but the lines also INFLATE the size.
 
 Future direction (if it wakes up again): not prompt — it's the EVENT level. The blind renderer only adorns what the Director emits; residual redescription enters when events re-enact a static state. Real candidate: material delta auditing of 33b marking event-without-delta before prose. Postponed until after watcher integration.
+
+## Closure decision (2026-07-21)
+
+The success target is deliberately left unchecked: this is a measured negative,
+not a retroactive success. The task is nevertheless complete because its
+pre-registered fallback was to stop after two failed iterations. No code or
+prompt rule from this experiment remains to validate or ship.

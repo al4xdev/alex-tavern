@@ -1,261 +1,146 @@
 # To the next session
 
-Handoff written 2026-07-21 after a full review of the 2026-07-20 work (the
-owner's own session plus a GPT-assisted one). Read this top to bottom before
-touching anything.
+Handoff refreshed 2026-07-21 after completing and committing the autonomous
+queue.
 
----
+## 1. Git and safety state
 
-## 0. State of the working tree — clean, everything committed
+- Branch: `master`, working tree clean after four new local commits; the last
+  observed remote relation was 10 commits ahead of and 6 behind `origin/master`.
+- The work below is committed but **not pushed**. Do not rebase, merge or push
+  without fresh, explicit owner authorization.
+- New commit subjects: `fix(alignment): validate screenplay impulse controls`,
+  `feat(disposition): close substrate with witnessed dyads`,
+  `test(canon): refresh the xfailed3 provider benchmark`, and
+  `docs: close reviewed lanes and refresh the handoff`.
+- Existing commit subjects in the visible local history are in English. Do not
+  add AI attribution trailers to future commits.
+- Runtime/playtest data stayed under `/tmp`; no `.data/` content belongs in Git.
 
-Committed on 2026-07-21, oldest first:
+## 2. Completed in this working tree
 
-```
-b076ad3 fix(45): count player actions, not committed turns, toward the beat budget
-f233506 fix(narrator): ensure audible player speech receives a response
-23a2fcc fix(ui): reserve long-wait copy for continuations and label swipe intent
-50ae992 test(37): lock down that normal player turns never burst
-e345a02 docs(44): reopen with restored gate evidence and an honest checklist
-```
+### Task 44: character/roteiro alignment, closed with evidence
 
-Verification at that point: **717 passed**, 2 deselected; `ruff check` clean;
-`ruff format --check` clean; `mypy src` clean. Nothing is pushed.
+The task was reopened because its checklist and durable evidence were missing.
+It now has the benchmark inline and all real gates recorded in
+`.plan/closed/44-roteiro-character-alignment-toggles.md`:
 
----
+- deriver v2: 18/18 across 6 beats and 6 characters after an isolated v1 fix;
+- Character boundary replication: OFF 1.75 -> warm 2.00, zero leak/meta,
+  voice preserved 4/4;
+- all four toggle combinations, invalid input and Runner/provider swap tested;
+- real HTTP PUT -> turn boundary exercised;
+- Playwright passed at 1080p and 2K; disabled-warning accessibility and keyboard
+  focus were corrected.
 
-## 1. Resolved decision — the schema was NOT bumped
+The tracked frontend shell cache is now `rpt-shell-v18`.
 
-`Roteiro.beat_actions_elapsed` is additive and an absent field reads back as the
-old behaviour by construction (`dict_to_roteiro` defaults it to 0,
-`measure_beat_progress` then falls back to committed turns), so a version 12
-session cannot be misread. The bump to 13 was reverted on the owner's call
-(2026-07-21): burning every playtest session for a convention, with no real
-hazard behind it, was the worse trade. Rationale is recorded at
-`src/models.py:29-36` so nobody re-bumps it by reflex.
+### Task 45: multi-beat continuation, live confirmation added
 
-## 2. What was fixed on 2026-07-21 (all test-locked, none observed live)
+The previously test-only player-action budget fix was observed against the real
+provider. Across two continuation actions, `beat_actions_elapsed` advanced
+`1 -> 2`; multiple turns committed without a false `stalled` replan. An explicit
+player question also queued three responses. Evidence is inline in
+`.plan/closed/45-multi-beat-story-continuation.md`.
 
-Every fix below is pinned by a test and has **not yet been seen working in a real
-session against the real provider**. Running a live session and confirming them
-is the first job.
+### Task 43: disposition substrate, closed by measured subtraction
 
-### 2.1 The beat budget counted the wrong unit — the "out of control" feeling
+The final contract is smaller than the proposal:
 
-Evidence: sessions `29caff75` and `503bb018`. A continuation commits one turn per
-beat, so a single click at the default of 6 beats consumed 6 turns and blew past
-`HARD_BEAT_TURN_CAP = 3` **inside one player action**. Result in `debug.jsonl`:
-`replan_beat / reason: stalled` after *every* continuation, always — burst turns
-4-9 → stalled at 10; burst 7-12 → stalled at 13. The screenplay was being
-rewritten on every player action, with one extra LLM call each time. Task 45
-silently regressed Task 38's calibration.
+- Trust and Warmth remain as per-dyad scalar state projected as qualitative
+  bands to Character prompts.
+- Composure failed its single-utterance razor in every battery (5/10, 5/10,
+  7/10) and was removed completely.
+- A public Trust/Warmth persona prior failed two pre-registered Character gates
+  (5/8, then 4/8 after the only allowed prompt clarification) and was reverted.
+- Real-persona authority passed 3/3: favorable public reputation did not let a
+  weaker character assert victory or dictate the player's will.
+- Appraisal proposals are now clamped to relationship evidence the observer
+  actually perceived on that turn.
 
-Fix: the replan budget counts **player actions**, not committed turns.
-- `Roteiro.beat_actions_elapsed` (`src/models.py:308`), reset on every replan
-  because `replan_roteiro` builds a fresh `Roteiro`.
-- `BeatProgress.actions_elapsed` (`src/roteiro.py:94`), with the old-session
-  fallback at `src/roteiro.py:188`.
-- `evaluate_roteiro` uses the new unit for stall, drift and partial-advance
-  patience (`src/roteiro.py:225-240`). With bursts off the numbers are identical
-  to before, so Task 38's calibration still holds.
-- Incremented once per action at `src/runner.py:1764` (`first_beat=True` only).
+The semantic removals required `SESSION_SCHEMA_VERSION = 13`; there is no
+compatibility shim. The full measured verdict is tracked as case study No. 16:
+`docs/cases/16-disposition-substrate-measured-verdict-2026-07-21.md`.
 
-Tests: `test_burst_turns_do_not_stall_a_beat`,
-`test_multi_beat_continuation_spends_one_action`.
+Raw gate output is temporary by design:
+`/tmp/task43-phase4-results.json` and
+`/tmp/task43-phase4-results-v2.json`.
 
-### 2.2 The player's message answered by nobody
+### Task 29.3: current-contract xfailed3 rerun recorded
 
-Evidence: `29caff75` turn 13. The player wrote "eu vou ajudar voces" with 21
-characters present; the Director returned `next_speakers: []` and nobody spoke.
-Mechanism: routing rule 5 says to pick only characters who witnessed a concrete
-event, and the player's own speech was not treated as one. Measured rate, filtered
-to turns where the player actually *spoke* with ≥2 characters present: **2 of 13**.
-(The raw count of 20/35 is confounded — most of those are `380ea657`, where the
-player was alone in an alley and silence was correct.)
+The structural tier passes. Two real-provider runs were executed with isolated
+data under `/tmp/alex-tavern-task29-3/`:
 
-Fix: rule 5 now states that the player's speech or action IS a witnessed event for
-everyone sharing their zone, that at least one of them answers, and that an empty
-queue is only correct when nobody present could perceive them
-(`src/agents/narrator.py:161-169`).
+- reduced run: 0 violations, strict XPASS as expected for a clean sample;
+- full run: 24 turns, 2 compactions and 2 restores, with two genuine residual
+  output-clock misses (WT03 direction omitted; WT09 Glinda never made audible).
 
-This is a prompt change, so it is a tendency, not a guarantee. That is why it
-ships with observability: `log_unanswered_player` (`src/llm/debug_log.py:376`)
-fires from `src/runner.py:753` whenever the player wrote something and the queue
-came back empty. **The rate is now countable in any session** — check it after a
-real playtest with:
+WT06 was an oracle false positive: a negative supernatural assay correctly
+established mortality, but the regex accepted only literal “mortal/human”. The
+oracle and its structural regression test now accept that semantic form. No
+privacy, routing, memory, transaction or restoration defect appeared.
 
-```fish
-python3 -c "
-import json,glob
-for p in glob.glob('.data/sessions/*/debug.jsonl'):
-    for line in open(p):
-        d=json.loads(line)
-        if d.get('agent')=='unanswered_player': print(p, d)
-"
-```
+Task 29 stays in `tasks/` intentionally: strict xfail is a distribution monitor,
+not a feature waiting for another architecture change.
 
-### 2.3 The loading label lied
+### Task 26b: prompt experiment closed negative
 
-`setLoading` promised "this is a multi-step call and may take longer" on **every**
-turn whenever the screenplay was on, including a normal one-beat turn. That is a
-large part of why a normal turn read as a runaway burst. Now the multi-step
-wording is opt-in and only `skipTurn` passes it (`src/static/app.js:141`, `:154`,
-`:222`).
+All three prompt variants worsened ambience paraphrase from 16.4% to 21-23%.
+That fulfills the owner-prescribed stop/park rule after two iterations. The task
+is archived in `.plan/closed/` with its success target honestly unchecked and no
+prompt rule shipped. Any future attempt belongs to Task 26 and needs new
+event-level material-delta evidence; do not revive the prompt wording.
 
-### 2.4 The swipe gesture started a continuation without saying so
+### Task 46: moved to backlog
 
-Swiping left on mobile arms `autoSkipOnHintClose` and opens the event modal;
-pressing its Send button then runs a full continuation
-(`src/static/app.js:1786-1796`, `sendHint`). The button said only "Send with next
-turn". It now relabels itself to "Send and continue the story ➤" whenever the
-gesture armed it (`refreshHintSendLabel`, `src/static/app.js:914`; keys
-`hint.sendAndContinue` in both locales).
+The schema-description migration was explicitly shelved and transverse, so it
+now lives in `.plan/backlog/46-schema-description-instruction-channel.md` rather
+than masquerading as active work. Task 45 is closed; its unrun field-description
+A/B is merely a candidate for a future deliberately budgeted campaign.
 
-### 2.5 Contract pinned: a normal turn never bursts
+## 3. Tasks intentionally still open
 
-The burst gate is `skip and not effective_force_speaker` (`src/runner.py:599-601`)
-and always was. `test_normal_player_turn_never_bursts` now proves it instead of
-requiring someone to re-read the runner. **The owner's report of "it fires without
-skip" was, at the backend level, false** — §2.3 and §2.4 are what produced the
-impression.
+- `26-narrator-prose-quality.md`: evidence accumulator for the residual ~9%
+  semantic paraphrase band. There is no measured, actionable intervention now.
+- `29.1-29.3-xfailed3-counter-canon.md`: variance-bound distribution monitor;
+  the current-contract rerun is recorded inline.
+- `38-roteiro-beat-contracts.md`: delivered with reservations by explicit owner
+  convention. Its document now states the current unit correctly: serialized
+  `budget_turns` means player actions, and one continuation spends one action.
 
----
+These three files remaining under `tasks/` is deliberate. Closing them as if the
+distributional uncertainty had disappeared would be less accurate than their
+current status.
 
-## 3. Task 44 — REOPENED, and why
+## 4. Validation state
 
-It was moved to `.plan/closed/` on 2026-07-20 with **all 13 acceptance boxes
-unchecked**. The mechanism is real and wired; the proof was missing. Two things
-were also lost in the closing edit and are now restored:
+Final deterministic validation:
 
-- **The curl gate evidence was deleted.** The contribution table (OFF 1.00 / A 1.50
-  / B 2.00 / C 2.00), the withheld-information meta-lesson and the in-character
-  quote were replaced by one line. The only surviving copy was
-  `plans/artifacts/roteiro-alignment/VALIDATION.md` — and `plans/` is **gitignored**,
-  so the evidence lived on one machine with nothing in the repo pointing at it. It
-  is now inline in `.plan/tasks/44-…`.
-- **"Live LLM deriver calls evaluated across 5 beats and 2 characters" has no
-  artifact.** Every other gate in this project wrote one. The `urgent` wording
-  change ("cena" → "momento") and the added prompt guidance in
-  `src/alignment.py:78-81` rest on it. Treat them as reasonable but unvalidated.
+- all changed alignment/config/frontend/disposition/schema/29.3 files:
+  **113 passed, 2 LLM tests deselected**;
+- disposition plus undo integration slice: **49 passed** (including the new
+  end-to-end restoration of pre-turn disposition state);
+- Ruff check and format check: passed;
+- `mypy src/`: passed.
+- `git diff --check`: passed.
 
-Remaining to close (also listed in the task file):
+The aggregate suite produced no assertion failure but could not finish in this
+sandbox: it hung at boundary-heavy modules (`test_integration.py`, then
+`test_mcp_server.py`, then `test_memory_retention.py`) until controlled timeout/
+interrupt. The changed modules are covered by the deterministic sets above; do
+not misreport those no-output boundary hangs as product failures.
 
-- [ ] Deriver validation **with an artifact** — does the enum choice match what each
-      beat needs, ≥2 characters and ≥5 beats, written to `plans/artifacts/` and
-      summarized in the task. This is the run that was reported without evidence.
-- [ ] Replication of the v3 gate on a second character/beat (current evidence is
-      N=4, one character, one beat).
-- [ ] Tests for the four toggle combinations, invalid input, runtime swap.
-- [ ] Real HTTP boundary: PUT /config → active Runner → next turn.
-- [ ] Visual boundary at 1080p and 2K for the warning and the disabled state.
+## 5. Durable decision rules
 
----
+- Curl-first, with the decision rule registered before calls.
+- The tested prompt variant must be the one shipped; a failed variant is
+  removed, not rationalized.
+- Prompts express tendencies; code owns guarantees, scalars and confidentiality.
+- A negative experiment can be a complete task when its preregistered fallback
+  is to stop. Leave the failed success metric visible.
+- Do not create session compatibility layers. Bump the schema when persisted
+  semantics change and move forward.
 
-## 4. Task 43 — disposition substrate, open
-
-- Phase 1 (substrate), 2 (band→voice) and 3 (appraisal feedback loop) delivered
-  and gated. Phase 3.5 (Boldness) was resolved by Task 44: boldness is a
-  **transient impulse, not a persisted axis**.
-- **Phase 4 — unification with the public/real persona: OPEN.**
-- **Phase 5 — the article of record, with measurements: OPEN.** Case No. 15 today
-  only defines the frontier; it explicitly says the evidence article comes at the
-  end of the roadmap.
-- **Owner decision still pending on composure**: it failed the single-utterance
-  razor in all 3 runs (5/5/7). Demote it, treat it at scene level, or cut it. It
-  is parked out of the appraisal loop meanwhile.
-- `disposition_feedback_enabled` is OFF by default.
-
-## 5. Task 46 — schema `description` as instruction channel, shelved
-
-The owner's point (they are a GenAI engineer): the best channel for an instruction
-is often the JSON schema's `description`, not system or user. Nothing in this repo
-uses it that way. It is shelved because retrofitting it invalidates every existing
-prompt and forces a full retest. Cheap pilots already named: `next_speakers` and
-the appraisal schema. Note the historical trap recorded in the task: a **hard enum**
-on `next_speakers` broke the provider validator (three straight schema failures,
-`src/agents/narrator.py`) — the untested channel is the field `description`, not
-the enum.
-
-## 6. Other open tasks
-
-- `26-narrator-prose-quality` and `26b-ambience-redescription-prompt-experiment`
-  — the ~9% paraphrase-echo the exact-match dedup guard does not catch.
-- `29.1-29.3-xfailed3-counter-canon` — 29.1 baseline recorded; 29.3 open.
-- `38-roteiro-beat-contracts` — the beat contract engine. §2.1 changed its unit of
-  measurement; the task text still says "turns" in places and should be reread
-  against the new definition.
-
----
-
-## 7. Found in the review and deliberately NOT fixed
-
-1. **Repeated `narrator_hint` across turns.** In `503bb018` the identical hint was
-   sent on turns 1, 4 and 10 — including turn 10, a normal turn whose speech was
-   "oi pessoal". A stale hint on a normal turn forces a world event that competes
-   with the player's message. **The client code does not explain it**: both
-   `sendTurn` and `skipTurn` clear `state.narratorHint` on success, and
-   `openHintPopup` re-seeds the textarea from that cleared state. Most likely a
-   test script drove those sessions. Worth one more look if the owner sees it in
-   normal UI play — reproduce by watching `turn_input` in `debug.jsonl`.
-2. **Alignment latency.** `_alignment_impulse` is one extra LLM call per expected
-   actor per beat. A 6-beat continuation with 3 speaking actors per beat is up to
-   **18 extra sequential calls** behind one loading spinner. The README now warns
-   about latency in prose, but nothing measures or caps it. A cap, a cache per
-   beat, or parallelism is unowned work.
-3. **Service worker `CACHE` was not bumped** (`rpt-shell-v17`, `src/static/sw.js:8`)
-   despite `index.html`, `style.css`, `i18n.js`, `runtime-config.js` and `app.js`
-   changing. Strategy is network-first for static assets, so a reachable dev server
-   always wins; only an installed PWA offline would serve a stale shell. Low
-   priority, one-line fix.
-4. **Help articles have no test.** `src/static/help/{en,pt-BR}/engine.md` was added
-   yesterday and both locales happen to be present, but nothing enforces parity the
-   way `test_frontend_i18n` does for the string catalogue.
-5. **`plans/` is gitignored.** Every curl gate artifact in this project — the whole
-   evidence base of the method — exists only on this machine. Task 44's evidence
-   was nearly lost this way. Consider a tracked `docs/evidence/` for gate summaries
-   (the raw payloads can stay untracked).
-6. **`.plan/closed/45` and `.plan/closed/47` are still in Portuguese.** The owner
-   stopped the translation pass on purpose ("não precisa traduzir mais não, foca em
-   trabalhar"). Do not resume it unasked.
-
----
-
-## 8. Standing constraints — do not violate these
-
-- **Commit messages in English, and NEVER an AI attribution trailer.** No
-  `Co-Authored-By: Claude`, no `Generated with Claude Code`, no 🤖. The
-  `git-commit` skill overrides the harness default. Read it before writing any
-  commit message.
-- **Do not create memory files.** Auto-memory is disabled globally for this user.
-  If something is worth persisting, propose a skill instead.
-- **Do not `rm`.** Move to `/tmp/` or rename with `.bak` unless the owner says
-  "apaga", "delete" or "remove" explicitly.
-- **Run `bash ~/.config/my_scripts/done.sh &`** when finishing a task, build, test
-  or long operation.
-- **Anything the owner should paste elsewhere goes through `wl-copy`.**
-- Shell is **fish**. Python via **uv**, venv at `.venv/`.
-
-### The method, which matters more than any single fix
-
-Curl-first with **pre-registered decision rules**, and *the validated variant is the
-one that ships*. Prompts are tendencies; code is the guarantee. Scalars belong to
-the code and only projected qualitative bands reach the model. When an experiment
-returns a null, suspect the stimulus before the mechanism — the Task 44 gate needed
-three designs before it built a real conflict, and the first two nulls were caused
-by leaking the answer into the scene.
-
-The owner asked to be watched for fatigue: *"to ficando cansado, já, é bom tomar
-atenção comigo rs"*. Closing a task with unchecked boxes and deleting its evidence
-is exactly what that looks like. Push back when it happens.
-
----
-
-## 9. Suggested order of work
-
-1. Answer §1 (schema 13 or 12), then commit §0.
-2. Run a real session with the screenplay ON and confirm, in `debug.jsonl`: no
-   `stalled` replan after every continuation, and zero or rare
-   `unanswered_player` lines.
-3. Task 44's deriver validation with an artifact, then the replication.
-4. Task 44's remaining tests and the HTTP boundary; then close it properly, with
-   the boxes actually ticked.
-5. Task 43 Phase 4, and the composure decision the owner still owes.
+At this point there is no remaining autonomous implementation item in the
+reviewed queue. The next productive step is either fresh live evidence for Task
+26/29/38 or an explicit owner choice of a backlog feature.

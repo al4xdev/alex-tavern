@@ -7,6 +7,12 @@
 > delta-material da 33b, agora construído) ou prompt. Sem trabalho acionável
 > confiável fechado.
 
+> **Review 2026-07-21:** the prompt child experiment 26b is now archived as a
+> completed negative after all variants worsened the measured band. This lane
+> remains open only as an evidence accumulator. Do not revive the prompt attack;
+> a future implementation needs new event-level evidence and a pre-registered
+> material-delta gate.
+
 ## Goal
 
 Remove the reader-visible style defects that make long sessions feel mechanical:

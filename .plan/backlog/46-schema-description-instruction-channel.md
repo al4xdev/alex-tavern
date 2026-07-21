@@ -1,6 +1,6 @@
 # Task 46 — Schema `description` as the primary instruction channel (structured output)
 
-**Status:** 🔵 SHELVED (backlog / design note, 2026-07-20). Large and transverse
+**Status:** 🔵 SHELVED (backlog / design note, reviewed 2026-07-21). Large and transverse
 rework, **gated behind curl re-validation**. DO NOT start in parts (half
 migration = unvalidated state).
 **Origin:** observation of the owner (GenAI eng), 2026-07-20.
@@ -44,13 +44,15 @@ and stays **local** to the field it governs.
 - Therefore: **no piecemeal migration.** Either it is a deliberate and budgeted campaign with
   per-agent A/B (system-variant vs schema-variant, blind gate), or it is not.
 
-## Active pilots (where the technique proves cheap)
+## Prior pilot candidate
 
-**Task 45 (`next_speakers`)** is the most natural pilot: narrator.py:219-224 already proved
+**Task 45 (`next_speakers`)** was the most natural pilot: narrator.py already proved
 that the **hard enum** breaks (validator rejects), but the **field `description`** was never
-tested. The gate for 45 is a ready A/B — baseline (prosa in user message) vs
+tested. Task 45 is now closed; this unrun A/B belongs here and does not reopen it:
+baseline (prose in user message) vs
 variant (per-beat description naming the ineligible), measuring structural validity,
-honored exclusion, and fewer dropped slots. See `.plan/tasks/45`.
+honored exclusion, and fewer dropped slots. See
+`.plan/closed/45-multi-beat-story-continuation.md`.
 
 ## Proposed cheap pilot (first low-risk step)
 

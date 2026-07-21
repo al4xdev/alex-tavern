@@ -6,6 +6,13 @@
 > with the reservations, it does not migrate to closed/. Full report:
 > `docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`.
 
+> **Contract correction confirmed 2026-07-21:** `budget_turns` remains the
+> serialized field name, but its runtime unit is now **player actions**, not
+> committed turns. One continuation action may commit several autonomous turns
+> and spends exactly one unit. A real-provider run confirmed the counter moving
+> `1 -> 2` across two continuation actions without a false `stalled` replan;
+> see `.plan/closed/45-multi-beat-story-continuation.md`.
+
 # Task 38 — Roteiro with Typed Beat Contracts and Algorithmic Replanning
 
 **Depends on:** Task 36 (a Director box must exist to consume the roteiro).
@@ -31,11 +38,14 @@ and replanned by CODE, never by model self-assessment.
 }
 ```
 
+`budget_turns` is a frozen wire name. Read it as the beat's player-action
+budget; renaming it would invalidate sessions without improving behavior.
+
 ## Replan signals (in preference order; hysteresis + cooldown everywhere)
 
 1. exit condition met → advance beat (normal);
-2. turn budget exhausted without anchor coverage → stalled, replan rolling beat;
-3. actor/anchor/location overlap below threshold for M consecutive turns →
+2. player-action budget exhausted without anchor coverage → stalled, replan rolling beat;
+3. actor/anchor/location overlap below threshold for M consecutive player actions →
    drifted, replan rolling beat (fuzzy similarity as fallback signal — measured
    0.79 vs 0.23 discrimination on real pairs);
 4. act-level exit broken hard → regenerate act skeleton.
@@ -93,8 +103,9 @@ proposed, then closed again with an honest scoped verdict.
   narration backstop); metric <0.8 with 0 near-dups every run.
 
 ### Engine improvements banked (help BOTH arms, independent of the roteiro)
-- Hard per-beat turn cap (6d6e9b8): no beat can pin the scene into static
-  repetition (min(budget, 3) turns).
+- Hard per-beat action cap (6d6e9b8, corrected by b076ad3): no beat can pin the
+  scene into static repetition (`min(budget_turns, 3)` player actions). A
+  multi-beat continuation spends one action, not one unit per committed turn.
 - Character anti-repetition guard (5c40276): verbatim self-echo / parroting
   eliminated deterministically (0/0), retry then drop-if-other-survives.
 - Prose lexical backstop (06bb963): a sentence still echoing after the retry is

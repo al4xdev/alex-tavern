@@ -28,6 +28,16 @@ idênticos aos da Task 38, então a calibragem original continua valendo.
 Pinado por `test_burst_turns_do_not_stall_a_beat` e
 `test_multi_beat_continuation_spends_one_action`.
 
+**Real-provider confirmation (2026-07-21).** On a fork of session `29caff75`, a
+two-beat continuation committed turns 17 and 18 while
+`beat_actions_elapsed` moved from 1 to 2, not 3. Both beats remained
+`in_progress`; no `stalled` replan occurred. In the same run, an explicit audible
+player question produced three queued speakers and three Character responses,
+with no `unanswered_player` marker. The HTTP boundary returned two ordered beats
+and `burst_stop_reason: budget_exhausted`. The isolated state and debug log remain
+under `/tmp/alex-tavern-live-validation.GwxD8V/data/sessions/6a2ae445/` for this
+session only.
+
 ## Progresso (2026-07-20)
 
 **Feito (backend, test-locked, commit `694f682`):**
@@ -147,7 +157,7 @@ Regra de decisão pré-registrada (variante DESCRIPTION, não enum duro):
 Se houver falha de schema, fila artificialmente vazia ou perda de roteamento, não
 adotar. A normalização no código permanece como caminho comprovado
 independentemente do resultado. Documentar a medição sem afirmar melhora por
-hipótese. Ver `.plan/tasks/46-schema-description-instruction-channel.md`.
+hipótese. Ver `.plan/backlog/46-schema-description-instruction-channel.md`.
 
 ## Frontend
 
