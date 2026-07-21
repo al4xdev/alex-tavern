@@ -1,82 +1,81 @@
 # Task 46 — Schema `description` as the primary instruction channel (structured output)
 
-**Status:** 🔵 GUARDADA (backlog / design note, 2026-07-20). Re-trabalho grande e
-transversal, **gated atrás de re-validação curl**. NÃO iniciar em partes (meia
-migração = estado não-validado).
-**Origem:** observação do dono (eng de GenAI), 2026-07-20.
+**Status:** 🔵 SHELVED (backlog / design note, 2026-07-20). Large and transverse
+rework, **gated behind curl re-validation**. DO NOT start in parts (half
+migration = unvalidated state).
+**Origin:** observation of the owner (GenAI eng), 2026-07-20.
 
-## A ideia
+## The idea
 
-O canal mais confiável pra dirigir **saída estruturada** não é o system nem o user,
-e sim os campos `description` do **JSON Schema** passado no request (por-propriedade,
-e o description de nível de schema). Instrução colada ao slot exato que o modelo vai
-preencher é seguida mais fielmente do que a mesma regra enterrada em prosa no system,
-e fica **local** ao campo que governa.
+The most reliable channel to guide **structured output** is not the system nor the user prompt,
+but rather the `description` fields of the **JSON Schema** passed in the request (property-level,
+and the schema-level description). An instruction pasted directly to the exact slot the model is going to
+fill is followed more faithfully than the same rule buried in prose inside the system prompt,
+and stays **local** to the field it governs.
 
-## Por que importa aqui
+## Why it matters here
 
-- Hoje a instrução de *shape de saída* vive no system: a taxonomia de delta do
-  watcher, a regra de atribuição da appraisal, os constraints de saída do Character,
-  a elegibilidade de `next_speakers`. Muito disso é guidance **por-campo** que
-  pertence ao campo.
-- **Rastreabilidade ("rastrear todos"):** com a regra no schema, todo constraint é
-  enumerável num único lugar estruturado — dá pra auditar/rastrear o que governa cada
-  campo de saída, em vez de prosa espalhada por N system prompts.
-- O projeto **já faz isso** num ponto: o `next_speakers` da Task 45 carrega
-  "Return only character IDs listed in items.enum..." como description do campo — o
-  padrão que esta task generaliza.
+- Today, the *output shape* instruction lives in the system prompt: the watcher's delta taxonomy,
+  the appraisal attribution rule, the Character's output constraints,
+  and the eligibility of `next_speakers`. Much of this is **per-field** guidance that belongs to the field.
+- **Traceability ("track all"):** with the rule in the schema, every constraint is
+  enumerable in a single structured place — we can audit/trace what governs each
+  output field, instead of prose spread across N system prompts.
+- The project **already does this** in one place: `next_speakers` in Task 45 carries
+  "Return only character IDs listed in items.enum..." as the field description — the
+  pattern that this task generalizes.
 
-## Nuance (escopo honesto — é re-balancear, não apagar system)
+## Nuance (honest scope — it's rebalancing, not erasing the system prompt)
 
-- **Schema-description GANHA** pra: constraints/formato de campo, semântica de enum,
-  do/don't por-slot, forma da saída. (delta categories; appraisal
-  direction/attribution; next_speakers eligibility; speech/thought split.)
-- **System ainda carrega**: persona/papel global, enquadramento de tarefa,
-  invariantes de confidencialidade, e raciocínio não atado a um único slot.
+- **Schema-description WINS** for: field constraints/format, enum semantics,
+  per-slot do/don't, output shape (delta categories; appraisal
+  direction/attribution; next_speakers eligibility; speech/thought split).
+- **System still carries**: global persona/role, task framing,
+  confidentiality invariants, and reasoning not tied to a single slot.
 
-## O custo que torna isto backlog, não agora
+## The cost that makes this backlog, not now
 
-- Mover carga de instrução muda o prompt efetivo de **todo** agente estruturado. A
-  regra da casa é **"a variante validada É a shippada"** — então isto quebra o estado
-  curl-validado de cada um: watcher delta (4/4), appraisal (4/5), guard de saída do
-  Character, beat do roteiro, prose, narrator, banda de disposição.
-- Cada schema migrada precisa **re-rodar seu gate curl** provando que a variante-
-  schema ≥ a variante-system naquela métrica. É campanha de re-validação, não refactor.
-- Portanto: **nada de migração piecemeal.** Ou é uma campanha deliberada e orçada com
-  A/B por-agente (variante system vs variante schema, gate cego), ou não é.
+- Moving the instruction load changes the effective prompt of **every** structured agent. The
+  house rule is **"the validated variant IS the shipped one"** — so this breaks the
+  curl-validated state of each: watcher delta (4/4), appraisal (4/5), Character output guard,
+  screenplay beat, prose, narrator, disposition band.
+- Each migrated schema needs to **re-run its curl gate** proving that the schema-variant
+  ≥ system-variant in that metric. It is a re-validation campaign, not a simple reflow.
+- Therefore: **no piecemeal migration.** Either it is a deliberate and budgeted campaign with
+  per-agent A/B (system-variant vs schema-variant, blind gate), or it is not.
 
-## Pilotos vivos (onde a técnica se prova barato)
+## Active pilots (where the technique proves cheap)
 
-**Task 45 (`next_speakers`)** é o piloto mais natural: narrator.py:219-224 já provou
-que o **enum duro** quebra (validator rejeita), mas o **`description` do campo** nunca
-foi testado. O gate da 45 é um A/B pronto — baseline (prosa no user message) vs
-variante (description por-beat nomeando o inelegível), medindo validade estrutural,
-exclusão honrada e menos slots dropados. Ver `.plan/tasks/45`.
+**Task 45 (`next_speakers`)** is the most natural pilot: narrator.py:219-224 already proved
+that the **hard enum** breaks (validator rejects), but the **field `description`** was never
+tested. The gate for 45 is a ready A/B — baseline (prosa in user message) vs
+variant (per-beat description naming the ineligible), measuring structural validity,
+honored exclusion, and fewer dropped slots. See `.plan/tasks/45`.
 
-## Piloto barato proposto (primeiro passo de baixo risco)
+## Proposed cheap pilot (first low-risk step)
 
-A schema de **disposição/appraisal** (`build_appraisal_schema`) é nova, tem
-`description` vazio por campo, e o gate dela custa ~20 chamadas curl
-(`scratchpad/exp_disposition_appraisal.py`). Migrar a regra de atribuição e a
-disciplina "most turns shift nothing" do system pro `description` dos campos ali, e
-re-rodar o gate (≥4/5, mesmo limiar), **prova ou mata o lift** sem tocar em nenhum
-outro agente. Se o piloto mostrar ganho, aí sim decidir a campanha.
+The **disposition/appraisal** schema (`build_appraisal_schema`) is new, has empty
+`description` fields, and its gate costs ~20 curl calls
+(`scratchpad/exp_disposition_appraisal.py`). Migrating the attribution rule and the
+"most turns shift nothing" discipline from system prompt to the `description` of the fields there, and
+re-running the gate (≥4/5, same threshold), **proves or kills the lift** without touching any
+other agent. If the pilot shows gains, then decide on the campaign.
 
-## Aceite (rascunho — congela ao iniciar)
+## Acceptance Criteria (draft — freeze when starting)
 
-- [ ] Inventário de toda schema de saída estruturada; classificar cada instrução do
-  system como **field-local (movível)** vs **global (fica)**.
-- [ ] Por agente, gate curl A/B: variante-schema vs atual, pré-registrado; a
-  variante-schema precisa ser ≥ a atual na métrica existente daquele agente.
-- [ ] Saída de rastreabilidade: um registro que lista, por campo de saída, a
-  description que o governa (o ganho "rastrear todos").
-- [ ] Sem regressão de confidencialidade (mover texto pra schema não pode vazar
-  roteiro/segredo numa chamada estruturada de um viewer).
-- [ ] README/AGENTS documenta schema-description como o canal canônico de guidance
-  field-local.
+- [ ] Inventory of all structured output schemas; classify each system instruction as
+  **field-local (movable)** vs **global (remains)**.
+- [ ] Per agent, curl A/B gate: schema-variant vs current, pre-registered; the
+  schema-variant must be ≥ the current one in that agent's existing metric.
+- [ ] Traceability output: a registry listing, per output field, the description
+  governing it (the "track all" gain).
+- [ ] No confidentiality regression (moving text to schema must not leak
+  screenplay/secrets in a viewer's structured call).
+- [ ] README/AGENTS documents schema-description as the canonical channel for field-local
+  guidance.
 
-## Fora de escopo
+## Out of Scope
 
-- Mover persona/enquadramento global ou invariante de confidencialidade pra schema.
-- Qualquer migração sem o gate de re-validação por-agente daquele prompt.
-- Reescrever prompts já shippados "por elegância" sem provar o lift por curl.
+- Moving global persona/framing or confidentiality invariants to the schema.
+- Any migration without the per-agent re-validation gate of that prompt.
+- Rewriting already shipped prompts "for elegance" without proving the lift via curl.

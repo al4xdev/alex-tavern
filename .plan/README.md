@@ -1,22 +1,22 @@
-# .plan — mapa da pasta
+# .plan — folder map
 
-Não há mais `ROADMAP.md` monolítico (removido 2026-07-20): o estado vive
-**distribuído** — o que está feito em `closed/`, o que está ativo em `tasks/` (com
-banner de status no topo), e a narrativa/racional nos artigos de `docs/cases/`.
-Organizado por estado:
+There is no longer a monolithic `ROADMAP.md` (removed 2026-07-20): the state lives
+**distributed** — what is done in `closed/`, what is active in `tasks/` (with a
+status banner at the top), and the narrative/rational in the articles of `docs/cases/`.
+Organized by state:
 
-| Pasta/arquivo | O que é | Quando olhar |
+| Folder/file | What it is | When to look |
 |---|---|---|
-| `tasks/` | Tarefas **ativas** (abertas ou entregues-com-ressalva, banner no topo). Track aberto atual: **43 — substrato de disposição** (roadmap fasado, artigo Nº 15) | Ao trabalhar |
-| `para-o-dono/` | Coisas esperando **ação sua** (smoke tests, desenhos pra aceitar) | Quando você voltar |
-| `backlog/` | Futuro sem trabalho ativo (02 mídia, 06 RAG, 16 lore, persona pública/real, New Journey, S02) | Ao planejar |
-| `reference/` | Docs de arquitetura vivos (mapa 29.2, estudo narrator_hint) | Ao desenhar |
-| `closed/` | Tarefas fechadas COM CONFIANÇA + explorações concluídas | Como histórico |
+| `tasks/` | **Active** tasks (open or delivered-with-reservations, banner at the top). Current open track: **43 — character disposition substrate** (phased roadmap, article No. 15) | When working |
+| `para-o-dono/` | Things waiting for **your action** (smoke tests, designs to accept) | When you return |
+| `backlog/` | Future without active work (02 media, 06 RAG, 16 lore, public/real persona, New Journey, S02) | When planning |
+| `reference/` | Living architecture docs (29.2 map, narrator_hint study) | When designing |
+| `closed/` | Tasks closed WITH CONFIDENCE + completed explorations | As history |
 
-Convenções permanentes: só migra pra `closed/` tarefa fechada com confiança;
-commits em inglês sem trailer de IA; método curl-first (AGENTS.md §6 — a variante
-validada É a shippada); evidência de benchmark em `output29/` e `plans/artifacts/`
+Permanent conventions: only migrate tasks to `closed/` when closed with confidence;
+commits in English without AI trailers; curl-first method (AGENTS.md §6 — the validated
+variant IS the shipped one); benchmark evidence in `output29/` and `plans/artifacts/`
 (gitignored, local).
 
-A série de artigos científicos do projeto vive em `docs/cases/` (índice
-próprio com reading paths).
+The project's series of scientific papers/articles lives in `docs/cases/` (its own
+index with reading paths).

@@ -1,79 +1,50 @@
-# Task 26b — Re-descrição de ambiência: ataque via PROMPT (experimental)
+# Task 26b — Ambience redescription: attack via PROMPT (experimental)
 
-> **Status: ⏸️ PARQUEADA — resultado NEGATIVO (documentado no artigo No. 13).**
-> 24 calls, 3 variantes em 2 iterações: TODAS pioraram a banda (16.4%→21-23%) —
-> a linha sobre cenário vira ímã de atenção. Ataque via prompt fechado como
-> beco. Direção futura: nível dos eventos (delta-material da 33b), não prompt.
+> **Status: ⏸️ PARKED — NEGATIVE result (documented in article No. 13).**
+> 24 calls, 3 variants in 2 iterations: ALL worsened the band (16.4%→21-23%) —
+> the line about setting becomes an attention magnet. Prompt-based attack closed
+> as a dead end. Future direction: event level (material delta from 33b), not prompt.
 
-**Origem:** decisão do dono (2026-07-19): "via prompt, se não der fallback
-pra tentarmos parquear". Task experimental, filha da lane 26.
+**Origin:** owner decision (2026-07-19): "via prompt, if it doesn't work, fallback to park it". Experimental task, child of lane 26.
 
-## Evidência que motiva (medição offline 2026-07-19)
+## Motivating evidence (offline measurement 2026-07-19)
 
-4 sessões reais, 549 sentenças de narração comparadas com narrações
-anteriores (script `measure26.py`):
+4 real sessions, 549 narration sentences compared with prior narrations (script `measure26.py`):
 
-- Eco quase-verbatim (≥0.8): 2 casos em 549 — e ambos porque a compactação
-  escondeu a sentença anterior da guarda. A guarda determinística de prosa
-  está funcionando.
-- A família dominante é OUTRA: **paráfrase de ambiência** na banda 0.7–0.8
-  (~9% das sentenças). Exemplos reais: "o estojo de prata sob o pedestal
-  continua lacrado" → "o estojo de prata jaz esquecido, seu lacre intacto";
-  "a fita azul não se move" re-observada turno após turno.
-- Threshold fuzzy não resolve: >0.85 nunca dispara; baixar pra 0.7 mataria
-  callbacks legítimos.
+- Near-verbatim echo (≥0.8): 2 cases out of 549 — and both because compaction hid the prior sentence from the guard. The deterministic prose guard is working.
+- The dominant family is DIFFERENT: **ambience paraphrase** in the 0.7–0.8 band (~9% of sentences). Real examples: "the silver case on the pedestal remains sealed" → "the silver case lies forgotten, its seal intact"; "the blue ribbon does not move" re-observed turn after turn.
+- Fuzzy threshold does not solve this: >0.85 never fires; lowering to 0.7 would kill legitimate callbacks.
 
-## Hipótese
+## Hypothesis
 
-O renderizador de prosa re-descreve objetos/estado que NÃO mudaram porque
-nada no prompt diz que ambiência só merece tinta quando muda. Uma regra
-pequena no FIM do PROSE_SYSTEM (posição validada nas tasks 41/42) pode
-redirecionar essa tinta pro que aconteceu AGORA.
+The prose renderer re-describes unchanged objects/states because nothing in the prompt says that ambience only deserves ink when it changes. A small rule at the END of PROSE_SYSTEM (position validated in tasks 41/42) can redirect this ink to what happened NOW.
 
-## Método (obrigatório: AGENTS.md §6, igual à 42)
+## Method (mandatory: AGENTS.md §6, same as 42)
 
-1. Extrair 2+ payloads reais de prosa de turnos com re-descrição medida
-   (usar `replay_extract_call` do MCP novo; sessões xf-full T9/T12/T19 têm
-   casos medidos).
-2. Testar variantes de UMA linha via `replay_llm_call`, 3 runs cada,
-   métrica dupla: (a) taxa de sentenças 0.7–0.8 vs narrações anteriores
-   (reusar `measure26.py`), (b) tamanho — NÃO pode derrubar o piso da 42
-   (as duas regras vão conviver; medir juntas).
-3. Candidatas iniciais (afinar no curl):
-   - "Spend your words on what changed or happened this beat; setting
-     already described stays as silent backdrop unless it changes."
-   - variante com permissão explícita de callback intencional.
-4. A variante validada É a shippada, mesma posição testada.
+1. Extract 2+ real prose payloads from turns with measured redescription (use the new `replay_extract_call` MCP tool; sessions xf-full T9/T12/T19 have measured cases).
+2. Test ONE-line variants via `replay_llm_call`, 3 runs each, double metric: (a) rate of sentences 0.7–0.8 vs prior narrations (reuse `measure26.py`), (b) size — must NOT drop below the floor from 42 (both rules will coexist; measure together).
+3. Initial candidates (tune via curl):
+   - "Spend your words on what changed or happened this beat; setting already described stays as silent backdrop unless it changes."
+   - variant with explicit permission for intentional callback.
+4. The validated variant IS the shipped one, same position tested.
 
-## Aceite
+## Acceptance Criteria
 
-- [ ] Banda 0.7–0.8 cai de forma consistente nos payloads medidos (alvo:
-      ~9% → <4%) sem quebrar o piso de verbosidade da 42 (3/3 acima do piso).
-- [ ] Zero novas regras além de 1 linha; nunca cap.
-- [ ] Se não atingir em ~2 iterações de variante: **parquear** (decisão do
-      dono) e registrar o resultado negativo aqui.
+- [ ] 0.7–0.8 band falls consistently in measured payloads (target: ~9% → <4%) without breaking the verbosity floor of 42 (3/3 above floor).
+- [ ] Zero new rules beyond 1 line; never cap.
+- [ ] If not achieved in ~2 variant iterations: **park** (owner decision) and log the negative result here.
 
-## RESULTADO (2026-07-19): NEGATIVO em 2 iterações → PARQUEADA (fallback do dono)
+## RESULT (2026-07-19): NEGATIVE in 2 iterations → PARKED (owner fallback)
 
-24 calls em 3 payloads reais de prosa (T9/T12/T19 de ce87167b, turnos com
-re-descrição medida), 2 runs por variante por turno; métrica: % de sentenças
-na banda ≥0.7 vs narrações anteriores + palavras (piso da 42):
+24 calls on 3 real prose payloads (T9/T12/T19 from ce87167b, turns with measured redescription), 2 runs per variant per turn; metric: % of sentences in the ≥0.7 band vs prior narrations + words (42 floor):
 
-| Variante | banda ≥0.7 | palavras med |
+| Variant | band ≥0.7 | words med |
 |---|---|---|
 | V0 baseline | **16.4%** (9/55) | 146 |
 | V1 "silent backdrop" | 22.4% (15/67) | 179 |
 | V2 V1+callback | 21.3% (16/75) | 213 |
-| V3 proibição direta ("zero words") | 22.8% (13/57) | 192 |
+| V3 direct prohibition ("zero words") | 22.8% (13/57) | 192 |
 
-TODAS as variantes PIORARAM a banda. Leitura: qualquer linha que menciona
-cenário/re-descrição funciona como ímã de atenção — o modelo re-afirma o
-estado parado por contraste ("o estojo continua lacrado") justamente porque a
-regra o fez pensar nos objetos estabelecidos. O piso da 42 não foi violado
-(min 118-151), mas as linhas também INFLAM o tamanho.
+ALL variants WORSENED the band. Analysis: any line mentioning setting/redescription acts as an attention magnet — the model re-asserts the static state by contrast ("the case remains sealed") precisely because the rule made it think about the established objects. The verbosity floor of 42 was not violated (min 118-151), but the lines also INFLATE the size.
 
-Direção futura (se despertar de novo): não é prompt — é o nível dos EVENTOS.
-O renderizador cego só orna o que o Diretor emite; a re-descrição residual
-entra quando eventos re-encenam estado parado. Candidato real: auditoria de
-delta material da 33b marcando evento-sem-delta antes da prosa. Fica pra
-depois da integração do watcher.
+Future direction (if it wakes up again): not prompt — it's the EVENT level. The blind renderer only adorns what the Director emits; residual redescription enters when events re-enact a static state. Real candidate: material delta auditing of 33b marking event-without-delta before prose. Postponed until after watcher integration.

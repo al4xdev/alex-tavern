@@ -1,47 +1,46 @@
-# Task 19 — Roteiro dos smoke tests que SÓ VOCÊ pode rodar (outcome 6)
+# Task 19 — Smoke test script that ONLY YOU can run (outcome 6)
 
-É o único item entre a task e o fecho confiante. São 3 ambientes, ~10 min
-cada. Em todos: sucesso = a mutação passa COM o app normal; o `curl` externo
-sem token toma **403**. Qualquer resultado diferente: anota o passo e o corpo
-da resposta e me traz — eu ajusto.
+This is the only item between the task and a confident close. There are 3 environments, ~10 min
+each. In all of them: success = the mutation passes WITH the normal app; an external `curl`
+without a token gets a **403**. Any different result: note the step and the response body
+and bring it to me — I will adjust it.
 
 ## 1. Desktop (served same-origin, BASE_URL='')
 
-1. `uv run python -m src.main` e abre `http://127.0.0.1:8889` no navegador.
-2. Cria uma sessão, manda 1 turno com fala, 1 undo. → Tudo deve funcionar
-   (o frontend busca `/bootstrap` e manda `X-Tavern-Token` em toda mutação).
-3. Prova negativa, no terminal:
-   `curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8889/session/qualquer/turn -H "Content-Type: application/json" -d '{"speech":"x"}'`
-   → esperado **403** (sem token).
-4. Reinicia o servidor com a aba aberta e manda outro turno → deve se
-   recuperar sozinho (retry do 403 rebusca `/bootstrap`), sem F5.
+1. `uv run python -m src.main` and open `http://127.0.0.1:8889` in the browser.
+2. Create a session, send 1 turn with speech, 1 undo. → Everything should work
+   (the frontend fetches `/bootstrap` and sends `X-Tavern-Token` on every mutation).
+3. Negative proof, in the terminal:
+   `curl -s -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8889/session/any/turn -H "Content-Type: application/json" -d '{"speech":"x"}'`
+   → expected **403** (no token).
+4. Restart the server with the tab open and send another turn → it should
+   recover on its own (403 retry refetches `/bootstrap`), without F5.
 
-## 2. Docker (acesso via IP da LAN)
+## 2. Docker (access via LAN IP)
 
-1. Sobe o container e acessa `http://<ip-da-maquina>:8889` de OUTRO
-   dispositivo da LAN.
-2. Cria sessão + 1 turno. → Deve funcionar pelo caminho same-origin
-   (Origin == Host); o token vem junto.
-3. Se o provider é llama local com service name do compose (ex.:
-   `http://llama:8080`): confirma que o boot NÃO rejeita o api_base
-   (single-label é permitido pela política).
-4. Prova negativa: mesmo curl do item 1.3 apontando pro IP da LAN → **403**.
+1. Start the container and access `http://<machine-ip>:8889` from ANOTHER
+   LAN device.
+2. Create session + 1 turn. → Should work through the same-origin path
+   (Origin == Host); the token is sent along.
+3. If the provider is local llama with the compose service name (e.g.,
+   `http://llama:8080`): confirm that boot does NOT reject the api_base
+   (single-label is allowed by the policy).
+4. Negative proof: same curl as item 1.3 pointing to the LAN IP → **403**.
 
 ## 3. Android / WebView
 
-Aqui existe uma bifurcação que EU não consigo ver daqui — preciso que você
-me diga qual dos dois o app usa:
+There is a fork here that I cannot see from here — I need you
+to tell me which of the two the app uses:
 
-- **(A) WebView carrega o app de `http://127.0.0.1:8889`** (same-origin):
-  deve funcionar tudo, igual ao desktop. Só testar sessão + turno.
-- **(B) WebView carrega de `file://`** (Origin `null`): `null` está FORA do
-  CORS de propósito (roubo de token). O `/bootstrap` só responde se o WebView
-  estiver em modo universal-access. Testar: se o app não consegue nem criar
-  sessão, é este caso — me diz e eu te passo o ajuste no lado Android
-  (servir same-origin é o caminho recomendado; isentar CORS no WebView é o
-  plano B).
+- **(A) WebView loads the app from `http://127.0.0.1:8889`** (same-origin):
+  everything should work, just like on desktop. Just test session + turn.
+- **(B) WebView loads from `file://`** (Origin `null`): `null` is outside the
+  CORS on purpose (token theft). The `/bootstrap` only responds if the WebView
+  is in universal-access mode. Test: if the app cannot even create a
+  session, this is the case — tell me and I will send you the adjustment for the Android side
+  (serving same-origin is the recommended path; exempting CORS in the WebView is plan B).
 
-## Quando terminar
+## When finished
 
-Me manda por ambiente: passou/não passou + (se falhou) passo e resposta.
-3/3 verdes → eu fecho a 19 com confiança e migro pra `closed/`.
+Send me per environment: passed/did not pass + (if it failed) step and response.
+3/3 green → I close 19 with confidence and migrate it to `closed/`.

@@ -1,162 +1,121 @@
-# Task 43 — Substrato de disposição dos personagens (estado que deriva)
+# Task 43 — Character disposition substrate (derived state)
 
-**Status:** 🟡 ABERTA (roadmap novo, 2026-07-20) — track independente, não bloqueia
-nem depende das tasks abertas (26/26b, 16, 38, xfailed3). Fase 0 (definição +
-artigo) concluída; Fases 1–5 abertas.
-**Artigo da fronteira:** `docs/cases/15-character-disposition-substrate-2026-07-20.md`.
-**Origem:** conversa de desenho com o dono (2026-07-20), a partir de uma sugestão
-externa (o "sistema de memória/fé" citado de Sword Art Online) e da nota
+**Status:** 🟡 OPEN (new roadmap, 2026-07-20) — independent track, does not block
+nor depend on open tasks (26/26b, 16, 38, xfailed3). Phase 0 (definition +
+article) completed; Phases 1–5 open.
+**Frontier article:** `docs/cases/15-character-disposition-substrate-2026-07-20.md`.
+**Origin:** design conversation with the owner (2026-07-20), based on an external
+suggestion (the "memory/faith system" mentioned from Sword Art Online) and the note
 `.plan/backlog/player-persona-public-vs-real.md`.
 
-## Ideia
+## Idea
 
-Personagens deixam de ser **ficha estática** (personalidade + `current_mood` texto
-livre) e ganham **disposições que DERIVAM ao longo da história**: confiança que
-erode, afeto que vira, compostura que quebra e volta devagar. Semeado na criação
-do personagem (no preset), mensurável e persistido, e — o ponto — legível na prosa.
+Characters cease to have a **static sheet** (personality + free-text `current_mood`)
+and gain **dispositions that DERIVAM along the story**: trust that erodes, affection
+that turns, composure that breaks and recovers slowly. Seeded in character creation
+(in the preset), measurable and persisted, and — the point — readable in prose.
 
-## A disciplina central (o que torna isto embarcável)
+## The core discipline (what makes this mergeable)
 
-**O escalar 0–1 é do CÓDIGO; só a BANDA qualitativa chega ao modelo.** Resolve a
-contradição aparente ("o modelo não honra um campo de credence numérico" — verdade)
-com "queremos valores 0–1" (também verdade): número e modelo vivem em lados opostos
-de uma parede.
-- Escalar (0–1): determinístico, persistido, testável **sem gastar modelo**. Dá o
-  lado mensurável (seed no preset, deriva, limiares, antes/depois).
-- Banda qualitativa: é o que o agente-personagem **lê** (`"desconfiado"`, nunca
-  `0.72`) e o delta direcional é o que ele **escreve** ("esse turno quebrou minha
-  confiança"); o **código** integra o delta no escalar.
-- É a MESMA divisão de trabalho já provada no auditor de delta do watcher (33b /
-  artigo Nº 13): modelo classifica evento qualitativo, código faz a aritmética.
+**The 0–1 scalar belongs to the CODE; only the qualitative BAND reaches the model.** Resolves the
+apparent contradiction ("the model does not honor a numeric credence field" — true)
+with "we want 0–1 values" (also true): number and model live on opposite sides of a wall.
+- Scalar (0–1): deterministic, persisted, testable **without spending model calls**. Provides the
+  measurable side (preset seed, drift, thresholds, before/after).
+- Qualitative band: this is what the character-agent **reads** (`"distrustful"`, never
+  `0.72`) and the directional delta is what it **writes** ("this turn broke my
+  trust"); the **code** integrates the delta into the scalar.
+- This is the SAME division of labor already proven in the watcher's delta auditor (33b /
+  article No. 13): the model classifies the qualitative event, the code does the arithmetic.
 
-## A navalha anti-complexidade (aceite de cada eixo)
+## The anti-complexity razor (acceptance of each axis)
 
-> **Um eixo só ganha lugar se um leitor CEGO, olhando só a fala/ação, souber dizer
-> em que ponta do eixo o personagem está.** Se não muda comportamento observável,
-> é decoração — corta.
+> **An axis only earns its place if a BLIND reader, looking only at speech/action, can tell
+> which end of the axis the character is at.** If it doesn't change observable behavior,
+> it's decoration — cut it.
 
-Isto é teste curl (crítico cego adivinha a banda pela prosa; se não bate o acaso, o
-eixo morre). É como "complexidade com razão" vira falsificável, não aspiração.
+This is a curl test (blind critic guesses the band from prose; if it doesn't beat chance, the
+axis dies). This is how "complexity with reason" becomes falsifiable, not an aspiration.
 
-## Decisões de desenho CONGELADAS (aceite do dono, 2026-07-20)
+## Design decisions FROZEN (owner acceptance, 2026-07-20)
 
-1. **Parede escalar-código / banda-modelo** — firme (a fundação; §"disciplina").
-2. **Conjunto de 3 eixos** de partida:
-   - **Confiança** (generaliza a "fé") — por-par — age na palavra do outro, baixa
-     a guarda, compartilha segredo.
-   - **Afeto** (calor ↔ hostilidade) — por-par — tom, disposição a ajudar, agressão.
-   - **Compostura** (calmo ↔ abalado) — global — ritmo da fala, impulsividade; é
-     literalmente "o tom da fala". Disciplina um slice do `current_mood` já existente.
-3. **4º eixo (Ousadia: cauteloso ↔ temerário, global) NÃO entra por desenho — é
-   decidido por CURL** (Fase 3.5). Desenha-se pra 3; o 4º prova que se paga (muda
-   comportamento que um cego nomeia, acima dos 3) ou fica de fora. — aceite do dono.
-4. **Escopo por-par desde a Fase 1** (aceite do dono): Confiança/Afeto já nascem
-   dyadic (`A→B`), mas **materializados PREGUIÇOSAMENTE** — entrada só onde há
-   divergência viva. Compostura é global. Essa distinção mata a explosão O(N²).
-5. **Preset semeia, história deriva, gravidade volta.** Cada eixo carrega
-   `baseline` (semeado no preset), `valor` (movido por delta) e `gravidade` (relaxa
-   pro baseline em turnos calmos).
-6. **Reusar a taxonomia de delta do watcher** (`relationship_changed` já existe)
-   pra mover o escalar — reaproveitar máquina provada, não construir subsistema.
+1. **Scalar-code / band-model wall** — firm (the foundation; §"discipline").
+2. **Set of 3 starting axes**:
+   - **Trust** (generalizes "faith") — pairwise (dyadic) — acts on another's word, lowers
+     guard, shares secrets.
+   - **Affection** (warmth ↔ hostility) — pairwise (dyadic) — tone, willingness to help, aggression.
+   - **Composure** (calm ↔ shaken) — global — speech rhythm, impulsiveness; it is
+     literally "the tone of speech". Disciplines a slice of the already existing `current_mood`.
+3. **4th axis (Boldness: cautious ↔ reckless, global) does NOT enter by design — it is
+   decided by CURL** (Phase 3.5). We design for 3; the 4th proves it pays off (changes
+   behavior a blind judge can name, above the 3) or stays out. — owner acceptance.
+4. **Dyadic scope from Phase 1** (owner acceptance): Trust/Affection are born
+   dyadic (`A→B`), but **lazily materialized** — entries only where there is
+   live divergence. Composure is global. This distinction kills the O(N²) explosion.
+5. **Preset seeds, history derives, gravity pulls back.** Each axis carries a
+   `baseline` (seeded in the preset), `value` (moved by delta), and `gravity` (relaxes
+   to baseline in calm turns).
+6. **Reuse watcher delta taxonomy** (`relationship_changed` already exists)
+   to move the scalar — reuse proven machinery, do not build a parallel subsystem.
 
-## Fronteiras (o que isto NÃO é)
+## Boundaries (what this is NOT)
 
-- NÃO é um novo store de memória. A "fé" é um **carimbo de crença** em cima de
-  percepção/memória já existentes, não um terceiro banco. (Ver artigo Nº 15 §2 e o
-  turno de desenho: "matar a palavra 'três memórias'".)
-- NÃO substitui os ledgers de perspectiva (29.2). Isto governa DISPOSIÇÃO que deriva;
-  os ledgers governam PERCEPÇÃO/conhecimento subjetivo. Complementares.
-- Construído pra correção de longo prazo, validado empiricamente — não otimizado pra
-  custo por chamada agora (postura do dono: modelo de fronteira barato = gastar em
-  validação, desenhar pro arco).
+- NOT a new memory store. "Faith" is a **belief stamp** on top of already existing
+  perception/memory, not a third bank (see article No. 15 §2 and the design turn:
+  "killing the word 'three memories'").
+- NOT a replacement for perspective ledgers (29.2). This governs derived DISPOSITION;
+  the ledgers govern PERCEPTION/subjective knowledge. Complementary.
+- Built for long-term correctness, empirically validated — not optimized for
+  per-call cost right now (owner's stance: cheap frontier model = spend on
+  validation, design for the arc).
 
-## Roadmap (cada fase barata e testável isolada; gate curl-first onde há modelo)
+## Roadmap (each phase cheap and testable in isolation; curl-first gate where there is a model)
 
-### Fase 0 — Definição + artigo da fronteira — ✅ CONCLUÍDA (2026-07-20)
-`docs/cases/15-character-disposition-substrate-2026-07-20.md`. Eixos, a parede
-escalar/banda, a navalha, o unificador (persona pública/real), as reivindicações
-falsificáveis (§9). Esta task é o roadmap-companheiro do artigo.
+### Phase 0 — Definition + frontier article — ✅ COMPLETED (2026-07-20)
+`docs/cases/15-character-disposition-substrate-2026-07-20.md`. Axes, the scalar/band wall, the razor, the unifier (public/real persona), falsifiable claims (§9). This task is the roadmap companion to the article.
 
-### Fase 1 — O substrato (PURO CÓDIGO, zero modelo) — ⬜ ABERTA
-Modelo de dados por personagem: `{axis: (baseline, value, gravity)}` para os eixos
-globais + `{(observer, target): {axis: (baseline, value, gravity)}}` dyadic-lazy.
-Seed a partir do preset. Deriva/gravidade determinística por turno/tick (consome o
-relógio da 40). Projeção `escalar → banda` (função pura). Bump de schema. Testável
-de graça (aritmética + projeção).
-- **Aceite:** seed do preset popula baselines; N turnos calmos relaxam o valor pro
-  baseline dentro de uma tolerância; projeção mapeia faixas → bandas estáveis;
-  dyadic materializa preguiçosamente (sem entrada = sem custo); ruff+mypy limpos;
-  unit tests offline. **Nenhuma chamada de modelo nesta fase.**
+### Phase 1 — The substrate (PURE CODE, zero model) — ⬜ OPEN
+Data model per character: `{axis: (baseline, value, gravity)}` for global axes +
+`{(observer, target): {axis: (baseline, value, gravity)}}` lazy-dyadic.
+Seed from the preset. Deterministic drift/gravity per turn/tick (consumes the
+clock from 40). `scalar → band` projection (pure function). Bump of schema. Testable
+for free (arithmetic + projection).
+- **Acceptance:** preset seed populates baselines; N calm turns relax value to baseline within tolerance; projection maps ranges → stable bands; dyadic materializes lazily (no entry = no cost); ruff+mypy clean; offline unit tests. **No model calls in this phase.**
 
-### Fase 2 — Projeção na voz (o modelo LÊ a banda) — 🟢 GATE CUMPRIDO (2/3 SHIP)
-Injeta a banda no prompt do agente-personagem (`_build_disposition_note` →
-"CURRENT PRIVATE STATE"; o número NUNCA entra). 3 testes de unidade (banda aparece,
-escalar não vaza, dyad ocioso silencioso). Suíte 686 verde.
-- **Gate curl-first EXECUTADO** (deepseek real, crítico cego, regra pré-registrada
-  ≥8/10 por eixo + ≥2/3 pra ship; limiar nunca movido; v1/v2/v3 todos registrados).
-  Evidência: `plans/artifacts/disposition-voice/VALIDATION.md`.
-  - **Warmth: PASS 3× (8/9/9)** — banda honrada e legível por cego.
-  - **Trust: PASS 10/10** (v3, juiz 5/5 equilibrado) quando o estímulo dá espaço aos
-    dois polos ("guarde este embrulho até amanhã").
-  - **Composure: FAIL nas 3 (5/5/7)** — não separa no nível de UMA fala. Diagnóstico:
-    é "clima" interno que colore a ENTREGA; uma linha de um profissional competente
-    lê como composto independente da banda, e qualquer estímulo forte o bastante pra
-    abalar satura o polo calmo. Parece stance de CENA/prosódia, não sinal de fala
-    única. **Decisão do dono pendente:** rebaixar / tratar em nível de cena / cortar
-    (a navalha pode estar rejeitando composure no nível de utterance).
-- **Aceite:** ✅ banda legível por cego em 2/3 eixos (gate); ✅ número nunca no prompt
-  (teste + scan). RESSALVA aberta: composure (ver decisão do dono).
+### Phase 2 — Projection in voice (model READS band) — 🟢 GATE MET (2/3 SHIP)
+Injects the band into the character-agent prompt (`_build_disposition_note` → "CURRENT PRIVATE STATE"; number NEVER enters). 3 unit tests (band appears, scalar does not leak, idle dyad remains silent). Suite 686 green.
+- **Curl-first gate EXECUTED** (real deepseek, blind critic, pre-registered rule ≥8/10 per axis + ≥2/3 to ship; threshold never moved; v1/v2/v3 all logged). Evidence: `plans/artifacts/disposition-voice/VALIDATION.md`.
+  - **Warmth: PASS 3× (8/9/9)** — band honored and readable by blind judge.
+  - **Trust: PASS 10/10** (v3, balanced 5/5 judge) when stimulus gives room to both poles ("hold this package until tomorrow").
+  - **Composure: FAIL in all 3 (5/5/7)** — does not separate at the level of ONE speech utterance. Diagnosis: it is internal "mood" that colors the delivery; a line from a competent professional reads as composed regardless of the band, and any stimulus strong enough to shake saturates the calm pole. Feels like SCENE/prosody stance, not a single utterance signal. **Owner decision pending:** demote / treat at scene level / cut (the razor might be rejecting composure at the utterance level).
+- **Acceptance:** ✅ band readable by blind judge in 2/3 axes (gate); ✅ number never in prompt (test + scan). RESERVATION open: composure (see owner decision).
 
-### Fase 3 — A malha de retorno (modelo ESCREVE delta, código integra) — 🟢 GATE CUMPRIDO (4/5) + FIADO
-Auditor de appraisal blind/Director-side (`appraise_relationships` em
-`src/disposition.py`): lê o bloco do último turno e emite deltas DIRECIONAIS por par
-(`observer→target`, axis trust|warmth, direction up|down, intensity slight|strong).
-Código integra (`integrate_appraisal` → `ensure_dyad` + `nudge`), depois 1 passo de
-gravidade. Escopo trust+warmth (composure estacionado). Fiado em
-`Runner._apply_disposition_feedback` atrás de `disposition_feedback_enabled` (OFF por
-padrão). 10 testes de unidade + 2 de integração; suíte 696 verde.
-- **Gate curl-first EXECUTADO** (deepseek real, 5 cenários × 4 runs, regra
-  pré-registrada ≥3/4 por cenário + ≥4/5 pra ship; v1/v2 registrados).
-  Evidência: `plans/artifacts/disposition-appraisal/VALIDATION.md`.
-  - **Direção + par confiáveis** (sempre C1→C2, sinal certo). **Falso-positivo
-    zero** (neutral silencioso 4/4 nas duas rodadas).
-  - **Regra de atribuição** ("quando B age sobre A, é A→B que muda") consertou o
-    caso-assinatura: **betrayal 2/4→4/4**.
-  - **Soft spot honesto:** o split trust/warmth é mole pra atos que movem os dois
-    (rescue lê como warmth, não trust) — não prejudica: ambos empurram o dyad no
-    mesmo sinal e mostram a mesma banda mais quente. Shipped = prompt v2.
-- **Aceite:** ✅ delta rastreia provocação (4/5) + gravidade restaura (unit) + teste
-  de integração mockado (provoca→escalar move→banda vira→OFF fica estático).
+### Phase 3 — The feedback loop (model WRITES delta, code integrates) — 🟢 GATE MET (4/5) + WIRED
+Appraisal auditor blind/Director-side (`appraise_relationships` in `src/disposition.py`): reads the last turn block and emits DIRECTIONAL deltas per pair (`observer→target`, axis trust|warmth, direction up|down, intensity slight|strong). Code integrates (`integrate_appraisal` → `ensure_dyad` + `nudge`), then 1 gravity step. Scope trust+warmth (composure parked). Wired in `Runner._apply_disposition_feedback` behind `disposition_feedback_enabled` (OFF by default). 10 unit tests + 2 integration tests; suite 696 green.
+- **Curl-first gate EXECUTED** (real deepseek, 5 scenarios × 4 runs, pre-registered rule ≥3/4 per scenario + ≥4/5 to ship; v1/v2 logged). Evidence: `plans/artifacts/disposition-appraisal/VALIDATION.md`.
+  - **Direction + pair reliable** (always C1→C2, correct signal). **Zero false positives** (silent neutral 4/4 in both rounds).
+  - **Attribution rule** ("when B acts on A, A→B is what changes") fixed signature case: **betrayal 2/4→4/4**.
+  - **Honest soft spot:** trust/warmth split is soft for acts that move both (rescue reads as warmth, not trust) — harmless: both push the dyad in the same direction and show the same warmer band. Shipped = prompt v2.
+- **Acceptance:** ✅ delta tracks provocation (4/5) + gravity restores (unit) + mocked integration test (provoke→scalar moves→band flips→OFF stays static).
 
-### Fase 3.5 — Experimento do 4º eixo (Ousadia) — ⬜ ABERTA
-Decisão #3 por curl, não por hipótese. A banda de Ousadia muda comportamento que
-um cego nomeia, ACIMA dos 3? Regra pré-registrada antes de rodar. Entra ou fica
-fora por evidência.
+### Phase 3.5 — Experiment of the 4th axis (Boldness) — ⬜ OPEN
+Decision #3 via curl, not hypothesis. Does the Boldness band change behavior that a blind judge can name, ABOVE the 3? Pre-registered rule before running. Enters or stays out based on evidence.
 
-### Fase 4 — Unificação com persona pública/real — ⬜ ABERTA
-Realiza `player-persona-public-vs-real.md`: persona pública = **prior padrão**;
-entrada dyadic = **posterior** de um observador que desvia do prior; valor do eixo
-= força do desvio. Uma contradição testemunhada revisa o posterior (caminho de
-revisão de ledger 29.2/39).
-- **Aceite:** herda os aceites da nota de persona (prior público semeia; posterior
-  dyadic desvia; testemunho revisa) expressos sobre o substrato.
+### Phase 4 — Unification with public/real persona — ⬜ OPEN
+Implements `player-persona-public-vs-real.md`: public persona = **default prior**; dyadic entry = **posterior** of an observer that deviates from prior; axis value = strength of deviation. A witnessed contradiction revises the posterior (ledger revision path 29.2/39).
+- **Acceptance:** inherits the acceptance criteria from the persona note (public prior seeds; dyadic posterior deviates; witness testimony revises) expressed over the substrate.
 
-### Fase 5 — Artigo de registro (COM medição) — ⬜ ABERTA
-O artigo de evidência (não o de definição): o que o modelo honrou, onde foi
-variance-bound (honesto, como o relógio do roteiro), custo/latência real. Fecha a
-task com evidência ou com negativo documentado por método.
+### Phase 5 — Registry article (WITH measurements) — ⬜ OPEN
+The evidence article (not the definition one): what the model honored, where it was variance-bound (honest, like the screenplay clock), real cost/latency. Closes task with evidence or with a method-documented negative.
 
-## Aceite GERAL (rascunho — congela ao iniciar cada fase)
-- [ ] Substrato escalar por-personagem (global) + dyadic-lazy, semeado no preset,
-  com deriva/gravidade determinística e projeção escalar→banda. (F1)
-- [ ] A banda é legível na prosa por crítico cego em ≥2/3 eixos. (F2, navalha)
-- [ ] Delta direcional rastreia provocação e a gravidade restaura. (F3)
-- [ ] O número (0–1) nunca aparece em prompt de personagem/prosa (scan NONE). (F1/F2)
-- [ ] 4º eixo decidido por curl (entra/fora com regra pré-registrada). (F3.5)
-- [ ] Persona pública=prior / dyadic=posterior realizada; testemunho revisa. (F4)
-- [ ] Artigo de evidência (Nº do caso a seguir) com medição e ressalvas. (F5)
+## General Acceptance Criteria (draft — freeze when starting each phase)
+- [ ] Scalar substrate per character (global) + dyadic-lazy, seeded in preset, with deterministic drift/gravity and scalar→band projection. (F1)
+- [ ] Band is readable in prose by blind critic in ≥2/3 axes. (F2, razor)
+- [ ] Directional delta tracks provocation and gravity restores. (F3)
+- [ ] Number (0–1) never appears in character/prose prompt (scan NONE). (F1/F2)
+- [ ] 4th axis decided by curl (enters/stays out with pre-registered rule). (F3.5)
+- [ ] Persona public=prior / dyadic=posterior realized; witness testimony revises. (F4)
+- [ ] Evidence article (next case No.) with measurements and reservations. (F5)
 
-## Invariante de projeto (a razão da complexidade)
-Cada eixo/feature adicionado passa pela navalha (cego nomeia a ponta pela prosa) OU
-é cortado. Complexidade sem observabilidade é decoração. É o que separa este
-substrato de um "vetor de personalidade" que incha até ninguém medir.
+## Project Invariant (the reason for complexity)
+Each axis/feature added passes the razor (blind judge names the end of the axis from prose) OR is cut. Complexity without observability is decoration. This is what separates this substrate from a "personality vector" that bloats until nobody can measure it.

@@ -1,10 +1,9 @@
-> ⚠️ **MANTIDA EM tasks/ (não em closed/) — entregue COM RESSALVAS, sem fecho confiante.**
-> O roteiro é opt-in (OFF por padrão) e ajuda drive em cena de AÇÃO, mas é
-> **cara-ou-coroa em cena procedural grande** (portais 2W/2L). Os ganhos de
-> ENGINE são confiáveis (teto de beat, guard de personagem, backstop lexical,
-> disrupção-no-stall) e ficam banked; o ROTEIRO em si não é vitória universal.
-> Convenção (usuário, 2026-07-17): tarefa fechada sem confiança fica em tasks/
-> com as ressalvas, não migra pra closed/. Relatório completo:
+> ⚠️ **KEPT IN tasks/ (not in closed/) — delivered WITH RESERVATIONS, without a confident close.**
+> The screenplay (roteiro) is opt-in (OFF by default) and helps drive in ACTION scenes, but is
+> a **coin-flip in large procedural scenes** (portals 2W/2L). The ENGINE gains are
+> reliable (beat ceiling, character guard, lexical backstop, stall disruption) and are banked; the SCREENPLAY itself is not a universal win.
+> Convention (user, 2026-07-17): a task closed without confidence stays in tasks/
+> with the reservations, it does not migrate to closed/. Full report:
 > `docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`.
 
 # Task 38 — Roteiro with Typed Beat Contracts and Algorithmic Replanning
@@ -120,25 +119,25 @@ adjudication rule (world-response + return_control, never dictating will).
   function a topic-stagnation input so it injects novelty in BOTH arms.
 - Disconnected-disruption pile-up + procedural-arc weakness -> future roteiro
   work (make disruptions advance the planned arc, not interrupt loosely).
-  **↑ RESSALVA ENDEREÇADA (2026-07-20, autorizada pelo dono) — pela camada 33b,
-  não pelo prompt do roteiro.** Duas frentes testadas via curl:
-  1. **Re-escrever o prompt `stalled` do roteiro pra contrato causal (A/B):**
-     NÃO ganhou. OLD (loose "arrival/bursting in") 5/6 vs NEW (causal) 5/6 em
-     janelas travadas reais, juiz de causalidade cego. FIRE não discrimina (cena
-     em chamas = qualquer disrupção cresce dela, 3/3 nos dois); no SORTEIO
-     (procedural, thread fraco) cada arm errou 1 — OLD com mensageiro-do-nada,
-     NEW com escalada FORÇADA contradizendo a cena ("fumaça já dissipada
-     explode"). Regra pré-registrada exigia NEW>OLD → revertido, não shippado
-     (`plans/artifacts/roteiro-causal-stall-ab/`). Confirma o veredito da task:
-     a fraqueza procedural é arquitetura+variância, não um prompt.
-  2. **Rotear a recuperação de stall pela intervenção causal do watcher (33b
-     peça 3):** ESSA é a resolução. O contrato causal `source_thread→event_now`
-     validou **9/9 grounded** por juiz cego (vs o pile-up desconexo). Entregue e
-     fiado atrás de `watcher_enabled` (ver task 33b). Quando o watcher está
-     ligado, a disrupção de recuperação cresce de um thread aberto (9/9), em vez
-     da disrupção solta do roteiro. A bateria A/B/C já tinha apontado que TODA
-     incoerência do crítico vinha de seeds sem âncora — o contrato causal fecha
-     essa fonte.
+  **↑ RESERVATION ADDRESSED (2026-07-20, authorized by the owner) — via layer 33b,
+  not via the screenplay prompt.** Two fronts tested via curl:
+  1. **Rewrite the `stalled` prompt of the screenplay for a causal contract (A/B):**
+     DID NOT win. OLD (loose "arrival/bursting in") 5/6 vs NEW (causal) 5/6 in
+     real locked windows, blind causality judge. FIRE does not discriminate (scene
+     on fire = any disruption grows from it, 3/3 in both); in LOTTERY
+     (procedural, weak thread) each arm missed 1 — OLD with messenger-out-of-nowhere,
+     NEW with FORCED escalation contradicting the scene ("already dissipated smoke
+     explodes"). Pre-registered rule required NEW>OLD → reverted, not shipped
+     (`plans/artifacts/roteiro-causal-stall-ab/`). Confirms the verdict of the task:
+     procedural weakness is architecture + variance, not a prompt.
+  2. **Route the stall recovery through the watcher's causal intervention (33b
+     piece 3):** THIS is the resolution. The causal contract `source_thread→event_now`
+     validated **9/9 grounded** by a blind judge (vs the disconnected pile-up). Delivered and
+     wired behind `watcher_enabled` (see task 33b). When the watcher is
+     on, the recovery disruption grows from an open thread (9/9), instead
+     of the loose screenplay disruption. The A/B/C battery had already pointed out that ALL
+     critic incoherence came from seeds without anchors — the causal contract closes
+     that source.
 - Re-narrated whole beats (cross-turn event dup) + semantic character echo +
   action_intent repetition -> Task 26.
 - Perspective-ledger init overflow at 20+ present chars (fixed 1024 budget) ->
