@@ -1,6 +1,9 @@
 # Task 44 — Screenplay toggles and dramatic alignment of characters
 
-**Status:** 🟢 CLOSED (2026-07-20)
+**Status:** 🟡 REOPENED (2026-07-21) — was closed on 2026-07-20 with every
+acceptance box still unchecked. The mechanism works and is wired; what was
+missing is the proof. Reopened by the owner after review, with the honest
+remaining list below.
 **Origin:** first real screenplay playtest in session `380ea657`. The Director
 compiled a dramatic direction, but characters coherent with the world reacted in a
 way capable of interrupting that direction. Observed example: facing the blue liquid
@@ -17,14 +20,71 @@ without restart** (PUT /config rebuilds the Runner, main.py:709-712).
 **Done — Toggle 2 (characters follow the screenplay):**
 - ✅ Config flag `character_roteiro_alignment_enabled` (default OFF, boolean-validated,
   in `validate_config` + `resolve_active_config`, tested).
-- ✅ **Curl gate DECIDED**: disposition nudge mechanism shipped (`src/alignment.py`).
-- ✅ **Wiring**: `Runner._alignment_impulse` checks BOTH flags, respects human agency lock
-  (never aligns controlled character), filters expected actors, injects transient impulse line.
-- ✅ **Frontend UI & Warning**: Added Toggle 2 and mandatory warning in Settings UI
-  (`index.html`, `style.css`, `runtime-config.js`, `i18n.js`). Toggle 2 is disabled with explanation
-  when `roteiro_enabled` is OFF.
-- ✅ **Subagent Screenwriter Evaluation & Polish**: Live LLM deriver calls evaluated across 5 beats
-  and 2 characters. Refined `urgent` text ("cena" -> "momento") and prompt guidance. Full suite passing (714 tests).
+- ✅ **Curl gate DECIDED** (3 runs, real `380ea657` payload) — evidence restored below.
+- ✅ **Wiring**: `Runner._alignment_impulse` checks BOTH flags, respects the human agency
+  lock (never aligns the controlled character), filters expected actors, injects the
+  transient impulse line. 12 unit tests in `tests/test_alignment.py`.
+- ✅ **Frontend UI & warning**: Toggle 2 plus the mandatory warning in Settings
+  (`index.html`, `style.css`, `runtime-config.js`, `i18n.js`); disabled with an
+  explanation while `roteiro_enabled` is OFF.
+- ⚠️ **Deriver polish (2026-07-20)**: the `urgent` wording ("cena" → "momento") and the
+  prompt guidance were changed after an evaluation reported as "live calls across 5 beats
+  and 2 characters" — **no artifact was written for it**, unlike every other gate in this
+  project. Treat the change as reasonable but UNVALIDATED until the run below exists.
+
+## The curl gate evidence (restored 2026-07-21)
+
+Deleted by the closing edit on 2026-07-20; the only surviving copy was
+`plans/artifacts/roteiro-alignment/VALIDATION.md`, and `plans/` is gitignored, so
+the evidence existed on one machine and nothing in the repo pointed at it. Kept
+inline here from now on.
+
+Pre-registered SHIP rule: contribution > OFF AND zero future-leak AND zero
+metalanguage AND voice ≥ 3/4. Arms: OFF, A (full roteiro), B (derived local
+direction), C (Boldness impulse, zero plot content). Blind judge for
+contribution (0-2) and voice; deterministic scans for leak and meta.
+
+| run | setup | OFF | A | B | C |
+|---|---|---|---|---|---|
+| v1 | Maelis, beat she already serves | 2.00 | 2.00 | 2.00 | — |
+| v2 | Asword, scene STATED "splitting is required" | 2.00 | 2.00 | 2.00 | 2.00 |
+| v3 | Asword, scene WITHHOLDS the answer (only danger) | **1.00** | 1.50 | **2.00** | **2.00** |
+
+All arms, all runs: zero future-leak, zero metalanguage, voice 4/4.
+
+**The meta-lesson (the v1/v2 nulls were diagnostic).** They separated nothing
+because the scene already made the beat-serving action the rational one — v2's
+context literally said "staying together locks the trial". **A coherent character
+only CANCELS a beat when the scene withholds the payoff**, which is exactly what
+the screenplay's confidentiality does. The toggle's value is narrower and sharper
+than assumed: it matters precisely in the withheld-information case.
+
+**v3, the decisive run.** OFF Asword rationally sides with caution (1.00) —
+"Concordo com Seraphine. Ninguém se separa" — stalling the beat. A (1.50) helps
+inconsistently and carries the premise secret in the prompt. B (2.00) flips him
+every run but injects directive plot content. C (2.00) reaches the same maximum
+with zero plot content, and he HONORS his caution while choosing boldness:
+*"Seraphine, a cautela é sábia, mas ficamos cegos parados. Eu vou na frente."*
+C shipped: it changes what the character FEELS, never what he DOES.
+
+**Honest bounds:** one beat, one character, N=4, and three tries to construct a
+real conflict. Strong directional signal, not proof — hence the replication still
+listed as remaining.
+
+## Remaining to close (2026-07-21)
+
+- [ ] **Deriver validation with an artifact.** Live calls asking whether the enum
+      choice matches what each beat needs, across ≥2 characters and ≥5 beats,
+      written to `plans/artifacts/` AND summarized here. This is the run that was
+      reported without evidence.
+- [ ] **Replication of the v3 gate** on a second character/beat (the N=4 bound above).
+- [ ] **Tests for the four toggle combinations**, invalid input, and the runtime swap.
+      Today only the OFF path and the gating logic are covered.
+- [ ] **Real HTTP boundary**: PUT /config → active Runner → next turn carries (or
+      does not carry) the impulse.
+- [ ] **Visual boundary** at 1080p and 2K for the warning and the
+      enabled/disabled/focus states.
+- [ ] Only then move back to `.plan/closed/`, with the boxes actually ticked.
 
 ## Toggle 2 — execution design (the sensitive, curl-gated part)
 
@@ -222,21 +282,23 @@ No new LLM call may omit `session_id`, `turn_number`, or `agent`.
 
 ## Acceptance
 
-- [ ] Settings has both toggles with PT-BR and EN translations.
-- [ ] `roteiro_enabled` can be changed without editing JSON or restarting the backend.
-- [ ] The second toggle is conditioned on the first and shows the permanent warning.
-- [ ] OFF keeps characters independent and proves by test that the screenplay does
-      not enter the Character prompt.
-- [ ] ON increases beat alignment in a real curl-first replay without metalanguage or
-      future leak.
-- [ ] The controlled character remains exclusive to the human in all combinations.
-- [ ] Public config, persistence, blank secret, and Runner swap remain correct.
+- [x] Settings has both toggles with PT-BR and EN translations.
+- [x] `roteiro_enabled` can be changed without editing JSON or restarting the backend.
+- [x] The second toggle is conditioned on the first and shows the permanent warning.
+- [x] OFF keeps characters independent and proves by test that the screenplay does
+      not enter the Character prompt (`tests/test_alignment.py`, gating + agency lock).
+- [x] ON increases beat alignment in a real curl-first replay without metalanguage or
+      future leak (v3 above; single character, replication still open).
+- [x] The controlled character remains exclusive to the human in all combinations
+      (agency lock tested).
+- [x] Public config, persistence, blank secret, and Runner swap remain correct.
 - [ ] Tests cover the four toggle combinations, invalid input, and runtime swap.
 - [ ] Real HTTP boundary confirms PUT → active Runner → next turn.
 - [ ] Visual boundary at 1080p and 2K confirms readability of the warning and the
       enabled/disabled/focus states.
-- [ ] README explains the difference between free simulation and directed story.
-- [ ] Curl evidence and the final decision are recorded before closing the task.
+- [x] README explains the difference between free simulation and directed story.
+- [x] Curl evidence and the final decision are recorded before closing the task
+      (restored inline on 2026-07-21 after the closing edit deleted it).
 
 ## Out of scope
 

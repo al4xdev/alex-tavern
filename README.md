@@ -57,7 +57,7 @@ API through provider adapters.
 >   same pressure. Roteiro improves drive reliably in tight action scenes but remains roughly a
 >   coin-flip on large procedural/ceremony scenes. OFF by default. See
 >   [case No. 11](docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md) and active
->   [Task 45](.plan/tasks/45-multi-beat-story-continuation.md).
+>   [Task 45](.plan/closed/45-multi-beat-story-continuation.md).
 > - **Roteiro and multi-beat execution latency is a known tradeoff.** Enabling the opt-in screenplay, multi-beat continuation, or character alignment causes a single turn to execute multiple LLM calls (Director, alignment deriver, Narrator, Character) sequentially/parallelly behind the UI loading screen. Streaming narration earlier or releasing messages faster is planned for future work while current focus remains on architectural correctness and dramatic alignment.
 > - **Narrator prose can still paraphrase-echo below the dedup guard** (~9% of sentences in a static
 >   scene are re-descriptions the exact-match guard does not catch; a purely semantic mitigation is
@@ -421,8 +421,11 @@ instead of hiding the railroading. **Free simulation** preserves independent act
 a quieter or less shaped story. **Directed play** gives characters local dramatic alignment while
 preserving their voice and the human agency lock; it must never hand them the protagonist's choices
 or leak future events into the fiction. Both toggles (`roteiro_enabled` and `character_roteiro_alignment_enabled`)
-are runtime-configurable in Settings ([Task 44](.plan/closed/44-roteiro-character-alignment-toggles.md)).
-Its transient alignment mechanism is [documented here](docs/cases/15-character-disposition-substrate-2026-07-20.md).
+are runtime-configurable in Settings. The alignment mechanism ships as a transient dramatic impulse
+and is [documented here](docs/cases/15-character-disposition-substrate-2026-07-20.md); its evidence
+so far is one character on one beat, so
+[Task 44](.plan/tasks/44-roteiro-character-alignment-toggles.md) stays open until the replication
+and the deriver validation land.
 
 > **Note on turn latency:** When screenplay beats, multi-beat bursts, or character alignment are enabled, a turn executes multiple LLM calls (Director, alignment deriver, Narrator, Character) sequentially/simultaneously while the UI displays the loading screen. Streamlining message delivery for faster turn release is planned for future work; for now, multi-beat execution prioritizes state correctness and dramatic alignment.
 
