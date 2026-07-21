@@ -1775,6 +1775,38 @@ select.text-input { cursor: pointer; }
 .option-btn .opt-label { display: block; font-weight: 600; }
 .option-btn .opt-desc { display: block; font-size: 0.75rem; color: var(--text-3); margin-top: 2px; }
 
+/* Persistent retry banner — shown when a turn errors, waits for a click */
+.retry-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0 2px;
+    padding: 10px 14px;
+    background: var(--surface-solid);
+    border: 1px solid rgba(255, 92, 114, 0.5);
+    border-radius: var(--radius-sm);
+    font-size: 0.84rem;
+    color: var(--text-1);
+    animation: optIn 0.35s var(--ease) backwards;
+}
+.retry-banner[hidden] { display: none; }
+.retry-banner-text::before { content: "⚠️ "; }
+.retry-banner-btn {
+    flex-shrink: 0;
+    background: var(--danger);
+    border: none;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform var(--dur) var(--ease), filter var(--dur) var(--ease);
+}
+.retry-banner-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
 /* Input area */
 .input-area {
     display: flex;

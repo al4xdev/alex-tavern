@@ -488,8 +488,13 @@
                 <div class="spinner-dot"></div>
                 <div class="spinner-dot"></div>
             </div>
-            <span class="spinner-label" data-i18n="loading.processing">Processing...</span>
+            <span class="spinner-label" id="spinner-label" data-i18n="loading.processing">Processing...</span>
             <button class="stop-btn" id="stop-btn" type="button" title="Stop" aria-label="Stop processing" data-i18n-title="loading.stop" data-i18n-aria-label="loading.stopAria">⏹</button>
+        </div>
+
+        <div class="retry-banner" id="retry-banner" role="alert" hidden>
+            <span class="retry-banner-text" data-i18n="turn.retryBanner">The last turn didn't go through.</span>
+            <button class="retry-banner-btn" id="retry-banner-btn" type="button" data-i18n="turn.retryBannerAction">↻ Try again</button>
         </div>
 
         <div class="options-panel" id="options-panel"></div>

@@ -58,6 +58,10 @@ const sessionsBtn   = document.getElementById('sessions-btn');
 const settingsBtn   = document.getElementById('settings-btn');
 const emptyConfigBtn= document.getElementById('empty-config-btn');
 const spinner       = document.getElementById('spinner');
+const spinnerLabel  = document.getElementById('spinner-label');
+const retryBanner   = document.getElementById('retry-banner');
+const retryBannerBtn = document.getElementById('retry-banner-btn');
+const roteiroEnabledInput = document.getElementById('runtime-roteiro-enabled');
 const emptyState    = document.getElementById('empty-state');
 const emptyKicker   = document.getElementById('empty-kicker');
 const emptyPrompt   = document.getElementById('empty-prompt');
@@ -124,6 +128,12 @@ function toast(message, type = 'info', ms = 4000) {
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
+// After a short delay a long turn swaps the generic spinner label for a
+// reassuring, progressive message so the wait never reads as a frozen app.
+// Purely time-based (frontend-only) — no backend progress signal involved.
+const LOADING_REASSURE_MS = 3500;
+let loadingReassureTimer = null;
+
 function setLoading(on) {
     state.busy = on;
     const disable = on || !state.sessionId;
@@ -132,6 +142,17 @@ function setLoading(on) {
     inputAction.disabled = disable;
     sendBtn.disabled = disable;
     spinner.classList.toggle('active', on);
+
+    if (loadingReassureTimer) { clearTimeout(loadingReassureTimer); loadingReassureTimer = null; }
+    if (!spinnerLabel) return;
+    if (on) {
+        loadingReassureTimer = setTimeout(() => {
+            const storyFlavor = !!(roteiroEnabledInput && roteiroEnabledInput.checked);
+            bindTranslation(spinnerLabel, storyFlavor ? 'loading.stillWorkingStory' : 'loading.stillWorking');
+        }, LOADING_REASSURE_MS);
+    } else {
+        bindTranslation(spinnerLabel, 'loading.processing');
+    }
 }
 
 function scrollToBottom(forceBottom = false) {
@@ -180,6 +201,9 @@ function updateActionPopup() {
     if (actionPopup) {
         actionPopup.style.display = (state.canUndo || state.lastTurnFailed || hasSession) ? '' : 'none';
     }
+    // Persistent, visible retry affordance mirrors the same failure flag as
+    // the hidden popup entry, so it appears and clears together with it.
+    if (retryBanner) retryBanner.hidden = !state.lastTurnFailed;
 }
 
 function hideActionPopup() {
@@ -1581,6 +1605,7 @@ document.addEventListener('click', (e) => {
 // Undo / retry button clicks
 if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
 if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
+if (retryBannerBtn) retryBannerBtn.addEventListener('click', retryTurn);
 if (actionSkipBtn) actionSkipBtn.addEventListener('click', skipTurn);
 if (actionExpandMoreBtn && actionPopupSecondary) {
     actionExpandMoreBtn.addEventListener('click', (e) => {
