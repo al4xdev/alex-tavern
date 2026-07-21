@@ -1,7 +1,9 @@
 # Task 47 — UX: reassuring loading message + persistent retry on error
 
-**Status:** 🟡 ABERTA (2026-07-20, pedido do dono). Frontend polish; delegado a
-subagente.
+**Status:** ✅ FECHADA (2026-07-20) — entregue por subagente, aceite visual do dono
+("perfeito"), testes de i18n/arquitetura verdes (suíte 702). Follow-up (sinal de
+streaming pro texto exato de roteiro) documentado, não bloqueia.
+**Commits:** `446ecb0` (implementação), `0daef89` (nota).
 
 ## 1. Retry persistente no erro do backend
 
@@ -29,13 +31,14 @@ tranquilizadora progressiva perto do spinner ("a história está se desenrolando
 com sabor de roteiro quando `roteiro_enabled` estiver ON (o frontend já tem o config).
 Espelhar o estilo de `compact-progress-status`. Some ao terminar o turno. i18n PT/EN.
 
-## Aceite
-- [ ] Erro de turno mostra retry visível/persistente (não só toast + popup); clicar
-      reenvia via `retryTurn()`; some ao clicar ou iniciar novo turno.
-- [ ] Loading mostra mensagem tranquilizadora após um atraso; some ao concluir.
-- [ ] i18n PT/EN com paridade; `tests/test_frontend_i18n.py` e
-      `tests/test_frontend_architecture.py` verdes.
-- [ ] Verificação visual do dono (1080p/2K).
+## Aceite — ✅ CUMPRIDO
+- [x] Erro de turno mostra retry visível/persistente (banner `retry-banner`);
+      clicar reenvia via `retryTurn()`; some ao clicar ou iniciar novo turno.
+- [x] Loading mostra mensagem tranquilizadora após ~3,5s; some ao concluir
+      (`loading.stillWorking`/`stillWorkingStory`).
+- [x] i18n PT/EN com paridade; `test_frontend_i18n` e `test_frontend_architecture`
+      verdes (suíte 702).
+- [x] Verificação visual do dono ("perfeito", 2026-07-20).
 
 ## Follow-up (fora deste polish)
 - Sinal de streaming do backend "compilando roteiro" para a mensagem ser exata

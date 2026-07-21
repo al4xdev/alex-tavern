@@ -1,7 +1,14 @@
 # Task 45 — Continuação automática multi-beat no core
 
-**Status:** 🟡 ABERTA — backend do núcleo ENTREGUE (2026-07-20), frontend + gates de
-navegador/curl pendentes.
+**Status:** ✅ FECHADA (2026-07-20) — núcleo entregue e aceito pelo dono ("ta tudo
+certo aqui"). Backend (default 6, teto 24, roteamento híbrido de 2 beats,
+test-locked) + frontend (slider 1–10 com explicação dinâmica) entregues; suíte 702.
+Follow-ups documentados, NÃO bloqueiam:
+- Gate curl do `next_speakers.description` — migrou pra **Task 46** (é o piloto dela);
+  a exclusão hoje é garantida pela normalização no código (caminho provado).
+- Smoke HTTP real, README e verificação Playwright 1080p/2K — fase de verificação
+  do dono.
+Commits: `694f682` (backend), `772b578`/`feat(44,45) slider` (frontend).
 
 ## Progresso (2026-07-20)
 
