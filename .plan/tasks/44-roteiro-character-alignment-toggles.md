@@ -28,9 +28,16 @@ verification pending (owner eyeballs it).
   boldness** ("a cautela é sábia, mas... eu vou na frente"). B (derived direction)
   also 2.00 but injects directive plot content; A (full roteiro) weaker (1.50) and
   carries the premise. **Ship the disposition-nudge mechanism, not content injection.**
-- ⬜ Wiring: revive Boldness (43 Phase 3.5) as an active axis; alignment pushes the
-  character's Boldness under the beat (never dictates the action). Then the guards +
-  agency-lock test + a second-character replication.
+- ⬜ Wiring (the alignment mechanism is a TRANSIENT impulse, NOT a substrate axis —
+  owner decision 2026-07-20): the winning arm C was just an injected per-turn
+  inner-impulse line ("your impulse now is reckless"), no scalar/band/gravity/feedback.
+  Alignment does not need Boldness to persist or be READ (the 43 razor's rejection of
+  Boldness is irrelevant here — alignment injects, it does not read). So Toggle 2 =
+  derive a per-beat dramatic impulse (bold/cautious/urgent, per what the beat needs)
+  and inject it into the expected actors via the disposition-note channel, transient,
+  no disposition state. Remaining: this derivation + wiring in `_call_character` behind
+  BOTH flags; confidentiality guard test; agency-lock test (never the controlled
+  character); a second-character replication of the gate.
 
 ## Toggle 2 — execution design (the sensitive, curl-gated part)
 

@@ -98,8 +98,15 @@ Appraisal auditor blind/Director-side (`appraise_relationships` in `src/disposit
   - **Honest soft spot:** trust/warmth split is soft for acts that move both (rescue reads as warmth, not trust) — harmless: both push the dyad in the same direction and show the same warmer band. Shipped = prompt v2.
 - **Acceptance:** ✅ delta tracks provocation (4/5) + gravity restores (unit) + mocked integration test (provoke→scalar moves→band flips→OFF stays static).
 
-### Phase 3.5 — Experiment of the 4th axis (Boldness) — ⬜ OPEN
-Decision #3 via curl, not hypothesis. Does the Boldness band change behavior that a blind judge can name, ABOVE the 3? Pre-registered rule before running. Enters or stays out based on evidence.
+### Phase 3.5 — Experiment of the 4th axis (Boldness) — ✅ RESOLVED (by Task 44, 2026-07-20)
+Original question: does a Boldness band change behavior a blind judge can READ, above
+the 3? That framing was answered indirectly and reframed by Task 44's curl gate:
+**Boldness does NOT earn a substrate axis.** Its value is not being read in prose (it
+failed that, like composure) — it is **tilting the CHOICE under the screenplay**, and
+that works as a TRANSIENT injected impulse (Task 44 arm C: 2.00 contribution, zero
+leak, voice preserved), needing no scalar/band/gravity/feedback. So Boldness stays OUT
+of the persisted substrate (which remains trust/warmth); it lives as Task 44's
+alignment nudge. See `plans/artifacts/roteiro-alignment/VALIDATION.md` and `.plan/tasks/44`.
 
 ### Phase 4 — Unification with public/real persona — ⬜ OPEN
 Implements `player-persona-public-vs-real.md`: public persona = **default prior**; dyadic entry = **posterior** of an observer that deviates from prior; axis value = strength of deviation. A witnessed contradiction revises the posterior (ledger revision path 29.2/39).
