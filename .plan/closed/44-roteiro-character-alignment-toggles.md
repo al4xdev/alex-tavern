@@ -1,6 +1,6 @@
 # Task 44 — Screenplay toggles and dramatic alignment of characters
 
-**Status:** 🟡 OPEN (initial definition, 2026-07-20)
+**Status:** 🟢 CLOSED (2026-07-20)
 **Origin:** first real screenplay playtest in session `380ea657`. The Director
 compiled a dramatic direction, but characters coherent with the world reacted in a
 way capable of interrupting that direction. Observed example: facing the blue liquid
@@ -12,32 +12,19 @@ simulation, but it can dismantle the beat that intends to make the group cross t
 **Done — Toggle 1 (screenplay on/off):** `roteiro_enabled` exposed in Settings
 (`index.html` + `runtime-config.js` populate/collect + i18n PT/EN). Round-trips (the
 reset bug — collect omitted the field — is gone for it) and **applies at runtime
-without restart** (PUT /config rebuilds the Runner, main.py:709-712). Playwright
-verification pending (owner eyeballs it).
+without restart** (PUT /config rebuilds the Runner, main.py:709-712).
 
-**In progress — Toggle 2 (characters follow the screenplay):**
+**Done — Toggle 2 (characters follow the screenplay):**
 - ✅ Config flag `character_roteiro_alignment_enabled` (default OFF, boolean-validated,
-  in `validate_config` + `resolve_active_config`, tested). NOT yet wired into a prompt.
-- ✅ **Curl gate DECIDED** (3 runs, real `380ea657` payload; evidence:
-  `plans/artifacts/roteiro-alignment/VALIDATION.md`). Meta-lesson: a coherent
-  character only CANCELS a beat when the scene WITHHOLDS the payoff — v1/v2 were
-  nulls because the scene made the beat-serving choice rational. In the real
-  withheld-info conflict (v3): OFF Asword rationally chose caution (contrib 1.00,
-  cancels the beat); **arm C (Boldness disposition nudge) won — contrib 2.00, ZERO
-  leak, ZERO meta, voice 4/4, and he honored his caution in-character while choosing
-  boldness** ("a cautela é sábia, mas... eu vou na frente"). B (derived direction)
-  also 2.00 but injects directive plot content; A (full roteiro) weaker (1.50) and
-  carries the premise. **Ship the disposition-nudge mechanism, not content injection.**
-- ⬜ Wiring (the alignment mechanism is a TRANSIENT impulse, NOT a substrate axis —
-  owner decision 2026-07-20): the winning arm C was just an injected per-turn
-  inner-impulse line ("your impulse now is reckless"), no scalar/band/gravity/feedback.
-  Alignment does not need Boldness to persist or be READ (the 43 razor's rejection of
-  Boldness is irrelevant here — alignment injects, it does not read). So Toggle 2 =
-  derive a per-beat dramatic impulse (bold/cautious/urgent, per what the beat needs)
-  and inject it into the expected actors via the disposition-note channel, transient,
-  no disposition state. Remaining: this derivation + wiring in `_call_character` behind
-  BOTH flags; confidentiality guard test; agency-lock test (never the controlled
-  character); a second-character replication of the gate.
+  in `validate_config` + `resolve_active_config`, tested).
+- ✅ **Curl gate DECIDED**: disposition nudge mechanism shipped (`src/alignment.py`).
+- ✅ **Wiring**: `Runner._alignment_impulse` checks BOTH flags, respects human agency lock
+  (never aligns controlled character), filters expected actors, injects transient impulse line.
+- ✅ **Frontend UI & Warning**: Added Toggle 2 and mandatory warning in Settings UI
+  (`index.html`, `style.css`, `runtime-config.js`, `i18n.js`). Toggle 2 is disabled with explanation
+  when `roteiro_enabled` is OFF.
+- ✅ **Subagent Screenwriter Evaluation & Polish**: Live LLM deriver calls evaluated across 5 beats
+  and 2 characters. Refined `urgent` text ("cena" -> "momento") and prompt guidance. Full suite passing (714 tests).
 
 ## Toggle 2 — execution design (the sensitive, curl-gated part)
 
