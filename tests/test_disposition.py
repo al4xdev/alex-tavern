@@ -12,19 +12,15 @@ import pytest
 
 from src.disposition import (
     ALL_AXES,
-    AXIS_COMPOSURE,
     AXIS_TRUST,
     AXIS_WARMTH,
     DEFAULT_BASELINE,
     DYADIC_AXES,
-    GLOBAL_AXES,
     apply_gravity,
-    character_bands,
     dyad_bands,
     ensure_dyad,
     nudge,
     project_band,
-    seed_character,
 )
 from src.models import (
     Character,
@@ -66,51 +62,14 @@ def _game() -> GameState:
 
 
 class TestAxisRegistry:
-    def test_global_and_dyadic_partition_all_axes(self) -> None:
-        assert set(GLOBAL_AXES) | set(DYADIC_AXES) == set(ALL_AXES)
-        assert set(GLOBAL_AXES) & set(DYADIC_AXES) == set()
-        assert AXIS_COMPOSURE in GLOBAL_AXES
-        assert AXIS_TRUST in DYADIC_AXES and AXIS_WARMTH in DYADIC_AXES
-
-
-class TestSeeding:
-    def test_seed_populates_global_axes_at_baseline(self) -> None:
-        state = DispositionState()
-        seed_character(state, "C1")
-        axes = state.per_character["C1"]
-        assert set(axes) == set(GLOBAL_AXES)
-        disp = axes[AXIS_COMPOSURE]
-        assert disp.baseline == DEFAULT_BASELINE
-        assert disp.value == DEFAULT_BASELINE  # value starts at the set-point
-
-    def test_seed_does_not_create_dyadic_axes(self) -> None:
-        state = DispositionState()
-        seed_character(state, "C1")
-        assert state.per_dyad == {}  # dyadic is lazy, never seeded at add
-
-    def test_seed_is_idempotent_and_preserves_drifted_value(self) -> None:
-        state = DispositionState()
-        seed_character(state, "C1")
-        state.per_character["C1"][AXIS_COMPOSURE].value = 0.9  # simulate drift
-        seed_character(state, "C1")  # re-seed must not reset a live value
-        assert state.per_character["C1"][AXIS_COMPOSURE].value == 0.9
-
-    def test_custom_baselines_override_the_set_point(self) -> None:
-        state = DispositionState()
-        seed_character(state, "C1", baselines={AXIS_COMPOSURE: 0.2})
-        disp = state.per_character["C1"][AXIS_COMPOSURE]
-        assert disp.baseline == 0.2 and disp.value == 0.2
-
-    def test_baselines_are_clamped(self) -> None:
-        state = DispositionState()
-        seed_character(state, "C1", baselines={AXIS_COMPOSURE: 5.0})
-        assert state.per_character["C1"][AXIS_COMPOSURE].baseline == 1.0
+    def test_only_empirically_retained_dyadic_axes_remain(self) -> None:
+        assert set(ALL_AXES) == set(DYADIC_AXES) == {AXIS_TRUST, AXIS_WARMTH}
+        assert "composure" not in ALL_AXES
 
 
 class TestLazyDyad:
     def test_dyad_absent_until_ensured(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
         assert dyad_bands(state, "C1", "C2") == {}  # no cost for an idle pair
 
     def test_ensure_dyad_materializes_trust_and_warmth_neutral(self) -> None:
@@ -147,15 +106,14 @@ class TestProjection:
         assert project_band(AXIS_WARMTH, 0.849) == "caloroso"
 
     def test_every_band_is_reachable(self) -> None:
-        seen = {project_band(AXIS_COMPOSURE, v / 100) for v in range(0, 101)}
-        assert seen == {"em frangalhos", "abalado", "firme", "calmo", "imperturbável"}
+        seen = {project_band(AXIS_TRUST, v / 100) for v in range(0, 101)}
+        assert seen == {"desconfiado", "cauteloso", "neutro", "confiante", "devotado"}
 
 
 class TestGravity:
     def test_relaxes_toward_baseline_monotonically_from_above(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
-        disp = state.per_character["C1"][AXIS_COMPOSURE]
+        disp = ensure_dyad(state, "C1", "C2")[AXIS_TRUST]
         disp.value = 1.0  # shock upward
         prev = disp.value
         for _ in range(5):
@@ -166,16 +124,14 @@ class TestGravity:
 
     def test_relaxes_toward_baseline_from_below(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
-        disp = state.per_character["C1"][AXIS_COMPOSURE]
+        disp = ensure_dyad(state, "C1", "C2")[AXIS_TRUST]
         disp.value = 0.0
         apply_gravity(state)
         assert disp.value > 0.0 and disp.value <= disp.baseline
 
     def test_converges_to_baseline(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
-        disp = state.per_character["C1"][AXIS_COMPOSURE]
+        disp = ensure_dyad(state, "C1", "C2")[AXIS_TRUST]
         disp.value = 1.0
         for _ in range(60):
             apply_gravity(state)
@@ -190,9 +146,9 @@ class TestGravity:
 
     def test_at_baseline_is_a_fixed_point(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
+        disp = ensure_dyad(state, "C1", "C2")[AXIS_TRUST]
         apply_gravity(state)
-        assert state.per_character["C1"][AXIS_COMPOSURE].value == DEFAULT_BASELINE
+        assert disp.value == DEFAULT_BASELINE
 
 
 class TestNudge:
@@ -217,14 +173,17 @@ class TestNudge:
 
 
 class TestProjectionHelpers:
-    def test_character_bands_reads_global_axes(self) -> None:
+    def test_materialized_posterior_projects_bands(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
-        state.per_character["C1"][AXIS_COMPOSURE].value = 0.05
-        assert character_bands(state, "C1") == {AXIS_COMPOSURE: "em frangalhos"}
+        axes = ensure_dyad(state, "C1", "C2")
+        axes[AXIS_TRUST].value = 0.95
+        assert dyad_bands(state, "C1", "C2") == {
+            AXIS_TRUST: "devotado",
+            AXIS_WARMTH: "neutro",
+        }
 
-    def test_character_bands_empty_for_unseeded(self) -> None:
-        assert character_bands(DispositionState(), "C9") == {}
+    def test_dyad_bands_empty_for_unseeded(self) -> None:
+        assert dyad_bands(DispositionState(), "C1", "C9") == {}
 
 
 class TestPromptInjection:
@@ -236,19 +195,17 @@ class TestPromptInjection:
 
         return _build_disposition_note(state, cid, deepcopy_scene(SCENE), dict(CHARACTERS), "C1")
 
-    def test_note_shows_composure_band_not_scalar(self) -> None:
+    def test_note_shows_posterior_band_not_scalar(self) -> None:
         state = DispositionState()
-        seed_character(state, "C1")
-        state.per_character["C1"][AXIS_COMPOSURE].value = 0.05
-        note = self._note(state, "C1")
-        assert "em frangalhos" in note
+        ensure_dyad(state, "C2", "C1")[AXIS_TRUST].value = 0.05
+        note = self._note(state, "C2")
+        assert "desconfiado" in note
         # the code-owned number must never appear
         assert "0.05" not in note and "0.0" not in note
 
     def test_note_includes_materialized_dyad_only(self) -> None:
         state = DispositionState()
-        seed_character(state, "C2")
-        # no dyad yet -> only composure, no "Toward" line
+        # no public prior or posterior -> no relationship line
         assert "Toward" not in self._note(state, "C2")
         axes = ensure_dyad(state, "C2", "C1")
         axes[AXIS_TRUST].value = 0.05
@@ -283,7 +240,7 @@ class TestAppraisalIntegration:
     def test_validity_guards(self) -> None:
         assert self._delta().valid
         assert not self._delta(observer="C2").valid  # observer == target
-        assert not self._delta(axis=AXIS_COMPOSURE).valid  # composure is parked
+        assert not self._delta(axis="composure").valid  # empirically rejected axis
         assert not self._delta(direction="sideways").valid
         assert not self._delta(intensity="huge").valid
 
@@ -339,6 +296,26 @@ class TestAppraisalIntegration:
         # dyad was lazily created and trust dropped below neutral
         trust = state.per_dyad["C1"]["C2"][AXIS_TRUST].value
         assert trust < DEFAULT_BASELINE
+
+    def test_posterior_revision_requires_witnessed_target_evidence(self) -> None:
+        from src.disposition import witnessed_relationship_deltas
+        from src.models import TurnRecord
+
+        game = _game()
+        delta = self._delta()
+        game.history.append(
+            TurnRecord(
+                1,
+                "C2",
+                "Eu destruí o acordo.",
+                "speech",
+                deepcopy_scene(SCENE),
+                audience=["C1"],
+            )
+        )
+        assert witnessed_relationship_deltas(game, [delta], 1) == [delta]
+        game.history[0].audience = ["C2"]
+        assert witnessed_relationship_deltas(game, [delta], 1) == []
 
     def test_repeated_strong_betrayal_flips_the_band(self) -> None:
         from src.disposition import integrate_appraisal
@@ -399,21 +376,17 @@ class TestAppraisalPrompt:
 class TestSerialization:
     def test_round_trip_preserves_dispositions(self) -> None:
         game = _game()
-        seed_character(game.dispositions, "C1")
-        seed_character(game.dispositions, "C2")
-        game.dispositions.per_character["C1"][AXIS_COMPOSURE].value = 0.12
         axes = ensure_dyad(game.dispositions, "C1", "C2")
         axes[AXIS_TRUST].value = 0.8
 
         restored = dict_to_game_state(game_state_to_dict(game))
 
         assert restored.dispositions == game.dispositions
-        assert restored.dispositions.per_character["C1"][AXIS_COMPOSURE].value == 0.12
         assert restored.dispositions.per_dyad["C1"]["C2"][AXIS_TRUST].value == 0.8
 
-    def test_absent_dispositions_key_defaults_empty(self) -> None:
+    def test_current_schema_requires_dispositions_key(self) -> None:
         game = _game()
         data = game_state_to_dict(game)
         del data["dispositions"]
-        restored = dict_to_game_state(data)
-        assert restored.dispositions == DispositionState()
+        with pytest.raises(KeyError):
+            dict_to_game_state(data)

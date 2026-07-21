@@ -1,11 +1,17 @@
 # Characters that change: a governed disposition substrate, and the number the model never sees
 
+> **Measured outcome:** this article is the frontier definition. The completed
+> gates and narrower shipped contract are recorded in
+> [Case No. 16](./16-disposition-substrate-measured-verdict-2026-07-21.md):
+> Trust/Warmth survived, Composure was cut, and the proposed public-prior reuse
+> failed 5/8 then 4/8 and did not ship.
+
 | | |
 |---|---|
 | **Series** | Alex Tavern Engineering Cases, No. 15 |
 | **Date** | 2026-07-20 (design / frontier definition — no measurements yet) |
 | **Kind** | Forward-looking theory + roadmap frame (cf. No. 12, scene-state theory) |
-| **Roadmap** | Task 43 (`.plan/tasks/43-character-disposition-substrate.md`) |
+| **Roadmap** | Closed Task 43 (`.plan/closed/43-character-disposition-substrate.md`) |
 | **Predecessors** | No. 11 (scene stagnation), No. 12 (state-transition theory), No. 13 (watcher battery); Tasks 29.2 (subjective state), 39 (ledger memory), 41 (omniscient Director) |
 | **Related design note** | `.plan/backlog/player-persona-public-vs-real.md` (public vs real persona) |
 | **Status** | This article DEFINES the frontier the next roadmap explores. It states the discipline and the falsifiable claims; it does not yet report measurements. The article of record with evidence is written at the end of the roadmap (Phase 5). |

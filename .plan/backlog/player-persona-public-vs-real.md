@@ -6,8 +6,11 @@
 boundary / Historian), 41 (omniscient Director), 08 (speech audience model).
 **Roadmap:** absorbed as **Phase 4 of Task 43** (character disposition substrate)
 — public persona = default *prior*, a dyadic Trust/Warmth entry = an observer's
-*posterior* deviating from it. See `.plan/tasks/43-character-disposition-substrate.md`
-and `docs/cases/15-character-disposition-substrate-2026-07-20.md` §6.
+*posterior* deviating from it. That representation failed its production gate
+(5/8, then 4/8 with an isolated semantics variant) and was removed. The product
+problem remains here for a future semantic contract; do not revive the scalar-prior
+reuse without new evidence. See `.plan/closed/43-character-disposition-substrate.md`
+and Engineering Case No. 16.
 
 ## 1. The motivating moment
 

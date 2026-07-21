@@ -219,16 +219,10 @@ def _build_disposition_note(
     from src.disposition import (
         AXIS_TRUST,
         AXIS_WARMTH,
-        axis_label,
-        character_bands,
         dyad_bands,
     )
 
     lines: list[str] = []
-    # Every seeded GLOBAL axis (composure today; a future axis renders the same way).
-    for axis, band in character_bands(dispositions, character_id).items():
-        lines.append(f"- Your {axis_label(axis)} right now: {band}")
-
     present = list(scene.present_characters) if scene is not None else []
     for other in present:
         if other == character_id or other not in characters:

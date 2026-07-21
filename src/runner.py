@@ -49,7 +49,6 @@ from src.disposition import (
     apply_gravity,
     appraise_relationships,
     integrate_appraisal,
-    seed_character,
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
 from src.llm.debug_log import (
@@ -77,6 +76,7 @@ from src.models import (
     PresenceEditEntry,
     TurnRecord,
     default_present_characters,
+    dict_to_disposition_state,
     dict_to_perspective,
     dict_to_turn_record,
     perspective_to_dict,
@@ -252,11 +252,6 @@ class Runner:
             narrator_directives=cfg.get("narrator_directives", ""),
             character_preset_ids=character_preset_ids,
         )
-        # Seed the disposition substrate (Task 43) at character add. Neutral
-        # set-points for now; a preset-declared temperament plugs in via
-        # ``seed_character(..., baselines=...)`` when the preset schema carries it.
-        for cid in characters:
-            seed_character(game.dispositions, cid)
         if self.plugins is not None:
             game = self.plugins.hooks.filter_sync(
                 "session.before_commit", game, {"kind": "start", "runner": self}
@@ -1134,9 +1129,9 @@ class Runner:
         Undoes one step per call — repeated calls undo multiple levels. A
         "step" is every record sharing the highest ``turn_number`` (human move
         + narration + Character reply, see ``_append_history``). All of them
-        carry the same ``scene_snapshot``/``mood_snapshot`` (nothing changes scene/mood
-        between appends within the same step — only afterwards, via ``scene_update``/
-        ``mood_updates``), so any of them can be used to restore the previous state.
+        carry the same scene, mood, plugin, perspective and disposition snapshots
+        (those states change only after the records are appended), so any record
+        can restore the complete pre-step state.
 
         Returns:
             Dict with ``state`` (serialized GameState) and ``undone`` (bool).
@@ -1172,6 +1167,7 @@ class Runner:
                 viewer_id: dict_to_perspective(item)
                 for viewer_id, item in restore.perspective_snapshot.items()
             }
+            game.dispositions = dict_to_disposition_state(restore.disposition_snapshot)
 
             if self.plugins is not None:
                 game = await self.plugins.hooks.filter(
@@ -1696,7 +1692,7 @@ class Runner:
     async def _apply_disposition_feedback(self, game: GameState, turn_number: int) -> None:
         """Fold the turn's relationship shifts into the disposition substrate
         (Task 43, Phase 3). One blind appraisal call per committed turn integrates
-        directional trust/warmth deltas (scope: trust+warmth; composure is parked);
+        directional trust/warmth deltas (the surviving measured axes);
         then every live axis relaxes one step toward its baseline, so a one-off nudge
         fades over calm turns while a sustained shift accumulates. No-op unless the
         feedback loop is enabled (OFF by default — it is an extra call per turn).
@@ -2111,5 +2107,6 @@ class Runner:
                 viewer_id: perspective_to_dict(perspective)
                 for viewer_id, perspective in game.character_perspectives.items()
             },
+            disposition_snapshot=asdict(game.dispositions),
         )
         game.history.append(record)

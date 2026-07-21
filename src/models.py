@@ -27,15 +27,18 @@ from typing import Any
 # 10 = identity ledgers treat canonical names explicitly present in a viewer's
 # private sheet as known, preventing established acquaintances from becoming
 # visual strangers; 11 = roteiro watcher accumulators on GameState (Task 33b);
-# 12 = character disposition substrate on GameState (Task 43: code-owned scalars
-# for trust/warmth/composure that drift over the arc).
+# 12 = initial character disposition substrate on GameState (Task 43 originally
+# included trust/warmth per dyad plus a global composure candidate).
 #
 # NOT bumped for Roteiro.beat_actions_elapsed (2026-07-21): the field is purely
 # additive and an absent one reads back as the old behaviour by construction
 # (``dict_to_roteiro`` defaults it to 0, ``measure_beat_progress`` then falls
 # back to committed turns), so a version 12 session cannot be misread. Bumping
 # would have burned every playtest session for a convention, not a hazard.
-SESSION_SCHEMA_VERSION = 12
+# 13 = Task 43 close: composure removed after failing its empirical razor,
+# relationship appraisal revisions clamped to evidence the observer perceived,
+# and disposition state included in each TurnRecord's atomic undo snapshot.
+SESSION_SCHEMA_VERSION = 13
 
 
 @dataclass
@@ -172,21 +175,17 @@ class Disposition:
 class DispositionState:
     """Character disposition substrate (Task 43, Phase 1).
 
-    ``per_character`` holds GLOBAL axes ``{cid: {axis: Disposition}}`` (e.g.
-    composure — I am rattled at everyone). ``per_dyad`` holds DYADIC axes
-    ``{observer: {target: {axis: Disposition}}}`` (e.g. trust/warmth — I trust her,
-    not him), materialized LAZILY: an ``observer->target`` entry exists only where a
-    live divergence has been recorded. This single global/dyadic cut is what keeps
-    the substrate off the O(N^2) prompt-budget cliff.
+    ``per_dyad`` holds the lazy observer→target trust/warmth state. A dyad exists
+    only after witnessed evidence produces a relationship delta; idle pairs cost
+    no prompt or persisted entry.
     """
 
-    per_character: dict[str, dict[str, Disposition]] = field(default_factory=dict)
     per_dyad: dict[str, dict[str, dict[str, Disposition]]] = field(default_factory=dict)
 
 
 @dataclass
 class TurnRecord:
-    """An entry in the history — contains a copy of the scene/mood at that moment."""
+    """A history entry with the pre-turn snapshots needed for atomic undo."""
 
     turn_number: int
     speaker: str  # "Player", "C1", "C2", "Narrator"
@@ -209,6 +208,9 @@ class TurnRecord:
     # Perspective ledgers as they were when this record was created — the undo
     # anchor for identity state (mirrors scene_snapshot/mood_snapshot).
     perspective_snapshot: dict[str, Any] = field(default_factory=dict)
+    # Relationship state before this turn's appraisal/gravity pass. Stored as a
+    # plain serialized dict so TurnRecord remains a forward-only JSON contract.
+    disposition_snapshot: dict[str, Any] = field(default_factory=lambda: {"per_dyad": {}})
 
 
 def record_visible_to(record: TurnRecord, character_id: str) -> bool:
@@ -395,9 +397,9 @@ class GameState:
     watcher_quiet_turns: int = 0
     watcher_last_intervention_tick: int = -999
     watcher_silence_spent: bool = False
-    # Character disposition substrate (Task 43): code-owned scalars that drift over
-    # the arc (trust/warmth per-dyad, composure global). Seeded at character add;
-    # only the projected band ever reaches a model. See src/disposition.py.
+    # Character disposition substrate (Task 43): code-owned trust/warmth scalars
+    # that drift per dyad over the arc. Only the projected qualitative band ever
+    # reaches a model. See src/disposition.py.
     dispositions: DispositionState = field(default_factory=DispositionState)
     schema_version: int = SESSION_SCHEMA_VERSION
 
@@ -512,13 +514,12 @@ def dict_to_character(data: dict[str, Any]) -> Character:
     )
 
 
-def dict_to_disposition_state(data: dict[str, Any] | None) -> DispositionState:
+def dict_to_disposition_state(data: dict[str, Any]) -> DispositionState:
     """Reconstruct the disposition substrate from its serialized dict (Task 43).
 
     Generic over the axis registry: rebuilds whatever axes were persisted, so the
     registry can grow without a migration.
     """
-    data = data or {}
 
     def _axes(raw: dict[str, Any]) -> dict[str, Disposition]:
         return {
@@ -531,10 +532,9 @@ def dict_to_disposition_state(data: dict[str, Any] | None) -> DispositionState:
         }
 
     return DispositionState(
-        per_character={cid: _axes(axes) for cid, axes in data.get("per_character", {}).items()},
         per_dyad={
             observer: {target: _axes(axes) for target, axes in targets.items()}
-            for observer, targets in data.get("per_dyad", {}).items()
+            for observer, targets in data["per_dyad"].items()
         },
     )
 
@@ -561,6 +561,7 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
         audience=list(data["audience"]) if data.get("audience") is not None else None,
         audience_origin=str(data.get("audience_origin", "whisper")),
         perspective_snapshot=copy.deepcopy(data.get("perspective_snapshot", {})),
+        disposition_snapshot=copy.deepcopy(data["disposition_snapshot"]),
     )
 
 
@@ -638,6 +639,6 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         watcher_quiet_turns=int(data.get("watcher_quiet_turns", 0)),
         watcher_last_intervention_tick=int(data.get("watcher_last_intervention_tick", -999)),
         watcher_silence_spent=bool(data.get("watcher_silence_spent", False)),
-        dispositions=dict_to_disposition_state(data.get("dispositions")),
+        dispositions=dict_to_disposition_state(data["dispositions"]),
         schema_version=int(data.get("schema_version", 1)),
     )

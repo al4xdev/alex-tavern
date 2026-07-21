@@ -33,6 +33,7 @@ part of the variant.
 | 13 | [The world as a clock: the A/B/C battery](./13-clock-causal-watcher-battery-2026-07-19.md) | In the clock+causal arm the clock alone sustained the scene (its watcher never fired); every reader-flagged incoherence was an unanchored drive seed. |
 | 14 | [When the room hears but nobody remembers](./14-audible-speech-persistence-wt09-2026-07-20.md) | WT-09 was a data-flow gap, not model confabulation: audible-speech events never reached history. Fixed leak-safely; a second, variance-bound mode remains. |
 | 15 | [Characters that change: a governed disposition substrate](./15-character-disposition-substrate-2026-07-20.md) | The frontier definition: the scalar is the code's, the band is the model's; an axis earns its place only if a blind reader can name its pole. Roadmap = Task 43. |
+| 16 | [Disposition after measurement: two axes survive, the public prior does not](./16-disposition-substrate-measured-verdict-2026-07-21.md) | Trust/Warmth survive; Composure and the public-prior reuse fail their gates and are removed. |
 
 ## Reading paths
 
@@ -42,9 +43,9 @@ part of the variant.
   validated by exploration; A/B/C battery in `tools/acceptance/watcher_abc.py`).
 - **Confidentiality by construction**: 07 → 08 → 09 → 14, then the perception
   ledger and omniscient-Director work in `.plan/closed/` (Tasks 29.2, 35, 39, 41).
-- **Characters that change** (frontier, opening): 15, with the roadmap in
-  `.plan/tasks/43-character-disposition-substrate.md`; builds on the subjective
-  state of 29.2 and the delta machinery of 33b.
+- **Characters that change**: 15 defines the frontier; 16 records the measured
+  closure, including the failed public-prior bridge. The retained substrate builds
+  on subjective state from 29.2 and the delta machinery of 33b.
 - **Provider and cost**: 02 → 05 → 06 → 10.
 
 ## Closed-task records referenced by the series

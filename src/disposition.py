@@ -1,8 +1,8 @@
 """Character disposition substrate (Task 43): the scalar is the code's.
 
-Today a character is a static sheet; nothing about them drifts as the story runs.
-This module governs disposition that MOVES — trust that erodes, warmth that turns,
-composure that shatters and slowly returns — as code-owned scalars.
+Today a character is a static sheet; nothing about relationships drifts as the
+story runs. This module governs trust that erodes and warmth that turns as
+code-owned, observer-relative scalars.
 
 THE ONE DISCIPLINE (docs/cases/15). The scalar (0..1) belongs to the CODE:
 deterministic, persisted, testable with zero model spend; it buys the measurable
@@ -31,21 +31,22 @@ import httpx
 
 from src.config import llm_request_options
 from src.llm.client import chat_completion_json, resolve_llm_timeout
-from src.models import Disposition, DispositionState, GameState, speaker_label
+from src.models import (
+    Disposition,
+    DispositionState,
+    GameState,
+    record_visible_to,
+    speaker_label,
+)
 
 # --- Axis registry -----------------------------------------------------------
 # Trust generalizes the "faith"/credence idea (how much I act as if what I
 # perceived about you is true — what lets a character be fooled). Warmth is
-# affection<->hostility. Both are DYADIC (I trust her, not him). Composure is
-# calm<->rattled and GLOBAL (I am rattled at everyone right now); it disciplines
-# one governed slice of the free-text ``current_mood`` that already exists.
+# affection<->hostility. Both are DYADIC (I trust her, not him).
 AXIS_TRUST = "trust"
 AXIS_WARMTH = "warmth"
-AXIS_COMPOSURE = "composure"
-
-GLOBAL_AXES: tuple[str, ...] = (AXIS_COMPOSURE,)
 DYADIC_AXES: tuple[str, ...] = (AXIS_TRUST, AXIS_WARMTH)
-ALL_AXES: tuple[str, ...] = DYADIC_AXES + GLOBAL_AXES
+ALL_AXES: tuple[str, ...] = DYADIC_AXES
 
 # A personality has a set-point (baseline); a neutral character sits mid-scale.
 DEFAULT_BASELINE = 0.5
@@ -60,14 +61,12 @@ _BAND_EDGES: tuple[float, ...] = (0.15, 0.35, 0.65, 0.85)
 AXIS_BANDS: dict[str, tuple[str, ...]] = {
     AXIS_TRUST: ("desconfiado", "cauteloso", "neutro", "confiante", "devotado"),
     AXIS_WARMTH: ("hostil", "frio", "neutro", "caloroso", "afetuoso"),
-    AXIS_COMPOSURE: ("em frangalhos", "abalado", "firme", "calmo", "imperturbável"),
 }
 
-# Human-facing axis word for the prompt note ("Your composure right now: ...").
+# Human-facing axis words for the prompt note.
 AXIS_PROMPT_LABEL: dict[str, str] = {
     AXIS_TRUST: "trust",
     AXIS_WARMTH: "warmth",
-    AXIS_COMPOSURE: "composure",
 }
 
 
@@ -96,29 +95,7 @@ def project_band(axis: str, value: float) -> str:
     return labels[idx]
 
 
-# --- Seeding & lazy materialization ------------------------------------------
-def seed_character(
-    state: DispositionState,
-    cid: str,
-    *,
-    baselines: dict[str, float] | None = None,
-    gravity: float | None = None,
-) -> None:
-    """Seed a character's GLOBAL axes from the preset set-point (idempotent).
-
-    ``baselines`` optionally overrides per-axis set-points (a preset-declared
-    temperament plugs in here); absent axes default to neutral. Dyadic axes are
-    NOT seeded here — they materialize lazily on the first recorded divergence.
-    """
-    baselines = baselines or {}
-    axes = state.per_character.setdefault(cid, {})
-    for axis in GLOBAL_AXES:
-        if axis in axes:
-            continue
-        base = clamp(float(baselines.get(axis, DEFAULT_BASELINE)))
-        axes[axis] = Disposition(baseline=base, value=base, gravity=_grav(gravity))
-
-
+# --- Lazy dyadic materialization --------------------------------------------
 def ensure_dyad(
     state: DispositionState,
     observer: str,
@@ -149,9 +126,6 @@ def _relax(disp: Disposition) -> None:
 
 def apply_gravity(state: DispositionState) -> None:
     """One relaxation step: every live axis eases toward its baseline set-point."""
-    for axes in state.per_character.values():
-        for disp in axes.values():
-            _relax(disp)
     for targets in state.per_dyad.values():
         for axes in targets.values():
             for disp in axes.values():
@@ -165,15 +139,7 @@ def nudge(disp: Disposition, amount: float) -> None:
     disp.value = clamp(disp.value + amount)
 
 
-# --- Projection for prompts (Phase 2 consumes) -------------------------------
-def character_bands(state: DispositionState, cid: str) -> dict[str, str]:
-    """Global-axis bands for a character, ready to inject into its agent prompt."""
-    return {
-        axis: project_band(axis, disp.value)
-        for axis, disp in state.per_character.get(cid, {}).items()
-    }
-
-
+# --- Projection for prompts (Phase 2 consumes) ------------------------------
 def dyad_bands(state: DispositionState, observer: str, target: str) -> dict[str, str]:
     """Dyadic-axis bands for how ``observer`` currently stands toward ``target``.
 
@@ -187,12 +153,11 @@ def dyad_bands(state: DispositionState, observer: str, target: str) -> dict[str,
 # Phase 3: the feedback loop. The model emits a directional QUALITATIVE delta;
 # the code integrates it into the scalar. The model never sees the number.
 #
-# Scope (owner decision 2026-07-20): trust + warmth only. Composure is PARKED —
-# the Phase 2 curl gate showed it does not separate at the single-utterance level
-# (it reads as a scene-level/prosodic stance), so nothing appraises it yet.
+# Composure was cut in Phase 4 after failing the Phase 2 empirical razor in all
+# three batteries. It is not persisted as an inert axis.
 # ============================================================================
 
-# Only the dyadic axes are appraised (composure parked).
+# Only the surviving dyadic axes are appraised.
 APPRAISAL_AXES: tuple[str, ...] = DYADIC_AXES
 
 # A qualitative delta maps to a bounded scalar nudge. Kept small so a single turn
@@ -356,6 +321,36 @@ def parse_relationship_deltas(raw: object, present: set[str]) -> list[Relationsh
     return deltas
 
 
+def witnessed_relationship_deltas(
+    game: GameState,
+    deltas: list[RelationshipDelta],
+    turn_number: int,
+) -> list[RelationshipDelta]:
+    """Keep only posterior revisions grounded in evidence the observer perceived.
+
+    The appraisal call is Director-side and can see the whole turn. This code gate
+    prevents that omniscience from changing a character's private relationship:
+    an observer may revise target only after perceiving the target's speech or
+    attempted action on the appraised turn.
+    """
+    records = [
+        record
+        for record in game.history
+        if record.turn_number == turn_number and record.content_type in ("speech", "action")
+    ]
+    kept: list[RelationshipDelta] = []
+    for delta in deltas:
+        witnessed = any(
+            (game.player.controlled_character_id if record.speaker == "Player" else record.speaker)
+            == delta.target
+            and record_visible_to(record, delta.observer)
+            for record in records
+        )
+        if witnessed:
+            kept.append(delta)
+    return kept
+
+
 async def appraise_relationships(
     client: httpx.AsyncClient,
     game: GameState,
@@ -381,7 +376,8 @@ async def appraise_relationships(
         **llm_request_options(config),
     )
     present = {cid for cid in game.scene.present_characters if cid in game.characters}
-    return parse_relationship_deltas(result.get("shifts"), present)
+    parsed = parse_relationship_deltas(result.get("shifts"), present)
+    return witnessed_relationship_deltas(game, parsed, turn_number)
 
 
 def integrate_appraisal(state: DispositionState, deltas: list[RelationshipDelta]) -> None:
