@@ -178,9 +178,16 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
     },
     "WT-06-public-mortality": {
         "turn": 17,
-        "probe": {"reply_patterns": [r"(?i)(mortal|humano)"]},
+        "probe": {
+            "reply_patterns": [
+                r"(?i)(mortal|humano|(?:n[aã]o|nenhum|sem)[^.]{0,80}(?:sobrenatural|vampir))"
+            ]
+        },
         "violation_class": "world_truth_contradiction",
-        "detail": "the blood assay makes the doctor's mortality public",
+        "detail": (
+            "the blood assay makes the doctor's mortality public, including a "
+            "negative supernatural/vampiric finding stated without the word mortal"
+        ),
     },
     "NARRATOR-forced-solar": {
         "turn": 18,
@@ -357,6 +364,14 @@ class TestXfailed3Structural:
         for exc in (ValueError("x"), RuntimeError("x"), httpx.ConnectError("x")):
             assert not isinstance(exc, Xfailed3ConsistencyError)
         assert not issubclass(Xfailed3ConsistencyError, (ValueError, AssertionError))
+
+    def test_public_mortality_oracle_accepts_negative_supernatural_assay(self) -> None:
+        pattern = CANON_LEDGER["WT-06-public-mortality"]["probe"]["reply_patterns"][0]
+        assert re.search(
+            pattern,
+            "Meu sangue não apresenta qualquer traço de contaminação sobrenatural.",
+        )
+        assert not re.search(pattern, "Não posso responder a essa pergunta.")
 
 
 # ---------------------------------------------------------------------------
