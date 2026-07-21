@@ -20,8 +20,17 @@ import httpx
 
 from src.agents.character import CharacterOutput
 from src.agents.character import act as character_act
-from src.agents.narrator import build_narrator_messages, narrate, redact_whisper_leaks
-from src.agents.narrator import suggest as narrator_suggest
+from src.agents.narrator import (
+    build_narrator_messages,
+    narrate,
+    redact_whisper_leaks,
+)
+from src.agents.narrator import (
+    suggest as narrator_suggest,
+)
+from src.agents.narrator import (
+    suggest_openings as narrator_suggest_openings,
+)
 from src.agents.perspective import (
     capture_memory,
     initialize_perspective,
@@ -1219,6 +1228,26 @@ class Runner:
                     suggestions,
                     {"game": game, "target_id": target_id, "runner": self},
                 )
+            return {"suggestions": suggestions}
+
+    async def suggest_openings(self, session_id: str) -> dict:
+        """Generate three ephemeral scenario-only hints before the first turn."""
+        async with _get_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                return {"error": f"Session {session_id} not found", "code": "session_not_found"}
+            if game.history:
+                return {
+                    "error": "Opening suggestions are available only before the first turn.",
+                    "code": "conversation_started",
+                }
+            suggestions = await narrator_suggest_openings(
+                client=self.client,
+                scene=game.scene,
+                config=self.config,
+                narrator_directives=game.narrator_directives,
+                session_id=game.session_id,
+            )
             return {"suggestions": suggestions}
 
     async def compact_session(

@@ -64,8 +64,8 @@ async def chat_completion(
         session_id: If provided, records this call in the raw session log
             (``.data/sessions/{session_id}/debug.jsonl``).
         turn_number: Number of the turn/step that triggered the call (log).
-        agent: Who triggered the call — "narrator", "narrator_suggest" or
-            "character:<name>" (log).
+        agent: Who triggered the call, for example "narrator",
+            "narrator_suggest", "opening_suggest" or "character:<name>" (log).
 
     Returns:
         Content of the response message (string).

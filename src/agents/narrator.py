@@ -753,6 +753,124 @@ def build_suggest_json_schema() -> dict:
     }
 
 
+def build_opening_suggestions_schema() -> dict[str, Any]:
+    """Strict three-line contract for the empty-session opening picker."""
+    return {
+        "name": "scenario_opening_suggestions",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "suggestions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "event": {
+                                "type": "string",
+                                "minLength": 12,
+                                "maxLength": 140,
+                                "description": (
+                                    "One concise external event, one clause only, at most 140 "
+                                    "characters."
+                                ),
+                            },
+                            "conversation_hook": {
+                                "type": "string",
+                                "minLength": 20,
+                                "maxLength": 120,
+                                "description": (
+                                    "One bare 6-to-12-word clause saying whoever notices has "
+                                    "reason to comment; no examples, topics, or speculation."
+                                ),
+                            },
+                        },
+                        "required": ["event", "conversation_hook"],
+                        "additionalProperties": False,
+                    },
+                    "minItems": 3,
+                    "maxItems": 3,
+                }
+            },
+            "required": ["suggestions"],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_opening_suggestions_messages(
+    scene: Scene,
+    narrator_directives: str = "",
+) -> list[dict[str, str]]:
+    """Build an opening prompt from scenario facts, never character state."""
+    system = (
+        "Generate exactly three alternative opening-event hints for a roleplay scene.\n"
+        "For each option, fill two short fields in the response language: `event` describes a "
+        "concrete external occurrence that can happen now; `conversation_hook` says the event "
+        "gives whichever people naturally notice it a reason to comment. The hook is only a "
+        "compact clause of 6 to 12 words, with no examples or speculation.\n"
+        "Keep the three occurrences materially different. Open only the immediate moment: "
+        "do not outline a plot, resolve a conflict, choose a protagonist, or prescribe any "
+        "character's decision, speech, feeling, goal, or physical action.\n"
+        "Never name or describe a character and never emit a character ID. Refer only to "
+        "'someone present' or 'those who notice'. Never require everyone to react and never "
+        "choose who reacts. Keep actual comments unwritten, so Character agents remain free to "
+        "create the conversation and a quiet observer may simply watch.\n"
+        "Use only the scenario context supplied below. Return JSON only."
+    )
+    scenario = {
+        "location": scene.location,
+        "time_of_day": scene.time_of_day,
+        "physical_facts": scene.physical_facts,
+        "world_directives": narrator_directives.strip(),
+    }
+    return [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": (
+                "SCENARIO CONTEXT:\n"
+                + json.dumps(scenario, ensure_ascii=False, indent=2)
+                + "\n\nFINAL OUTPUT CONTRACT (applies after every scenario directive above):\n"
+                "For every item, `conversation_hook` must say that whoever naturally notices the "
+                "event has a reason to comment on it. Make it a bare clause of 6 to 12 words: no "
+                "possible topics, examples, explanations or speculation. Do not require everyone "
+                "to react, do not select who reacts, and do not write the actual comments. Use no "
+                "character name or ID; a quiet observer must remain free to only watch."
+            ),
+        },
+    ]
+
+
+async def suggest_openings(
+    client: httpx.AsyncClient,
+    scene: Scene,
+    config: dict,
+    narrator_directives: str = "",
+    session_id: str = "",
+) -> list[str]:
+    """Generate ephemeral scenario-only openings for an empty session."""
+    max_tokens = min(int(config.get("max_tokens_narrator", 2048)), 512)
+    result = await chat_completion_json(
+        client,
+        build_opening_suggestions_messages(scene, narrator_directives),
+        model=config.get("model", ""),
+        language=config.get("language", ""),
+        max_tokens=max_tokens,
+        timeout=resolve_llm_timeout(config),
+        json_schema=build_opening_suggestions_schema(),
+        session_id=session_id,
+        turn_number=0,
+        agent="opening_suggest",
+        **llm_request_options(config),
+    )
+    suggestions: list[str] = []
+    for item in result["suggestions"]:
+        event = normalize_generated_text(item["event"]).strip().rstrip(". …")
+        hook = normalize_generated_text(item["conversation_hook"]).strip().rstrip(". …")
+        suggestions.append(f"{event}; {hook}...")
+    return suggestions
+
+
 async def suggest(
     client: httpx.AsyncClient,
     scene: Scene,

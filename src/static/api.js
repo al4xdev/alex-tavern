@@ -196,6 +196,10 @@ export const api = {
         return apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' });
     },
 
+    suggestOpenings(sessionId) {
+        return apiFetch(`/session/${sessionId}/opening-suggestions`, { method: 'POST' });
+    },
+
     compact(sessionId, onProgress = () => {}, signal = null) {
         return compactStream(sessionId, onProgress, signal);
     },

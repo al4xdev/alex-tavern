@@ -246,6 +246,7 @@ async def test_mcp_registry_separates_tools_and_omits_delete_and_retry() -> None
     by_name = {tool.name: tool for tool in tools}
     assert set(by_name) == {
         "inspect_api_routes",
+        "inspect_frontend",
         "inspect_sessions",
         "inspect_session_state",
         "inspect_session_history",
@@ -253,6 +254,7 @@ async def test_mcp_registry_separates_tools_and_omits_delete_and_retry() -> None
         "inspect_replay_status",
         "mutate_start_session",
         "mutate_fork_session",
+        "mutate_frontend_flow",
         "mutate_submit_turn",
         "mutate_request_suggestions",
         "mutate_undo_turn",
@@ -319,7 +321,7 @@ async def test_mcp_stdio_initializes_and_lists_tools() -> None:
     repository_root = Path(__file__).resolve().parents[1]
     parameters = StdioServerParameters(
         command=sys.executable,
-        args=["tools/mcp_server.py"],
+        args=["-m", "tools.mcp_server"],
         cwd=repository_root,
     )
 
@@ -332,12 +334,49 @@ async def test_mcp_stdio_initializes_and_lists_tools() -> None:
             tools = await session.list_tools()
 
     assert initialized.serverInfo.name == "Alex Tavern Debug"
-    assert len(tools.tools) == 17
+    assert len(tools.tools) == 19
     assert {tool.name for tool in tools.tools} >= {
         "inspect_api_routes",
+        "inspect_frontend",
         "mutate_submit_turn",
         "mutate_compact_session",
     }
+
+
+@pytest.mark.asyncio
+async def test_frontend_mcp_tools_use_sanitized_tmp_paths_and_annotations() -> None:
+    calls: list[dict[str, Any]] = []
+
+    async def fake_frontend(url: str, **kwargs: Any) -> dict[str, Any]:
+        calls.append({"url": url, **kwargs})
+        return {"screenshot_path": str(kwargs["output_path"]), "page_errors": []}
+
+    api = _mock_api()
+    server = create_mcp_server(api=api, frontend_runner=fake_frontend)
+    try:
+        _, passive = await server.call_tool(
+            "inspect_frontend", {"output_name": "desktop", "width": 1440, "height": 900}
+        )
+        _, stepped = await server.call_tool(
+            "mutate_frontend_flow",
+            {
+                "output_name": "session-picker.png",
+                "steps": [{"action": "click", "selector": "#sessions-btn"}],
+            },
+        )
+        with pytest.raises(ToolError, match="safe filename"):
+            await server.call_tool("inspect_frontend", {"output_name": "../../escape"})
+        tools = {tool.name: tool for tool in await server.list_tools()}
+    finally:
+        await api.aclose()
+
+    assert passive["screenshot_path"] == "/tmp/alex-tavern-frontend/desktop.png"
+    assert stepped["screenshot_path"] == "/tmp/alex-tavern-frontend/session-picker.png"
+    assert calls[0]["url"] == "http://127.0.0.1:8889"
+    assert "steps" not in calls[0]
+    assert calls[1]["steps"] == [{"action": "click", "selector": "#sessions-btn"}]
+    assert tools["inspect_frontend"].annotations.readOnlyHint is True
+    assert tools["mutate_frontend_flow"].annotations.readOnlyHint is False
 
 
 # ---------------------------------------------------------------------------

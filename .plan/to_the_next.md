@@ -1,14 +1,14 @@
 # To the next session
 
-Handoff refreshed 2026-07-21 after completing and committing the autonomous
-queue.
+Handoff refreshed 2026-07-21 after implementing Tasks 48, 49 and 50. These
+newest changes are validated locally but are not committed.
 
 ## 1. Git and safety state
 
-- Branch: `master`, working tree clean after four new local commits; the last
-  observed remote relation was 10 commits ahead of and 6 behind `origin/master`.
-- The work below is committed but **not pushed**. Do not rebase, merge or push
-  without fresh, explicit owner authorization.
+- Branch: `master`; the working tree contains the uncommitted Task 48/49/50
+  implementation and documentation. Preserve it.
+- Earlier work below is committed but **not pushed**. Do not commit, rebase,
+  merge or push without fresh, explicit owner authorization.
 - New commit subjects: `fix(alignment): validate screenplay impulse controls`,
   `feat(disposition): close substrate with witnessed dyads`,
   `test(canon): refresh the xfailed3 provider benchmark`, and
@@ -18,6 +18,36 @@ queue.
 - Runtime/playtest data stayed under `/tmp`; no `.data/` content belongs in Git.
 
 ## 2. Completed in this working tree
+
+### Tasks 48 and 49: opening sparks and observer warning
+
+Empty sessions can now request three scenario-only opening sparks. The backend
+uses only scene facts/directives, returns ephemeral strings, and refuses missing
+or already-started sessions. Choosing a spark literally reuses narrator hint +
+Continue. DeepSeek V4 Flash passed the pre-registered final gate: 6/6 structural,
+6/6 without internal IDs and 5/6 qualitative sets; the real HTTP selection
+committed normally and a repeat request returned 409. Full evidence is inline in
+`.plan/closed/48-opening-suggestions.md`.
+The owner also completed a normal manual frontend check and reported the feature
+working as expected before authorizing commit and push.
+
+Until canonical history contains the player's first public speech, the speech
+placeholder now warns that Continue lets the world speak without them. The flag
+is frontend-only and derived from history/effective successful input; skip,
+thought/action and failures do not dismiss it. Evidence is inline in
+`.plan/closed/49-observer-warning.md`.
+
+The service-worker shell cache is now `rpt-shell-v19`.
+
+### Task 50: shared Playwright frontend inspection
+
+Playwright 1.61.0 now belongs to the dev dependency group. Agents can use
+`tools/frontend_inspector.py`, passive MCP tool `inspect_frontend`, or stepped
+non-read-only MCP tool `mutate_frontend_flow`; every screenshot is constrained
+to `/tmp`. Real Chromium captures passed through both CLI and FastMCP registry
+with zero browser/page errors. The MCP launcher is now forward-only
+`python -m tools.mcp_server`; old file-path examples were updated together.
+Full evidence is inline in `.plan/closed/50-playwright-frontend-inspector.md`.
 
 ### Task 44: character/roteiro alignment, closed with evidence
 

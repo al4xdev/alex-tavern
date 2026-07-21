@@ -321,6 +321,10 @@ class SuggestResponse(BaseModel):
     error: str | None = None
 
 
+class OpeningSuggestionsResponse(BaseModel):
+    suggestions: list[str]
+
+
 class CompactResponse(BaseModel):
     compacted: bool
     status: str | None = None
@@ -499,6 +503,22 @@ async def suggest_actions(session_id: str) -> dict:
     result = await _runtime().runner.suggest_actions(session_id)
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
+    return result
+
+
+@app.post(
+    "/session/{session_id}/opening-suggestions",
+    response_model=OpeningSuggestionsResponse,
+)
+async def suggest_openings(session_id: str) -> dict:
+    """Return three scenario-only opening hints for an empty session."""
+    result = await _runtime().runner.suggest_openings(session_id)
+    if "error" in result:
+        status = 409 if result.get("code") == "conversation_started" else 404
+        raise HTTPException(
+            status_code=status,
+            detail={"code": result.get("code"), "message": result["error"]},
+        )
     return result
 
 

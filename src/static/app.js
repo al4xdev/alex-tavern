@@ -37,6 +37,7 @@ const state = {
     busy: false,
     narratorHint: '',       // pending narrator event hint for next turn
     lastEchoMessage: null,  // optimistic player bubble updated with effective input
+    playerHasSpoken: false, // derived from canonical history; controls observer warning only
     avatarUrls: {},        // cid -> revisioned native preset avatar URL
 };
 
@@ -66,6 +67,17 @@ const emptyState    = document.getElementById('empty-state');
 const emptyKicker   = document.getElementById('empty-kicker');
 const emptyPrompt   = document.getElementById('empty-prompt');
 const emptyScrollCue= document.getElementById('empty-scroll-cue');
+const openingStart  = document.getElementById('opening-start');
+const openingGenerateBtn = document.getElementById('opening-generate-btn');
+const openingCarousel = document.getElementById('opening-carousel');
+const openingCard   = document.getElementById('opening-card');
+const openingCardText = document.getElementById('opening-card-text');
+const openingPrevBtn = document.getElementById('opening-prev-btn');
+const openingNextBtn = document.getElementById('opening-next-btn');
+const openingDots   = document.getElementById('opening-dots');
+const openingCounter = document.getElementById('opening-counter');
+const openingStartBtn = document.getElementById('opening-start-btn');
+const openingRegenerateBtn = document.getElementById('opening-regenerate-btn');
 const debugToggle   = document.getElementById('debug-toggle');
 const debugDrawer   = document.getElementById('debug-drawer');
 const debugContent  = document.getElementById('debug-content');
@@ -114,6 +126,10 @@ const helpArticleContent = document.getElementById('help-article-content');
 
 let lastSessionList = null;
 let lastDebugEntries = null;
+let openingSuggestions = [];
+let openingIndex = 0;
+let openingBusy = false;
+let openingPointerStartX = null;
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 function toast(message, type = 'info', ms = 4000) {
@@ -167,12 +183,104 @@ function scrollToBottom(forceBottom = false) {
     }
 }
 
+function renderOpeningPicker(direction = 0) {
+    const hasSuggestions = openingSuggestions.length === 3;
+    openingGenerateBtn.hidden = hasSuggestions;
+    openingGenerateBtn.disabled = openingBusy;
+    openingCarousel.hidden = !hasSuggestions;
+    if (!hasSuggestions) return;
+
+    openingCardText.textContent = openingSuggestions[openingIndex];
+    openingCounter.textContent = t('opening.counter', {
+        current: openingIndex + 1,
+        total: openingSuggestions.length,
+    });
+    openingPrevBtn.disabled = openingBusy || openingIndex === 0;
+    openingNextBtn.disabled = openingBusy || openingIndex === openingSuggestions.length - 1;
+    openingStartBtn.disabled = openingBusy;
+    openingRegenerateBtn.disabled = openingBusy;
+
+    openingDots.replaceChildren(...openingSuggestions.map((_, index) => {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = `opening-dot${index === openingIndex ? ' active' : ''}`;
+        dot.disabled = openingBusy;
+        dot.setAttribute('aria-label', t('opening.option', { number: index + 1 }));
+        dot.setAttribute('aria-current', index === openingIndex ? 'true' : 'false');
+        dot.addEventListener('click', () => showOpening(index));
+        return dot;
+    }));
+
+    openingCard.classList.remove('from-left', 'from-right');
+    if (direction) {
+        void openingCard.offsetWidth;
+        openingCard.classList.add(direction > 0 ? 'from-right' : 'from-left');
+    }
+}
+
+function resetOpeningSuggestions() {
+    openingSuggestions = [];
+    openingIndex = 0;
+    openingBusy = false;
+    openingPointerStartX = null;
+    renderOpeningPicker();
+}
+
+function showOpening(index) {
+    if (openingBusy || index < 0 || index >= openingSuggestions.length || index === openingIndex) {
+        return;
+    }
+    const direction = index > openingIndex ? 1 : -1;
+    openingIndex = index;
+    renderOpeningPicker(direction);
+}
+
+async function generateOpeningSuggestions() {
+    if (!state.sessionId || openingBusy) return;
+    openingBusy = true;
+    renderOpeningPicker();
+    setLoading(true);
+    try {
+        const data = await api.suggestOpenings(state.sessionId);
+        if (!Array.isArray(data.suggestions) || data.suggestions.length !== 3) {
+            throw new Error('Opening suggestions response is invalid');
+        }
+        openingSuggestions = data.suggestions.map((item) => String(item));
+        openingIndex = 0;
+        toast(t('opening.ready'), 'success', 2500);
+    } catch (err) {
+        toast(t('opening.error', { error: err.message }), 'error');
+    } finally {
+        openingBusy = false;
+        setLoading(false);
+        renderOpeningPicker(1);
+    }
+}
+
+async function startWithOpening() {
+    const opening = openingSuggestions[openingIndex];
+    if (!opening || openingBusy || !state.sessionId) return;
+    openingBusy = true;
+    renderOpeningPicker();
+    state.narratorHint = opening;
+    await skipTurn();
+    if (state.lastTurnFailed) {
+        openingBusy = false;
+        renderOpeningPicker();
+    } else {
+        resetOpeningSuggestions();
+    }
+}
+
 function showEmptyState(sessionReady = false) {
     emptyState.classList.toggle('session-ready', sessionReady);
     bindTranslation(emptyKicker, sessionReady ? 'empty.sessionKicker' : 'empty.kicker');
     bindTranslation(emptyPrompt, sessionReady ? 'empty.sessionPrompt' : 'empty.prompt');
     emptyConfigBtn.hidden = sessionReady;
     if (!sessionReady) bindTranslation(emptyConfigBtn, 'sessions.manage');
+    openingStart.hidden = !sessionReady;
+    if (!sessionReady) resetOpeningSuggestions();
+    else renderOpeningPicker();
     emptyScrollCue.hidden = !sessionReady;
     emptyState.style.display = 'flex';
 }
@@ -474,9 +582,16 @@ function renderSessionList(sessions) {
    (same as the live echo in sendTurn). Used on session load AND after undo,
    so the DOM never has to guess how many bubbles a turn produced. */
 function renderHistory(history) {
+    resetOpeningSuggestions();
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
     const records = history || [];
+    state.playerHasSpoken = records.some((record) =>
+        record.speaker === 'Player' &&
+        record.content_type === 'speech' &&
+        String(record.content || '').trim()
+    );
+    updateSpeechPlaceholder();
     if (records.length) emptyState.style.display = 'none';
     else showEmptyState(true);
 
@@ -521,6 +636,7 @@ function renderHistory(history) {
 async function loadSession(sessionId) {
     try {
         state.compactionAbortController?.abort();
+        resetOpeningSuggestions();
         let gameState = await api.getState(sessionId);
         gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
@@ -613,6 +729,14 @@ function retryTurn() {
 function controlledName() {
     const c = state.characters[state.controlledId];
     return (c && c.mind && c.mind.name) || t('input.you');
+}
+
+function updateSpeechPlaceholder() {
+    inputSpeech.placeholder = t(
+        state.sessionId && !state.playerHasSpoken
+            ? 'input.speechObserver'
+            : 'input.speech'
+    );
 }
 
 function colorFor(cid) {
@@ -814,6 +938,7 @@ function addMessage(
     });
     msg.appendChild(body);
     chatLog.appendChild(msg);
+    resetOpeningSuggestions();
     emptyState.style.display = 'none';
     scrollToBottom();
 
@@ -1390,6 +1515,7 @@ async function hydrateAvatarUrls(gameState) {
 
 async function startSession(cfg) {
     state.compactionAbortController?.abort();
+    resetOpeningSuggestions();
     // reset the view
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
@@ -1524,6 +1650,11 @@ async function sendTurn(isRetry = false) {
             state.lastEchoMessage = null;
         }
 
+        if (String(data.effective_input?.speech || '').trim()) {
+            state.playerHasSpoken = true;
+            updateSpeechPlaceholder();
+        }
+
         if (state.debug) refreshDebugLog();
 
         if (!historyWasReconciled) {
@@ -1639,6 +1770,38 @@ if (hintSendBtn) hintSendBtn.addEventListener('click', sendHint);
 if (hintOverlay) hintOverlay.addEventListener('click', (e) => {
     if (e.target === hintOverlay) closeHintPopup();
 });
+
+// Empty-session opening picker. Generation is ephemeral; confirmation reuses
+// the existing hint + skip path without a second turn implementation.
+if (openingGenerateBtn) openingGenerateBtn.addEventListener('click', generateOpeningSuggestions);
+if (openingRegenerateBtn) openingRegenerateBtn.addEventListener('click', generateOpeningSuggestions);
+if (openingStartBtn) openingStartBtn.addEventListener('click', startWithOpening);
+if (openingPrevBtn) openingPrevBtn.addEventListener('click', () => showOpening(openingIndex - 1));
+if (openingNextBtn) openingNextBtn.addEventListener('click', () => showOpening(openingIndex + 1));
+if (openingCarousel) openingCarousel.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        showOpening(openingIndex - 1);
+    } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        showOpening(openingIndex + 1);
+    }
+});
+if (openingCard) {
+    openingCard.addEventListener('pointerdown', (e) => {
+        openingPointerStartX = e.clientX;
+    });
+    openingCard.addEventListener('pointerup', (e) => {
+        if (openingPointerStartX == null) return;
+        const distance = e.clientX - openingPointerStartX;
+        openingPointerStartX = null;
+        if (Math.abs(distance) < 45) return;
+        showOpening(openingIndex + (distance < 0 ? 1 : -1));
+    });
+    openingCard.addEventListener('pointercancel', () => {
+        openingPointerStartX = null;
+    });
+}
 
 // Stop button — abort current turn
 if (stopBtn) stopBtn.addEventListener('click', () => {
@@ -1889,6 +2052,8 @@ if (interfaceLanguage) {
         interfaceLanguage.value = locale;
         if (lastSessionList) renderSessionList(lastSessionList);
         if (lastDebugEntries) renderRawLog(lastDebugEntries);
+        renderOpeningPicker();
+        updateSpeechPlaceholder();
         if (state.sessionId) {
             bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
             populateForceSpeakerOptions();

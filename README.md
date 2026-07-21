@@ -62,8 +62,9 @@ API through provider adapters.
 > - **Narrator prose can still paraphrase-echo below the dedup guard** (~9% of sentences in a static
 >   scene are re-descriptions the exact-match guard does not catch; a purely semantic mitigation is
 >   open work).
-> - **NPCs can dominate a scene opening.** Assertive characters may pull the first beats toward their
->   own conflict before the player re-asserts.
+> - **An uncurated opening can still favor assertive NPCs.** Empty sessions now offer three
+>   scenario-only opening sparks before the first turn, but generated prose after that still has
+>   model variance and an assertive character can pull later beats toward their own conflict.
 > - **No public-vs-real persona split for the player character yet** — deliberate bluff/disguise
 >   (presenting power you lack, or hiding what you have) is not a first-class mechanic. Backlog.
 
@@ -737,6 +738,10 @@ the same typed renderer, so presentation no longer depends on parsing model-auth
 
 The interface is dependency-free and built from native ES modules. Current behavior includes:
 
+- an empty-session opening picker that generates three ephemeral, scenario-only sparks and starts
+  the selected one through the existing Narrator-hint plus Continue path;
+- an observer warning in the speech box until the player first speaks, making explicit that
+  Continue can let the world and its characters carry the story without player intervention;
 - English and Brazilian Portuguese catalogs, browser-locale detection, safe English fallback,
   and a versioned interface preference in `localStorage`;
 - immediate in-place translation of static and dynamic controls, validation, tooltips, debug
@@ -891,7 +896,7 @@ without guessing internal contracts. The two repository-local MCP servers have c
 
 | MCP server | Repository | Purpose |
 |---|---|---|
-| Alex Tavern debug MCP | `roleplay` | Inspect sessions and debug logs, exercise the live HTTP boundary, and work with replay tools |
+| Alex Tavern debug MCP | `roleplay` | Inspect sessions, debug logs and the live frontend; exercise HTTP/UI boundaries; work with replay tools |
 | Plugin authoring MCP | `alex-tavern-plugins` | Read the live SDK contract, scaffold source, validate, test, package, and trace a plugin |
 
 Start the application before asking an agent to use the debug MCP. A generic MCP client entry looks
@@ -902,7 +907,7 @@ like this; the location of the MCP configuration itself depends on the agent cli
   "mcpServers": {
     "alex-tavern-debug": {
       "command": "uv",
-      "args": ["run", "python", "tools/mcp_server.py"],
+      "args": ["run", "python", "-m", "tools.mcp_server"],
       "cwd": "/absolute/path/to/roleplay"
     }
   }
@@ -1339,10 +1344,12 @@ External MCP client
         v
 tools/mcp_server.py
         |
-        | ordinary HTTP
+        | ordinary HTTP / fresh Playwright context
         +-----------------------> Roleplay API :8889
         |                           Runner, sessions, frontend,
         |                           undo, suggestions, compaction
+        +-----------------------> Headless browser
+        |                           PNG + console/page errors in /tmp
         |
         +-----------------------> Replay API :8888
                                     recorded output tape,
@@ -1357,13 +1364,13 @@ The three processes have separate responsibilities:
 
 | Component | Responsibility | Persistent state |
 |---|---|---|
-| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay or replay HTTP requests | None |
+| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay/replay HTTP requests or bounded Playwright captures | None |
 | `src.main:app` | Run the real application, persistence, prompts, and frontend | Session data under `ROLEPLAY_DATA_DIR` |
 | `tools/replay_llm.py` | Serve recorded successful LLM responses in strict sequence | Immutable fixture loaded once plus an in-memory cursor |
 
 ### Available tools
 
-The server exposes exactly 17 tools. Naming is part of the safety model: inspection is visibly
+The server exposes exactly 19 tools. Naming is part of the safety model: inspection is visibly
 separate from mutation.
 
 | Read-only tool | Purpose |
@@ -1374,6 +1381,7 @@ separate from mutation.
 | `inspect_session_history` | Read a bounded recent history window |
 | `inspect_debug_log` | Read bounded raw LLM/debug records |
 | `inspect_replay_status` | Inspect tape size, cursor, remaining entries, and next response metadata |
+| `inspect_frontend` | Passively capture a fresh headless viewport, visible text and browser errors under `/tmp` |
 | `replay_extract_call` | Locate one recorded LLM call in a session's debug log by agent, turn, and occurrence |
 
 | Mutating tool | Purpose |
@@ -1382,6 +1390,7 @@ separate from mutation.
 | `mutate_fork_session` | Create a non-destructive copy |
 | `mutate_submit_turn` | Submit speech/thought/action and optionally force a speaker |
 | `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
+| `mutate_frontend_flow` | Run bounded click/fill/press/select/wait steps, then capture the resulting UI |
 | `mutate_undo_turn` | Undo the latest complete turn |
 | `mutate_compact_session` | Summarize older history and retain the configured recent window |
 | `mutate_restore_compaction` | Undo the newest incremental compaction checkpoint while preserving later turns |
@@ -1407,6 +1416,13 @@ Start the Roleplay application first:
 ./start.sh
 ```
 
+For frontend tools, synchronize the dev group and install Playwright's managed Chromium once:
+
+```bash
+uv sync --group dev
+uv run playwright install chromium
+```
+
 Then register this repository-local process in an MCP client:
 
 ```json
@@ -1414,7 +1430,7 @@ Then register this repository-local process in an MCP client:
   "mcpServers": {
     "alex-tavern-debug": {
       "command": "uv",
-      "args": ["run", "python", "tools/mcp_server.py"],
+      "args": ["run", "python", "-m", "tools.mcp_server"],
       "cwd": "/absolute/path/to/roleplay"
     }
   }
@@ -1425,7 +1441,7 @@ The defaults are `http://127.0.0.1:8889` for Roleplay and
 `http://127.0.0.1:8888` for replay. Both can be changed explicitly:
 
 ```bash
-uv run python tools/mcp_server.py \
+uv run python -m tools.mcp_server \
   --roleplay-url http://127.0.0.1:8889 \
   --replay-url http://127.0.0.1:8888
 ```

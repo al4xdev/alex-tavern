@@ -453,6 +453,31 @@
                     <span class="empty-kicker" id="empty-kicker" data-i18n="empty.kicker">BEFORE THE CURTAIN</span>
                     <p id="empty-prompt" data-i18n="empty.prompt">Configure your adventure to begin</p>
                     <button class="btn btn-primary" id="empty-config-btn" type="button" data-i18n="sessions.manage">📋 Manage sessions</button>
+                    <div class="opening-start" id="opening-start" hidden>
+                        <button class="btn btn-primary opening-generate-btn" id="opening-generate-btn" type="button" data-i18n="opening.generate">✦ Suggest three beginnings</button>
+                        <section class="opening-carousel" id="opening-carousel" role="region"
+                            aria-label="Opening suggestions" data-i18n-aria-label="opening.region" hidden tabindex="0">
+                            <span class="opening-heading" data-i18n="opening.heading">Choose the first spark</span>
+                            <div class="opening-card-row">
+                                <button class="opening-nav" id="opening-prev-btn" type="button"
+                                    aria-label="Previous opening" data-i18n-aria-label="opening.previous">←</button>
+                                <article class="opening-card" id="opening-card">
+                                    <span class="opening-card-mark" aria-hidden="true">✦</span>
+                                    <p id="opening-card-text" aria-live="polite"></p>
+                                </article>
+                                <button class="opening-nav" id="opening-next-btn" type="button"
+                                    aria-label="Next opening" data-i18n-aria-label="opening.next">→</button>
+                            </div>
+                            <div class="opening-position">
+                                <div class="opening-dots" id="opening-dots"></div>
+                                <span class="opening-counter" id="opening-counter"></span>
+                            </div>
+                            <div class="opening-actions">
+                                <button class="btn btn-primary" id="opening-start-btn" type="button" data-i18n="opening.start">Start this way</button>
+                                <button class="btn btn-ghost" id="opening-regenerate-btn" type="button" data-i18n="opening.regenerate">Generate others</button>
+                            </div>
+                        </section>
+                    </div>
                     <span class="empty-scroll-cue" id="empty-scroll-cue" hidden>
                         <span aria-hidden="true">↑</span>
                         <span data-i18n="empty.scrollCue">Swipe up or tap below to write</span>

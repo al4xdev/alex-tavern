@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections.abc import AsyncIterator, Sequence
+import re
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, cast
 
 import httpx
@@ -14,10 +16,19 @@ from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import StrictBool
 
+from tools.frontend_inspector import (
+    FrontendInspectionError,
+)
+from tools.frontend_inspector import (
+    inspect_frontend as run_frontend_inspection,
+)
+
 DEFAULT_ROLEPLAY_URL = "http://127.0.0.1:8889"
 DEFAULT_REPLAY_URL = "http://127.0.0.1:8888"
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 420.0
 MAX_READ_LIMIT = 1000
+FRONTEND_OUTPUT_DIR = Path("/tmp/alex-tavern-frontend")
+FRONTEND_OUTPUT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 
 READ_ONLY = ToolAnnotations(
     readOnlyHint=True,
@@ -254,6 +265,17 @@ def _require_destructive_confirmation(operation: str, confirm: bool) -> None:
         )
 
 
+def _frontend_output_path(output_name: str) -> Path:
+    """Resolve one sanitized screenshot name inside the shared temporary directory."""
+    if not FRONTEND_OUTPUT_NAME.fullmatch(output_name):
+        raise ToolError(
+            "output_name must be 1-80 safe filename characters: letters, numbers, dot, _ or -"
+        )
+    if not output_name.lower().endswith(".png"):
+        output_name += ".png"
+    return FRONTEND_OUTPUT_DIR / output_name
+
+
 # Curl-replay support (AGENTS.md §6): fire a recorded production call against
 # the active provider, with small prompt edits, without hand-building payloads.
 
@@ -313,7 +335,7 @@ def _apply_system_edits(
     "Return only one JSON object" tail) - the validated position for new rules.
     ``replace_old`` must occur exactly once in the instruction body.
     """
-    edited = json.loads(json.dumps(messages))
+    edited = cast(list[dict[str, Any]], json.loads(json.dumps(messages)))
     if not (append_to_system or replace_old):
         return edited
     if not edited or edited[0].get("role") != "system":
@@ -338,9 +360,11 @@ def create_mcp_server(
     *,
     request_timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     api: DebugApiClient | None = None,
+    frontend_runner: Callable[..., Awaitable[dict[str, Any]]] | None = None,
 ) -> FastMCP:
     """Build the stdio MCP server and register its debug tools."""
     debug_api = api or DebugApiClient(roleplay_url, replay_url, timeout=request_timeout)
+    frontend_capture = frontend_runner or run_frontend_inspection
 
     @asynccontextmanager
     async def lifespan(_: FastMCP) -> AsyncIterator[dict[str, Any]]:
@@ -353,7 +377,8 @@ def create_mcp_server(
         "Alex Tavern Debug",
         instructions=(
             "Local debugging tools for the Roleplay HTTP API and deterministic replay server. "
-            "Debug logs may contain private prompts and model responses."
+            "Debug logs may contain private prompts and model responses. Frontend tools use "
+            "fresh headless Playwright contexts and keep screenshots under /tmp."
         ),
         lifespan=lifespan,
     )
@@ -387,6 +412,31 @@ def create_mcp_server(
     async def inspect_replay_status() -> dict[str, Any]:
         """Read the deterministic replay cursor and next-entry metadata."""
         return await debug_api.replay_status()
+
+    @server.tool(annotations=READ_ONLY)
+    async def inspect_frontend(
+        url: str = "",
+        output_name: str = "frontend.png",
+        browser: str = "chromium",
+        width: int = 1365,
+        height: int = 900,
+        wait_for: str = "body",
+    ) -> dict[str, Any]:
+        """Passively capture one live frontend page and its console/page errors."""
+        try:
+            return cast(
+                dict[str, Any],
+                await frontend_capture(
+                    url or roleplay_url,
+                    output_path=_frontend_output_path(output_name),
+                    browser=browser,
+                    width=width,
+                    height=height,
+                    wait_for=wait_for,
+                ),
+            )
+        except FrontendInspectionError as exc:
+            raise ToolError(str(exc)) from exc
 
     @server.tool(annotations=MUTATING)
     async def mutate_start_session(
@@ -431,6 +481,38 @@ def create_mcp_server(
     async def mutate_request_suggestions(session_id: str) -> dict[str, Any]:
         """Ask the live Roleplay backend for possible player moves."""
         return await debug_api.mutate_session(session_id, "suggest")
+
+    @server.tool(annotations=MUTATING)
+    async def mutate_frontend_flow(
+        steps: list[dict[str, str]],
+        url: str = "",
+        output_name: str = "frontend-flow.png",
+        browser: str = "chromium",
+        width: int = 1365,
+        height: int = 900,
+        wait_for: str = "body",
+    ) -> dict[str, Any]:
+        """Run bounded UI interactions, then capture the page and browser errors.
+
+        Supported step actions are click, fill, press, select_option, wait_for,
+        and wait (whose value is bounded milliseconds). UI steps may mutate the
+        live Roleplay server, hence this tool's non-read-only annotation.
+        """
+        try:
+            return cast(
+                dict[str, Any],
+                await frontend_capture(
+                    url or roleplay_url,
+                    output_path=_frontend_output_path(output_name),
+                    browser=browser,
+                    width=width,
+                    height=height,
+                    wait_for=wait_for,
+                    steps=steps,
+                ),
+            )
+        except FrontendInspectionError as exc:
+            raise ToolError(str(exc)) from exc
 
     @server.tool(annotations=DESTRUCTIVE_MUTATION)
     async def mutate_undo_turn(session_id: str, confirm: StrictBool = False) -> dict[str, Any]:

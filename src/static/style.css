@@ -2249,6 +2249,128 @@ select.text-input { cursor: pointer; }
 .empty-scroll-cue[hidden] { display: none; }
 .empty-state .btn[hidden] { display: none; }
 
+/* Empty-session opening picker: one stage cue at a time, like turning a page. */
+.opening-start {
+    width: min(100%, 560px);
+    margin-top: 2px;
+}
+.opening-start[hidden], .opening-carousel[hidden] { display: none; }
+.opening-generate-btn { min-width: 220px; }
+.opening-carousel {
+    display: grid;
+    gap: 12px;
+    width: 100%;
+    padding: 15px;
+    border: 1px solid rgba(143, 124, 255, 0.22);
+    border-radius: var(--radius-md);
+    background: linear-gradient(155deg, rgba(143, 124, 255, 0.08), var(--surface) 48%);
+    box-shadow: 0 16px 45px rgba(7, 6, 20, 0.2);
+    overflow: hidden;
+}
+.opening-carousel:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+.opening-heading {
+    color: #a997ff;
+    font: 800 0.68rem/1.3 var(--mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.opening-card-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 38px;
+    align-items: center;
+    gap: 10px;
+}
+.opening-nav {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--text-1);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease),
+                background var(--dur) var(--ease);
+}
+.opening-nav:hover:not(:disabled), .opening-nav:focus-visible {
+    border-color: var(--accent);
+    background: var(--surface-hi);
+    transform: scale(1.06);
+    outline: none;
+}
+.opening-nav:disabled { opacity: 0.3; cursor: default; }
+.opening-card {
+    position: relative;
+    min-height: 128px;
+    display: grid;
+    place-items: center;
+    padding: 24px 30px;
+    border: 1px solid var(--glass-border-hi);
+    border-radius: var(--radius-sm);
+    background:
+        radial-gradient(circle at 12% 18%, rgba(169, 151, 255, 0.13), transparent 34%),
+        var(--surface-solid);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    overflow: hidden;
+    touch-action: pan-y;
+    user-select: none;
+}
+.opening-card-mark {
+    position: absolute;
+    top: 11px;
+    left: 13px;
+    color: #8f7cff;
+    font-size: 0.68rem;
+    opacity: 0.72;
+}
+.empty-state .opening-card p {
+    max-width: 44ch;
+    margin: 0;
+    color: var(--text-1);
+    font-family: var(--font-story);
+    font-size: 1rem;
+    line-height: 1.58;
+}
+.opening-card.from-right { animation: openingFromRight 0.28s var(--ease) both; }
+.opening-card.from-left { animation: openingFromLeft 0.28s var(--ease) both; }
+@keyframes openingFromRight {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+@keyframes openingFromLeft {
+    from { opacity: 0; transform: translateX(-24px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+.opening-position {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 11px;
+}
+.opening-dots { display: flex; align-items: center; gap: 7px; }
+.opening-dot {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--text-3);
+    opacity: 0.42;
+    cursor: pointer;
+    transition: width var(--dur) var(--ease), opacity var(--dur) var(--ease),
+                background var(--dur) var(--ease);
+}
+.opening-dot.active { width: 21px; background: #a997ff; opacity: 1; }
+.opening-dot:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.opening-counter { color: var(--text-3); font: 700 0.64rem/1 var(--mono); }
+.opening-actions { display: flex; justify-content: center; gap: 9px; flex-wrap: wrap; }
+.opening-actions .btn { min-width: 142px; }
+
 /* Toast */
 .toast-wrap {
     position: fixed;
@@ -2552,6 +2674,14 @@ select.text-input { cursor: pointer; }
         padding-bottom: 76px;
     }
     .empty-state.session-ready .empty-scroll-cue:not([hidden]) { display: inline-flex; }
+    .opening-start { width: 100%; }
+    .opening-carousel { padding: 12px 9px; gap: 10px; }
+    .opening-card-row { grid-template-columns: 34px minmax(0, 1fr) 34px; gap: 6px; }
+    .opening-nav { width: 34px; height: 34px; }
+    .opening-card { min-height: 142px; padding: 24px 18px 20px; }
+    .empty-state .opening-card p { font-size: 0.94rem; line-height: 1.5; }
+    .opening-actions { display: grid; grid-template-columns: 1fr 1fr; }
+    .opening-actions .btn { min-width: 0; padding-inline: 10px; }
 
     /* Setup modal becomes a full-screen sheet */
     .overlay { padding: 0; }

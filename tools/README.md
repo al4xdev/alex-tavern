@@ -3,6 +3,37 @@
 These tools run outside the normal Alex Tavern runtime. They can reproduce a recorded session
 through the real Roleplay HTTP API without running llama.cpp.
 
+## Playwright frontend inspector
+
+Frontend inspection is standardized through the dev-only Python Playwright dependency. Install
+the managed Chromium build once after syncing the development group:
+
+```bash
+uv sync --group dev
+uv run playwright install chromium
+```
+
+Capture a passive mobile viewport from any live deployment:
+
+```bash
+uv run python -m tools.frontend_inspector http://127.0.0.1:8889 \
+  --output /tmp/alex-tavern-frontend/mobile.png \
+  --width 390 \
+  --height 844 \
+  --viewport-only
+```
+
+The JSON report includes final URL, title, HTTP status, viewport, screenshot path, warnings/errors
+from the browser and a bounded visible-text snapshot. `--steps` accepts a JSON array using only
+`click`, `fill`, `press`, `select_option`, `wait_for`, and bounded `wait` actions. It deliberately
+does not expose arbitrary JavaScript evaluation. Every screenshot must resolve under `/tmp` and
+every call uses a fresh headless context.
+
+The debug MCP exposes the same boundary as `inspect_frontend` for passive captures and
+`mutate_frontend_flow` for interaction sequences. The second tool is marked non-read-only because
+clicking or submitting through the live UI can mutate a session. Both return a `screenshot_path`
+that an agent can open with its normal local-image viewer.
+
 ## Curl-replay via MCP
 
 The debug MCP server (`mcp_server.py`) exposes the curl-first validation method as two typed
@@ -115,7 +146,7 @@ client. Start the Roleplay application on port 8889 and, when replay controls ar
 recorded LLM replay on port 8888. The MCP client should then launch:
 
 ```bash
-uv run python tools/mcp_server.py
+uv run python -m tools.mcp_server
 ```
 
 The server communicates over stdio and defaults to these local services:
@@ -128,7 +159,7 @@ Replay API    http://127.0.0.1:8888
 Override either URL when registering the process with an MCP client:
 
 ```bash
-uv run python tools/mcp_server.py \
+uv run python -m tools.mcp_server \
   --roleplay-url http://127.0.0.1:8889 \
   --replay-url http://127.0.0.1:8888
 ```
@@ -140,7 +171,7 @@ A generic client registration from the repository root is:
   "mcpServers": {
     "alex-tavern-debug": {
       "command": "uv",
-      "args": ["run", "python", "tools/mcp_server.py"],
+      "args": ["run", "python", "-m", "tools.mcp_server"],
       "cwd": "/absolute/path/to/roleplay"
     }
   }
@@ -148,10 +179,11 @@ A generic client registration from the repository root is:
 ```
 
 Read-only tools are prefixed with `inspect_`; state-changing tools are prefixed with `mutate_`.
-They enumerate live API routes, inspect sessions/history/state/raw logs, create and drive sessions,
-request suggestions, undo, compact/restore, and inspect/reset/seek replay state. Session and scenario
-deletion are intentionally not exposed. `inspect_debug_log` is local but sensitive: its bounded
-output can contain complete prompts, model responses, and user-authored roleplay content.
+They enumerate live API routes, inspect sessions/history/state/raw logs, capture the frontend,
+create and drive sessions or UI flows, request suggestions, undo, compact/restore, and
+inspect/reset/seek replay state. Session and scenario deletion are intentionally not exposed.
+`inspect_debug_log` is local but sensitive: its bounded output can contain complete prompts, model
+responses, and user-authored roleplay content.
 
 The three session operations which can discard or replace state require an explicit confirmation
 argument in addition to their MCP `destructiveHint` annotation:
@@ -170,8 +202,8 @@ confirmation UI. Reset/seek affect only the in-memory replay cursor and do not r
 
 | Category | Tools |
 |---|---|
-| Inspection | `inspect_api_routes`, `inspect_sessions`, `inspect_session_state`, `inspect_session_history`, `inspect_debug_log`, `inspect_replay_status` |
-| Session mutation | `mutate_start_session`, `mutate_fork_session`, `mutate_submit_turn`, `mutate_request_suggestions` |
+| Inspection | `inspect_api_routes`, `inspect_sessions`, `inspect_session_state`, `inspect_session_history`, `inspect_debug_log`, `inspect_replay_status`, `inspect_frontend` |
+| Session/UI mutation | `mutate_start_session`, `mutate_fork_session`, `mutate_submit_turn`, `mutate_request_suggestions`, `mutate_frontend_flow` |
 | Confirmed destructive session mutation | `mutate_undo_turn`, `mutate_compact_session`, `mutate_restore_compaction` |
 | Replay cursor mutation | `mutate_reset_replay`, `mutate_seek_replay` |
 

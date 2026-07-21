@@ -7,7 +7,7 @@ Organized by state:
 
 | Folder/file | What it is | When to look |
 |---|---|---|
-| `tasks/` | **Active** tasks (open or delivered-with-reservations, banner at the top). Current open track: **43 — character disposition substrate** (phased roadmap, article No. 15) | When working |
+| `tasks/` | **Active** tasks (open or delivered-with-reservations, banner at the top). Current retained tracks: 26 prose-quality evidence, 29.1-29.3 distribution monitor, and 38 roteiro contracts | When working |
 | `para-o-dono/` | Things waiting for **your action** (smoke tests, designs to accept) | When you return |
 | `backlog/` | Future without active work (02 media, 06 RAG, 16 lore, public/real persona, New Journey, S02) | When planning |
 | `reference/` | Living architecture docs (29.2 map, narrator_hint study) | When designing |
