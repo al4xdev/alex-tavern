@@ -373,6 +373,25 @@ def log_burst(
     )
 
 
+def log_unanswered_player(session_id: str, turn_number: int, *, present_characters: int) -> None:
+    """The player spoke or acted and the Director routed nobody to answer.
+
+    Measured, not assumed: 2026-07-21 review found turns where a message to a
+    full room produced ``next_speakers: []`` and read as the world ignoring the
+    player. This line makes the rate countable in any future session.
+    """
+    _append(
+        session_id,
+        {
+            "ts": datetime.now(UTC).isoformat(),
+            "session_id": session_id,
+            "turn_number": turn_number,
+            "agent": "unanswered_player",
+            "present_characters": present_characters,
+        },
+    )
+
+
 def log_roteiro_decision(
     session_id: str,
     turn_number: int,

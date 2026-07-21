@@ -1784,6 +1784,10 @@ class TestCustomSessionAndDebug:
         assert "SILENT SCENE BLOCKING" in prompt
         assert "1. PLACE EVERYONE." in prompt
         assert "5. ROUTE FROM PERCEPTION." in prompt
+        # The player writing to a room that can hear them is never a valid
+        # empty queue (2026-07-21: real turns answered by nobody).
+        assert "at least one of those" in prompt
+        assert "only correct" in prompt
         assert 'Use ["Narrator"]' not in prompt
         assert "Player" not in prompt
         assert "Regras do mundo aqui." in prompt
