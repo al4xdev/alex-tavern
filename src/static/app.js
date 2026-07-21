@@ -131,10 +131,14 @@ function toast(message, type = 'info', ms = 4000) {
 // After a short delay a long turn swaps the generic spinner label for a
 // reassuring, progressive message so the wait never reads as a frozen app.
 // Purely time-based (frontend-only) — no backend progress signal involved.
+// The multi-step wording is reserved for the turns that really are multi-step:
+// a continuation runs several beats, a turn the player wrote runs exactly one,
+// and promising "this is long" on both is what made a normal turn look like a
+// runaway burst (owner report, 2026-07-21).
 const LOADING_REASSURE_MS = 3500;
 let loadingReassureTimer = null;
 
-function setLoading(on) {
+function setLoading(on, { multiStep = false } = {}) {
     state.busy = on;
     const disable = on || !state.sessionId;
     inputSpeech.disabled = on;
@@ -147,7 +151,7 @@ function setLoading(on) {
     if (!spinnerLabel) return;
     if (on) {
         loadingReassureTimer = setTimeout(() => {
-            const storyFlavor = !!(roteiroEnabledInput && roteiroEnabledInput.checked);
+            const storyFlavor = multiStep && !!(roteiroEnabledInput && roteiroEnabledInput.checked);
             bindTranslation(spinnerLabel, storyFlavor ? 'loading.stillWorkingStory' : 'loading.stillWorking');
         }, LOADING_REASSURE_MS);
     } else {
@@ -215,7 +219,7 @@ function hideActionPopup() {
 async function skipTurn() {
     if (!state.sessionId) return;
     hideActionPopup();
-    setLoading(true);
+    setLoading(true, { multiStep: true });  // only a continuation runs several beats
     clearSuggestions();
     state.lastTurnFailed = false;
     updateActionPopup();
@@ -899,13 +903,23 @@ function openHintPopup() {
     hintOverlay.classList.add('active');
     hintTextarea.value = state.narratorHint || '';
     hintTextarea.focus();
+    refreshHintSendLabel();
 }
 
 let autoSkipOnHintClose = false;
 
+// Opened by the swipe gesture, this button also runs a continuation — several
+// beats of story, not just a queued event. It has to say so, or the gesture
+// silently starts a burst the player never asked for.
+function refreshHintSendLabel() {
+    if (!hintSendBtn) return;
+    bindTranslation(hintSendBtn, autoSkipOnHintClose ? 'hint.sendAndContinue' : 'hint.send');
+}
+
 function closeHintPopup() {
     hintOverlay.classList.remove('active');
     autoSkipOnHintClose = false; // Reset if closed via X or click outside
+    refreshHintSendLabel();
 }
 
 function sendHint() {
@@ -1791,7 +1805,7 @@ inputArea.addEventListener('touchend', (e) => {
         } else if (diffX < -threshold) {
             if (state.sessionId) {
                 autoSkipOnHintClose = true;
-                openHintPopup();
+                openHintPopup();  // labels its button as a continuation
             }
         }
     } else if (isSwipingY || (!isSwipingX && Math.abs(diffY) > 30)) {
