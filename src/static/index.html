@@ -488,6 +488,7 @@
                             <li data-help-topic="roleplay" data-i18n="help.menu.roleplay">🎭 Roleplay & Rules</li>
                             <li data-help-topic="compaction" data-i18n="help.menu.compaction">🗜️ History Compaction</li>
                             <li data-help-topic="settings" data-i18n="help.menu.settings">⚡ AI Engine & Settings</li>
+                            <li data-help-topic="engine" data-i18n="help.menu.engine">🎬 Screenplay & Backend Engine</li>
                             <li data-help-topic="commands" data-i18n="help.menu.commands">💬 Shortcuts & Features</li>
                             <li data-help-topic="gestures" data-i18n="help.menu.gestures">📱 Mobile Gestures</li>
                             <li data-help-topic="actions" data-i18n="help.menu.actions">⚙️ Action Menu</li>
@@ -626,7 +627,10 @@
                 <button class="icon-btn" id="hint-close-btn" data-i18n-title="hint.closeTitle" data-i18n-aria-label="hint.closeAria" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
-                <p class="field-hint" data-i18n="hint.description">Describe what happens next. The Narrator will incorporate this into the narration.</p>
+                <p class="field-hint" data-i18n="hint.description">Describe an external world event. The Narrator will incorporate this into the next narration.</p>
+                <div class="compaction-warning-box" id="hint-warning-box" style="margin-bottom: 10px;">
+                    <p data-i18n="hint.warning">⚠️ Events strongly steer the world: they become public scene facts visible to all characters and can propagate into the invisible screenplay. Avoid citing your own character to prevent making them the forced center of attention — focus on physical environment, NPCs, or sudden world occurrences.</p>
+                </div>
                 <textarea class="text-area" id="hint-textarea" rows="3" data-i18n-placeholder="hint.placeholder" placeholder="A seagull steals Tony's drink..."></textarea>
             </div>
             <div class="modal-foot">
