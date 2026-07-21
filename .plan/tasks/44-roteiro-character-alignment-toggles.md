@@ -1,238 +1,252 @@
-# Task 44 — Toggles de roteiro e alinhamento dramático dos personagens
+# Task 44 — Screenplay toggles and dramatic alignment of characters
 
-**Status:** 🟡 ABERTA (definição inicial, 2026-07-20)
-**Origem:** primeiro playtest real do roteiro na sessão `380ea657`. O Diretor
-compilou uma direção dramática, mas personagens coerentes com o mundo reagiram de
-modo capaz de interromper essa direção. Exemplo observado: diante do líquido azul
-perto do portal, Cassian pediu o fechamento dos portais. A reação é plausível numa
-simulação, mas pode desmontar o beat que pretende fazer o grupo atravessá-los.
+**Status:** 🟡 OPEN (initial definition, 2026-07-20)
+**Origin:** first real screenplay playtest in session `380ea657`. The Director
+compiled a dramatic direction, but characters coherent with the world reacted in a
+way capable of interrupting that direction. Observed example: facing the blue liquid
+near the portal, Cassian asked to close the portals. The reaction is plausible in a
+simulation, but it can dismantle the beat that intends to make the group cross them.
 
-## Progresso (2026-07-20)
+## Progress (2026-07-20)
 
-**Feito — Toggle 1 (roteiro on/off):** `roteiro_enabled` exposto em Settings
-(`index.html` + `runtime-config.js` populate/collect + i18n PT/EN). Round-trips (o
-bug do reset — collect omitia o campo — some pra ele) e **aplica em runtime sem
-restart** (PUT /config reconstrói o Runner, main.py:709-712). Falta verificação
-Playwright (dono confere no olho).
+**Done — Toggle 1 (screenplay on/off):** `roteiro_enabled` exposed in Settings
+(`index.html` + `runtime-config.js` populate/collect + i18n PT/EN). Round-trips (the
+reset bug — collect omitted the field — is gone for it) and **applies at runtime
+without restart** (PUT /config rebuilds the Runner, main.py:709-712). Playwright
+verification pending (owner eyeballs it).
 
-**Em andamento — Toggle 2 (personagens seguem o roteiro):**
-- ✅ Config flag `character_roteiro_alignment_enabled` (default OFF, valida boolean,
-  em `validate_config` + `resolve_active_config`, testada). Ainda NÃO fiada em prompt.
-- ⬜ Mecanismo de alinhamento + gate curl (o desenho abaixo).
+**In progress — Toggle 2 (characters follow the screenplay):**
+- ✅ Config flag `character_roteiro_alignment_enabled` (default OFF, boolean-validated,
+  in `validate_config` + `resolve_active_config`, tested). NOT yet wired into a prompt.
+- ✅ **Curl gate DECIDED** (3 runs, real `380ea657` payload; evidence:
+  `plans/artifacts/roteiro-alignment/VALIDATION.md`). Meta-lesson: a coherent
+  character only CANCELS a beat when the scene WITHHOLDS the payoff — v1/v2 were
+  nulls because the scene made the beat-serving choice rational. In the real
+  withheld-info conflict (v3): OFF Asword rationally chose caution (contrib 1.00,
+  cancels the beat); **arm C (Boldness disposition nudge) won — contrib 2.00, ZERO
+  leak, ZERO meta, voice 4/4, and he honored his caution in-character while choosing
+  boldness** ("a cautela é sábia, mas... eu vou na frente"). B (derived direction)
+  also 2.00 but injects directive plot content; A (full roteiro) weaker (1.50) and
+  carries the premise. **Ship the disposition-nudge mechanism, not content injection.**
+- ⬜ Wiring: revive Boldness (43 Phase 3.5) as an active axis; alignment pushes the
+  character's Boldness under the beat (never dictates the action). Then the guards +
+  agency-lock test + a second-character replication.
 
-## Toggle 2 — desenho de execução (a parte sensível, curl-gated)
+## Toggle 2 — execution design (the sensitive, curl-gated part)
 
-**Fonte permitida (confidencialidade):** SÓ o beat ATUAL. `roteiro.beat.intent` e se
-o personagem está em `beat.expected_actors`. **NUNCA** `premise`, `acts[].summary`,
-`beat.expected_anchors` ainda não em jogo (props futuros = spoiler), nem
-`exit_condition`. O `describe_roteiro_for_director` (que carrega tudo isso) é
-Diretor-only e não pode ser reusado pro Character.
+**Allowed source (confidentiality):** ONLY the CURRENT beat. `roteiro.beat.intent`
+and whether the character is in `beat.expected_actors`. **NEVER** `premise`,
+`acts[].summary`, `beat.expected_anchors` not yet in play (future props = spoiler),
+nor `exit_condition`. `describe_roteiro_for_director` (which carries all of that) is
+Director-only and cannot be reused for the Character.
 
-**Três braços a comparar por curl (payload real da sessão `380ea657`):**
-- **A) Roteiro completo → Character** (baseline de RISCO): injeta o describe do
-  Diretor. Esperado vazar premise/anchors/futuro + metalinguagem. Medir o quão ruim.
-- **B) Direção local derivada** (recorte puro): injeta só uma versão do
-  `beat.intent` do personagem, SE ele é `expected_actor`, reescrita em 1ª pessoa
-  motivacional, sem meta, sem futuro. Provável que precise de um passo de DERIVAÇÃO
-  LLM pra tirar diretividade/spoiler do intent (um intent tipo "levar o grupo a
-  cruzar os portais" é diretivo demais cru) — ou um template de código. O curl decide.
-- **C) Empurrão de disposição (Ousadia)** — o braço elegante: traduz o beat num
-  push de disposição (Ousadia↑) em vez de conteúdo. **Zero vazamento**, o personagem
-  ESCOLHE a temeridade sozinho. Requer reviver a Ousadia (43 Fase 3.5) como eixo
-  ativo. É a ponte 43↔44.
+**Three arms to compare via curl (real payload of session `380ea657`):**
+- **A) Full screenplay → Character** (RISK baseline): injects the Director describe.
+  Expected to leak premise/anchors/future + metalanguage. Measure how bad it is.
+- **B) Derived local direction** (pure slice): injects only a version of the
+  character's `beat.intent`, IF they are an `expected_actor`, rewritten as a
+  first-person motivation, no meta, no future. Likely needs an LLM DERIVATION step to
+  strip directiveness/spoilers from the intent (an intent like "get the group to
+  cross the portals" is too directive raw) — or a code template. Curl decides.
+- **C) Disposition nudge (Boldness)** — the elegant arm: translates the beat into a
+  disposition push (Boldness↑) instead of content. **Zero leak**, the character
+  CHOOSES recklessness on their own. Requires reviving Boldness (43 Phase 3.5) as an
+  active axis. It is the 43↔44 bridge.
 
-**Guards obrigatórios (B/C):** teste tipo `TestRoteiroConfidentiality` — o prompt do
-Character NUNCA contém premise, summary de ato, anchor não-em-jogo, exit_condition,
-nem token de metalinguagem (roteiro/beat/ato/Diretor/história). Agência: nunca
-injeta direção pro personagem CONTROLADO; nunca dita escolha dele.
+**Mandatory guards (B/C):** a `TestRoteiroConfidentiality`-style test — the
+Character prompt NEVER contains premise, act summary, not-in-play anchor,
+exit_condition, or metalanguage token (screenplay/beat/act/Director/story). Agency:
+never inject direction for the CONTROLLED character; never dictate their choice.
 
-**Regra de decisão pré-registrada:** rodar A vs B (vs C) no payload real, ≥3-4 runs,
-juiz cego, medindo: (1) contribuição ao beat > OFF; (2) voz e objetivos próprios
-preservados; (3) zero metalinguagem; (4) zero vazamento de futuro; (5) zero
-atribuição ao personagem controlado. Ship a variante que passa nos 5 — se o completo
-(A) vaza, B é a representação funcional do toggle; se C provar zero-leak + agência,
-é a vitória de desenho. Documentar antes de fechar.
+**Pre-registered decision rule:** run A vs B (vs C) on the real payload, ≥3-4 runs,
+blind judge, measuring: (1) beat contribution > OFF; (2) voice and own goals
+preserved; (3) zero metalanguage; (4) zero future leak; (5) zero attribution to the
+controlled character. Ship the variant that passes all 5 — if the full one (A)
+leaks, B is the functional representation of the toggle; if C proves zero-leak +
+agency, it is the design win. Document before closing.
 
-**Wiring (depois do gate):** `_call_character` recebe a direção derivada quando
-AMBAS as flags ON, por um canal de prompt novo (como a nota de disposição). OFF
-mantém o contrato atual (nenhum texto de roteiro no prompt do Character).
+**Wiring (after the gate):** `_call_character` receives the derived direction when
+BOTH flags are ON, through a new prompt channel (like the disposition note). OFF
+keeps the current contract (no screenplay text in the Character prompt).
 
-## A conclusão afiada (por que o toggle existe) — do dono, 2026-07-20
+## The sharp conclusion (why the toggle exists) — from the owner, 2026-07-20
 
-A simulação ficou boa demais: personagens coerentes viram gente real discutindo
-coisas aleatórias, e a história não anda nem com o Narrador presente. O roteiro NÃO
-existe pra deixar o personagem esperto — existe pra **licenciar a escolha
-dramaticamente produtiva que um agente coerente nunca faria**: se separar do grupo,
-abrir a porta, cruzar a ponte podre. É a lógica do filme de terror ("não se
-separem!" — e eles se separam, porque é história). Sem roteiro, todo mundo sobrevive
-racionalmente e nada acontece: **real, porém chato.** O toggle é a escolha honesta —
-*verdade (sim-livre) ou história (alinhada)* — e quem quiser o real tem disponível.
+The simulation got too good: coherent characters become real people arguing about
+random things, and the story does not move even with the Narrator present. The
+screenplay does NOT exist to make the character smart — it exists to **license the
+dramatically productive choice that a coherent agent would never make**: splitting
+from the group, opening the door, crossing the rotten bridge. It is the horror-movie
+logic ("don't split up!" — and they split up, because it's a story). Without a
+screenplay, everyone survives rationally and nothing happens: **real, but dull.** The
+toggle is the honest choice — *truth (free-sim) or story (aligned)* — and whoever
+wants the real thing has it available.
 
-**Ponte com a Task 43 (disposição):** o eixo **Ousadia** (cauteloso↔temerário, hoje
-estacionado) é o dial dessa "burrice dramática". O alinhamento não precisa DITAR "se
-separe do grupo" — ele empurra a Ousadia do personagem pra cima e ele escolhe a
-temeridade SOZINHO, preservando a trava de agência. A disposição é o mecanismo
-honesto do alinhamento: muda o que o personagem SENTE (mais audaz), não o que FAZ.
-Isso dá casa à Ousadia (que falhou o gate de fala-única na 43) — o valor dela não é
-ser lida na prosa, é **inclinar a ESCOLHA** sob o roteiro. Ver `.plan/tasks/43`.
+**Bridge with Task 43 (disposition):** the **Boldness** axis (cautious↔reckless,
+currently parked) is the dial of that "dramatic dumbness". Alignment does not need to
+DICTATE "split from the group" — it pushes the character's Boldness up and they
+choose recklessness ON THEIR OWN, preserving the agency lock. Disposition is the
+honest mechanism of alignment: it changes what the character FEELS (bolder), not what
+they DO. This gives Boldness a home (it failed the single-utterance gate in 43) — its
+value is not being read in prose, it is **tilting the CHOICE** under the screenplay.
+See `.plan/tasks/43`.
 
-## Problema
+## Problem
 
-Personagens pertencem ao mundo e agem de acordo com personalidade, conhecimento e
-percepção. Quando somente o Diretor conhece o roteiro, um personagem pode agir de
-forma perfeitamente coerente e, ao mesmo tempo, desfazer a composição dramática.
+Characters belong to the world and act according to personality, knowledge, and
+perception. When only the Director knows the screenplay, a character can act in a
+perfectly coherent way and, at the same time, undo the dramatic composition.
 
-Isso não é necessariamente um bug: na vida real, as pessoas não conhecem nem seguem
-um roteiro. Porém, Alex Tavern também precisa permitir uma experiência mais próxima
-de uma história dirigida, na qual o elenco contribui para o beat em vez de
-acidentalmente cancelá-lo.
+This is not necessarily a bug: in real life, people do not know nor follow a
+screenplay. However, Alex Tavern also needs to allow an experience closer to a
+directed story, in which the cast contributes to the beat instead of accidentally
+cancelling it.
 
-O produto deve tornar essa escolha explícita, configurável e compreensível, sem
-fingir que simulação livre e atuação dramaticamente alinhada são a mesma coisa.
+The product must make this choice explicit, configurable, and understandable,
+without pretending that free simulation and dramatically aligned acting are the same
+thing.
 
-## Decisão de produto a implementar
+## Product decision to implement
 
-Adicionar dois toggles independentes em **Settings**:
+Add two independent toggles in **Settings**:
 
-### 1. Roteiro da história
+### 1. Story screenplay
 
-- Chave proposta: `roteiro_enabled` (já existe no backend).
-- Liga a compilação do roteiro privado e seu consumo pelo Diretor.
-- OFF: o Diretor improvisa a progressão a partir do estado, histórico e diretivas.
-- ON: atos, beats, condições de saída e relógio narrativo orientam o Diretor.
-- Deve ser configurável no frontend; não exigir edição manual de `.data/config.json`
-  nem reinício do backend.
+- Proposed key: `roteiro_enabled` (already exists in the backend).
+- Turns on the compilation of the private screenplay and its consumption by the Director.
+- OFF: the Director improvises the progression from state, history, and directives.
+- ON: acts, beats, exit conditions, and the narrative clock guide the Director.
+- Must be configurable in the frontend; not require manual editing of
+  `.data/config.json` nor a backend restart.
 
-### 2. Personagens seguem o roteiro
+### 2. Characters follow the screenplay
 
-- Chave proposta: `character_roteiro_alignment_enabled`.
-- Disponível apenas quando `roteiro_enabled` estiver ON; quando o roteiro estiver
-  OFF, o controle fica desabilitado e explica o motivo.
-- OFF: personagens recebem somente o mundo que perceberam e agem de forma
-  independente. Eles podem contrariar, atrasar ou desmontar o roteiro, exatamente
-  como pessoas reais que não sabem que existe uma história planejada.
-- ON: cada personagem roteado recebe contexto dramático derivado do roteiro para
-  poder contribuir com a direção da história.
+- Proposed key: `character_roteiro_alignment_enabled`.
+- Available only when `roteiro_enabled` is ON; when the screenplay is OFF, the
+  control is disabled and explains why.
+- OFF: characters receive only the world they perceived and act independently. They
+  may contradict, delay, or dismantle the screenplay, exactly like real people who do
+  not know a planned story exists.
+- ON: each scripted character receives dramatic context derived from the screenplay
+  so they can contribute to the story's direction.
 
-## Aviso obrigatório na interface
+## Mandatory warning in the interface
 
-O segundo toggle precisa exibir um aviso claro, e não apenas um tooltip escondido.
-Texto-base em português:
+The second toggle must display a clear warning, not just a hidden tooltip.
+
+Base text in Portuguese:
 
 > Sem esta opção, os personagens agem de forma independente e podem contrariar o
 > roteiro, levando a história a resultados mais caóticos, como pessoas reais que
 > não sabem que existe um plano. Ao ativá-la, os personagens passam a colaborar com
 > a direção dramática, mas podem parecer mais guiados e menos espontâneos.
 
-Texto-base em inglês:
+Base text in English:
 
 > When this is off, characters act independently and may work against the
 > screenplay, producing more chaotic outcomes, like real people who do not know a
 > plan exists. When enabled, characters collaborate with the dramatic direction,
 > but may feel more guided and less spontaneous.
 
-Os nomes finais e a microcopy devem passar por revisão visual e de i18n, mantendo o
-trade-off visível antes da escolha.
+The final names and microcopy must go through visual and i18n review, keeping the
+trade-off visible before the choice.
 
-## Questão de desenho que a implementação deve medir
+## Design question the implementation must measure
 
-O pedido de produto é permitir **passar o roteiro aos personagens**, mas a forma
-exata ainda precisa de evidência curl-first. Comparar pelo menos:
+The product request is to allow **passing the screenplay to the characters**, but the
+exact form still needs curl-first evidence. Compare at least:
 
-1. **Roteiro completo:** o Character recebe o beat/ato privado relevante.
-2. **Direção local derivada:** o Character recebe apenas sua função dramática no
-   beat atual, sem atos futuros nem intenções de outros personagens.
+1. **Full screenplay:** the Character receives the relevant private beat/act.
+2. **Derived local direction:** the Character receives only their dramatic function
+   in the current beat, with no future acts and no other characters' intentions.
 
-Não decidir por preferência arquitetural. Pré-registrar métricas e executar 3–4
-runs por variante em payload real. A variante escolhida precisa demonstrar:
+Do not decide by architectural preference. Pre-register metrics and run 3–4 runs per
+variant on a real payload. The chosen variant must demonstrate:
 
-- maior contribuição ao beat do que a condição OFF;
-- manutenção da voz e dos objetivos próprios do personagem;
-- ausência de menções metalinguísticas a roteiro, beat, Diretor ou história;
-- ausência de vazamento de eventos futuros para fala, pensamento ou ação;
-- nenhuma decisão, fala, coragem, revelação ou ação atribuída ao personagem
-  controlado.
+- greater beat contribution than the OFF condition;
+- preservation of the character's own voice and goals;
+- absence of metalinguistic mentions of screenplay, beat, Director, or story;
+- absence of future-event leaks into speech, thought, or action;
+- no decision, speech, courage, revelation, or action attributed to the controlled
+  character.
 
-Se o roteiro completo vazar spoilers ou transformar personagens em executores
-mecânicos, usar direção local derivada como representação funcional do toggle e
-documentar a decisão. O toggle continua significando “personagens seguem o
-roteiro” para o usuário, mesmo que a fronteira interna compartilhe apenas o recorte
-necessário.
+If the full screenplay leaks spoilers or turns characters into mechanical executors,
+use the derived local direction as the functional representation of the toggle and
+document the decision. The toggle still means "characters follow the screenplay" to
+the user, even if the internal boundary shares only the necessary slice.
 
-## Bug pré-existente descoberto (2026-07-20) — provável causa do "roteiro OFF"
+## Pre-existing bug discovered (2026-07-20) — probable cause of "screenplay OFF"
 
-`PUT /config` usa `merge_config_update`, que só preserva os **segredos de provider**;
-os demais campos top-level vêm do corpo enviado, e `save_config → validate_config`
-**re-defaulta o que faltar**. O `collect()` do frontend (`runtime-config.js`) envia
-apenas `active_provider`, `language`, `compaction_*`, `providers` e (agora)
-`autonomous_burst_max_beats` — **omite `roteiro_enabled` e `auto_event_*`**. Logo,
-**todo save pela UI reseta `roteiro_enabled` para False** (e `auto_event_*` para os
-defaults). É a causa mais provável de o roteiro ter sido encontrado desligado.
-Esta task DEVE corrigir isso ao expor `roteiro_enabled` no frontend: o `collect()`
-tem que round-tripar o campo (populate lê, collect envia), e idealmente todo save
-deve ser não-destrutivo para campos que a UI não edita (merge completo, não replace
-com defaults). Testar as 4 combinações + que salvar a UI não zera `roteiro_enabled`.
+`PUT /config` uses `merge_config_update`, which only preserves the **provider
+secrets**; the other top-level fields come from the submitted body, and
+`save_config → validate_config` **re-defaults whatever is missing**. The frontend
+`collect()` (`runtime-config.js`) sends only `active_provider`, `language`,
+`compaction_*`, `providers`, and (now) `autonomous_burst_max_beats` — it **omits
+`roteiro_enabled` and `auto_event_*`**. Therefore, **every UI save resets
+`roteiro_enabled` to False** (and `auto_event_*` to defaults). It is the most likely
+cause of the screenplay being found off. This task MUST fix it by exposing
+`roteiro_enabled` in the frontend: `collect()` must round-trip the field (populate
+reads, collect sends), and ideally every save must be non-destructive to fields the
+UI does not edit (full merge, not replace-with-defaults). Test the 4 combinations +
+that saving the UI does not zero `roteiro_enabled`.
 
-## Contrato e ownership
+## Contract and ownership
 
-- Config canônica e validação: `src/config.py`.
-- Persistência: `.data/config.json`, usando o fluxo existente `GET/PUT /config`.
-- UI e serialização: `src/static/runtime-config.js`, `index.html` e i18n.
-- Roteiro continua sendo produzido e mantido por `src/roteiro.py`.
-- O Runner entrega ao Character somente o contexto permitido pela opção ativa.
-- OFF deve preservar o contrato atual: nenhum texto do roteiro entra no prompt de
-  Character.
-- ON nunca pode contornar a trava de agência do personagem controlado.
-- Mudança de toggle deve reconstruir/aplicar a configuração runtime sem exigir
-  restart manual.
+- Canonical config and validation: `src/config.py`.
+- Persistence: `.data/config.json`, using the existing `GET/PUT /config` flow.
+- UI and serialization: `src/static/runtime-config.js`, `index.html`, and i18n.
+- The screenplay continues to be produced and maintained by `src/roteiro.py`.
+- The Runner delivers to the Character only the context allowed by the active option.
+- OFF must preserve the current contract: no screenplay text enters the Character prompt.
+- ON can never bypass the controlled character's agency lock.
+- A toggle change must rebuild/apply the runtime config without requiring a manual
+  restart.
 
-## Comportamento de sessão
+## Session behavior
 
-- Ligar `roteiro_enabled` numa sessão cujo `game.roteiro` é `null` compila o
-  roteiro no próximo turno sob o lock da sessão e persiste o resultado.
-- Desligar impede manutenção/replan e consumo do roteiro; definir explicitamente se
-  o roteiro persistido é preservado inerte ou removido. Como o projeto é
-  forward-only, deve existir um único comportamento canônico, sem leitura dupla.
-- Religar não pode aplicar silenciosamente uma direção obsoleta ao estado atual:
-  decidir e testar regeneração ou revalidação explícita.
-- O toggle de alinhamento só afeta chamadas futuras; nunca reescreve falas antigas.
+- Turning on `roteiro_enabled` in a session whose `game.roteiro` is `null` compiles
+  the screenplay on the next turn under the session lock and persists the result.
+- Turning it off prevents maintenance/replan and consumption of the screenplay;
+  explicitly define whether the persisted screenplay is preserved inert or removed.
+  Since the project is forward-only, there must be a single canonical behavior, no
+  dual reading.
+- Turning it back on must not silently apply a stale direction to the current state:
+  decide and test explicit regeneration or revalidation.
+- The alignment toggle only affects future calls; it never rewrites old lines.
 
-## Observabilidade
+## Observability
 
-O debug JSONL deve permitir distinguir:
+The debug JSONL must allow distinguishing:
 
-- roteiro OFF;
-- roteiro ON somente para Diretor;
-- roteiro ON com alinhamento de Character;
-- qual recorte dramático foi entregue a cada Character, com os mesmos limites de
-  confidencialidade do prompt correspondente;
-- impacto de latência da compilação/replan e das chamadas normais.
+- screenplay OFF;
+- screenplay ON for Director only;
+- screenplay ON with Character alignment;
+- which dramatic slice was delivered to each Character, with the same confidentiality
+  limits as the corresponding prompt;
+- latency impact of compilation/replan and of the normal calls.
 
-Nenhuma chamada LLM nova pode omitir `session_id`, `turn_number` ou `agent`.
+No new LLM call may omit `session_id`, `turn_number`, or `agent`.
 
-## Aceite
+## Acceptance
 
-- [ ] Settings possui os dois toggles com traduções PT-BR e EN.
-- [ ] `roteiro_enabled` pode ser alterado sem editar JSON ou reiniciar o backend.
-- [ ] O segundo toggle fica condicionado ao primeiro e mostra o aviso permanente.
-- [ ] OFF mantém personagens independentes e prova por teste que roteiro não entra
-      em prompt de Character.
-- [ ] ON aumenta alinhamento ao beat em replay curl-first real sem metalinguagem ou
-      vazamento de futuro.
-- [ ] Personagem controlado continua exclusivo do humano em todas as combinações.
-- [ ] Config pública, persistência, segredo em branco e troca de Runner continuam
-      corretos.
-- [ ] Testes cobrem as quatro combinações dos toggles, input inválido e troca em
-      runtime.
-- [ ] Boundary HTTP real confirma PUT → Runner ativo → próximo turno.
-- [ ] Boundary visual em 1080p e 2K confirma legibilidade do aviso e estados
-      enabled/disabled/focus.
-- [ ] README explica a diferença entre simulação livre e história dirigida.
-- [ ] Evidência curl e decisão final ficam registradas antes de fechar a task.
+- [ ] Settings has both toggles with PT-BR and EN translations.
+- [ ] `roteiro_enabled` can be changed without editing JSON or restarting the backend.
+- [ ] The second toggle is conditioned on the first and shows the permanent warning.
+- [ ] OFF keeps characters independent and proves by test that the screenplay does
+      not enter the Character prompt.
+- [ ] ON increases beat alignment in a real curl-first replay without metalanguage or
+      future leak.
+- [ ] The controlled character remains exclusive to the human in all combinations.
+- [ ] Public config, persistence, blank secret, and Runner swap remain correct.
+- [ ] Tests cover the four toggle combinations, invalid input, and runtime swap.
+- [ ] Real HTTP boundary confirms PUT → active Runner → next turn.
+- [ ] Visual boundary at 1080p and 2K confirms readability of the warning and the
+      enabled/disabled/focus states.
+- [ ] README explains the difference between free simulation and directed story.
+- [ ] Curl evidence and the final decision are recorded before closing the task.
 
-## Fora de escopo
+## Out of scope
 
-- Plugin de self-healing ou reescrita retroativa.
-- Alterar falas e eventos já persistidos.
-- Permitir que qualquer agente escolha ações ou pensamentos do protagonista.
-- Ocultar do usuário o custo de espontaneidade do modo alinhado.
+- Self-healing plugin or retroactive rewriting.
+- Changing already-persisted lines and events.
+- Allowing any agent to choose the protagonist's actions or thoughts.
+- Hiding from the user the spontaneity cost of the aligned mode.
