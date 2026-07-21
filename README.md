@@ -19,44 +19,27 @@ per-viewer identity) as code, not prompt promises. The kernel owns narrative phy
 mechanics and expansions belong to plugins. It supports local llama.cpp inference and the DeepSeek
 API through provider adapters.
 
-> [!NOTE]
-> **Context Compaction is implemented.** Manual and opt-in automatic actions fold older turns
-> into a running world story summary, keep a recent verbatim window, and append incremental undo
-> checkpoints; manual progress is measured over SSE. Per-character memory is NOT part of
-> compaction: each character accumulates a private, perception-filtered memory in its
-> perspective ledger every turn, and an LLM revision condenses the oldest lines when they grow
-> past a threshold (secrets, codes and numbers preserved verbatim). See
-> [Context compaction](#-context-compaction) for the exact trigger, privacy, and undo behavior.
+### Built, measured, and available now
 
-> [!NOTE]
-> **Provider-native prompt caching is verified on both supported backends.** DeepSeek reused
-> 3,968 of 4,031 prompt tokens in the controlled repeated-prefix probe; llama.cpp reused 5,456
-> of 5,457. Alex Tavern records the provider's real hit/miss counters in the session JSONL.
-> See [Verified prompt caching](#-verified-prompt-caching) and the
-> [Task 09 evidence](docs/cases/06-prompt-caching-evidence-2026-07-12.md).
-
-> [!NOTE]
-> **Docker and Android builds are available.** The current container image is published as
-> `ghcr.io/al4xdev/alex-tavern:latest`. An experimental Android APK is published through GitHub
-> Releases as the **Latest Debug APK**. Despite living on the Releases page, the APK is a rough
-> debug build for active development, not a production-ready mobile release.
-
-> [!NOTE]
-> **Knowledge boundaries are structural, not prompt promises.** Speech and actions can carry an
-> `audience` (a whisper) and scenes can carry an **acoustic zone graph**: who perceives a record is
-> computed from physics, characters outside it never receive the content in any prompt (live, in
-> notes, or in ledgers), and a deterministic output guard blocks a character from leaking a
-> whispered secret aloud. Identity is earned: a character addresses a stranger through a
-> viewer-relative reference until a name is learned from a perceived event, with provenance
-> recorded. Sessions are schema-versioned (`SESSION_SCHEMA_VERSION`): when kernel semantics
-> change, old sessions are flagged incompatible and refused instead of migrated — see the
-> [memory and confidentiality case studies](docs/cases/README.md).
-
-> [!WARNING]
-> **Plugins are trusted code, not sandboxed extensions.** The Plugin Center can activate reviewed,
-> fixed-hash packages from the curated hub or install a third-party ZIP. Either kind runs inside the
-> Python/browser process and may replace core behavior. Curated means full-source review; installing
-> anything else accepts its full risk.
+- **Structural knowledge boundaries, not prompt promises.** Whispers carry explicit audiences;
+  acoustic zones determine who can perceive an event; a deterministic output guard blocks private
+  leakage; and viewer-relative identity ledgers make characters address strangers by description
+  until they legitimately learn a name. Schema-versioned sessions refuse incompatible state rather
+  than silently migrating it. The [kernel](#-a-rigid-multi-agent-kernel) and
+  [role model](#-role-model) document the complete boundary.
+- **Transactional context and private memory.** Manual and opt-in automatic
+  [compaction](#-context-compaction) folds old public events into a world summary, retains a recent
+  verbatim window, reports manual progress over SSE, and writes incremental undo checkpoints.
+  Character memory remains separate: each perspective ledger accumulates only perceived records
+  and revises older lines while preserving secrets, codes, and numbers verbatim.
+- **Provider-native prompt caching, verified rather than assumed.** The controlled probe measured
+  3,968 of 4,031 reused prompt tokens on DeepSeek and 5,456 of 5,457 on llama.cpp. Real provider
+  hit/miss counters are persisted in the session JSONL; the full method and negative control are in
+  [Verified prompt caching](#-verified-prompt-caching).
+- **Multiple deployment boundaries from the same backend.** The published Docker image is
+  `ghcr.io/al4xdev/alex-tavern:latest`; Linux, Windows, and macOS use the canonical Python package;
+  and an experimental Android APK is available as the **Latest Debug APK**. The Android build is an
+  active-development package, not a production mobile release.
 
 > [!WARNING]
 > **Known behavioral limitations (measured, not hidden).** The *structural* guarantees above hold;
@@ -67,9 +50,14 @@ API through provider adapters.
 >   promise-through-compaction, …); it is one-turn model noise spread across many independent
 >   families, not a single fixable bug, so "clean every run" is a distribution, not a gate. See
 >   [case No. 14](docs/cases/14-audible-speech-persistence-wt09-2026-07-20.md).
-> - **The opt-in roteiro is scene-dependent.** It reliably improves narrative drive in tight action
->   scenes but is roughly a coin-flip on large procedural/ceremony scenes. OFF by default. See
->   [case No. 11](docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md).
+> - **The narrative clock and opt-in roteiro are still being calibrated.** Ticks, deterministic
+>   stall detection, beat replans, and act deadlines execute, but a newly generated beat can remain
+>   semantically too close to the one it replaced. Short autonomous bursts make this especially
+>   visible: the state machine may advance through several contracts while the prose circles the
+>   same pressure. Roteiro improves drive reliably in tight action scenes but remains roughly a
+>   coin-flip on large procedural/ceremony scenes. OFF by default. See
+>   [case No. 11](docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md) and active
+>   [Task 45](.plan/tasks/45-multi-beat-story-continuation.md).
 > - **Narrator prose can still paraphrase-echo below the dedup guard** (~9% of sentences in a static
 >   scene are re-descriptions the exact-match guard does not catch; a purely semantic mitigation is
 >   open work).
@@ -77,22 +65,6 @@ API through provider adapters.
 >   own conflict before the player re-asserts.
 > - **No public-vs-real persona split for the player character yet** — deliberate bluff/disguise
 >   (presenting power you lack, or hiding what you have) is not a first-class mechanic. Backlog.
-
-> [!NOTE]
-> **Truth or story — the toggle at the heart of the engine.** The better the character simulation
-> gets, the more it *fights* your plot: a coherent agent never splits the party, never opens the
-> door, never crosses the rotten bridge. That is correct behavior, not a bug — real people don't
-> know a screenplay exists, and left alone they argue about nothing while the story stalls, even
-> with the Narrator present. So Alex Tavern treats *"should characters serve the drama?"* as an
-> explicit, **warned** choice instead of hiding the railroading. **Free simulation** is true but can
-> be dull; the **directed** mode licenses the dramatically productive "bad" choice a real person
-> would refuse. The honest mechanism is disposition, not puppetry — alignment pushes what a
-> character *feels* (bolder, warier), it never dictates what they *do*, so the agency lock always
-> holds. Whoever wants something real has it available; the cost is a quieter story. (The two
-> toggles — roteiro on/off and character alignment on/off — are
-> [planned work](.plan/tasks/44-roteiro-character-alignment-toggles.md); the disposition substrate
-> they ride on is
-> [documented here](docs/cases/15-character-disposition-substrate-2026-07-20.md).)
 
 <place_1:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
 
@@ -435,6 +407,23 @@ role before the Decision/Prose split. Canonical names:
 | **Prose renderer** (blind) | Turns the beat's confirmed events into reader-facing narration | Cannot see minds, thoughts, notes, whispers' content, or even the WORDS anyone spoke (speech arrives as content-free markers); cannot invent outcomes or dialogue | Public scene and zone-visible staging, cast appearance only, a content-free reader transcript, and the clamped events of this beat |
 | **Character** | Speak, think, and ATTEMPT physical actions (`action_intent`, adjudicated by the next beat's Director); a reply inside a whispered turn stays whispered | Cannot state action outcomes; cannot perceive across whispers or acoustic zones; addresses strangers by reference until a name is legitimately learned | Only its own mind, its perspective ledger (viewer-relative identities + private perception-filtered memory, older lines LLM-revised with secrets verbatim), events it witnessed, speech/actions it perceived, and its own prior thoughts |
 
+### Truth or story: simulation versus dramatic alignment
+
+The better the character simulation gets, the more it can fight the plot: a coherent agent may
+refuse to split the party, open the suspicious door, or cross the rotten bridge. That is correct
+behavior, not a bug. Real people do not know a screenplay exists, and independent characters can
+argue, cancel the planned action, or take the story somewhere chaotic even while the Director is
+trying to advance a beat.
+
+Alex Tavern therefore treats “should characters serve the drama?” as an explicit product choice
+instead of hiding the railroading. **Free simulation** preserves independent action but may produce
+a quieter or less shaped story. **Directed play** gives characters local dramatic alignment while
+preserving their voice and the human agency lock; it must never hand them the protagonist's choices
+or leak future events into the fiction. The roteiro toggle is now runtime-configurable, while the
+separate character-alignment mode remains active work in
+[Task 44](.plan/tasks/44-roteiro-character-alignment-toggles.md). Its disposition substrate is
+[documented here](docs/cases/15-character-disposition-substrate-2026-07-20.md).
+
 Character output uses the structural contract
 `{speech: string|null, thought: string|null, action_intent: string|null}`.
 Any field may be null, but at least one must be populated. History stores them as separate typed records,
@@ -766,6 +755,12 @@ The interface is dependency-free and built from native ES modules. Current behav
 ---
 
 ### ✦ Plugin platform
+
+> [!WARNING]
+> **Plugins are trusted code, not sandboxed extensions.** The Plugin Center can activate reviewed,
+> fixed-hash packages from the curated hub or install a third-party ZIP. Either kind runs inside the
+> Python/browser process and may replace core behavior. Curated means full-source review; installing
+> anything else accepts its full risk.
 
 The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
 configuration and preview. Individual plugins can also be cached and activated independently.
