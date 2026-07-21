@@ -32,6 +32,7 @@ from src.agents.perspective import (
 )
 from src.agents.prose import render_narration
 from src.agents.summarizer import summarize
+from src.alignment import derive_alignment_impulse
 from src.compaction import (
     CompactionDraft,
     CompactionProgress,
@@ -1927,6 +1928,38 @@ class Runner:
                 turn_number=turn_number,
             )
 
+    async def _alignment_impulse(
+        self, game: GameState, character_id: str, turn_number: int
+    ) -> str:
+        """Task 44 Toggle 2: a transient dramatic impulse for an expected actor of the
+        current beat, tilting their CHOICE toward it (never dictating the action).
+
+        No-op unless BOTH roteiro flags are on. NEVER applied to the controlled
+        character (agency lock). Leak-safe by construction: the impulse is one of a
+        fixed vocabulary, the private beat only feeds an enum-constrained Director-side
+        call whose output never reaches the character as free text.
+        """
+        if not (
+            self.config.get("roteiro_enabled")
+            and self.config.get("character_roteiro_alignment_enabled")
+        ):
+            return ""
+        if character_id == game.player.controlled_character_id:
+            return ""
+        roteiro = game.roteiro
+        if roteiro is None or roteiro.beat is None:
+            return ""
+        if character_id not in roteiro.beat.expected_actors:
+            return ""
+        return await derive_alignment_impulse(
+            self.client,
+            roteiro.beat.intent,
+            game.characters[character_id],
+            self.config,
+            session_id=game.session_id,
+            turn_number=turn_number,
+        )
+
     async def _call_character(
         self,
         game: GameState,
@@ -1951,6 +1984,7 @@ class Runner:
             reply_audience=reply_audience,
             viewer_perspective=game.character_perspectives.get(character_id),
             dispositions=game.dispositions,
+            alignment_impulse=await self._alignment_impulse(game, character_id, turn_number),
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:

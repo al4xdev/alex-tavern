@@ -167,16 +167,20 @@ def _build_user_prompt(
     whisper_note: str = "",
     ledger_memory: str = "",
     disposition_note: str = "",
+    alignment_impulse: str = "",
 ) -> str:
     """Put append-only history before the Character's changing state and context.
 
     ``ledger_memory`` is the viewer's durable, viewer-projected memory (Task 39)
     — the single "What you remember" source. ``disposition_note`` is the Task 43
     band projection of this character's drifting disposition (the qualitative face
-    of code-owned scalars — the number itself never reaches here).
+    of code-owned scalars — the number itself never reaches here). ``alignment_impulse``
+    is the Task 44 Toggle 2 transient dramatic impulse (a fixed-vocabulary feeling,
+    never plot content) that tilts the choice toward the beat.
     """
     memory = ledger_memory.strip() or "(none yet)"
     disposition_block = f"{disposition_note}\n" if disposition_note else ""
+    impulse_block = f"{alignment_impulse}\n" if alignment_impulse else ""
     return (
         "RECENT EVENTS:\n"
         f"{history_text}\n"
@@ -184,6 +188,7 @@ def _build_user_prompt(
         "CURRENT PRIVATE STATE:\n"
         f"Current mood: {current_mood}\n"
         f"{disposition_block}"
+        f"{impulse_block}"
         f"What you remember: {memory}\n"
         "\n"
         "SCENE CONTEXT (what you perceive right now):\n"
@@ -440,6 +445,7 @@ async def act(
     reply_audience: list[str] | None = None,
     viewer_perspective=None,
     dispositions=None,  # noqa: ANN001 — DispositionState | None (Task 43)
+    alignment_impulse: str = "",
 ) -> CharacterOutput:
     """Build the Character prompt and return separate speech/thought fields.
 
@@ -505,6 +511,7 @@ async def act(
                     controlled_id,
                     viewer_perspective=viewer_perspective,
                 ),
+                alignment_impulse=alignment_impulse,
             ),
         },
     ]
