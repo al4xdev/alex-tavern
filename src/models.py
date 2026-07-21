@@ -520,9 +520,7 @@ def dict_to_disposition_state(data: dict[str, Any] | None) -> DispositionState:
         }
 
     return DispositionState(
-        per_character={
-            cid: _axes(axes) for cid, axes in data.get("per_character", {}).items()
-        },
+        per_character={cid: _axes(axes) for cid, axes in data.get("per_character", {}).items()},
         per_dyad={
             observer: {target: _axes(axes) for target, axes in targets.items()}
             for observer, targets in data.get("per_dyad", {}).items()

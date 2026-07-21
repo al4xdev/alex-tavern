@@ -301,12 +301,30 @@ class TestAppraisalIntegration:
         from src.disposition import parse_relationship_deltas
 
         raw = [
-            {"observer": "C1", "target": "C2", "axis": "trust", "direction": "down",
-             "intensity": "strong", "evidence": "betrayed"},
-            {"observer": "C1", "target": "CX", "axis": "warmth", "direction": "up",
-             "intensity": "slight", "evidence": "absent target"},  # CX not present -> drop
-            {"observer": "C1", "target": "C2", "axis": "composure", "direction": "up",
-             "intensity": "slight", "evidence": "parked axis"},  # composure -> drop
+            {
+                "observer": "C1",
+                "target": "C2",
+                "axis": "trust",
+                "direction": "down",
+                "intensity": "strong",
+                "evidence": "betrayed",
+            },
+            {
+                "observer": "C1",
+                "target": "CX",
+                "axis": "warmth",
+                "direction": "up",
+                "intensity": "slight",
+                "evidence": "absent target",
+            },  # CX not present -> drop
+            {
+                "observer": "C1",
+                "target": "C2",
+                "axis": "composure",
+                "direction": "up",
+                "intensity": "slight",
+                "evidence": "parked axis",
+            },  # composure -> drop
             "garbage",
         ]
         deltas = parse_relationship_deltas(raw, {"C1", "C2"})
@@ -353,8 +371,13 @@ class TestAppraisalPrompt:
 
         game = _game()
         game.history.append(
-            TurnRecord(1, "C2", "Rasga o contrato na sua cara e cospe no chao.", "action",
-                       deepcopy_scene(SCENE))
+            TurnRecord(
+                1,
+                "C2",
+                "Rasga o contrato na sua cara e cospe no chao.",
+                "action",
+                deepcopy_scene(SCENE),
+            )
         )
         joined = "\n".join(m["content"] for m in build_appraisal_messages(game))
         assert "C1=Rui" in joined and "C2=Marta" in joined  # roster id=name

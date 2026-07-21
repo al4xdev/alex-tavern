@@ -1928,9 +1928,7 @@ class Runner:
                 turn_number=turn_number,
             )
 
-    async def _alignment_impulse(
-        self, game: GameState, character_id: str, turn_number: int
-    ) -> str:
+    async def _alignment_impulse(self, game: GameState, character_id: str, turn_number: int) -> str:
         """Task 44 Toggle 2: a transient dramatic impulse for an expected actor of the
         current beat, tilting their CHOICE toward it (never dictating the action).
 

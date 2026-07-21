@@ -147,6 +147,26 @@
                         </label>
                     </div>
 
+                    <div class="compaction-control" id="character-alignment-control">
+                        <div class="compaction-control-head">
+                            <div>
+                                <div class="compaction-control-title" data-i18n="engine.characterAlignment">Characters follow screenplay</div>
+                                <p class="compaction-control-intro" data-i18n="engine.characterAlignmentIntro">Sends transient dramatic impulses to non-controlled characters so they collaborate with the current beat.</p>
+                            </div>
+                        </div>
+                        <label class="toggle compaction-toggle" for="runtime-character-alignment-enabled">
+                            <input id="runtime-character-alignment-enabled" type="checkbox">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="compaction-toggle-copy">
+                                <strong id="character-alignment-state"></strong>
+                                <small id="character-alignment-hint" data-i18n="engine.characterAlignmentToggleHint">On: characters receive subtle dramatic pushes. Off: characters act fully independent of the plan.</small>
+                            </span>
+                        </label>
+                        <div class="compaction-warning-box" id="character-alignment-warning-box">
+                            <p data-i18n="engine.characterAlignmentWarning">When this is off, characters act independently and may work against the screenplay, producing more chaotic outcomes, like real people who do not know a plan exists. When enabled, characters collaborate with the dramatic direction, but may feel more guided and less spontaneous.</p>
+                        </div>
+                    </div>
+
                     <div id="provider-panels"></div>
 
                     <div class="runtime-config-actions">

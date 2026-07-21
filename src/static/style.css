@@ -564,6 +564,25 @@ html, body {
     background:
         radial-gradient(circle at 92% 0%, rgba(124, 108, 255, 0.12), transparent 36%),
         var(--bg-1);
+    transition: opacity var(--dur) var(--ease);
+}
+.compaction-control.disabled {
+    opacity: 0.45;
+}
+.compaction-control.disabled input[type='checkbox'] {
+    cursor: not-allowed;
+}
+.compaction-warning-box {
+    padding: 10px 12px;
+    border: 1px solid rgba(235, 175, 75, 0.25);
+    border-radius: var(--radius-sm);
+    background: rgba(235, 175, 75, 0.06);
+}
+.compaction-warning-box p {
+    margin: 0;
+    color: var(--text-2);
+    font-size: 0.74rem;
+    line-height: 1.45;
 }
 .compaction-control-head,
 .compaction-threshold-head {

@@ -38,7 +38,7 @@ IMPULSES: dict[str, str] = {
         "hostil — sinta a guarda erguida, desconfiança e frieza para com quem está diante de você"
     ),
     "urgent": (
-        "premido pelo tempo — sinta que hesitar custa caro, que a cena exige ação "
+        "premido pelo tempo — sinta que hesitar custa caro, que o momento exige ação "
         "agora, não deliberação"
     ),
     "defiant": (
@@ -75,6 +75,10 @@ def build_alignment_messages(beat_intent: str, character: Character) -> list[dic
         "Impulses: bold (dare, take the risk), cautious (protect, hold back), warm "
         "(open up, help), hostile (guard up, cold), urgent (act now, no deliberation), "
         "defiant (break the imposed order). Use `none` if this character needs no push.\n"
+        "Guidance: Focus on the core dramatic ACTION required by the beat (e.g., splitting, "
+        "exploring, risking) rather than passive threats mentioned in the text. Beats that "
+        "require proactive risk-taking or splitting should favor `bold` or `urgent` "
+        "over `cautious`.\n"
         'Return json: {"impulse": <key>}.'
     )
     user = (

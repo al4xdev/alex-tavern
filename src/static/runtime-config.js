@@ -24,6 +24,10 @@ export const RuntimeConfig = (() => {
     const burstBeatsExplanationEl = document.getElementById('burst-beats-explanation');
     const roteiroEnabledEl = document.getElementById('runtime-roteiro-enabled');
     const roteiroStateEl = document.getElementById('roteiro-state');
+    const characterAlignmentControlEl = document.getElementById('character-alignment-control');
+    const characterAlignmentEl = document.getElementById('runtime-character-alignment-enabled');
+    const characterAlignmentStateEl = document.getElementById('character-alignment-state');
+    const characterAlignmentHintEl = document.getElementById('character-alignment-hint');
 
     let selectedProvider = '';
     let compactionKeepRecentTurns = 8;
@@ -93,8 +97,24 @@ export const RuntimeConfig = (() => {
         burstBeatsExplanationEl.textContent = t(`engine.burstBeatsExplanation.${band}`);
     }
 
+    function refreshCharacterAlignmentControl() {
+        const enabled = characterAlignmentEl.checked;
+        characterAlignmentStateEl.textContent = t(
+            enabled ? 'engine.characterAlignmentOn' : 'engine.characterAlignmentOff'
+        );
+    }
+
     function refreshRoteiroControl() {
-        roteiroStateEl.textContent = t(roteiroEnabledEl.checked ? 'engine.roteiroOn' : 'engine.roteiroOff');
+        const roteiroEnabled = roteiroEnabledEl.checked;
+        roteiroStateEl.textContent = t(roteiroEnabled ? 'engine.roteiroOn' : 'engine.roteiroOff');
+        characterAlignmentEl.disabled = !roteiroEnabled;
+        characterAlignmentControlEl.classList.toggle('disabled', !roteiroEnabled);
+        if (!roteiroEnabled) {
+            bindTranslation(characterAlignmentHintEl, 'engine.characterAlignmentRequiresRoteiro');
+        } else {
+            bindTranslation(characterAlignmentHintEl, 'engine.characterAlignmentToggleHint');
+        }
+        refreshCharacterAlignmentControl();
     }
 
     function refreshCompactionControl() {
@@ -130,6 +150,7 @@ export const RuntimeConfig = (() => {
         autoCompactThresholdEl.value = config.automatic_compaction_threshold_percent;
         burstMaxBeatsEl.value = config.autonomous_burst_max_beats;
         roteiroEnabledEl.checked = Boolean(config.roteiro_enabled);
+        characterAlignmentEl.checked = Boolean(config.character_roteiro_alignment_enabled);
         refreshCompactionControl();
         refreshBurstControl();
         refreshRoteiroControl();
@@ -149,6 +170,7 @@ export const RuntimeConfig = (() => {
             ),
             autonomous_burst_max_beats: readBurstBeats(),
             roteiro_enabled: roteiroEnabledEl.checked,
+            character_roteiro_alignment_enabled: characterAlignmentEl.checked,
             providers: Object.fromEntries(
                 providerAdapters.map((adapter) => [adapter.id, adapter.read()]),
             ),
@@ -203,6 +225,7 @@ export const RuntimeConfig = (() => {
         autoCompactThresholdEl.addEventListener('input', refreshCompactionControl);
         burstMaxBeatsEl.addEventListener('input', refreshBurstControl);
         roteiroEnabledEl.addEventListener('change', refreshRoteiroControl);
+        characterAlignmentEl.addEventListener('change', refreshCharacterAlignmentControl);
         compactionHelpBtn.addEventListener('click', openCompactionHelp);
         onLocaleChange(() => {
             if (selectedProvider) chooseProvider(selectedProvider);

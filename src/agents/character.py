@@ -248,8 +248,7 @@ def _build_disposition_note(
         return ""
     return (
         "YOUR INNER DISPOSITION (let it color your voice, word choice and choices — "
-        "do NOT announce these words or state them as facts about yourself):\n"
-        + "\n".join(lines)
+        "do NOT announce these words or state them as facts about yourself):\n" + "\n".join(lines)
     )
 
 
