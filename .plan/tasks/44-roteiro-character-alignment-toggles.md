@@ -15,11 +15,47 @@ bug do reset — collect omitia o campo — some pra ele) e **aplica em runtime 
 restart** (PUT /config reconstrói o Runner, main.py:709-712). Falta verificação
 Playwright (dono confere no olho).
 
-**Pendente — Toggle 2 (personagens seguem o roteiro):**
-`character_roteiro_alignment_enabled`, condicional ao primeiro, com o AVISO
-permanente. Precisa do mecanismo de alinhamento (contexto dramático derivado →
-Character) e do gate curl "roteiro completo vs direção local derivada". É o grosso
-da task. Ver também a ponte com a Ousadia (43) abaixo.
+**Em andamento — Toggle 2 (personagens seguem o roteiro):**
+- ✅ Config flag `character_roteiro_alignment_enabled` (default OFF, valida boolean,
+  em `validate_config` + `resolve_active_config`, testada). Ainda NÃO fiada em prompt.
+- ⬜ Mecanismo de alinhamento + gate curl (o desenho abaixo).
+
+## Toggle 2 — desenho de execução (a parte sensível, curl-gated)
+
+**Fonte permitida (confidencialidade):** SÓ o beat ATUAL. `roteiro.beat.intent` e se
+o personagem está em `beat.expected_actors`. **NUNCA** `premise`, `acts[].summary`,
+`beat.expected_anchors` ainda não em jogo (props futuros = spoiler), nem
+`exit_condition`. O `describe_roteiro_for_director` (que carrega tudo isso) é
+Diretor-only e não pode ser reusado pro Character.
+
+**Três braços a comparar por curl (payload real da sessão `380ea657`):**
+- **A) Roteiro completo → Character** (baseline de RISCO): injeta o describe do
+  Diretor. Esperado vazar premise/anchors/futuro + metalinguagem. Medir o quão ruim.
+- **B) Direção local derivada** (recorte puro): injeta só uma versão do
+  `beat.intent` do personagem, SE ele é `expected_actor`, reescrita em 1ª pessoa
+  motivacional, sem meta, sem futuro. Provável que precise de um passo de DERIVAÇÃO
+  LLM pra tirar diretividade/spoiler do intent (um intent tipo "levar o grupo a
+  cruzar os portais" é diretivo demais cru) — ou um template de código. O curl decide.
+- **C) Empurrão de disposição (Ousadia)** — o braço elegante: traduz o beat num
+  push de disposição (Ousadia↑) em vez de conteúdo. **Zero vazamento**, o personagem
+  ESCOLHE a temeridade sozinho. Requer reviver a Ousadia (43 Fase 3.5) como eixo
+  ativo. É a ponte 43↔44.
+
+**Guards obrigatórios (B/C):** teste tipo `TestRoteiroConfidentiality` — o prompt do
+Character NUNCA contém premise, summary de ato, anchor não-em-jogo, exit_condition,
+nem token de metalinguagem (roteiro/beat/ato/Diretor/história). Agência: nunca
+injeta direção pro personagem CONTROLADO; nunca dita escolha dele.
+
+**Regra de decisão pré-registrada:** rodar A vs B (vs C) no payload real, ≥3-4 runs,
+juiz cego, medindo: (1) contribuição ao beat > OFF; (2) voz e objetivos próprios
+preservados; (3) zero metalinguagem; (4) zero vazamento de futuro; (5) zero
+atribuição ao personagem controlado. Ship a variante que passa nos 5 — se o completo
+(A) vaza, B é a representação funcional do toggle; se C provar zero-leak + agência,
+é a vitória de desenho. Documentar antes de fechar.
+
+**Wiring (depois do gate):** `_call_character` recebe a direção derivada quando
+AMBAS as flags ON, por um canal de prompt novo (como a nota de disposição). OFF
+mantém o contrato atual (nenhum texto de roteiro no prompt do Character).
 
 ## A conclusão afiada (por que o toggle existe) — do dono, 2026-07-20
 

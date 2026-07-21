@@ -120,6 +120,14 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
             MAX_BURST_BEATS,
         ),
         "roteiro_enabled": _boolean(value.get("roteiro_enabled", False), "roteiro_enabled"),
+        # Task 44 Toggle 2: characters receive a spoiler-free dramatic direction so
+        # they contribute to the beat instead of accidentally cancelling it. Only
+        # meaningful when roteiro_enabled; OFF keeps the current contract (no roteiro
+        # text ever reaches a Character prompt).
+        "character_roteiro_alignment_enabled": _boolean(
+            value.get("character_roteiro_alignment_enabled", False),
+            "character_roteiro_alignment_enabled",
+        ),
         "providers": {},
     }
     for name in current_provider_names:
@@ -266,6 +274,7 @@ def resolve_active_config(value: dict[str, Any]) -> dict[str, Any]:
         "auto_event_max_probability": canonical["auto_event_max_probability"],
         "autonomous_burst_max_beats": canonical["autonomous_burst_max_beats"],
         "roteiro_enabled": canonical["roteiro_enabled"],
+        "character_roteiro_alignment_enabled": canonical["character_roteiro_alignment_enabled"],
     }
 
 

@@ -48,6 +48,25 @@ def test_config_round_trip_resolution_and_key_redaction(tmp_path: Path) -> None:
     assert safe["automatic_compaction_threshold_percent"] == 80
 
 
+def test_roteiro_toggles_default_off_and_resolve(tmp_path: Path) -> None:
+    """Task 44: both roteiro toggles default OFF and survive resolution."""
+    resolved = resolve_active_config(validate_config(deepcopy(DEFAULT_CONFIG)))
+    assert resolved["roteiro_enabled"] is False
+    assert resolved["character_roteiro_alignment_enabled"] is False
+
+    on = deepcopy(DEFAULT_CONFIG)
+    on["roteiro_enabled"] = True
+    on["character_roteiro_alignment_enabled"] = True
+    resolved_on = resolve_active_config(validate_config(on))
+    assert resolved_on["roteiro_enabled"] is True
+    assert resolved_on["character_roteiro_alignment_enabled"] is True
+
+    bad = deepcopy(DEFAULT_CONFIG)
+    bad["character_roteiro_alignment_enabled"] = "yes"
+    with pytest.raises(ConfigValidationError, match="must be a boolean"):
+        validate_config(bad)
+
+
 @pytest.mark.parametrize(
     ("field", "value", "message"),
     [
