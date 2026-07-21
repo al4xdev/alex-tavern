@@ -56,7 +56,7 @@ def _event(text):  # noqa: ANN001, ANN202
     }
 
 
-async def _run(monkeypatch, config, director_beats, skip=True, force=None):  # noqa: ANN001, ANN202
+async def _run(monkeypatch, config, director_beats, skip=True, force=None, speech=""):  # noqa: ANN001, ANN202
     import src.runner as runner_mod
     from src.runner import Runner
 
@@ -89,7 +89,7 @@ async def _run(monkeypatch, config, director_beats, skip=True, force=None):  # n
         monkeypatch.setattr(runner, "_call_character", fake_character)
         monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
         try:
-            result = await runner.player_turn(sid, skip=skip, force_speaker=force)
+            result = await runner.player_turn(sid, speech=speech, skip=skip, force_speaker=force)
             game = await runner.get_state(sid)
         finally:
             await delete_session(sid)
@@ -218,6 +218,26 @@ class TestBurst:
         assert result["burst_stop_reason"] is None
         assert len(result["beats"]) == 1
         assert result["character_responses"][0]["speech"] == "Beat de C2."
+
+    @pytest.mark.asyncio
+    async def test_normal_player_turn_never_bursts(self, monkeypatch) -> None:  # noqa: ANN001
+        """A turn the player actually wrote is ONE beat, whatever the budget says.
+
+        The burst is a skip-only contract: only passing hands the world several
+        beats. Reported symptom (2026-07-21): "it seems to fire even when I do
+        not press continue" — this pins the contract so the answer stops being
+        a reading of `runner.py`.
+        """
+        result, game = await _run(
+            monkeypatch,
+            BURST_CONFIG,
+            [_beat(["C2"]), _beat(["C3"]), _beat(["C2"]), _beat(["C3"])],
+            skip=False,
+            speech="Oi pessoal.",
+        )
+        assert result["burst_stop_reason"] is None
+        assert len(result["beats"]) == 1
+        assert game is not None and game.history[-1].turn_number == 1
 
     @pytest.mark.asyncio
     async def test_force_speaker_disables_the_burst(self, monkeypatch) -> None:  # noqa: ANN001
