@@ -59,24 +59,16 @@ export function createProviderAdapter(definition) {
         const id = inputId(definition.id, field.key);
         const label = bindTranslation(makeElement('label', 'field-label'), field.labelKey);
         label.htmlFor = id;
-        const input = makeElement(field.type === 'select' ? 'select' : 'input', 'text-input');
+        const input = makeElement('input', 'text-input');
         input.id = id;
         input.dataset.providerField = field.key;
-        if (field.type === 'select') {
-            (field.options || []).forEach((choice) => {
-                const option = makeElement('option', '', choice.label || choice.value);
-                option.value = choice.value;
-                input.appendChild(option);
-            });
-        } else {
-            input.type = field.type || 'text';
-            input.autocomplete = field.autocomplete || 'off';
-            if (field.placeholder) input.placeholder = field.placeholder;
-            if (field.placeholderKey) bindTranslation(input, field.placeholderKey, {}, 'placeholder');
-            if (field.min !== undefined) input.min = String(field.min);
-            if (field.step !== undefined) input.step = String(field.step);
-            if (input.type === 'number') input.inputMode = field.step ? 'decimal' : 'numeric';
-        }
+        input.type = field.type || 'text';
+        input.autocomplete = field.autocomplete || 'off';
+        if (field.placeholder) input.placeholder = field.placeholder;
+        if (field.placeholderKey) bindTranslation(input, field.placeholderKey, {}, 'placeholder');
+        if (field.min !== undefined) input.min = String(field.min);
+        if (field.step !== undefined) input.step = String(field.step);
+        if (input.type === 'number') input.inputMode = field.step ? 'decimal' : 'numeric';
         wrapper.append(label, input);
         if (field.hint || field.hintKey || field.secret) {
             const hint = field.hintKey
@@ -131,16 +123,7 @@ export function createProviderAdapter(definition) {
     function populate(config) {
         fields.forEach((field) => {
             const input = panel.querySelector(`[data-provider-field="${field.key}"]`);
-            const value = field.secret ? '' : (config[field.key] ?? '');
-            if (field.type === 'select' && value !== ''
-                && ![...input.options].some((option) => option.value === value)) {
-                // A stored model outside the current catalog (set via API or an
-                // older release) must stay selectable, not be silently swapped.
-                const extra = makeElement('option', '', value);
-                extra.value = value;
-                input.appendChild(extra);
-            }
-            input.value = value;
+            input.value = field.secret ? '' : (config[field.key] ?? '');
             if (field.secret) {
                 const configured = Boolean(config[`${field.key}_configured`]);
                 const hint = panel.querySelector(`[data-field-hint="${field.key}"]`);

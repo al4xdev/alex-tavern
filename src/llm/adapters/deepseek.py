@@ -18,9 +18,6 @@ class DeepSeekAdapter:
     """DeepSeek adapter using JSON Object mode plus local schema validation."""
 
     name = "deepseek"
-    # Current published model IDs; must match the frontend adapter's select
-    # options (tests pin the two lists together).
-    model_choices: tuple[str, ...] = ("deepseek-v4-flash", "deepseek-v4-pro")
     config_defaults: dict[str, Any] = {
         "api_base": "https://api.deepseek.com",
         "api_key": "",
