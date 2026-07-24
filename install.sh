@@ -15,8 +15,8 @@ fi
 echo "📦 Creating virtual environment and installing dependencies..."
 uv sync
 
-echo "⚙️ Setting up default configurations..."
-uv run python -c "from src.main import load_config; load_config()"
+echo "⚙️ Setting up the default Experience and configuration..."
+uv run python -c "from src.runtime_bootstrap import prepare_runtime_config; prepare_runtime_config()"
 
 echo "✅ Installation completed successfully!"
 echo ""

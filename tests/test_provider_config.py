@@ -10,8 +10,10 @@ import httpx
 import pytest
 
 from src.config import (
+    CONFIG_SCHEMA_VERSION,
     DEFAULT_CONFIG,
     ConfigValidationError,
+    config_schema_version,
     load_config,
     merge_config_update,
     public_config,
@@ -36,6 +38,7 @@ def test_config_round_trip_resolution_and_key_redaction(tmp_path: Path) -> None:
     safe = public_config(loaded)
 
     assert loaded == saved
+    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
     assert resolved["provider"] == "deepseek"
     assert resolved["model"] == "deepseek-v4-flash"
     assert resolved["api_key"] == "secret-value"
@@ -46,6 +49,38 @@ def test_config_round_trip_resolution_and_key_redaction(tmp_path: Path) -> None:
     assert "secret-value" not in json.dumps(safe)
     assert safe["automatic_compaction_enabled"] is False
     assert safe["automatic_compaction_threshold_percent"] == 80
+
+
+@pytest.mark.parametrize("explicit_version", [False, True])
+def test_load_config_migrates_v1_to_v2(tmp_path: Path, explicit_version: bool) -> None:
+    path = tmp_path / "config.json"
+    legacy = deepcopy(DEFAULT_CONFIG)
+    legacy.pop("schema_version")
+    legacy["language"] = "English"
+    if explicit_version:
+        legacy["schema_version"] = 1
+    path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    assert config_schema_version(path) == 1
+    loaded = load_config(path)
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+
+    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
+    assert loaded["language"] == "English"
+    assert persisted == loaded
+
+
+@pytest.mark.parametrize("version", [True, "2", 0, 3])
+def test_config_schema_version_rejects_invalid_or_unknown_versions(
+    tmp_path: Path, version: object
+) -> None:
+    path = tmp_path / "config.json"
+    value = deepcopy(DEFAULT_CONFIG)
+    value["schema_version"] = version
+    path.write_text(json.dumps(value), encoding="utf-8")
+
+    with pytest.raises(ConfigValidationError, match="schema_version"):
+        load_config(path)
 
 
 def test_roteiro_toggles_default_off_and_resolve() -> None:
@@ -101,12 +136,14 @@ def test_blank_ui_key_preserves_persisted_secret(tmp_path: Path) -> None:
     save_config(existing, path)
     submitted = deepcopy(existing)
     submitted["providers"]["deepseek"]["api_key"] = ""
+    submitted.pop("schema_version")
 
     merged = merge_config_update(submitted, path)
     merged_again = merge_config_update(public_config(merged), path)
 
     assert merged["providers"]["deepseek"]["api_key"] == "keep-me"
     assert merged_again["providers"]["deepseek"]["api_key"] == "keep-me"
+    assert merged["schema_version"] == CONFIG_SCHEMA_VERSION
 
 
 def test_config_rejects_reasoning_for_deepseek() -> None:

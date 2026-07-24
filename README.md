@@ -89,8 +89,9 @@ cd alex-tavern
 ```
 
 Open the gear menu to choose the AI engine and edit its server-owned settings. The install script
-creates `.data/config.json`; provider configuration and API keys live only there, never in browser
-storage. llama.cpp remains available as a local engine, while DeepSeek uses
+installs and activates the reviewed **Before the War** Experience, then creates
+`.data/config.json`; provider configuration and API keys live only there, never in browser storage.
+llama.cpp remains available as a local engine, while DeepSeek uses
 `deepseek-v4-flash` with thinking explicitly disabled.
 
 The same menu also selects the interface language. English is the default and fallback;
@@ -773,6 +774,12 @@ The interface is dependency-free and built from native ES modules. Current behav
 
 The Plugin Center is Experience-first: an Experience is an ordered set of plugins plus their
 configuration and preview. Individual plugins can also be cached and activated independently.
+Fresh installations and the one-time config v1 to v2 migration apply **Before the War** before the
+plugin runtime starts. That default Experience pins Character Converter, Creme Theme, and
+Suggestion Preloader. Config v2 is persisted only after the curated hub is synchronized, every
+package is installed and activated, and the exact plugin environment is rebuilt; a failed step
+leaves the config at v1 so the next boot retries. Once migrated, the active set remains
+user-controlled and the default is not continuously re-enforced.
 Changing the active set rebuilds its uv dependency target immediately, but batches process
 replacement while the Plugin Center remains open. Closing it with the close button, Escape, or a
 click outside asks the supervisor to replace the Python child and reloads the browser runtime once,
@@ -1146,6 +1153,7 @@ is:
 
 ```json
 {
+  "schema_version": 2,
   "active_provider": "llama_cpp",
   "language": "Portuguese",
   "compaction_keep_recent_turns": 200,
@@ -1182,8 +1190,10 @@ is:
 }
 ```
 
-Writes use a temporary file, flush and `fsync`, then atomically replace the destination. Invalid
-or old config shapes fail explicitly; the loader does not accumulate legacy compatibility layers.
+Writes use a temporary file, flush and `fsync`, then atomically replace the destination. The single
+explicit v1 to v2 migration recognizes the original unversioned shape, applies the mandatory
+default Experience during runtime bootstrap, and rewrites one canonical v2 object. Other invalid,
+old, or future shapes fail explicitly; the loader does not accumulate legacy compatibility layers.
 The active provider must have all required secret fields before it can be selected.
 
 The setup modal's **AI engine** section calls `GET /config` and `PUT /config`:

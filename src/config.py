@@ -16,12 +16,23 @@ from src.paths import CONFIG_PATH
 PROVIDER_NAMES = provider_names()
 _config_lock = threading.RLock()
 
+CONFIG_SCHEMA_VERSION = 2
+LEGACY_CONFIG_SCHEMA_VERSION = 1
+
 DEFAULT_CONFIG: dict[str, Any] = {
+    "schema_version": CONFIG_SCHEMA_VERSION,
     "active_provider": "llama_cpp",
     "language": "Portuguese",
     "compaction_keep_recent_turns": 200,
     "automatic_compaction_enabled": False,
     "automatic_compaction_threshold_percent": 80,
+    "auto_event_enabled": True,
+    "auto_event_base_probability": 0.05,
+    "auto_event_growth_per_quiet_turn": 0.12,
+    "auto_event_max_probability": 0.85,
+    "autonomous_burst_max_beats": 6,
+    "roteiro_enabled": False,
+    "character_roteiro_alignment_enabled": False,
     "providers": {
         name: deepcopy(adapter.config_defaults) for name, adapter in provider_adapters().items()
     },
@@ -81,6 +92,15 @@ def _required_string(value: object, label: str, *, allow_empty: bool = False) ->
 
 def validate_config(value: dict[str, Any]) -> dict[str, Any]:
     """Validate and return one canonical forward-only configuration object."""
+    schema_version = value.get("schema_version")
+    if (
+        isinstance(schema_version, bool)
+        or not isinstance(schema_version, int)
+        or schema_version != CONFIG_SCHEMA_VERSION
+    ):
+        raise ConfigValidationError(
+            f"schema_version must be {CONFIG_SCHEMA_VERSION}, got {schema_version!r}"
+        )
     current_provider_names = provider_names()
     active_provider = value.get("active_provider")
     if active_provider not in current_provider_names:
@@ -90,6 +110,7 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         raise ConfigValidationError("providers must be an object")
 
     canonical: dict[str, Any] = {
+        "schema_version": CONFIG_SCHEMA_VERSION,
         "active_provider": active_provider,
         "language": _required_string(value.get("language", ""), "language", allow_empty=True),
         "compaction_keep_recent_turns": _positive_integer(
@@ -212,20 +233,53 @@ def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
         raise
 
 
+def _read_config_object(path: Path) -> dict[str, Any]:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ConfigValidationError(f"Cannot read {path}: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ConfigValidationError(f"Configuration in {path} must be an object")
+    return raw
+
+
+def config_schema_version(path: Path = CONFIG_PATH) -> int | None:
+    """Inspect config version without changing the file.
+
+    The original unversioned application config is schema v1.
+    """
+    with _config_lock:
+        if not path.exists():
+            return None
+        raw = _read_config_object(path)
+        if "schema_version" not in raw:
+            return LEGACY_CONFIG_SCHEMA_VERSION
+        version = raw["schema_version"]
+        if isinstance(version, bool) or not isinstance(version, int):
+            raise ConfigValidationError("schema_version must be an integer")
+        if version not in {LEGACY_CONFIG_SCHEMA_VERSION, CONFIG_SCHEMA_VERSION}:
+            raise ConfigValidationError(
+                f"Unsupported config schema_version {version}; "
+                f"expected {LEGACY_CONFIG_SCHEMA_VERSION} or {CONFIG_SCHEMA_VERSION}"
+            )
+        return version
+
+
 def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
-    """Load the canonical config, creating defaults when it does not exist."""
+    """Load canonical v2 config, migrating the original v1 representation."""
     with _config_lock:
         if not path.exists():
             config = deepcopy(DEFAULT_CONFIG)
             _atomic_write_json(path, config)
             return config
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            raise ConfigValidationError(f"Cannot read {path}: {exc}") from exc
-        if not isinstance(raw, dict):
-            raise ConfigValidationError(f"Configuration in {path} must be an object")
-        return validate_config(raw)
+        version = config_schema_version(path)
+        raw = _read_config_object(path)
+        if version == LEGACY_CONFIG_SCHEMA_VERSION:
+            raw["schema_version"] = CONFIG_SCHEMA_VERSION
+        canonical = validate_config(raw)
+        if version == LEGACY_CONFIG_SCHEMA_VERSION:
+            _atomic_write_json(path, canonical)
+        return canonical
 
 
 def save_config(value: dict[str, Any], path: Path = CONFIG_PATH) -> dict[str, Any]:
@@ -241,6 +295,9 @@ def merge_config_update(value: dict[str, Any], path: Path = CONFIG_PATH) -> dict
     with _config_lock:
         current = load_config(path)
         submitted = deepcopy(value)
+        # schema_version belongs to the server. Older/newer browser bundles do
+        # not choose the persisted contract version.
+        submitted["schema_version"] = current["schema_version"]
         providers = submitted.get("providers")
         if isinstance(providers, dict):
             for name, adapter in provider_adapters().items():

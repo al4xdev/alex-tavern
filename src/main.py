@@ -20,7 +20,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.config import (
     ConfigValidationError,
-    load_config,
     merge_config_update,
     public_config,
     resolve_active_config,
@@ -29,6 +28,7 @@ from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR
 from src.plugins.runtime import PluginRuntime
 from src.runner import PresenceRevisionConflictError, Runner
+from src.runtime_bootstrap import prepare_runtime_config
 from src.security import (
     ACCESS_TOKEN_HEADER,
     generate_access_token,
@@ -61,9 +61,9 @@ class RuntimeState:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ANN201
+    stored_config = prepare_runtime_config()
     plugins = PluginRuntime()
     plugins.boot()
-    stored_config = load_config()
     server_config = resolve_active_config(stored_config)
     llm_client = httpx.AsyncClient()
     runtime = RuntimeState(
