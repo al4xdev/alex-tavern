@@ -538,19 +538,20 @@
             <button class="stop-btn" id="stop-btn" type="button" title="Stop" aria-label="Stop processing" data-i18n-title="loading.stop" data-i18n-aria-label="loading.stopAria">⏹</button>
         </div>
 
-        <div class="retry-banner" id="retry-banner" role="alert" hidden>
-            <span class="retry-banner-text" data-i18n="turn.retryBanner">The last turn didn't go through.</span>
-            <button class="retry-banner-btn" id="retry-banner-btn" type="button" data-i18n="turn.retryBannerAction">↻ Try again</button>
-        </div>
-
-        <div class="options-panel" id="options-panel"></div>
-
+        <!-- The whole composer footer collapses as one unit on mobile: the retry
+             banner and the suggestions panel live INSIDE the bar so collapsing it
+             clears the screen for reading, and expanding restores the same state. -->
         <div class="input-area collapsed" id="input-area">
             <button class="btn btn-ghost input-expand-btn" id="input-expand-btn" type="button">
                 <span class="input-expand-label" data-i18n="input.expand">💬 Write message...</span>
                 <span class="input-expand-action-left">📜 <span data-i18n="action.hintTitle">Narrator event hint</span></span>
                 <span class="input-expand-action-right">↩ <span data-i18n="action.undoTitle">Undo turn</span></span>
             </button>
+            <div class="retry-banner" id="retry-banner" role="alert" hidden>
+                <span class="retry-banner-text" data-i18n="turn.retryBanner">The last turn didn't go through.</span>
+                <button class="retry-banner-btn" id="retry-banner-btn" type="button" data-i18n="turn.retryBannerAction">↻ Try again</button>
+            </div>
+            <div class="options-panel" id="options-panel"></div>
             <div class="input-fields-container" id="input-fields-container">
             <div class="input-row">
                 <button class="slash-trigger" id="slash-trigger" type="button"

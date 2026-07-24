@@ -11,6 +11,13 @@ import {
 
 const hooks = new Map();
 
+// Native UI functions app.js hands over before boot — the only supported way
+// for plugins to drive core chrome (no DOM contract, no markup knowledge).
+const nativeUi = {};
+function provideUi(functions) {
+    Object.assign(nativeUi, functions);
+}
+
 // Access token (Task 19) for the observe POST; a cross-origin page cannot read
 // /bootstrap so it cannot forge this. Cached once, fire-and-forget on failure.
 let _observeTokenPromise = null;
@@ -63,6 +70,22 @@ function sdk(pluginId, pluginName) {
             target.append(element);
         },
         unsafe: Object.freeze({ window, document }),
+        // Native suggestion panel. renderSuggestions never expands the input
+        // bar: silent delivery is the point (the pill label announces it), and
+        // expansion stays a core-caller decision. Inert until app.js provides
+        // the implementations.
+        ui: Object.freeze({
+            renderSuggestions(suggestions) {
+                observe(pluginId, 'frontend.ui.suggestions', { count: (suggestions || []).length });
+                if (nativeUi.renderSuggestions) nativeUi.renderSuggestions(suggestions);
+            },
+            clearSuggestions() {
+                if (nativeUi.clearSuggestions) nativeUi.clearSuggestions();
+            },
+            setSuggestionsLoading(on) {
+                if (nativeUi.setSuggestionsLoading) nativeUi.setSuggestionsLoading(on);
+            },
+        }),
         observe(permission, details = {}) {
             observe(pluginId, permission, details);
         },
@@ -101,4 +124,4 @@ async function boot() {
     return status;
 }
 
-export const PluginRuntime = Object.freeze({ boot, runHook });
+export const PluginRuntime = Object.freeze({ boot, runHook, provideUi });

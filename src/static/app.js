@@ -36,12 +36,19 @@ const state = {
     compactionDepth: 0,
     busy: false,
     narratorHint: '',       // pending narrator event hint for next turn
+    suggestionsLoading: false, // a suggestion fetch is in flight (manual or plugin preload)
     lastEchoMessage: null,  // optimistic player bubble updated with effective input
     playerHasSpoken: false, // derived from canonical history; controls observer warning only
     avatarUrls: {},        // cid -> revisioned native preset avatar URL
 };
 
 const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
+const COMPACT_LAYOUT_QUERY = '(max-width: 760px), (pointer: coarse) and (hover: none)';
+const compactLayoutMedia = window.matchMedia(COMPACT_LAYOUT_QUERY);
+
+function isCompactLayout() {
+    return compactLayoutMedia.matches;
+}
 
 /* ── DOM refs ─────────────────────────────────────────────────────────── */
 const chatLog       = document.getElementById('chat-log');
@@ -176,7 +183,7 @@ function setLoading(on, { multiStep = false } = {}) {
 }
 
 function scrollToBottom(forceBottom = false) {
-    if (!forceBottom && window.innerWidth <= 760 && inputArea.classList.contains('collapsed')) {
+    if (!forceBottom && isCompactLayout() && inputArea.classList.contains('collapsed')) {
         chatLog.scrollTo({ top: chatLog.scrollHeight - chatLog.clientHeight - 15, behavior: 'auto' });
     } else {
         chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
@@ -289,7 +296,10 @@ function expandMobileInput({ focus = true } = {}) {
     if (!state.sessionId) return;
     inputArea.classList.remove('collapsed');
     scrollToBottom(true);
-    if (focus && window.innerWidth <= 760) {
+    // Opening the bar while a suggestion load is still in flight: tell the
+    // player the suggestions are on their way, not lost.
+    if (state.suggestionsLoading) toast(t('suggestion.stillLoading'), 'info', 2500);
+    if (focus && isCompactLayout()) {
         requestAnimationFrame(() => inputSpeech.focus({ preventScroll: true }));
     }
 }
@@ -316,6 +326,7 @@ function updateActionPopup() {
     // Persistent, visible retry affordance mirrors the same failure flag as
     // the hidden popup entry, so it appears and clears together with it.
     if (retryBanner) retryBanner.hidden = !state.lastTurnFailed;
+    updateExpandPill();
 }
 
 function hideActionPopup() {
@@ -332,7 +343,7 @@ async function skipTurn() {
     state.lastTurnFailed = false;
     updateActionPopup();
 
-    if (window.innerWidth <= 760) {
+    if (isCompactLayout()) {
         inputArea.classList.add('collapsed');
         const activeEl = document.activeElement;
         if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
@@ -660,7 +671,7 @@ async function loadSession(sessionId) {
         inputAction.disabled = false;
         sendBtn.disabled = false;
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
-        if (window.innerWidth > 760) {
+        if (!isCompactLayout()) {
             inputSpeech.focus();
         } else {
             inputArea.classList.add('collapsed');
@@ -703,7 +714,7 @@ async function undoLastTurn() {
             inputAction.value = state.lastInputs.action || '';
             if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
             state.narratorHint = state.lastInputs.narratorHint || '';
-            if (window.innerWidth > 760) inputSpeech.focus();
+            if (!isCompactLayout()) inputSpeech.focus();
         }
 
         toast(t('turn.undone'), 'success', 2000);
@@ -965,18 +976,39 @@ function buildPlayerEcho(speech, thought, action) {
 }
 
 /* ── Move suggestions ─────────────────────────────────────────────────── */
+/* The pill doubles as a status line for everything folded inside the
+   collapsed bar, by priority: a failed turn, ready suggestions, a suggestion
+   load still in flight, or the plain write invitation. */
+function updateExpandPill() {
+    const label = inputExpandBtn && inputExpandBtn.querySelector('.input-expand-label');
+    if (!label) return;
+    let key = 'input.expand';
+    if (retryBanner && !retryBanner.hidden) key = 'input.expandRetry';
+    else if (optionsPanel.classList.contains('active')) key = 'input.expandSuggestions';
+    else if (state.suggestionsLoading) key = 'input.expandSuggestionsLoading';
+    bindTranslation(label, key);
+}
+
+function setSuggestionsLoading(on) {
+    state.suggestionsLoading = !!on;
+    updateExpandPill();
+}
+
 function clearSuggestions() {
     optionsPanel.innerHTML = '';
     optionsPanel.classList.remove('active');
+    updateExpandPill();
 }
 
 function renderSuggestions(suggestions) {
     optionsPanel.innerHTML = '';
     if (!suggestions || suggestions.length === 0) {
         optionsPanel.classList.remove('active');
+        updateExpandPill();
         return;
     }
     optionsPanel.classList.add('active');
+    updateExpandPill();
 
     suggestions.forEach((s, i) => {
         const btn = document.createElement('button');
@@ -1001,7 +1033,8 @@ function renderSuggestions(suggestions) {
             inputThought.value = '';
             inputAction.value = s.action || '';
             clearSuggestions();
-            if (window.innerWidth > 760) inputSpeech.focus();
+            if (!isCompactLayout()) inputSpeech.focus();
+            else expandMobileInput({ focus: false }); // the filled fields must be visible
         });
         optionsPanel.appendChild(btn);
     });
@@ -1011,13 +1044,18 @@ async function suggestForMe() {
     if (!state.sessionId) return;
     hideActionPopup();
     setLoading(true);
+    setSuggestionsLoading(true);
     try {
         const data = await api.suggest(state.sessionId);
+        setSuggestionsLoading(false);
         renderSuggestions(data.suggestions);
         toast(t('suggestion.ready'), 'success', 2500);
+        // The player asked for these — make sure the bar shows them.
+        if (isCompactLayout()) expandMobileInput({ focus: false });
     } catch (err) {
         toast(t('suggestion.error', { error: err.message }), 'error');
     } finally {
+        setSuggestionsLoading(false);
         setLoading(false);
     }
 }
@@ -1546,7 +1584,7 @@ async function startSession(cfg) {
         inputAction.disabled = false;
         sendBtn.disabled = false;
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
-        if (window.innerWidth > 760) inputSpeech.focus();
+        if (!isCompactLayout()) inputSpeech.focus();
         toast(t('turn.started', { name: controlledName() }), 'success', 2500);
         showTipBanner();
     } catch (err) {
@@ -1600,7 +1638,7 @@ async function sendTurn(isRetry = false) {
     // Save inputs for potential retry
     state.lastInputs = { speech, thought, action, forceSpeaker, narratorHint: state.narratorHint };
 
-    if (window.innerWidth <= 760) {
+    if (isCompactLayout()) {
         inputArea.classList.add('collapsed');
         // Blur inputs to close the mobile keyboard
         const activeEl = document.activeElement;
@@ -1678,7 +1716,7 @@ async function sendTurn(isRetry = false) {
         inputThought.value = '';
         inputAction.value = '';
         state.narratorHint = '';
-        if (window.innerWidth > 760) inputSpeech.focus();
+        if (!isCompactLayout()) inputSpeech.focus();
         state.lastTurnFailed = false;
         state.canUndo = true;
         clearWhisperSelection();
@@ -1832,12 +1870,15 @@ let isSwipingY = false;
 const inputFieldsContainer = document.getElementById('input-fields-container');
 
 inputArea.addEventListener('touchstart', (e) => {
-    if (window.innerWidth > 760) return;
+    if (!isCompactLayout()) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
     isSwipingX = false;
     isSwipingY = false;
     inputFieldsContainer.style.transition = 'none';
+    // Suggestions and the retry banner live inside the bar — drag them along.
+    optionsPanel.style.transition = 'none';
+    if (retryBanner) retryBanner.style.transition = 'none';
     if (inputExpandBtn) {
         inputExpandBtn.style.transition = 'none';
         const labelEl = inputExpandBtn.querySelector('.input-expand-label');
@@ -1850,7 +1891,7 @@ inputArea.addEventListener('touchstart', (e) => {
 }, { passive: true });
 
 inputArea.addEventListener('touchmove', (e) => {
-    if (window.innerWidth > 760 || !touchStartX || !touchStartY) return;
+    if (!isCompactLayout() || !touchStartX || !touchStartY) return;
     const diffX = e.touches[0].clientX - touchStartX;
     const diffY = e.touches[0].clientY - touchStartY;
 
@@ -1869,6 +1910,8 @@ inputArea.addEventListener('touchmove', (e) => {
         const moveX = diffX * dampen;
         
         inputFieldsContainer.style.transform = `translateX(${moveX}px)`;
+        optionsPanel.style.transform = `translateX(${moveX}px)`;
+        if (retryBanner) retryBanner.style.transform = `translateX(${moveX}px)`;
         if (inputExpandBtn) {
             inputExpandBtn.style.transform = `translateX(${moveX}px)`;
             
@@ -1915,11 +1958,13 @@ inputArea.addEventListener('touchmove', (e) => {
 }, { passive: false });
 
 inputArea.addEventListener('touchend', (e) => {
-    if (window.innerWidth > 760 || !touchStartX || !touchStartY) return;
+    if (!isCompactLayout() || !touchStartX || !touchStartY) return;
     const diffX = e.changedTouches[0].clientX - touchStartX;
     const diffY = e.changedTouches[0].clientY - touchStartY;
 
     inputFieldsContainer.style.transition = 'transform 0.3s ease';
+    optionsPanel.style.transition = 'transform 0.3s ease';
+    if (retryBanner) retryBanner.style.transition = 'transform 0.3s ease';
     if (inputExpandBtn) {
         inputExpandBtn.style.transition = 'transform 0.3s ease';
         const labelEl = inputExpandBtn.querySelector('.input-expand-label');
@@ -1943,11 +1988,15 @@ inputArea.addEventListener('touchend', (e) => {
     inputArea.style.transition = 'background 0.3s ease';
     
     inputFieldsContainer.style.transform = '';
+    optionsPanel.style.transform = '';
+    if (retryBanner) retryBanner.style.transform = '';
     if (inputExpandBtn) inputExpandBtn.style.transform = '';
     inputArea.style.background = '';
-    
-    setTimeout(() => { 
-        inputFieldsContainer.style.transition = ''; 
+
+    setTimeout(() => {
+        inputFieldsContainer.style.transition = '';
+        optionsPanel.style.transition = '';
+        if (retryBanner) retryBanner.style.transition = '';
         if (inputExpandBtn) {
             inputExpandBtn.style.transition = '';
             const labelEl = inputExpandBtn.querySelector('.input-expand-label');
@@ -2009,7 +2058,7 @@ new ResizeObserver(() => {
 
 let lastScrollTop = 0;
 chatLog.addEventListener('scroll', () => {
-    if (window.innerWidth > 760) return;
+    if (!isCompactLayout()) return;
     
     const currentScrollTop = chatLog.scrollTop;
     const isScrollingUp = currentScrollTop < lastScrollTop;
@@ -2274,6 +2323,9 @@ if ('serviceWorker' in navigator) {
 
 /* ── Init ─────────────────────────────────────────────────────────────── */
 async function initializeApplication() {
+    // Hand the native suggestion panel to the plugin SDK (sdk.ui) before any
+    // plugin activates; plugins render through it instead of touching the DOM.
+    PluginRuntime.provideUi({ renderSuggestions, clearSuggestions, setSuggestionsLoading });
     try {
         await PluginRuntime.boot();
     } catch (error) {

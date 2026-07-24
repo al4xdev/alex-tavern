@@ -2638,7 +2638,7 @@ select.text-input { cursor: pointer; }
 }
 
 /* ══════════════════ Responsive / mobile ══════════════════ */
-@media (max-width: 760px) {
+@media (max-width: 760px), (pointer: coarse) and (hover: none) {
     .grid-2 { grid-template-columns: 1fr; }
     .provider-number-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -2744,6 +2744,27 @@ select.text-input { cursor: pointer; }
         padding-bottom: 12px;
         border-width: 1px;
         pointer-events: auto;
+    }
+
+    /* Suggestions and the retry banner live inside the collapsible bar: they
+       fold away with it so the whole footer compacts into the pill, and expand
+       back in the exact state they were left in. */
+    .options-panel.active, .retry-banner:not([hidden]) {
+        max-height: 500px;
+        opacity: 1;
+        overflow: hidden;
+        transition: max-height 1s cubic-bezier(0.32, 0.72, 0, 1), opacity 1s cubic-bezier(0.32, 0.72, 0, 1), margin 1s cubic-bezier(0.32, 0.72, 0, 1), padding 1s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .input-area.collapsed .options-panel.active,
+    .input-area.collapsed .retry-banner:not([hidden]) {
+        max-height: 0;
+        opacity: 0;
+        margin-top: -8px;
+        margin-bottom: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
+        pointer-events: none;
     }
 }
 

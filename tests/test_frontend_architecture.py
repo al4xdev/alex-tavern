@@ -58,7 +58,7 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
     assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v19" in service_worker
+    assert "rpt-shell-v21" in service_worker
     assert "'/slash-commands.js'" in service_worker
     assert "'/slash-command-parser.js'" in service_worker
     assert "'/slash-registry.js'" in service_worker
@@ -459,6 +459,78 @@ def test_empty_session_invites_first_move_and_mobile_input_opens_directly() -> N
     )
     assert ".empty-state.session-ready" in styles
     assert "min-height: calc(100% + 76px)" in styles
+
+
+def test_composer_footer_collapses_as_one_unit() -> None:
+    """Owner report (mobile, 2026-07-24): collapsing the bar must clear the whole
+    footer — suggestions and the retry banner fold with it and come back in the
+    same state, instead of staying fixed over the text being read."""
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+
+    bar = html.index('id="input-area"')
+    assert (
+        bar
+        < html.index('id="input-expand-btn"')
+        < html.index('id="retry-banner"')
+        < html.index('id="options-panel"')
+        < html.index('id="input-fields-container"')
+    )
+
+    start = styles.index(".input-area.collapsed .options-panel.active")
+    folded = styles[start : styles.index("}", start)]
+    assert "max-height: 0" in folded and "pointer-events: none" in folded
+    assert ".input-area.collapsed .retry-banner:not([hidden])" in styles
+
+
+def test_compact_layout_follows_touch_tablet_posture_not_only_phone_width() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+    query = "(max-width: 760px), (pointer: coarse) and (hover: none)"
+
+    assert f"const COMPACT_LAYOUT_QUERY = '{query}';" in source
+    assert "const compactLayoutMedia = window.matchMedia(COMPACT_LAYOUT_QUERY);" in source
+    assert "return compactLayoutMedia.matches;" in source
+    assert f"@media {query} {{" in styles
+    # All behavior gates must share the media-query predicate; otherwise CSS
+    # can enter tablet mode while gestures/focus still behave as desktop.
+    assert "window.innerWidth <= 760" not in source
+    assert "window.innerWidth > 760" not in source
+
+
+def test_expand_pill_reports_suggestions_and_retry_states() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
+
+    assert "function updateExpandPill" in source
+    assert "'input.expandRetry'" in source
+    assert "'input.expandSuggestions'" in source
+    assert "'input.expandSuggestionsLoading'" in source
+    # A tap during a pending suggestion load explains itself instead of
+    # looking like the suggestions vanished.
+    assert "if (state.suggestionsLoading) toast(t('suggestion.stillLoading')" in source
+    # Filling from a suggestion (or asking for them) must reveal the bar on mobile.
+    assert source.count("expandMobileInput({ focus: false })") >= 2
+    for key in (
+        "'input.expandSuggestions'",
+        "'input.expandSuggestionsLoading'",
+        "'input.expandRetry'",
+        "'suggestion.stillLoading'",
+    ):
+        assert i18n_source.count(key) == 2, f"{key} must exist in both locales"
+
+
+def test_plugin_runtime_exposes_native_suggestion_ui() -> None:
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    runtime = (STATIC / "plugin-runtime.js").read_text(encoding="utf-8")
+
+    assert "function provideUi" in runtime
+    assert "ui: Object.freeze({" in runtime
+    assert "PluginRuntime = Object.freeze({ boot, runHook, provideUi })" in runtime
+    assert (
+        "PluginRuntime.provideUi({ renderSuggestions, clearSuggestions, setSuggestionsLoading })"
+        in source
+    )
 
 
 def test_frontend_adapter_registry_loads_both_provider_modules() -> None:

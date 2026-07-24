@@ -228,4 +228,4 @@ class TestOpeningFrontend:
 
     def test_service_worker_cache_moves_with_the_new_shell(self) -> None:
         sw = (STATIC / "sw.js").read_text(encoding="utf-8")
-        assert "rpt-shell-v19" in sw
+        assert "rpt-shell-v21" in sw
