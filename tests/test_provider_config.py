@@ -234,3 +234,15 @@ def test_llama_cache_control_is_adapter_specific() -> None:
 
     assert llama.extra_payload == {"cache_prompt": True}
     assert "cache_prompt" not in deepseek.extra_payload
+
+
+def test_deepseek_model_choices_match_frontend_select() -> None:
+    """Both adapters offer the same model catalog and the default is listed."""
+    adapter = get_provider_adapter("deepseek")
+    assert adapter.config_defaults["model"] in adapter.model_choices
+
+    frontend = (
+        Path(__file__).resolve().parents[1] / "src" / "static" / "adapters" / "deepseek.js"
+    ).read_text(encoding="utf-8")
+    for model in adapter.model_choices:
+        assert f"value: '{model}'" in frontend
