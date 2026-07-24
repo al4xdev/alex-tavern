@@ -53,8 +53,8 @@ android {
             extractPackages "src"
             
             pip {
-                install "pydantic<2"
-                install "fastapi==0.99.1"
+                install "pydantic>=2.0.0"
+                install "fastapi>=0.115.0"
                 install "uvicorn"
                 install "httpx"
             }

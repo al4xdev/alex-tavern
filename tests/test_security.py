@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.config import ConfigValidationError, validate_config
+from src.config import CONFIG_SCHEMA_VERSION, ConfigValidationError, validate_config
 from src.llm.adapters.base import (
     ApiBasePolicyError,
     require_https_host,
@@ -114,6 +114,7 @@ class TestApiBasePolicy:
 class TestConfigRejectsAttackerTarget:
     def _config(self, deepseek_base: str) -> dict:
         return {
+            "schema_version": CONFIG_SCHEMA_VERSION,
             "active_provider": "deepseek",
             "language": "",
             "compaction_keep_recent_turns": 8,
