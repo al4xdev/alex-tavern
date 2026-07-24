@@ -23,7 +23,7 @@ files). A recommended — not required — convention for session-specific state
 
 ```python
 def setup(context):
-    root = context.storage.path                       # namespace root (created lazily)
+    root = context.storage.path  # namespace root (created lazily)
     index = context.storage.resolve("sessions", sid, "index.json")
 
     with context.storage.open("plugin-state.json", mode="w") as fh:
@@ -32,7 +32,7 @@ def setup(context):
     if context.storage.exists("cache", "embeddings.bin"):
         ...
     context.storage.mkdir("assets", "img")
-    session_dir = context.storage.for_session(sid)    # sessions/<sid>/ under the namespace
+    session_dir = context.storage.for_session(sid)  # sessions/<sid>/ under the namespace
     context.storage.remove("cache", recursive=True)
 ```
 

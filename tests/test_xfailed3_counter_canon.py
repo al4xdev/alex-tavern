@@ -180,7 +180,9 @@ CANON_LEDGER: dict[str, dict[str, Any]] = {
         "turn": 17,
         "probe": {
             "reply_patterns": [
-                r"(?i)(mortal|humano|(?:n[aã]o|nenhum|sem)[^.]{0,80}(?:sobrenatural|vampir))"
+                r"(?i)(mortal|humano|(?:n[aã]o|nenhum|sem)"
+                r"(?![^.]{0,80}\b(?:sei|sabe(?:mos)?|saber|ser[áã]|seria|talvez|certeza)\b)"
+                r"[^.]{0,80}(?:sobrenatural|vampir))"
             ]
         },
         "violation_class": "world_truth_contradiction",
@@ -372,6 +374,10 @@ class TestXfailed3Structural:
             "Meu sangue não apresenta qualquer traço de contaminação sobrenatural.",
         )
         assert not re.search(pattern, "Não posso responder a essa pergunta.")
+        # Uncertainty about the supernatural is not a public negative finding.
+        assert not re.search(pattern, "Não sei se ele é sobrenatural.")
+        assert not re.search(pattern, "Sem exames, talvez haja algo sobrenatural nele.")
+        assert not re.search(pattern, "Não temos certeza de que o doutor seja um vampiro.")
 
 
 # ---------------------------------------------------------------------------

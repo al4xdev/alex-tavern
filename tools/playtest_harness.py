@@ -666,10 +666,10 @@ def analyze_debug_records(
         narration_texts.append(narration)
         second_person_narrations += bool(SECOND_PERSON_RE.search(narration))
     for record, output in narrator_outputs:
-        narration = output.get("narration")
-        if isinstance(narration, str):
-            narration_texts.append(narration)
-            second_person_narrations += bool(SECOND_PERSON_RE.search(narration))
+        decision_narration = output.get("narration")
+        if isinstance(decision_narration, str):
+            narration_texts.append(decision_narration)
+            second_person_narrations += bool(SECOND_PERSON_RE.search(decision_narration))
         scene_update = output.get("scene_update")
         if isinstance(scene_update, dict) and "physical_facts" in scene_update:
             nested_physical_facts += 1
