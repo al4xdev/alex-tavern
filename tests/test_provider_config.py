@@ -283,3 +283,17 @@ def test_deepseek_model_choices_match_frontend_select() -> None:
     ).read_text(encoding="utf-8")
     for model in adapter.model_choices:
         assert f"value: '{model}'" in frontend
+
+
+def test_off_catalog_model_option_is_replaced_not_accumulated() -> None:
+    """Repopulating the panel must not leave the previous injected option behind."""
+    source = (
+        Path(__file__).resolve().parents[1] / "src" / "static" / "adapters" / "base.js"
+    ).read_text(encoding="utf-8")
+
+    assert "extra.dataset.extraOption = 'true'" in source
+    assert "querySelectorAll('[data-extra-option=\"true\"]')" in source
+    # The cleanup has to run before the catalog check, or it would delete the
+    # option that same populate() call just injected.
+    populate = source.split("function populate(")[1]
+    assert populate.index("data-extra-option") < populate.index("extra.dataset.extraOption")

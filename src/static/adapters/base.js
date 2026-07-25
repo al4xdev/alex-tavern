@@ -132,13 +132,20 @@ export function createProviderAdapter(definition) {
         fields.forEach((field) => {
             const input = panel.querySelector(`[data-provider-field="${field.key}"]`);
             const value = field.secret ? '' : (config[field.key] ?? '');
-            if (field.type === 'select' && value !== ''
-                && ![...input.options].some((option) => option.value === value)) {
-                // A stored model outside the current catalog (set via API or an
-                // older release) must stay selectable, not be silently swapped.
-                const extra = makeElement('option', '', value);
-                extra.value = value;
-                input.appendChild(extra);
+            if (field.type === 'select') {
+                // Drop the option injected by an earlier populate() before
+                // re-deciding: the stored value may have changed since, and a
+                // stale entry would linger in the dropdown until a reload.
+                input.querySelectorAll('[data-extra-option="true"]').forEach((option) => option.remove());
+                if (value !== '' && ![...input.options].some((option) => option.value === value)) {
+                    // A stored model outside the current catalog (set via API or
+                    // an older release) must stay selectable, not be silently
+                    // swapped.
+                    const extra = makeElement('option', '', value);
+                    extra.value = value;
+                    extra.dataset.extraOption = 'true';
+                    input.appendChild(extra);
+                }
             }
             input.value = value;
             if (field.secret) {
