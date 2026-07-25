@@ -222,6 +222,32 @@ def _restore_files(backups: dict[Path, bytes | None]) -> None:
             _atomic_bytes(content, path)
 
 
+def _copy_snapshot(root: Path, destination: Path) -> None:
+    """Copy a validated snapshot without carrying filesystem metadata.
+
+    ``shutil.copytree`` uses ``copystat`` for every file and directory. On
+    Android/Python 3.11 that tries to copy SELinux extended attributes from the
+    app cache into the private files directory and raises ``EACCES`` after the
+    bytes were copied successfully. Snapshot permissions and timestamps are not
+    runtime data, so create a fresh private tree and copy contents only.
+    """
+    destination.mkdir()
+    for current_name, directory_names, file_names in os.walk(root):
+        current = Path(current_name)
+        target = destination / current.relative_to(root)
+        target.mkdir(parents=True, exist_ok=True)
+        for name in directory_names:
+            source = current / name
+            if source.is_symlink():
+                raise HubSyncError(f"Curated hub snapshot contains a symbolic link: {source}")
+            (target / name).mkdir(exist_ok=True)
+        for name in file_names:
+            source = current / name
+            if source.is_symlink() or not source.is_file():
+                raise HubSyncError(f"Curated hub snapshot contains an invalid file: {source}")
+            shutil.copyfile(source, target / name)
+
+
 def _publish_snapshot(root: Path, prepared_experiences: list[dict[str, Any]]) -> list[str]:
     staged = PLUGIN_HUB_DIR.with_name(f".{PLUGIN_HUB_DIR.name}.staged")
     previous = PLUGIN_HUB_DIR.with_name(f".{PLUGIN_HUB_DIR.name}.previous")
@@ -229,7 +255,7 @@ def _publish_snapshot(root: Path, prepared_experiences: list[dict[str, Any]]) ->
     for path in (staged, previous, failed):
         if path.exists():
             shutil.rmtree(path)
-    shutil.copytree(root, staged)
+    _copy_snapshot(root, staged)
     try:
         if PLUGIN_HUB_DIR.exists():
             PLUGIN_HUB_DIR.replace(previous)

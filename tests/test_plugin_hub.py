@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import shutil
@@ -127,6 +128,29 @@ def test_sync_round_trip_is_idempotent_and_materializes_experience(
         }
     ]
     assert (hub.EXPERIENCES_DIR / "assets" / "sample.gif").read_bytes() == b"GIF89a-test"
+
+
+def test_sync_does_not_copy_filesystem_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Android denies copying SELinux xattrs from cache into private files."""
+    _patch_data_paths(monkeypatch, tmp_path / "data")
+    archive = _build_hub_archive(tmp_path)
+
+    def copy_archive(url: str, destination: Path) -> None:  # noqa: ARG001
+        shutil.copyfile(archive, destination)
+
+    def deny_copystat(*args: object, **kwargs: object) -> None:
+        raise PermissionError(errno.EACCES, "metadata copy denied")
+
+    monkeypatch.setattr(hub, "_download_archive", copy_archive)
+    monkeypatch.setattr(shutil, "copystat", deny_copystat)
+
+    result = hub.sync_hub("https://example.test/hub.zip")
+
+    assert result["status"] == "updated"
+    assert store.curated_catalog()["plugins"][0]["id"] == "dev.test.sample"
 
 
 def test_invalid_update_keeps_previous_valid_snapshot(
