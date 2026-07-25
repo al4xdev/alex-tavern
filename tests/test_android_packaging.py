@@ -66,3 +66,28 @@ def test_chaquopy_dependencies_stay_pure_python() -> None:
     assert 'install "pydantic<2"' in gradle
     assert "pydantic>=2" not in gradle
     assert "uvicorn[standard]" not in gradle
+
+
+def test_android_passes_the_runtime_data_dir_into_python_before_import() -> None:
+    """Chaquopy's PyObject.put does not mutate Python's os.environ mapping."""
+    activity = (
+        ANDROID
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "al4xdev"
+        / "alextavern"
+        / "MainActivity.kt"
+    ).read_text(encoding="utf-8")
+    runner = (ANDROID / "app" / "src" / "main" / "python" / "android_runner.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'callAttr("start_server", dataDir.absolutePath)' in activity
+    assert 'get("environ")?.put' not in activity
+
+    configure_at = runner.index('os.environ["ROLEPLAY_DATA_DIR"] = data_dir')
+    import_app_at = runner.index("import src.main")
+    assert configure_at < import_app_at

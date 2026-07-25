@@ -45,16 +45,22 @@ def log(message: str) -> None:
         print(f"{line} (bootstrap.log unwritable: {error})", file=sys.stderr, flush=True)
 
 
-def start_server() -> None:
+def start_server(data_dir: str) -> None:
     """Run uvicorn in the calling thread, reporting whatever goes wrong.
+
+    The Android boundary passes ``filesDir/data`` explicitly. Mutating a Python
+    mapping through Chaquopy's generic ``PyObject.put`` does not update
+    ``os.environ``; configure it here before importing any ``src`` module,
+    because :mod:`src.paths` resolves all runtime paths at import time.
 
     Catching ``BaseException`` is deliberate: uvicorn raises ``SystemExit`` when
     the port is already bound or the app fails to import, and that is exactly
     the case this log exists to capture.
     """
+    os.environ["ROLEPLAY_DATA_DIR"] = data_dir
     logging.basicConfig(level=logging.INFO, stream=sys.stderr)
     try:
-        log(f"python {sys.version.split()[0]} | data dir {os.environ.get('ROLEPLAY_DATA_DIR')}")
+        log(f"python {sys.version.split()[0]} | data dir {data_dir}")
 
         import uvicorn
 

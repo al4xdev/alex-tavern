@@ -161,12 +161,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             val py = Python.getInstance()
-            val os = py.getModule("os")
-            os.get("environ")?.put("ROLEPLAY_DATA_DIR", dataDir.absolutePath)
-            logBootstrap("bootServer: ROLEPLAY_DATA_DIR set to ${dataDir.absolutePath}")
-
-            logBootstrap("bootServer: calling android_runner.start_server...")
-            py.getModule("android_runner").callAttr("start_server")
+            logBootstrap("bootServer: passing dataDir to android_runner.start_server...")
+            py.getModule("android_runner").callAttr("start_server", dataDir.absolutePath)
             logBootstrap("bootServer: server exited.")
         } catch (e: Throwable) {
             // Chaquopy surfaces Python failures as PyException, a RuntimeException;
