@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from src.paths import PLUGIN_CACHE_DIR, PLUGIN_ENV_DIR, PLUGIN_HUB_DIR, PLUGIN_STARTED_DIR
+from src.plugins.filesystem import copy_tree_contents
 from src.plugins.journal import emit
 from src.plugins.manifest import (
     ManifestError,
@@ -109,8 +110,11 @@ def install_zip(zip_path: Path) -> dict[str, Any]:
             staging = destination.parent / f".{archive_hash}.installing"
             if staging.exists():
                 shutil.rmtree(staging)
-            shutil.copytree(package, staging)
-            staging.replace(destination)
+            try:
+                copy_tree_contents(package, staging)
+                staging.replace(destination)
+            except OSError as error:
+                raise PluginInstallError(f"Cannot cache plugin package: {error}") from error
         emit("installed", manifest.plugin_id, version=manifest.version, sha256=archive_hash)
         return {
             "manifest": manifest.public_dict(),

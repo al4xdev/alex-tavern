@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import shutil
@@ -191,6 +192,24 @@ def test_zip_install_activation_and_backend_boot(tmp_path: Path) -> None:
     runtime.boot()
     assert "dev.alex-tavern.turn-counter" in runtime.loaded
     assert runtime.disabled_for_boot == {}
+
+
+def test_zip_install_does_not_copy_filesystem_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Android denies copying SELinux xattrs from cache into private files."""
+    package = _pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip")
+
+    def deny_copystat(*args: object, **kwargs: object) -> None:
+        raise PermissionError(errno.EACCES, "metadata copy denied")
+
+    monkeypatch.setattr(shutil, "copystat", deny_copystat)
+
+    installed = install_zip(package)
+
+    assert Path(installed["path"], "plugin.toml").is_file()
+    assert not list(Path(installed["path"]).parent.glob(".*.installing"))
 
 
 def test_plugin_restart_waits_for_explicit_endpoint(
