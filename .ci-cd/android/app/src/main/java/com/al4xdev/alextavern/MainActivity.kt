@@ -2,6 +2,8 @@ package com.al4xdev.alextavern
 
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -9,10 +11,27 @@ import androidx.appcompat.app.AppCompatActivity
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var statusView: android.widget.TextView
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    companion object {
+        private const val SERVER_URL = "http://127.0.0.1:8889"
+        private const val ASSET_URL = "file:///android_asset/index.html"
+        private const val READY_POLL_INTERVAL_MS = 250L
+        private const val READY_TIMEOUT_MS = 90_000L
+
+        // The server lives in the process, not in the Activity. A recreated
+        // Activity (rotation, theme change, returning from the background) must
+        // not spawn a second uvicorn: the bind on 8889 would fail and kill it.
+        private val serverStarted = AtomicBoolean(false)
+    }
 
     private fun logBootstrap(message: String) {
         try {
@@ -28,127 +47,218 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        val dataDir = File(filesDir, "data")
-        logBootstrap("onCreate: Starting, dataDir is ${dataDir.absolutePath}")
-        
-        if (!dataDir.exists()) {
-            val created = dataDir.mkdirs()
-            logBootstrap("onCreate: dataDir did not exist. mkdirs() returned: $created")
-        } else {
-            logBootstrap("onCreate: dataDir already exists.")
-        }
 
-        // Copia recursivamente a estrutura de dados (roleplay_data) dos assets para o armazenamento do celular
-        logBootstrap("onCreate: Invoking copyAssetsFolder for 'roleplay_data'...")
-        copyAssetsFolder("roleplay_data", dataDir)
-        logBootstrap("onCreate: copyAssetsFolder complete.")
+        setContentView(buildLayout())
+        showStatus("Iniciando servidor…")
 
-        // Inicializa o Chaquopy Runtime
-        logBootstrap("onCreate: Starting Chaquopy...")
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(this))
-            logBootstrap("onCreate: Chaquopy started.")
-        } else {
-            logBootstrap("onCreate: Chaquopy was already running.")
-        }
+        // Asset copying and the Chaquopy runtime extraction are both heavy disk
+        // I/O — on a first boot they take seconds and would freeze the UI.
+        Thread { bootServer() }.start()
+        Thread { awaitServerAndLoad() }.start()
+    }
 
-        // Executa o Uvicorn FastAPI em background thread
-        logBootstrap("onCreate: Spawning FastAPI server thread...")
-        Thread {
-            try {
-                val py = Python.getInstance()
-                
-                // Define a variável de ambiente apontando para a pasta privada do Android
-                val os = py.getModule("os")
-                os.get("environ")?.put("ROLEPLAY_DATA_DIR", dataDir.absolutePath)
-                logBootstrap("FastAPI Thread: Environment ROLEPLAY_DATA_DIR set to: ${dataDir.absolutePath}")
-                
-                // Executa o servidor FastAPI pelo Uvicorn usando o módulo auxiliar
-                logBootstrap("FastAPI Thread: Loading android_runner.start_server...")
-                val runner = py.getModule("android_runner")
-                runner.callAttr("start_server")
-                logBootstrap("FastAPI Thread: Server exited.")
-            } catch (e: Exception) {
-                logBootstrap("FastAPI Thread ERROR: ${e.message}\n${e.stackTraceToString()}")
-                e.printStackTrace()
-            }
-        }.start()
+    /** Loading screen up front; the WebView only replaces it once /health answers. */
+    private fun buildLayout(): android.view.View {
+        val container = android.widget.FrameLayout(this)
 
-        // WebView nativa para exibir o PWA local
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
+        // Only needed by the asset fallback below; inert on an http:// page,
+        // where the frontend is same-origin with the API.
         webView.settings.allowFileAccess = true
         webView.settings.allowFileAccessFromFileURLs = true
         webView.settings.allowUniversalAccessFromFileURLs = true
-
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 return false
             }
         }
-
-        // Criar o container de layout e o botão de logs flutuante
-        val container = android.widget.FrameLayout(this)
+        webView.visibility = android.view.View.GONE
         container.addView(webView)
+
+        statusView = android.widget.TextView(this).apply {
+            setPadding(48, 48, 48, 48)
+            textSize = 14f
+            setTextIsSelectable(true)
+            movementMethod = android.text.method.ScrollingMovementMethod()
+        }
+        container.addView(statusView)
 
         val logButton = android.widget.Button(this).apply {
             text = "Ver Logs de Boot"
-            val params = android.widget.FrameLayout.LayoutParams(
+            layoutParams = android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
                 setMargins(0, 0, 32, 100) // Margens para não sobrepor botões virtuais
             }
-            layoutParams = params
-            setOnClickListener {
-                showLogsDialog()
-            }
+            setOnClickListener { showLogsDialog() }
         }
         container.addView(logButton)
-        setContentView(container)
+        return container
+    }
 
-        // Carrega o frontend local empacotado nos assets do APK
-        logBootstrap("onCreate: Loading webview URL...")
-        webView.loadUrl("file:///android_asset/index.html")
+    private fun showStatus(message: String) {
+        mainHandler.post {
+            statusView.visibility = android.view.View.VISIBLE
+            statusView.text = message
+        }
+    }
+
+    private fun revealWebView(url: String) {
+        logBootstrap("revealWebView: loading $url")
+        mainHandler.post {
+            statusView.visibility = android.view.View.GONE
+            webView.visibility = android.view.View.VISIBLE
+            webView.loadUrl(url)
+        }
+    }
+
+    /**
+     * Prefers the server-hosted frontend, which is same-origin with the API.
+     *
+     * Falls back to the copy in the APK assets when the server serves no
+     * frontend — whether Chaquopy packages the non-.py files under src/static
+     * is not something the build can assert, so this decides at runtime
+     * instead of shipping a blank screen. api.js already points BASE_URL at
+     * 127.0.0.1:8889 when the page protocol is file:.
+     */
+    private fun frontendUrl(): String {
+        return if (httpStatus("$SERVER_URL/") == 200) {
+            "$SERVER_URL/"
+        } else {
+            logBootstrap("frontendUrl: server has no frontend, falling back to APK assets")
+            ASSET_URL
+        }
+    }
+
+    /** Prepares the data dir and starts Python, at most once per process. */
+    private fun bootServer() {
+        if (!serverStarted.compareAndSet(false, true)) {
+            logBootstrap("bootServer: server already started in this process, skipping.")
+            return
+        }
+        try {
+            val dataDir = File(filesDir, "data")
+            logBootstrap("bootServer: dataDir is ${dataDir.absolutePath}")
+            if (!dataDir.exists()) {
+                logBootstrap("bootServer: dataDir did not exist. mkdirs() returned: ${dataDir.mkdirs()}")
+            }
+
+            // Copia recursivamente a estrutura de dados (roleplay_data) dos assets para o armazenamento do celular
+            copyAssetsFolder("roleplay_data", dataDir)
+            logBootstrap("bootServer: copyAssetsFolder complete.")
+
+            if (!Python.isStarted()) {
+                // applicationContext, not the Activity: the interpreter outlives
+                // any single Activity instance and must not pin it in memory.
+                Python.start(AndroidPlatform(applicationContext))
+                logBootstrap("bootServer: Chaquopy started.")
+            } else {
+                logBootstrap("bootServer: Chaquopy was already running.")
+            }
+
+            val py = Python.getInstance()
+            val os = py.getModule("os")
+            os.get("environ")?.put("ROLEPLAY_DATA_DIR", dataDir.absolutePath)
+            logBootstrap("bootServer: ROLEPLAY_DATA_DIR set to ${dataDir.absolutePath}")
+
+            logBootstrap("bootServer: calling android_runner.start_server...")
+            py.getModule("android_runner").callAttr("start_server")
+            logBootstrap("bootServer: server exited.")
+        } catch (e: Throwable) {
+            // Chaquopy surfaces Python failures as PyException, a RuntimeException;
+            // catching Throwable keeps errors during Python.start() visible too.
+            logBootstrap("bootServer ERROR: ${e.message}\n${e.stackTraceToString()}")
+        } finally {
+            serverStarted.set(false)
+        }
+    }
+
+    /** Polls /health so the frontend never loads against a socket that is not listening. */
+    private fun awaitServerAndLoad() {
+        val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
+        while (System.currentTimeMillis() < deadline) {
+            if (httpStatus("$SERVER_URL/health") == 200) {
+                logBootstrap("awaitServer: /health answered, loading frontend.")
+                revealWebView(frontendUrl())
+                return
+            }
+            val waited = (READY_TIMEOUT_MS - (deadline - System.currentTimeMillis())) / 1000
+            showStatus("Iniciando servidor… (${waited}s)\n\n${tailBootstrapLog()}")
+            try {
+                Thread.sleep(READY_POLL_INTERVAL_MS)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return
+            }
+        }
+        logBootstrap("awaitServer: timed out after ${READY_TIMEOUT_MS}ms.")
+        showStatus(
+            "O servidor não respondeu em ${READY_TIMEOUT_MS / 1000}s.\n\n" +
+                "Log de boot:\n\n${tailBootstrapLog()}"
+        )
+    }
+
+    /** Response code for a GET, or -1 when the request could not be made at all. */
+    private fun httpStatus(url: String): Int {
+        return try {
+            val connection = URL(url).openConnection() as HttpURLConnection
+            connection.connectTimeout = 1000
+            connection.readTimeout = 1000
+            connection.requestMethod = "GET"
+            try {
+                connection.responseCode
+            } finally {
+                connection.disconnect()
+            }
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    private fun tailBootstrapLog(lines: Int = 12): String {
+        return try {
+            val logFile = File(filesDir, "bootstrap.log")
+            if (!logFile.exists()) return ""
+            logFile.readLines().takeLast(lines).joinToString("\n")
+        } catch (e: Exception) {
+            ""
+        }
     }
 
     private fun copyAssetsFolder(assetDirPath: String, targetDir: File, overwrite: Boolean = false) {
-        logBootstrap("copyAssetsFolder trace: path='$assetDirPath' overwrite=$overwrite")
         try {
             val assetsList = assets.list(assetDirPath)
             if (assetsList == null) {
-                logBootstrap("copyAssetsFolder trace: assets.list('$assetDirPath') returned null")
+                logBootstrap("copyAssetsFolder: assets.list('$assetDirPath') returned null")
                 return
             }
-            logBootstrap("copyAssetsFolder trace: assets.list('$assetDirPath') size=${assetsList.size}: [${assetsList.joinToString(", ")}]")
-            
+
             if (assetsList.isEmpty()) {
                 val relativePath = assetDirPath.removePrefix("roleplay_data/").removePrefix("roleplay_data")
                 if (relativePath.isEmpty()) {
-                    logBootstrap("copyAssetsFolder trace: relativePath is empty for '$assetDirPath'")
+                    logBootstrap("copyAssetsFolder: relativePath is empty for '$assetDirPath'")
                     return
                 }
                 val targetFile = File(targetDir, relativePath)
                 if (targetFile.exists() && !overwrite) {
-                    logBootstrap("copyAssetsFolder trace: file '${targetFile.absolutePath}' exists and overwrite is false. Skipping.")
+                    // Preserva a configuração que o usuário já alterou no aparelho.
                     return
                 }
-                logBootstrap("copyAssetsFolder trace: Copying asset file '$assetDirPath' to '${targetFile.absolutePath}'...")
                 targetFile.parentFile?.mkdirs()
                 assets.open(assetDirPath).use { input ->
                     targetFile.outputStream().use { output ->
                         input.copyTo(output)
                     }
                 }
-                logBootstrap("copyAssetsFolder trace: Successfully copied file '${targetFile.absolutePath}'")
+                logBootstrap("copyAssetsFolder: copied '${targetFile.absolutePath}'")
             } else {
                 for (asset in assetsList) {
                     val subAssetPath = if (assetDirPath.isEmpty()) asset else "$assetDirPath/$asset"
-                    val shouldOverwrite = overwrite || subAssetPath.contains("/defaults/")
-                    copyAssetsFolder(subAssetPath, targetDir, shouldOverwrite)
+                    copyAssetsFolder(subAssetPath, targetDir, overwrite)
                 }
             }
         } catch (e: Exception) {
@@ -159,7 +269,7 @@ class MainActivity : AppCompatActivity() {
     private fun showLogsDialog() {
         val logFile = File(filesDir, "bootstrap.log")
         val logs = if (logFile.exists()) logFile.readText() else "Nenhum log de inicialização encontrado."
-        
+
         val textView = android.widget.TextView(this).apply {
             text = logs
             setPadding(40, 40, 40, 40)
@@ -167,7 +277,7 @@ class MainActivity : AppCompatActivity() {
             movementMethod = android.text.method.ScrollingMovementMethod()
             textSize = 12f
         }
-        
+
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Logs de Boot do App")
             .setView(textView)

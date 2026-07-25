@@ -684,3 +684,47 @@ def test_i18n_declares_presence_toggle_and_validation_strings() -> None:
         "'presence.undoButton'",
     ):
         assert source.count(key) == 2, f"{key} must be declared in both en and pt-BR catalogs"
+
+
+def test_access_token_failure_is_not_cached_across_requests() -> None:
+    """A /bootstrap that fails while the server is still starting must be retried.
+
+    Caching the failure pins every later unsafe request to an empty token
+    header, so the middleware answers 403 forever even once the server is up --
+    the exact shape of the Android boot race.
+    """
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        const assert = (value, message) => { if (!value) throw new Error(message); };
+        let attempts = 0;
+        globalThis.window = {location: {protocol: 'http:', origin: 'http://127.0.0.1:8889'}};
+        globalThis.fetch = async (url, options) => {
+          if (String(url).endsWith('/bootstrap')) {
+            attempts += 1;
+            // The server is not listening yet on the first two attempts.
+            if (attempts <= 2) throw new TypeError('Failed to fetch');
+            return {ok: true, status: 200, json: async () => ({access_token: 'real-token'})};
+          }
+          return {ok: true, status: 200, json: async () => ({sent: options.headers['X-Tavern-Token']})};
+        };
+        const {api} = await import('./src/static/api.js');
+        const first = await api.saveConfig({});
+        assert(first.sent === '', 'connection refused should not yield a token');
+        const second = await api.saveConfig({});
+        assert(second.sent === '', 'still down on the second attempt');
+        const third = await api.saveConfig({});
+        assert(third.sent === 'real-token', `token never recovered, got ${third.sent}`);
+        assert(attempts === 3, `expected one /bootstrap per attempt, saw ${attempts}`);
+        const fourth = await api.saveConfig({});
+        assert(fourth.sent === 'real-token', 'token lost after recovery');
+        assert(attempts === 3, `a cached token must not refetch, saw ${attempts}`);
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )

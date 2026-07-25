@@ -12,10 +12,19 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 let _accessTokenPromise = null;
 function ensureAccessToken() {
     if (!_accessTokenPromise) {
-        _accessTokenPromise = fetch(`${BASE_URL}/bootstrap`)
+        const pending = fetch(`${BASE_URL}/bootstrap`)
             .then((r) => (r.ok ? r.json() : null))
             .then((d) => (d && d.access_token) || null)
-            .catch(() => null);
+            .catch(() => null)
+            .then((token) => {
+                // Only a real token may be cached. Caching a failure would
+                // pin every later unsafe request to an empty header and a
+                // permanent 403 — which is what a page load racing the server
+                // start (Android boot, /plugins/restart) would otherwise do.
+                if (!token && _accessTokenPromise === pending) _accessTokenPromise = null;
+                return token;
+            });
+        _accessTokenPromise = pending;
     }
     return _accessTokenPromise;
 }
