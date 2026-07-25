@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import tempfile
 import threading
@@ -16,7 +17,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, Field
 
 from src.config import (
     ConfigValidationError,
@@ -25,8 +26,9 @@ from src.config import (
     resolve_active_config,
 )
 from src.llm.debug_log import read_entries
-from src.paths import DATA_DIR
+from src.paths import DATA_DIR, STATIC_DIR
 from src.plugins.runtime import PluginRuntime
+from src.pydantic_compat import StrictModel, after_validator, dump, validate
 from src.runner import PresenceRevisionConflictError, Runner
 from src.runtime_bootstrap import prepare_runtime_config
 from src.security import (
@@ -216,9 +218,7 @@ class StartSessionResponse(BaseModel):
     state: dict
 
 
-class PlayerTurnRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class PlayerTurnRequest(StrictModel):
     speech: str = ""
     thought: str = ""
     action: str = ""
@@ -228,7 +228,7 @@ class PlayerTurnRequest(BaseModel):
     # Whisper: character IDs that perceive this turn's speech/action. None = public.
     audience: list[str] | None = None
 
-    @model_validator(mode="after")
+    @after_validator
     def require_content(self) -> PlayerTurnRequest:
         if self.skip:
             if self.speech.strip() or self.thought.strip() or self.action.strip():
@@ -243,38 +243,28 @@ class PlayerTurnRequest(BaseModel):
         return self
 
 
-class PresenceUpdateRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class PresenceUpdateRequest(StrictModel):
     present_characters: list[str]
     expected_revision: int = Field(ge=0)
 
 
-class CommandFileInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class CommandFileInput(StrictModel):
     name: str
     media_type: str = "application/octet-stream"
     data_base64: str
 
 
-class CommandRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class CommandRequest(StrictModel):
     values: dict[str, str] = Field(default_factory=dict)
     files: dict[str, CommandFileInput] = Field(default_factory=dict)
 
 
-class AvatarInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class AvatarInput(StrictModel):
     media_type: Literal["image/webp"]
     data_base64: str
 
 
-class PresetPutRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
+class PresetPutRequest(StrictModel):
     character: CharacterInput
     avatar: AvatarInput | None = None
     expected_revision: int | None = Field(default=None, ge=1)
@@ -388,7 +378,7 @@ async def start_session(req: StartSessionRequest) -> dict:
     characters = {}
     if req.characters:
         for cid, ci in req.characters.items():
-            characters[cid] = dict_to_character(ci.dict())
+            characters[cid] = dict_to_character(dump(ci))
     elif "characters" in scenario_data:
         for cid, cdata in scenario_data["characters"].items():
             characters[cid] = dict_to_character(cdata)
@@ -480,7 +470,7 @@ async def execute_command(
     from src.plugins.commands import CommandError
 
     try:
-        return await _runtime().runner.execute_command(session_id, command_name, body.model_dump())
+        return await _runtime().runner.execute_command(session_id, command_name, dump(body))
     except CommandError as error:
         status = 404 if error.code in {"command_not_found", "session_not_found"} else 422
         raise HTTPException(
@@ -566,7 +556,7 @@ async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: AN
                 continue
             payload = asdict(event)
             if event.result is not None:
-                payload["result"] = CompactResponse.model_validate(event.result).model_dump()
+                payload["result"] = dump(validate(CompactResponse, event.result))
             yield f"event: {event.stage}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
             saw_terminal = event.stage in {"completed", "skipped", "failed"}
         try:
@@ -582,7 +572,7 @@ async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: AN
                     error_type = "SessionUnavailable"
                 else:
                     stage = "completed" if result.get("compacted") else "skipped"
-                    normalized_result = CompactResponse.model_validate(result).model_dump()
+                    normalized_result = dump(validate(CompactResponse, result))
                     error_type = None
                 payload = {
                     "operation_id": "",
@@ -765,8 +755,8 @@ def put_preset(preset_name: str, body: PresetPutRequest) -> dict[str, Any]:
     try:
         return save_preset(
             preset_name,
-            character=body.character.model_dump(),
-            avatar=body.avatar.model_dump() if body.avatar else None,
+            character=dump(body.character),
+            avatar=dump(body.avatar) if body.avatar else None,
             expected_revision=body.expected_revision,
             replace=body.replace,
         )
@@ -1145,16 +1135,22 @@ def activate_experience_endpoint(
 
 def get_git_commit() -> str:
     """Reads the current git commit hash directly from the .git folder."""
-    repo_root = Path(__file__).resolve().parent.parent
+    package_dir = Path(__file__).resolve().parent
+    repo_root = package_dir.parent
     git_dir = repo_root / ".git"
-    version_file = repo_root / "version.txt"
+    # Beside the package first: a packaged build (the Android APK) has no .git
+    # and no repo root, so the CI stamps the commit inside src/ itself. Without
+    # it the app cannot tell which build it is running, which is how an APK
+    # built from discarded commits went unnoticed for days.
+    version_files = (package_dir / "version.txt", repo_root / "version.txt")
 
     if not git_dir.exists() or not git_dir.is_dir():
-        if version_file.exists():
-            try:
-                return version_file.read_text(encoding="utf-8").strip()
-            except Exception:
-                pass
+        for version_file in version_files:
+            if version_file.exists():
+                try:
+                    return version_file.read_text(encoding="utf-8").strip()
+                except Exception:
+                    continue
         return "unknown"
 
     head_file = git_dir / "HEAD"
@@ -1204,7 +1200,7 @@ def get_bootstrap_log() -> HTMLResponse:
     """Returns the Android bootstrap log for diagnostics."""
     log_path = DATA_DIR.parent / "bootstrap.log"
     if log_path.exists():
-        content = log_path.read_text(encoding="utf-8")
+        content = html.escape(log_path.read_text(encoding="utf-8"))
         html_content = f"<html><body><h3>Bootstrap Log</h3><pre>{content}</pre></body></html>"
         return HTMLResponse(content=html_content, status_code=200)
     return HTMLResponse(content="<html><body><h3>Log not found</h3></body></html>", status_code=404)
@@ -1212,4 +1208,9 @@ def get_bootstrap_log() -> HTMLResponse:
 
 # ── Static Files (frontend) ──────────────────────────────────────────────
 # Mounted after API routes to avoid conflicts
-app.mount("/", StaticFiles(directory="src/static", html=True), name="static")
+# Mounted conditionally: on Android the frontend may not be packaged alongside
+# the Python sources, and StaticFiles raises on every request to a missing
+# directory. Skipping the mount makes "/" a clean 404, which is the signal the
+# Android launcher uses to load the frontend from the APK assets instead.
+if STATIC_DIR.is_dir():
+    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

@@ -12,6 +12,9 @@ def stagedPythonPackage = stagedPythonRoot.map { it.dir("src") }
 tasks.register('copyPythonSources', Sync) {
     from rootProject.file("../../src")
     into stagedPythonPackage
+    // Bytecode built for the desktop interpreter has the wrong magic number on
+    // the device, and packaging metadata is dead weight inside the APK.
+    exclude '**/__pycache__/**', '**/*.pyc', '**/*.egg-info/**'
 }
 
 // Chaquopy pode empacotar um .py inválido e só revelar o erro no aparelho.
@@ -52,9 +55,15 @@ android {
             version "3.11"
             extractPackages "src"
             
+            // Every wheel here must be pure Python: Chaquopy cannot build
+            // native extensions. pydantic 2 is out because pydantic-core is a
+            // Rust extension with no Android wheel, and uvicorn must stay
+            // WITHOUT [standard], whose uvloop/httptools/watchfiles are native
+            // too. src/pydantic_compat.py bridges the v1/v2 API difference;
+            // FastAPI 0.115 still supports pydantic v1.
             pip {
-                install "pydantic>=2.0.0"
-                install "fastapi>=0.115.0"
+                install "pydantic<2"
+                install "fastapi>=0.115,<0.116"
                 install "uvicorn"
                 install "httpx"
             }

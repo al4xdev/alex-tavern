@@ -2591,7 +2591,9 @@ class TestEdgeCases:
 
         from src.main import PlayerTurnRequest
 
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        # Matching the offending field rather than pydantic's wording, which
+        # differs between v1 (Android) and v2 (desktop).
+        with pytest.raises(ValidationError, match="narrator_hnit"):
             PlayerTurnRequest(**{"speech": "Hi", "narrator_hnit": "typo"})
 
     def test_pydantic_turn_request_rejects_skip_with_speech(self) -> None:

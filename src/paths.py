@@ -12,6 +12,11 @@ SESSIONS_DIR = DATA_DIR / "sessions"
 SCENARIOS_DIR = DATA_DIR / "scenarios"
 PRESETS_DIR = DATA_DIR / "presets"
 BUILTIN_SCENARIOS_DIR = Path(__file__).resolve().parent / "scenarios"
+# Resolved from the module location, never from the CWD: under Chaquopy the
+# frontend lives inside the extracted package and there is no repo root to be
+# relative to. Starlette validates the mount directory at import time, so a
+# relative path here kills the server before it can bind.
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 PLUGINS_DIR = DATA_DIR / "plugins"
 PLUGIN_CACHE_DIR = PLUGINS_DIR / "cached"
 PLUGIN_STARTED_DIR = PLUGINS_DIR / "started"

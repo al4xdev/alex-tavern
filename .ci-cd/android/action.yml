@@ -20,6 +20,12 @@ runs:
       with:
         gradle-version: '8.0.2'
 
+    - name: Stamp Build Commit Into the Python Package
+      shell: bash
+      # The APK ships no .git, so /version and the bootstrap log would report
+      # "unknown" and leave no way to tell which code an installed build runs.
+      run: echo "${{ github.sha }}" > src/version.txt
+
     - name: Sync Static PWA Assets to Android Project
       shell: bash
       run: |
