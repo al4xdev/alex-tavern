@@ -91,3 +91,21 @@ def test_android_passes_the_runtime_data_dir_into_python_before_import() -> None
     configure_at = runner.index('os.environ["ROLEPLAY_DATA_DIR"] = data_dir')
     import_app_at = runner.index("import src.main")
     assert configure_at < import_app_at
+
+
+def test_android_identity_matches_the_pwa() -> None:
+    app = ANDROID / "app"
+    manifest = (app / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
+    strings = (app / "src" / "main" / "res" / "values" / "strings.xml").read_text(encoding="utf-8")
+    gradle = (app / "build.gradle").read_text(encoding="utf-8")
+
+    assert 'android:label="@string/app_name"' in manifest
+    assert 'android:icon="@mipmap/ic_launcher"' in manifest
+    assert '<string name="app_name">Alex Tavern</string>' in strings
+    assert 'versionName "0.1"' in gradle
+    assert (app / "src" / "main" / "res" / "mipmap-nodpi" / "ic_launcher.png").read_bytes() == (
+        ROOT / "src" / "static" / "icon-512.png"
+    ).read_bytes()
+    assert (
+        app / "src" / "main" / "res" / "drawable-nodpi" / "ic_launcher_foreground.png"
+    ).read_bytes() == (ROOT / "src" / "static" / "icon-maskable-512.png").read_bytes()
