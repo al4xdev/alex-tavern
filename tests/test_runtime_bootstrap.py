@@ -88,9 +88,11 @@ def test_v2_boot_does_not_reapply_default_experience(
 def test_failed_default_experience_keeps_config_at_v1(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The server still boots, and the untouched v1 file makes it retry later."""
     path = tmp_path / "config.json"
     legacy = deepcopy(DEFAULT_CONFIG)
     legacy.pop("schema_version")
+    legacy["language"] = "English"
     original = json.dumps(legacy)
     path.write_text(original, encoding="utf-8")
     monkeypatch.setattr(runtime_bootstrap, "ensure_hub_synced", lambda **kwargs: None)
@@ -100,7 +102,53 @@ def test_failed_default_experience_keeps_config_at_v1(
 
     monkeypatch.setattr(runtime_bootstrap, "activate_experience", fail_activation)
 
-    with pytest.raises(RuntimeError, match="cannot activate before_the_war"):
-        runtime_bootstrap.prepare_runtime_config(path)
+    loaded = runtime_bootstrap.prepare_runtime_config(path)
 
+    assert loaded["language"] == "English"
     assert path.read_text(encoding="utf-8") == original
+
+
+def test_offline_hub_failure_does_not_take_the_server_down(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A phone with no connectivity must still reach a usable config."""
+    path = tmp_path / "config.json"
+
+    def fail_sync(**kwargs: object) -> None:
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(runtime_bootstrap, "ensure_hub_synced", fail_sync)
+
+    loaded = runtime_bootstrap.prepare_runtime_config(path)
+
+    assert loaded["active_provider"] == DEFAULT_CONFIG["active_provider"]
+    # Nothing was committed, so the next boot takes the migration path again.
+    assert not path.exists()
+
+
+def test_retry_after_a_failed_boot_completes_the_migration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The v1 file left behind by a failed boot is migrated once the hub works."""
+    path = tmp_path / "config.json"
+    legacy = deepcopy(DEFAULT_CONFIG)
+    legacy.pop("schema_version")
+    path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    def fail_sync(**kwargs: object) -> None:
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(runtime_bootstrap, "ensure_hub_synced", fail_sync)
+    runtime_bootstrap.prepare_runtime_config(path)
+    assert "schema_version" not in json.loads(path.read_text(encoding="utf-8"))
+
+    operations = _record_boot_operations(monkeypatch)
+    loaded = runtime_bootstrap.prepare_runtime_config(path)
+
+    assert operations == [
+        ("sync", {"force": True}),
+        ("activate", "before_the_war"),
+        ("rebuild", None),
+    ]
+    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
+    assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == CONFIG_SCHEMA_VERSION

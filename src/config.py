@@ -265,19 +265,26 @@ def config_schema_version(path: Path = CONFIG_PATH) -> int | None:
         return version
 
 
-def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
-    """Load canonical v2 config, migrating the original v1 representation."""
+def load_config(path: Path = CONFIG_PATH, *, persist_migration: bool = True) -> dict[str, Any]:
+    """Load canonical v2 config, migrating the original v1 representation.
+
+    ``persist_migration=False`` returns the canonical config without stamping
+    the file as v2. Callers use it when the work that has to accompany the
+    migration did not complete, so the next boot still sees a pre-v2 file and
+    retries.
+    """
     with _config_lock:
         if not path.exists():
             config = deepcopy(DEFAULT_CONFIG)
-            _atomic_write_json(path, config)
+            if persist_migration:
+                _atomic_write_json(path, config)
             return config
         version = config_schema_version(path)
         raw = _read_config_object(path)
         if version == LEGACY_CONFIG_SCHEMA_VERSION:
             raw["schema_version"] = CONFIG_SCHEMA_VERSION
         canonical = validate_config(raw)
-        if version == LEGACY_CONFIG_SCHEMA_VERSION:
+        if version == LEGACY_CONFIG_SCHEMA_VERSION and persist_migration:
             _atomic_write_json(path, canonical)
         return canonical
 

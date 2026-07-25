@@ -1,7 +1,10 @@
 {
+  "schema_version": 2,
   "active_provider": "llama_cpp",
   "language": "Portuguese",
   "compaction_keep_recent_turns": 200,
+  "automatic_compaction_enabled": false,
+  "automatic_compaction_threshold_percent": 80,
   "providers": {
     "llama_cpp": {
       "api_base": "http://192.168.0.183:8888/v1",

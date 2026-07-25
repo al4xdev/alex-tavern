@@ -556,10 +556,19 @@ def rebuild_environment(pointers: list[dict[str, Any]] | None = None) -> dict[st
     temporary = Path(tempfile.mkdtemp(prefix="plugin-env-", dir=PLUGIN_ENV_DIR.parent))
     try:
         if requirements:
-            subprocess.run(
-                ["uv", "pip", "install", "--target", str(temporary), *requirements],
-                check=True,
-            )
+            try:
+                subprocess.run(
+                    ["uv", "pip", "install", "--target", str(temporary), *requirements],
+                    check=True,
+                )
+            except FileNotFoundError as error:
+                # No package manager on the host: the Android build has neither
+                # uv nor a usable sys.executable. Say so, instead of letting a
+                # bare "No such file or directory: 'uv'" reach the caller.
+                raise PluginInstallError(
+                    "uv is required to install plugin Python dependencies "
+                    f"({', '.join(requirements)}) and was not found on this system"
+                ) from error
         (temporary / "fingerprint").write_text(fingerprint, encoding="utf-8")
         old = PLUGIN_ENV_DIR.with_name(f".{PLUGIN_ENV_DIR.name}.old")
         if old.exists():
