@@ -2,7 +2,10 @@
    api.js — thin fetch wrappers around the backend.
    Every wrapper throws on non-2xx so callers can show a friendly toast.
    ══════════════════════════════════════════════════════════════════════ */
-// WARNING (Antigravity AI): Modified to switch BASE_URL to local server when running in WebView
+// The APK loads index.html from file://, where a relative fetch has no origin
+// to resolve against, so requests are addressed to the in-process server
+// explicitly. Every other deployment is served by that same server and uses
+// relative URLs.
 const BASE_URL = window.location.protocol === 'file:' ? 'http://127.0.0.1:8889' : '';
 
 // Access token (Task 19): fetched once from /bootstrap and returned on every

@@ -40,7 +40,7 @@ def test_build_commit_is_readable_without_a_git_directory(tmp_path: Path) -> Non
     (package / "version.txt").write_text("deadbeefcafe1234\n", encoding="utf-8")
 
     result = subprocess.run(
-        [sys.executable, "-c", "import src.main; print(src.main.get_git_commit())"],
+        [sys.executable, "-c", "from src.build_info import build_commit; print(build_commit())"],
         cwd=tmp_path,
         check=True,
         capture_output=True,
@@ -153,4 +153,11 @@ def test_android_shell_supports_native_files_and_immersive_mode() -> None:
     assert "Ver Logs de Boot" not in activity
     assert "showLogsDialog" not in activity
     assert "tailBootstrapLog" not in activity
-    assert "Iniciando Alex Tavern…" in activity
+    # The boot screen exists before the WebView does, so the frontend's i18n
+    # cannot reach it: those strings are native resources, localized the native way.
+    assert "showStatus(getString(R.string.boot_starting))" in activity
+    strings = (ANDROID / "app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
+    localized = (ANDROID / "app/src/main/res/values-pt/strings.xml").read_text(encoding="utf-8")
+    for key in ("boot_starting", "boot_starting_waiting", "boot_failed"):
+        assert f'name="{key}"' in strings
+        assert f'name="{key}"' in localized

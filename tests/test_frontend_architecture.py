@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -60,11 +61,17 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
 
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
-    assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v21" in service_worker
-    assert "'/slash-commands.js'" in service_worker
-    assert "'/slash-command-parser.js'" in service_worker
-    assert "'/slash-registry.js'" in service_worker
+    assert re.search(r"const CACHE = 'rpt-shell-v\d+';", service_worker)
+    # Every application module must be in the offline shell. Asserting the list
+    # instead of a few names means adding a module and forgetting the service
+    # worker fails here, which is how the shell used to fall out of date.
+    modules = sorted(
+        f"/{path.relative_to(STATIC).as_posix()}"
+        for path in STATIC.rglob("*.js")
+        if path.name != "sw.js"
+    )
+    missing = [module for module in modules if f"'{module}'" not in service_worker]
+    assert missing == [], f"service worker shell is missing: {missing}"
 
 
 def test_slash_parser_autocomplete_resolution_and_literal_escape() -> None:
@@ -384,8 +391,11 @@ def test_plugin_center_batches_active_changes_until_every_close_path() -> None:
     assert "apiFetch('/plugins/restart', { method: 'POST' })" in api_source
     assert source.count("window.location.reload()") == 1
     assert "if (!restartApplication()) {" in source
-    assert "window.AlexTavernAndroid" in app_source
-    assert "bridge.restartApplication();" in app_source
+    # The native surface lives in one module, not inline in a call site.
+    bridge_source = (STATIC / "android-bridge.js").read_text(encoding="utf-8")
+    assert "window.AlexTavernAndroid" in bridge_source
+    assert "native.restartApplication();" in bridge_source
+    assert "from './android-bridge.js'" in app_source
     assert "else close();" in source
     assert "if (event.target === overlay) close();" in source
     assert "const result = await api.activatePlugin" in source

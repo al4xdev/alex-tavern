@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
 
         enterImmersiveMode()
         setContentView(buildLayout())
-        showStatus("Iniciando Alex Tavern…")
+        showStatus(getString(R.string.boot_starting))
 
         // Asset copying and the Chaquopy runtime extraction are both heavy disk
         // I/O — on a first boot they take seconds and would freeze the UI.
@@ -265,7 +265,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             val waited = (READY_TIMEOUT_MS - (deadline - System.currentTimeMillis())) / 1000
-            showStatus("Iniciando Alex Tavern… (${waited}s)")
+            showStatus(getString(R.string.boot_starting_waiting, waited))
             try {
                 Thread.sleep(READY_POLL_INTERVAL_MS)
             } catch (e: InterruptedException) {
@@ -274,7 +274,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         logBootstrap("awaitServer: timed out after ${READY_TIMEOUT_MS}ms.")
-        showStatus("Não foi possível iniciar o Alex Tavern. Conecte o aparelho para diagnóstico.")
+        showStatus(getString(R.string.boot_failed))
     }
 
     /** Response code for a GET, or -1 when the request could not be made at all. */
@@ -310,7 +310,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val targetFile = File(targetDir, relativePath)
                 if (targetFile.exists() && !overwrite) {
-                    // Preserva a configuração que o usuário já alterou no aparelho.
+                    // Preserve the configuration the user already changed on the device.
                     return
                 }
                 targetFile.parentFile?.mkdirs()

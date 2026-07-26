@@ -5,7 +5,7 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v21';
+const CACHE = 'rpt-shell-v22';
 const SHELL = [
     '/',
     '/index.html',
@@ -25,6 +25,7 @@ const SHELL = [
     '/setup.js',
     '/slash-commands.js',
     '/slash-command-parser.js',
+    '/android-bridge.js',
     '/app.js',
     '/manifest.webmanifest',
     '/icon.svg',

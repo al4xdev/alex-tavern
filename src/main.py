@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import json
-import os
 import tempfile
 import threading
 from collections.abc import Callable
@@ -17,10 +15,11 @@ from typing import Annotated, Any, Literal
 import httpx
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from src.build_info import build_commit, debug_mode
 from src.config import (
     ConfigValidationError,
     merge_config_update,
@@ -29,7 +28,7 @@ from src.config import (
 )
 from src.llm.debug_log import read_entries
 from src.models import Scene, dict_to_character, game_state_to_dict
-from src.paths import DATA_DIR, EXPERIENCES_DIR, STATIC_DIR
+from src.paths import EXPERIENCES_DIR, STATIC_DIR
 from src.plugins.commands import CommandError
 from src.plugins.experiences import (
     ExperienceError,
@@ -1141,78 +1140,16 @@ def activate_experience_endpoint(
     return result
 
 
-def get_git_commit() -> str:
-    """Reads the current git commit hash directly from the .git folder."""
-    package_dir = Path(__file__).resolve().parent
-    repo_root = package_dir.parent
-    git_dir = repo_root / ".git"
-    # Beside the package first: a packaged build (the Android APK) has no .git
-    # and no repo root, so the CI stamps the commit inside src/ itself. Without
-    # it the app cannot tell which build it is running, which is how an APK
-    # built from discarded commits went unnoticed for days.
-    version_files = (package_dir / "version.txt", repo_root / "version.txt")
-
-    if not git_dir.exists() or not git_dir.is_dir():
-        for version_file in version_files:
-            if version_file.exists():
-                try:
-                    return version_file.read_text(encoding="utf-8").strip()
-                except Exception:
-                    continue
-        return "unknown"
-
-    head_file = git_dir / "HEAD"
-    if not head_file.exists():
-        return "unknown"
-
-    try:
-        head_content = head_file.read_text(encoding="utf-8").strip()
-        if head_content.startswith("ref:"):
-            ref_path = head_content[4:].strip()
-            ref_file = git_dir / ref_path
-            if ref_file.exists():
-                return ref_file.read_text(encoding="utf-8").strip()
-
-            # Fallback to packed-refs if ref file doesn't exist
-            packed_refs_file = git_dir / "packed-refs"
-            if packed_refs_file.exists():
-                with open(packed_refs_file, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#"):
-                            continue
-                        parts = line.split(None, 1)
-                        if len(parts) == 2 and parts[1] == ref_path:
-                            return parts[0]
-            return "unknown"
-        else:
-            return head_content
-    except Exception:
-        return "unknown"
-
-
 @app.get("/version")
 def get_version() -> dict:
     """Returns the current build identity and development-mode status."""
-    debug = os.environ.get("DEBUG", "").strip().casefold() in {"1", "true", "yes", "on"}
-    return {"commit": get_git_commit(), "debug": debug}
+    return {"commit": build_commit(), "debug": debug_mode()}
 
 
 @app.get("/health")
 def health() -> dict:
     """Simple health check."""
     return {"status": "ok"}
-
-
-@app.get("/bootstrap_log")
-def get_bootstrap_log() -> HTMLResponse:
-    """Returns the Android bootstrap log for diagnostics."""
-    log_path = DATA_DIR.parent / "bootstrap.log"
-    if log_path.exists():
-        content = html.escape(log_path.read_text(encoding="utf-8"))
-        html_content = f"<html><body><h3>Bootstrap Log</h3><pre>{content}</pre></body></html>"
-        return HTMLResponse(content=html_content, status_code=200)
-    return HTMLResponse(content="<html><body><h3>Log not found</h3></body></html>", status_code=404)
 
 
 # ── Static Files (frontend) ──────────────────────────────────────────────

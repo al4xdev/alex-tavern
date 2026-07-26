@@ -7,8 +7,8 @@ plugins {
 def stagedPythonRoot = layout.buildDirectory.dir("pythonSrc")
 def stagedPythonPackage = stagedPythonRoot.map { it.dir("src") }
 
-// Mantém o código Python do APK isolado no diretório de build. Sync também
-// remove arquivos obsoletos que uma tarefa Copy deixaria de builds anteriores.
+// Keeps the APK Python code isolated in the build directory. Sync also
+// removes stale files a Copy task would leave behind from earlier builds.
 tasks.register('copyPythonSources', Sync) {
     from rootProject.file("../../src")
     into stagedPythonPackage
@@ -17,14 +17,14 @@ tasks.register('copyPythonSources', Sync) {
     exclude '**/__pycache__/**', '**/*.pyc', '**/*.egg-info/**'
 }
 
-// Chaquopy pode empacotar um .py inválido e só revelar o erro no aparelho.
-// Compile todos os fontes preparados antes de permitir que o APK seja montado.
+// Chaquopy can package an invalid .py and only reveal the error on the device.
+// Compile every prepared source before letting the APK be assembled.
 tasks.register('validatePythonSources', Exec) {
     dependsOn 'copyPythonSources'
     commandLine 'python3', '-m', 'compileall', '-q', stagedPythonPackage.get().asFile
 }
 
-// Faz com que as tarefas do Chaquopy dependam da preparação e validação.
+// Makes the Chaquopy tasks depend on the preparation and validation steps.
 project.afterEvaluate {
     tasks.configureEach { task ->
         if (!(task.name in ['copyPythonSources', 'validatePythonSources']) &&
@@ -80,7 +80,7 @@ android {
     sourceSets {
         main {
             python {
-                // Aponta para a pasta temporária de build contendo o namespace 'src' e os scripts locais
+                // Points at the temporary build folder holding the 'src' namespace and local scripts
                 srcDirs = ["${project.buildDir}/pythonSrc", "src/main/python"]
             }
         }

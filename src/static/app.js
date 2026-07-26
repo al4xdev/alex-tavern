@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { restartApplication } from './android-bridge.js';
 import { RuntimeConfig } from './runtime-config.js';
 import { PluginRuntime } from './plugin-runtime.js';
 import { PluginCenter } from './plugin-center.js';
@@ -2341,15 +2342,7 @@ async function initializeApplication() {
             showHelpArticle('compaction');
         },
     });
-    PluginCenter.init({
-        notify: toast,
-        restartApplication: () => {
-            const bridge = window.AlexTavernAndroid;
-            if (!bridge || typeof bridge.restartApplication !== 'function') return false;
-            bridge.restartApplication();
-            return true;
-        },
-    });
+    PluginCenter.init({ notify: toast, restartApplication });
     Setup.init({
         onStart: (cfg) => startSession(cfg),
         onOpen: () => RuntimeConfig.refresh(),

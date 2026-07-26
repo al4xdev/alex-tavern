@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Alex Tavern</string>
+    <!-- Shown before the WebView exists, so the frontend's i18n cannot reach it. -->
+    <string name="boot_starting">Starting Alex Tavern…</string>
+    <string name="boot_starting_waiting">Starting Alex Tavern… (%1$ds)</string>
+    <string name="boot_failed">Alex Tavern could not start. Connect the device for diagnostics.</string>
 </resources>
