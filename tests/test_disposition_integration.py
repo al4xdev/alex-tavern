@@ -20,6 +20,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat
 
 
 async def _fake_prose() -> str:
@@ -48,13 +49,7 @@ SCENE = Scene(
 
 
 async def _fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-    return {
-        "narration": "Segue.",
-        "next_speakers": ["Narrator"],
-        "perception_events": [],
-        "scene_update": None,
-        "mood_updates": None,
-    }
+    return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
 
 @pytest.mark.asyncio

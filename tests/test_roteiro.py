@@ -31,7 +31,7 @@ from src.roteiro import (
     replan_roteiro,
 )
 from src.store.sessions import delete_session
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 CHARACTERS = make_cast("Rui", "Marta", "Bento")
 SCENE = Scene(
@@ -567,13 +567,10 @@ class TestRunnerWiring:
             # On a continuation each beat must actually commit, so a character
             # speaks every beat and the burst runs to its budget.
             queue = [next(speaker_cycle)] if speaker_cycle is not None else ["Narrator"]
-            return {
-                "next_speakers": queue,
-                "perception_events": list(narrator_events or []),
-                "scene_update": None,
-                "mood_updates": None,
-                "return_control": False,
-            }
+            return director_beat(
+                       next_speakers=queue,
+                       perception_events=list(narrator_events or []),
+                   )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {"speech": "Falo agora.", "thought": None, "action_intent": None}
@@ -735,13 +732,7 @@ class TestNarrativeClock:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             hints.append(narrator_hint)
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         async def fake_replan(client, game, decision, config, turn_number, current_tick=0):  # noqa: ANN001, ANN202, ARG001
             replans.append(decision.reason)

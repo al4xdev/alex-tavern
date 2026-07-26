@@ -15,7 +15,7 @@ from src.models import (
     dict_to_perspective,
     perspective_to_dict,
 )
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 SCENE = Scene(
     location="Salao", time_of_day="Noite", present_characters=["C1", "C2", "C3"], physical_facts={}
@@ -133,13 +133,7 @@ class TestUndoPreservesMemory:
         monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "next_speakers": ["C2"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["C2"])
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {

@@ -42,6 +42,7 @@ from src.plugins.store import (
 )
 from src.runner import Runner
 from src.store.sessions import delete_session, load_game, session_debug_path
+from tests.factories import director_beat
 from tools.plugin_author import pack_plugin, scaffold_plugin
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
@@ -481,13 +482,7 @@ def _stub_turn_pipeline(runner) -> None:  # noqa: ANN001
     plugin tests only exercise hooks, so the LLM boundary is stubbed out."""
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-        return {
-            "next_speakers": ["Narrator"],
-            "perception_events": [],
-            "scene_update": None,
-            "mood_updates": None,
-            "return_control": False,
-        }
+        return director_beat(next_speakers=["Narrator"])
 
     async def fake_prose(game, events, turn_number):  # noqa: ANN001, ANN202
         return ""

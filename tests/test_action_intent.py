@@ -12,7 +12,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
@@ -67,13 +67,7 @@ class TestRunnerIntentAndMoves:
             )
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "next_speakers": ["C3"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": {"C3": "salao"},
-            }
+            return director_beat(next_speakers=["C3"], zone_moves={"C3": "salao"})
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {

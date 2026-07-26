@@ -13,7 +13,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 CHARACTERS = make_cast("Link", "Marta", "Bento")
 SCENE = Scene(
@@ -154,14 +154,7 @@ class TestRunnerZoneMaterialization:
     async def test_first_split_creates_stage_and_audible_zone(self, monkeypatch) -> None:  # noqa: ANN001
         game, _ = await self._turn(
             monkeypatch,
-            {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": {"C1": "ruas da cidade"},
-                "return_control": False,
-            },
+            director_beat(next_speakers=["Narrator"], zone_moves={"C1": "ruas da cidade"}),
         )
         assert game is not None
         stage = "Salao dos Quatro Arcos"
@@ -179,15 +172,11 @@ class TestRunnerZoneMaterialization:
         """The Director separates by saying so, not by the runtime assuming it."""
         game, _ = await self._turn(
             monkeypatch,
-            {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": {"C1": "ruas da cidade"},
-                "zone_link_updates": {"ruas da cidade": []},
-                "return_control": False,
-            },
+            director_beat(
+                next_speakers=["Narrator"],
+                zone_moves={"C1": "ruas da cidade"},
+                zone_link_updates={"ruas da cidade": []},
+            ),
         )
         assert game is not None
         assert game.scene.zones["ruas da cidade"] == []
@@ -225,14 +214,11 @@ class TestPartialMoveLocationClamp:
         # movement keeps the stage location; zones express the split.
         game, _ = await TestRunnerZoneMaterialization()._turn(
             monkeypatch,
-            {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": {"location": "Ruas da Cidade Alta", "time_of_day": "manha"},
-                "mood_updates": None,
-                "zone_moves": {"C1": "Ruas da Cidade Alta"},
-                "return_control": False,
-            },
+            director_beat(
+                next_speakers=["Narrator"],
+                scene_update={"location": "Ruas da Cidade Alta", "time_of_day": "manha"},
+                zone_moves={"C1": "Ruas da Cidade Alta"},
+            ),
         )
         assert game is not None
         assert game.scene.location == "Salao dos Quatro Arcos"  # stage unchanged

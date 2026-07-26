@@ -15,7 +15,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
@@ -123,13 +123,7 @@ class TestRunnerInjection:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             captured["hint"] = narrator_hint
-            return {
-                "narration": "A porta se abre.",
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="A porta se abre.", next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "evaluate_event_hazard", fake_hazard)
         monkeypatch.setattr(runner_mod, "generate_event_seed", fake_seed)
@@ -174,13 +168,7 @@ class TestRunnerInjection:
             return DriveDecision(fired=False, probability=0.1, quiet_turns=0, roll=0.9)
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "narration": "Segue.",
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "evaluate_event_hazard", fake_hazard)
 

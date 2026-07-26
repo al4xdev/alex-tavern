@@ -22,7 +22,7 @@ from src.models import (
 )
 from src.store.sessions import delete_session
 from src.watcher import CausalIntervention, DeltaAudit
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
@@ -62,13 +62,7 @@ async def test_stall_accumulates_then_ladder_disrupts_then_refractory(monkeypatc
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
         hints.append(narrator_hint)
-        return {
-            "narration": "Segue.",
-            "next_speakers": ["Narrator"],
-            "perception_events": [],
-            "scene_update": None,
-            "mood_updates": None,
-        }
+        return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
     monkeypatch.setattr(runner_mod, "audit_delta", fake_audit)
     monkeypatch.setattr(runner_mod, "generate_causal_intervention", fake_intervention)
@@ -126,13 +120,7 @@ async def test_disabled_watcher_never_audits_or_intervenes(monkeypatch) -> None:
         return CausalIntervention("t", "s", "e", "d", 3)
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-        return {
-            "narration": "Segue.",
-            "next_speakers": ["Narrator"],
-            "perception_events": [],
-            "scene_update": None,
-            "mood_updates": None,
-        }
+        return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
     monkeypatch.setattr(runner_mod, "audit_delta", fake_audit)
     monkeypatch.setattr(runner_mod, "generate_causal_intervention", fake_intervention)

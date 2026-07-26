@@ -11,7 +11,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
@@ -30,13 +30,11 @@ BURST_CONFIG = {"autonomous_burst_max_beats": 4, "auto_event_enabled": False}
 
 
 def _beat(queue, return_control=False, events=None):  # noqa: ANN001, ANN202
-    return {
-        "next_speakers": list(queue),
-        "perception_events": list(events or []),
-        "scene_update": None,
-        "mood_updates": None,
-        "return_control": return_control,
-    }
+    return director_beat(
+               next_speakers=list(queue),
+               perception_events=list(events or []),
+               return_control=return_control,
+           )
 
 
 def _event(text):  # noqa: ANN001, ANN202

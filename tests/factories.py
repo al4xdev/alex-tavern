@@ -13,6 +13,7 @@ test is actually about.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from src.models import (
@@ -122,3 +123,72 @@ def make_record(
         scene_snapshot=deepcopy_scene(scene if scene is not None else make_scene()),
         **overrides,
     )
+
+
+# ── Director doubles ──────────────────────────────────────────────────────
+#
+# Nearly every runner test needed a fake Director, and each one hand-wrote the
+# same five-key dict. That made the Director's response contract a thing you
+# had to remember in eighteen files: adding a required field meant finding
+# every literal, and a test that forgot one failed for the wrong reason.
+#
+# `director_beat` writes that contract once. What stays per-test is what the
+# test is actually about - who speaks, what was perceived, what changed.
+
+DIRECTOR_CONTRACT_DEFAULTS: dict[str, Any] = {
+    "narration": "A cena segue.",
+    "next_speakers": [],
+    "perception_events": [],
+    "scene_update": None,
+    "mood_updates": None,
+    "zone_moves": None,
+    "zone_link_updates": None,
+    "scene_blocking": {
+        "character_zones": {},
+        "action_location": "",
+        "spatial_constraints": [],
+        "destination_reachable_this_beat": True,
+    },
+    "time_skip_ticks": 0,
+    "time_skip_summary": "",
+    "return_control": False,
+}
+
+
+def director_beat(**overrides: Any) -> dict[str, Any]:
+    """One Director response with every contract field present.
+
+    ``director_beat(next_speakers=["C2"])`` is the whole contract with the one
+    field this test cares about replaced.
+    """
+    unknown = set(overrides) - set(DIRECTOR_CONTRACT_DEFAULTS)
+    if unknown:
+        raise AssertionError(
+            f"not part of the Director contract: {sorted(unknown)}. "
+            "Add it to DIRECTOR_CONTRACT_DEFAULTS if the schema really grew."
+        )
+    # deepcopy, not a merge: the defaults hold lists and dicts, and a test that
+    # appends to one would silently seed every later beat in the same run.
+    return {**deepcopy(DIRECTOR_CONTRACT_DEFAULTS), **overrides}
+
+
+class FakeDirector:
+    """A Director that answers from a queue and records what it was asked.
+
+    ``FakeDirector(director_beat(next_speakers=["C2"]), director_beat())`` answers
+    those beats in order and then repeats the last one, which is what a burst
+    test wants: program the interesting beats, let the rest settle.
+    """
+
+    def __init__(self, *beats: dict[str, Any]) -> None:
+        self.beats = list(beats) or [director_beat()]
+        self.calls: list[dict[str, Any]] = []
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(kwargs)
+        index = min(len(self.calls) - 1, len(self.beats) - 1)
+        return self.beats[index]
+
+    @property
+    def call_count(self) -> int:
+        return len(self.calls)

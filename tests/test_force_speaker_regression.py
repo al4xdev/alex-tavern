@@ -13,7 +13,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
-from tests.factories import make_cast
+from tests.factories import director_beat, make_cast
 
 APP_JS = Path(__file__).resolve().parents[1] / "src" / "static" / "app.js"
 
@@ -64,12 +64,7 @@ class TestBackendForceHonored:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             # Simulate a model that IGNORES the constraint: the runner must
             # still enforce the manual force downstream.
-            return {
-                "next_speakers": list(queue_from_director),
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=list(queue_from_director))
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             calls.append(character_id)

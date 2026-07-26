@@ -45,6 +45,7 @@ from src.store.sessions import (
 from src.store.sessions import (
     delete_session as delete_session_async,
 )
+from tests.factories import director_beat
 
 DEFAULT_CHARACTERS: dict[str, Character] = {
     "C1": Character(
@@ -800,15 +801,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -827,15 +820,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -895,15 +880,7 @@ class TestRunnerLogic:
             captured["extra_context"] = extra_context
             captured["extra_schema_properties"] = extra_schema_properties
             captured["extra_schema_required"] = extra_schema_required
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
         await runner.player_turn(sid, speech="Oi.")
@@ -1020,12 +997,7 @@ class TestRunnerLogic:
         )
 
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            return {
-                "next_speakers": ["C2"],  # hallucinated/absent — must be gated
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C2"])
 
         async def forbidden_character(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             raise AssertionError("An absent character must never receive a Character call")
@@ -1057,15 +1029,7 @@ class TestRunnerLogic:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN202
             assert forced_speaker is None  # C2 is absent, so the force is dropped
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         result = await self.runner.player_turn(sid, speech="Oi.", force_speaker="C2")
@@ -1337,12 +1301,10 @@ class TestCompactSession:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["summary"] = game.story_summary
-            return {
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event("The sealed gate is visible.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       next_speakers=["C2"],
+                       perception_events=[_perception_event("The sealed gate is visible.", "C2")],
+                   )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["context"] = context
@@ -1660,12 +1622,7 @@ class TestPresenceAdmin:
         from src.runner import PresenceRevisionConflictError
 
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         # Client "read" revision 0, then a turn commits concurrently (revision -> 1).
@@ -1814,10 +1771,10 @@ class TestCustomSessionAndDebug:
         from src.agents import narrator as narrator_mod
 
         async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "next_speakers": ["C3"],
-                "perception_events": [_perception_event("ctx", "C3")],
-            }
+            return director_beat(
+                       next_speakers=["C3"],
+                       perception_events=[_perception_event("ctx", "C3")],
+                   )
 
         monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         chars = {"C3": _custom_char("Caius")}
@@ -1842,10 +1799,7 @@ class TestCustomSessionAndDebug:
         from src.agents import narrator as narrator_mod
 
         async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "next_speakers": ["Fantasma"],
-                "perception_events": [],
-            }
+            return director_beat(next_speakers=["Fantasma"])
 
         monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
@@ -1872,10 +1826,10 @@ class TestCustomSessionAndDebug:
         async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             captured["messages"] = messages
             captured["json_schema"] = kwargs["json_schema"]
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [_perception_event("Only C2 can perceive this.", "C2")],
-            }
+            return director_beat(
+                       next_speakers=["C1"],
+                       perception_events=[_perception_event("Only C2 can perceive this.", "C2")],
+                   )
 
         monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
@@ -1910,10 +1864,7 @@ class TestCustomSessionAndDebug:
         from src.agents import narrator as narrator_mod
 
         async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-            }
+            return director_beat(next_speakers=["C1"])
 
         monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
@@ -2501,12 +2452,7 @@ class TestEdgeCases:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
@@ -2534,12 +2480,7 @@ class TestEdgeCases:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
@@ -2640,12 +2581,7 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2721,12 +2657,7 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["called"] = True
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {"auto_event_enabled": False})
@@ -2769,12 +2700,7 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2908,12 +2834,7 @@ class TestHttpBoundary:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2958,12 +2879,7 @@ class TestHttpBoundary:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -3011,12 +2927,10 @@ class TestHttpBoundary:
         ) -> dict:
             captured["forced_speaker"] = forced_speaker
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [_perception_event("Lyra approaches you.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       next_speakers=["C1"],
+                       perception_events=[_perception_event("Lyra approaches you.", "C2")],
+                   )
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})

@@ -23,6 +23,7 @@ from src.models import (
     TurnRecord,
     deepcopy_scene,
 )
+from tests.factories import director_beat
 
 
 async def _fake_prose() -> str:
@@ -317,13 +318,7 @@ class TestRunnerWiring:
             )
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "narration": "Segue a noite.",
-                "next_speakers": ["C2"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="Segue a noite.", next_speakers=["C2"])
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {"speech": "Certo.", "thought": None}
