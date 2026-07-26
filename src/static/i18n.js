@@ -1,3 +1,10 @@
+/* i18n.js — interface locale catalogue.
+
+   The catalogue is part of the PLUGIN CONTRACT: a curated plugin renders its
+   own chrome (the presence panel, for one) using these keys, so a key with no
+   reader inside this repository is not necessarily dead. Removing one is a
+   contract change to be made with the hub, never a cleanup.
+*/
 const STORAGE_KEY = 'rpt_interface_locale_v1';
 const DEFAULT_LOCALE = 'en';
 const LLM_LANGUAGES = Object.freeze({ en: 'English', 'pt-BR': 'Brazilian Portuguese' });
@@ -358,6 +365,10 @@ const en = {
     'turn.startError': 'Could not start session: {error}',
     'turn.started': 'Adventure started as {name}',
     'turn.failed': 'Turn failed: {error}. Is the LLM running?',
+    'help.loading': 'Loading guide...',
+    'help.loadFailed': 'Could not load this guide: {error}',
+    'version.updateAvailable': 'Update available!',
+    'version.outOfSync': 'Your local code is out of sync with {url}',
     'turn.stopped': 'Generation stopped',
     'turn.retryBanner': "The last turn didn't go through.",
     'turn.retryBannerAction': '↻ Try again',
@@ -688,7 +699,12 @@ const ptBR = {
     'turn.noneToUndo': 'Nada a desfazer', 'turn.undone': 'Turno desfeito',
     'turn.undoError': 'Erro ao desfazer: {error}', 'turn.startError': 'Erro ao iniciar sessão: {error}',
     'turn.started': 'Aventura iniciada como {name}',
-    'turn.failed': 'Falha no turno: {error}. O LLM está rodando?', 'turn.stopped': 'Geração interrompida',
+    'turn.failed': 'Falha no turno: {error}. O LLM está rodando?',
+    'help.loading': 'Carregando guia...',
+    'help.loadFailed': 'Não foi possível carregar este guia: {error}',
+    'version.updateAvailable': 'Nova versão disponível!',
+    'version.outOfSync': 'Seu código local está desalinhado com {url}',
+    'turn.stopped': 'Geração interrompida',
     'turn.retryBanner': 'O último turno não foi enviado.', 'turn.retryBannerAction': '↻ Tentar de novo',
     'suggestion.fallback': 'Opção {number}',
     'suggestion.ready': 'Sugestões prontas — escolha uma',

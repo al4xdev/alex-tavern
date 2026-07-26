@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { restartApplication } from './android-bridge.js';
+import * as Onboarding from './onboarding.js';
 import { RuntimeConfig } from './runtime-config.js';
 import { PluginRuntime } from './plugin-runtime.js';
 import { PluginCenter } from './plugin-center.js';
@@ -121,16 +122,6 @@ const hintTextarea  = document.getElementById('hint-textarea');
 const hintSendBtn   = document.getElementById('hint-send-btn');
 const hintCloseBtn  = document.getElementById('hint-close-btn');
 
-const brandHeader   = document.getElementById('brand-header');
-const tipBanner     = document.getElementById('tip-banner');
-const tipText       = document.getElementById('tip-text');
-const tipCloseBtn   = document.getElementById('tip-close-btn');
-const helpDrawer    = document.getElementById('help-drawer');
-const helpCloseBtn  = document.getElementById('help-close-btn');
-const helpMenuView  = document.getElementById('help-menu-view');
-const helpArticleView = document.getElementById('help-article-view');
-const helpBackBtn   = document.getElementById('help-back-btn');
-const helpArticleContent = document.getElementById('help-article-content');
 
 let lastSessionList = null;
 let lastDebugEntries = null;
@@ -681,7 +672,7 @@ async function loadSession(sessionId) {
 
         closeSessionsModal();
         toast(t('sessions.loaded', { id: sessionId }), 'success', 2500);
-        showTipBanner();
+        Onboarding.showTipBanner();
     } catch (err) {
         toast(t('sessions.loadError', { error: err.message }), 'error');
     }
@@ -1254,7 +1245,7 @@ function registerBuiltinSlashEntries() {
     builtinAction('help', '◇', 'global', localized('Help', 'Ajuda'),
         localized('Open the Alex Tavern guides.', 'Abra os guias do Alex Tavern.'),
         terms([], ['ajuda']), terms(['guide', 'shortcuts'], ['guia', 'atalhos']),
-        () => setHelp(true));
+        () => Onboarding.setHelp(true));
     builtinAction('plugins', '✦', 'global', localized('Plugins', 'Plugins'),
         localized('Open Experiences and active plugins.', 'Abra Experiences e plugins ativos.'),
         terms(), terms(['extensions', 'experiences'], ['extensoes', 'experiencias']),
@@ -1590,7 +1581,7 @@ async function startSession(cfg) {
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
         if (!isCompactLayout()) inputSpeech.focus();
         toast(t('turn.started', { name: controlledName() }), 'success', 2500);
-        showTipBanner();
+        Onboarding.showTipBanner();
     } catch (err) {
         toast(t('turn.startError', { error: err.message }), 'error');
         showEmptyState(Boolean(state.sessionId));
@@ -2126,151 +2117,6 @@ if (debugRefreshBtn) debugRefreshBtn.addEventListener('click', refreshDebugLog);
 
 previewBtn.addEventListener('click', previewPrompt);
 
-/* ── Help & Guides ────────────────────────────────────────────────────── */
-function setHelp(on) {
-    helpDrawer.classList.toggle('active', on);
-    if (on) {
-        setDebug(false);
-        showHelpMenu();
-    }
-}
-
-function showHelpMenu() {
-    helpMenuView.classList.add('active');
-    helpMenuView.classList.remove('active-left');
-    helpArticleView.classList.remove('active');
-}
-
-async function showHelpArticle(topic) {
-    helpMenuView.classList.add('active-left');
-    helpArticleView.classList.add('active');
-    helpArticleContent.innerHTML = '<p class="debug-placeholder">Loading guide...</p>';
-    
-    const locale = getLocale() || 'en';
-    try {
-        let res = await fetch(`help/${locale}/${topic}.md`);
-        if (!res.ok) {
-            // Fallback to English if the localized version fails
-            res = await fetch(`help/en/${topic}.md`);
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const mdText = await res.text();
-        helpArticleContent.innerHTML = parseMarkdown(mdText);
-    } catch (err) {
-        helpArticleContent.innerHTML = `<p class="debug-placeholder" style="color: var(--accent);">Failed to load guide: ${err.message}</p>`;
-    }
-}
-
-function parseMarkdown(text) {
-    const lines = text.split('\n');
-    let inList = false;
-    const result = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const trimmed = line.trim();
-        
-        if (trimmed.startsWith('- ')) {
-            if (!inList) {
-                result.push('<ul>');
-                inList = true;
-            }
-            const content = parseInlineMarkdown(trimmed.substring(2));
-            result.push(`<li>${content}</li>`);
-        } else {
-            if (inList) {
-                result.push('</ul>');
-                inList = false;
-            }
-            
-            if (trimmed.startsWith('### ')) {
-                result.push(`<h3>${parseInlineMarkdown(trimmed.substring(4))}</h3>`);
-            } else if (trimmed.startsWith('## ')) {
-                result.push(`<h2>${parseInlineMarkdown(trimmed.substring(3))}</h2>`);
-            } else if (trimmed.startsWith('# ')) {
-                result.push(`<h1>${parseInlineMarkdown(trimmed.substring(2))}</h1>`);
-            } else if (trimmed.length > 0) {
-                result.push(`<p>${parseInlineMarkdown(line)}</p>`);
-            }
-        }
-    }
-    
-    if (inList) {
-        result.push('</ul>');
-    }
-    
-    return result.join('\n');
-}
-
-function parseInlineMarkdown(text) {
-    return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
-}
-
-async function showTipBanner() {
-    try {
-        const res = await fetch('help/warning.json');
-        if (!res.ok) throw new Error();
-        const warnings = await res.json();
-        if (!warnings || warnings.length === 0) return;
-        const tip = warnings[Math.floor(Math.random() * warnings.length)];
-        
-        tipText.setAttribute('data-i18n', tip.text_key);
-        tipText.textContent = t(tip.text_key);
-        
-        tipBanner.dataset.helpPath = tip.help_path;
-        tipBanner.style.display = 'flex';
-    } catch {
-        tipBanner.style.display = 'none';
-    }
-}
-
-// Brand toggle listeners
-if (brandHeader) {
-    brandHeader.addEventListener('click', () => setHelp(!helpDrawer.classList.contains('active')));
-    brandHeader.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setHelp(!helpDrawer.classList.contains('active'));
-        }
-    });
-}
-
-if (helpCloseBtn) {
-    helpCloseBtn.addEventListener('click', () => setHelp(false));
-}
-
-document.querySelectorAll('.help-menu-list li').forEach(li => {
-    li.addEventListener('click', () => {
-        const topic = li.dataset.helpTopic;
-        showHelpArticle(topic);
-    });
-});
-
-if (helpBackBtn) {
-    helpBackBtn.addEventListener('click', showHelpMenu);
-}
-
-// Tip banner events
-if (tipBanner) {
-    tipBanner.addEventListener('click', (e) => {
-        if (e.target.closest('#tip-close-btn')) return;
-        const path = tipBanner.dataset.helpPath;
-        if (path) {
-            setHelp(true);
-            showHelpArticle(path);
-        }
-    });
-}
-
-if (tipCloseBtn) {
-    tipCloseBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        tipBanner.style.display = 'none';
-    });
-}
-
 // Scene panel expand/collapse gestures
 let sceneStartY = null;
 scenePanel.addEventListener('touchstart', (e) => {
@@ -2338,11 +2184,12 @@ async function initializeApplication() {
     RuntimeConfig.init({
         notify: toast,
         onCompactionHelp: () => {
-            setHelp(true);
-            showHelpArticle('compaction');
+            Onboarding.setHelp(true);
+            Onboarding.showHelpArticle('compaction');
         },
     });
     PluginCenter.init({ notify: toast, restartApplication });
+    Onboarding.init({ setDebug, notify: toast });
     Setup.init({
         onStart: (cfg) => startSession(cfg),
         onOpen: () => RuntimeConfig.refresh(),
@@ -2359,59 +2206,8 @@ async function initializeApplication() {
         notify: toast,
     });
     await PluginRuntime.runHook('app.ready', null, { state, toast });
+    Onboarding.checkVersionSync();
 }
 
 registerBuiltinSlashEntries();
 initializeApplication();
-// openSessionsModal(); // show the sessions list on first load
-
-/* ── Version Check ────────────────────────────────────────────────────── */
-async function checkVersionSync() {
-    try {
-        const localData = await api.getVersion();
-        const localCommit = localData?.commit;
-        if (localData?.debug || !localCommit || localCommit === 'unknown') return;
-
-        const remoteRes = await fetch('https://api.github.com/repos/al4xdev/alex-tavern/commits/master');
-        if (!remoteRes.ok) return;
-
-        const remoteData = await remoteRes.json();
-        const remoteCommit = remoteData?.sha;
-
-        if (remoteCommit && localCommit !== remoteCommit) {
-            showVersionWarningToast();
-        }
-    } catch (e) {
-        console.warn('Failed to perform version check:', e);
-    }
-}
-
-function showVersionWarningToast() {
-    const wrap = document.getElementById('toast-wrap');
-    if (!wrap) return;
-
-    const el = document.createElement('div');
-    el.className = 'toast version-warning-toast';
-
-    const textSpan = document.createElement('span');
-    const isPt = (localStorage.getItem('language') || 'en') === 'pt-BR';
-    if (isPt) {
-        textSpan.innerHTML = `⚠️ <strong>Nova versão disponível!</strong> O código local está desalinhado com o <a href="https://github.com/al4xdev/alex-tavern" target="_blank">GitHub</a>.`;
-    } else {
-        textSpan.innerHTML = `⚠️ <strong>Update available!</strong> Your local code is out of sync with <a href="https://github.com/al4xdev/alex-tavern" target="_blank">GitHub</a>.`;
-    }
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.className = 'toast-close-btn';
-    closeBtn.addEventListener('click', () => {
-        el.classList.add('leaving');
-        el.addEventListener('animationend', () => el.remove());
-    });
-
-    el.appendChild(textSpan);
-    el.appendChild(closeBtn);
-    wrap.appendChild(el);
-}
-
-checkVersionSync();

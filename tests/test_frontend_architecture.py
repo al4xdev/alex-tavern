@@ -50,9 +50,14 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     assert "typeof RuntimeConfig" not in setup_source
     assert "typeof toast" not in setup_source
     assert "input: e.input," in app_source
+    # The update check lives in onboarding.js and stays silent in debug mode or
+    # on a build with no commit stamp — it is a courtesy, never an error.
+    onboarding_source = (STATIC / "onboarding.js").read_text(encoding="utf-8")
     assert (
-        "if (localData?.debug || !localCommit || localCommit === 'unknown') return;" in app_source
+        "if (local?.debug || !local?.commit || local.commit === 'unknown') return;"
+        in onboarding_source
     )
+    assert "import * as Onboarding from './onboarding.js';" in app_source
 
 
 def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
@@ -786,3 +791,40 @@ def test_no_exception_message_in_src_is_written_in_portuguese() -> None:
                 ):
                     offenders.append(f"{path.relative_to(ROOT)}: {text.value[:60]}")
     assert offenders == []
+
+
+def test_markdown_renders_the_guide_subset_and_escapes_markup() -> None:
+    """The in-app guides are rendered by our own parser, so it is pinned here."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        const m = await import('./src/static/markdown.js');
+        const assert = (value, message) => { if (!value) throw new Error(message); };
+
+        assert(m.parseMarkdown('# Title') === '<h1>Title</h1>', 'h1');
+        assert(m.parseMarkdown('## Sub') === '<h2>Sub</h2>', 'h2');
+        assert(m.parseMarkdown('### Deep') === '<h3>Deep</h3>', 'h3');
+        assert(m.parseMarkdown('Plain line') === '<p>Plain line</p>', 'paragraph');
+
+        const list = m.parseMarkdown('- one\n- two\nafter');
+        assert(list === '<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n<p>after</p>', 'list closes: ' + list);
+
+        assert(m.parseInlineMarkdown('**bold**') === '<strong>bold</strong>', 'bold');
+        assert(
+          m.parseInlineMarkdown('[text](https://x)') === '<a href="https://x" target="_blank">text</a>',
+          'link'
+        );
+
+        // A guide can never inject markup: < and > are escaped before anything else.
+        const escaped = m.parseMarkdown('<script>alert(1)</script>');
+        assert(!escaped.includes('<script>'), 'raw script survived: ' + escaped);
+        assert(escaped.includes('&lt;script&gt;'), 'not escaped: ' + escaped);
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
