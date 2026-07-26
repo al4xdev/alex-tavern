@@ -12,6 +12,7 @@ Organized by state:
 | `backlog/` | Future without active work (06 RAG, 16 lore, public/real persona, New Journey, S02) | When planning |
 | `reference/` | Living architecture docs (29.2 map, narrator_hint study) | When designing |
 | `closed/` | Tasks closed WITH CONFIDENCE + completed explorations | As history |
+| `next/` | **Code cleanup for 1.0** (2026-07-25 review): structural debt, duplication and abstractions to apply before the version freezes. Index in `next/README.md` | Before 1.0 |
 
 Permanent conventions: only migrate tasks to `closed/` when closed with confidence;
 commits in English without AI trailers; curl-first method (AGENTS.md §6 — the validated
