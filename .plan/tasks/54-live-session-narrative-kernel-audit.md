@@ -1,6 +1,11 @@
 # Task 54 — Auditoria do kernel narrativo na sessão real `1cad8c55`
 
-> **Status (2026-07-26): ABERTA — triagem de regressão e defeitos narrativos.**
+> 🟡 **PARCIAL (2026-07-26)** — branch `refactor/pre-1.0-cleanup`.
+> Achados 2, 4 e 7 corrigidos com teste. Achado 1 tem a análise fechada mas
+> **precisa de decisão sua** (muda como o mundo soa). Achados 3, 5 e 6 seguem
+> abertos. Detalhe no fim do arquivo.
+>
+> **Status original (2026-07-26): ABERTA — triagem de regressão e defeitos narrativos.**
 > Sessão produzida na branch `refactor/pre-1.0-cleanup` para validar uma
 > refatoração que deveria preservar comportamento. A evidência atual NÃO mostra
 > quebra mecânica causada pela refatoração, mas revela defeitos narrativos
@@ -396,3 +401,93 @@ explícita: provider/schema retry versus retry semântico do agente.
 - [ ] Métricas separam retries de transporte de retries semânticos.
 - [ ] Task 53 permanece a dona exclusiva do defeito de `narrator_hint`.
 
+
+
+---
+
+# Andamento (2026-07-26)
+
+## Achado 2 — fala reemitida: **CORRIGIDO**
+
+`_persist_audible_speech` agora pula um `audible_speech` que quase repete fala
+recente da mesma voz. "Mesma voz" inclui o sentinel `Player` quando o subject é
+o personagem controlado — que é exatamente o caso observado (`Link diz: ...`
+gravado como registro C1 novo logo depois do input humano).
+
+Threshold 0.88 e janela de 8 registros, os mesmos números que o guard de eco do
+agente Character já usava, pelo mesmo motivo. Linhas curtas (< 30 caracteres)
+são isentas: duas pessoas dizendo "Sim." é diálogo, não duplicata.
+
+`tests/test_audible_speech_echo.py`, 7 testes, incluindo os dois casos que a
+auditoria registrou (repetição literal e reformulação do input humano) e os
+três que **não** podem disparar: outro falante dizendo o mesmo, linha curta, e
+callback a algo dito muito antes.
+
+Commit `4254939`.
+
+## Achado 4 — vocabulário player/human no Director: **CORRIGIDO**
+
+Virou a task 57, já fechada. Os quatro produtores do core saíram, a regra 5 do
+Director foi revalidada por replay real (4 runs por variante, filas não-vazias
+0/4 nas duas) e uma sessão ao vivo de 24 chamadas fechou com zero ocorrências.
+Ver `.plan/closed/57-player-ontology-prompt-leakage.md`.
+
+## Achado 7 — retry semântico invisível: **CORRIGIDO**
+
+`call_agent` ganhou `guard_retry`. Os quatro sítios que chamam o modelo uma
+segunda vez depois de LER a primeira resposta agora nomeiam o motivo:
+`repetition` (prose e character), `physical_action` e `whisper_leak` (character).
+
+O harness passou a reportar `guard_retries` e `guard_retry_reasons` ao lado de
+`retry_attempts`, então "zero retries" deixa de ser lido como "o modelo foi
+chamado uma vez por turno". As 15 chamadas `prose` para 11 `director` da sessão
+ficam explicáveis pelo próprio log.
+
+Commit `8fe0dc3`.
+
+## Achado 1 — zona local vira isolamento acústico: **ANÁLISE FECHADA, DECISÃO SUA**
+
+Localizei a contradição exata. Não é bug de implementação: **o código e o prompt
+concordam entre si e os dois estão contra a intuição do modelo.**
+
+- `src/runner.py:1005`: `game.scene.zones.setdefault(zone, [])  # new zones start isolated`
+- `src/agents/narrator.py:86`: o prompt diz literalmente ao Director
+  *"a new zone starts acoustically isolated"*.
+
+Ou seja: o Director **foi avisado** e mesmo assim usou `zone_moves` para dizer
+"C18 andou até a mesa central" — posição dentro do mesmo salão. A instrução não
+segurou. Pelo padrão da casa (guard determinístico > instrução), a saída não é
+reescrever a instrução mais forte.
+
+Duas opções, e a escolha muda como o mundo soa:
+
+**A — inverter o default.** Zona nova nasce *audível* a partir da zona de
+origem; separar passa a exigir `zone_link_updates: {"nova": []}` explícito.
+- Ganho: andar pela sala nunca mais cria uma cabine acústica.
+- Custo: sair da sala continua audível até o Director selar. Erra para o lado de
+  perceber demais, o que não vaza segredo (zonas são `audience_origin: "zone"`,
+  que `models.py:202-206` já declara ser percepção e nunca fonte de sigilo).
+
+**B — separar os dois conceitos no schema.** `zone_moves` só posiciona;
+partição acústica vira um campo próprio e obrigatório na criação de zona.
+- Ganho: o contrato passa a ser impossível de confundir.
+- Custo: mexe no schema do Director e no prompt, então exige A/B curl-first
+  antes de shippar, e é mudança maior.
+
+Minha recomendação é **A**: é uma linha de código, é forward-only, e o modo de
+falha dela (ouvir demais) perde muito menos que o modo de falha atual (12
+registros com audiência vazia, Link gritando "Garran, cuidado!" para ninguém).
+
+Não implementei porque muda a acústica de toda sessão futura e essa é sua
+chamada, não minha.
+
+## Achados 3, 5 e 6 — abertos
+
+- **3 (Geralt ausente domina a cena)**: precisa de A/B de prompt; é a mesma
+  família do achado 1 (canon vs. o que o Director acha que a cena é).
+- **5 (estagnação e repetição semântica)**: o guard de eco do Prose e do
+  Character pega repetição *lexical*; estagnação semântica não. Precisa de
+  métrica antes de qualquer correção — e a task 55 acabou de mostrar que métrica
+  de similaridade lexical com n=3 tem ruído da ordem do efeito medido.
+- **6 (roteiro/cena divergem após undo)**: precisa da investigação descrita na
+  própria task; não toquei.
