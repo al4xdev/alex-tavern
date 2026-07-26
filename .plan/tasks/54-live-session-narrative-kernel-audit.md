@@ -1,9 +1,11 @@
 # Task 54 — Auditoria do kernel narrativo na sessão real `1cad8c55`
 
 > 🟡 **PARCIAL (2026-07-26)** — branch `refactor/pre-1.0-cleanup`.
-> Achados 2, 4 e 7 corrigidos com teste. Achado 1 tem a análise fechada mas
-> **precisa de decisão sua** (muda como o mundo soa). Achados 3, 5 e 6 seguem
-> abertos. Detalhe no fim do arquivo.
+> Achados **1, 2, 4 e 7 corrigidos** com teste (o 1 com A/B real). Achado **3
+> investigado e a correção reprovada por medição** — resultado negativo
+> registrado. Achado **6 precisa de decisão sua**: a correção custa bump de
+> schema e tranca as suas 11 sessões salvas. Achado 5 continua aberto por falta
+> de instrumento. Detalhe no fim do arquivo.
 >
 > **Status original (2026-07-26): ABERTA — triagem de regressão e defeitos narrativos.**
 > Sessão produzida na branch `refactor/pre-1.0-cleanup` para validar uma
@@ -445,7 +447,24 @@ ficam explicáveis pelo próprio log.
 
 Commit `8fe0dc3`.
 
-## Achado 1 — zona local vira isolamento acústico: **ANÁLISE FECHADA, DECISÃO SUA**
+## Achado 1 — zona local vira isolamento acústico: **CORRIGIDO**
+
+Você aprovou a opção A (inverter o default) e ela foi medida antes de ir:
+4 runs por variante, dois beats contrastantes, regra registrada antes.
+
+| Cenário | Antigo | Novo |
+|---|---:|---:|
+| Mesma sala: selou a zona? | 0/4 (isolava em silêncio — o bug) | 0/4 (fica audível) |
+| Saída real: selou a zona? | **1/4** (dependia do default) | **4/4** (declara) |
+
+O resultado foi melhor do que a hipótese: com o contrato novo o Director passou
+a **declarar** a separação toda vez, em vez de se apoiar num default que também
+disparava quando ninguém queria. Commit `34ab172`,
+`tests/test_zone_audibility_default.py` (6 testes).
+
+O texto abaixo é a análise original, mantida como registro.
+
+### Análise original
 
 Localizei a contradição exata. Não é bug de implementação: **o código e o prompt
 concordam entre si e os dois estão contra a intuição do modelo.**
@@ -491,3 +510,114 @@ chamada, não minha.
   de similaridade lexical com n=3 tem ruído da ordem do efeito medido.
 - **6 (roteiro/cena divergem após undo)**: precisa da investigação descrita na
   própria task; não toquei.
+
+
+## Achado 3 — nome de lore vira participante: **INVESTIGADO, CORREÇÃO REPROVADA**
+
+### O que a evidência realmente diz
+
+A task descreveu como "Geralt, ausente por contrato, domina a conversa". A
+primeira coisa que achei ao abrir o estado canônico muda o diagnóstico:
+
+**Geralt não é personagem do elenco.** Não tem ID, não está em `characters`,
+nunca esteve em `present_characters`. Ele aparece **três vezes nas diretivas do
+cenário**, e as três dentro de uma tabela interna de escala de poder:
+
+```
+... Cassian Aurel aparenta 190 ...; Elowen 78; Geralt 600; dragão adulto 500 a 600.
+```
+
+Ou seja: não é um personagem ausente sendo tratado como presente. É um **número
+de calibragem virando pessoa**. A mesma tabela, aliás, estabelece "dragão adulto
+500 a 600" — o que ajuda a explicar por que o hint do dragão da task 53
+encontrava tanta resistência de coerência.
+
+As diretivas ainda dizem *"Use os números apenas como régua aproximada do
+Narrador. Nunca os anuncie"* — outra instrução que não segurou.
+
+### A correção que eu tentei, e por que não foi
+
+Hipótese: os agentes inferem presença do texto, então dar o elenco factual
+(`WHO IS HERE WITH YOU: ...`, construído de `scene.present_characters` e
+projetado pelo ledger de perspectiva) impediria a promoção.
+
+Implementei, e medi antes de commitar. Regra pré-registrada: **shippar só se
+produzir estritamente menos respostas-fantasma em 6 runs por variante**, nas três
+chamadas de Character reais que produziram o fantasma.
+
+| Chamada | Baseline | Com roster |
+|---|---:|---:|
+| Maelis, turno 2 (a primeira ocorrência) | 0/6 | 0/6 |
+| Garran, turno 3 | **2/6** | **3/6** |
+| Maelis, turno 4 | 0/6 | 0/6 |
+| **Total** | **2/18** | **3/18** |
+
+**Reprovou.** Não só não melhorou: mediu pior. Revertido.
+
+Hipótese para o porquê (não medida): listar vinte nomes no prompt dá mais
+matéria-prima para geração de nome, não menos. Vale testar um roster reduzido
+(só quem está na mesma zona) antes de tentar de novo.
+
+### O que isso muda na classificação do achado
+
+O fantasma **não é sistemático**: 2 em 18 replays da chamada onde ele nasceu, e
+0 em 12 nas outras duas. É falha de alta variância, não defeito determinístico —
+e isso significa que **replay de uma chamada não é o instrumento certo para
+medi-la**. O instrumento adequado é uma medida de sessão: rodar N sessões
+completas com o mesmo cenário e contar em quantas um nome de lore vira
+participante. Fica registrado como o próximo passo, não como correção pendente.
+
+Lição, a mesma da task 55: eu quase shippei uma mudança de prompt razoável e sem
+efeito. A medição custou 36 chamadas e evitou isso.
+
+## Achado 6 — undo não regride relógio nem roteiro: **PRECISA DE VOCÊ**
+
+Confirmei o contrato no código. `undo_turn` (`runner.py:1371`) restaura do
+snapshot do registro: cena, humores, `plugin_state`, perspectivas e disposições.
+**Não** restaura `narrative_tick` nem `game.roteiro`.
+
+O efeito é o que a auditoria viu: refazer o turno 6 atravessou o deadline do
+Ato 1, `act_index` avançou, e o beat virou 2.1 enquanto a cena persistida
+continuava no salão.
+
+A correção consistente com todo o resto é óbvia — `narrative_tick` e o roteiro
+entram no snapshot do `TurnRecord`, como todo o resto do estado pré-turno já
+entra. **O problema é o preço.**
+
+`TurnRecord` ganhar campos é mudança de schema de sessão. A regra que eu mesmo
+escrevi neste branch (`AGENTS.md` §2) diz: campo novo = bump de versão, sem
+exceção "aditiva". `SESSION_SCHEMA_VERSION` iria de 13 para 14, e
+`IncompatibleSessionError` **tranca permanentemente** as suas **11 sessões
+salvas** em `.data/sessions/` — elas passam a aparecer com o cadeado e não abrem
+mais.
+
+Não tem caminho limpo sem isso: o tick avança por turno e por `time_skip`, e o
+roteiro é um objeto inteiro; reconstruir qualquer um deles sem snapshot seria
+adivinhação a partir do log.
+
+Três opções, e a escolha é sua porque o custo é seu:
+
+1. **Bumpar para 14 e corrigir.** Undo passa a significar "esse turno não
+   aconteceu", ponto. Custo: as 11 sessões trancam.
+2. **Deixar como está e documentar.** Undo regride história e cena, não o
+   relógio. É defensável (o tick mede progresso narrativo real, undo é correção
+   fora da ficção), mas continua surpreendente para quem joga.
+3. **Bumpar depois**, junto com a próxima quebra de schema que aparecer, para
+   pagar o custo uma vez só.
+
+Minha recomendação é a **3**: a correção é certa, mas não vale queimar as suas
+sessões de playtest sozinha.
+
+## Achado 5 — estagnação semântica: aberto, e por um motivo específico
+
+Os guards de eco do Prose e do Character pegam repetição **lexical**. Estagnação
+semântica — a cena andar de lado dizendo coisas diferentes — não tem detector.
+
+Não ataquei porque a task 55 acabou de mostrar o custo de montar um portão sobre
+um instrumento não testado: lá, a mesma configuração mediu 0,0836 e 0,0955 com
+n=3, e eu reprovei um portão por ruído. Aqui seria pior, porque nem existe
+métrica candidata ainda.
+
+O próximo passo honesto é construir e **validar o instrumento primeiro** (medir
+a variância dele em sessões que sabidamente estagnaram e em sessões que não
+estagnaram), e só então usá-lo para aprovar qualquer correção.
