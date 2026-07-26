@@ -15,5 +15,7 @@ z_image_universal.log
 
 # Android build (Gradle)
 .ci-cd/android/.gradle/
+.ci-cd/android/.local/
 .ci-cd/android/app/build/
+.ci-cd/android/app/src/main/assets/
 src/version.txt

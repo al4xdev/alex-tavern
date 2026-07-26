@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android APK Lab"
+  short_description: "Build and validate Alex Tavern Android APKs"
+  default_prompt: "Use $android-apk-lab to build the current Alex Tavern APK and run the physical-device ADB smoke tests."

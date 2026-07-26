@@ -2338,7 +2338,15 @@ async function initializeApplication() {
             showHelpArticle('compaction');
         },
     });
-    PluginCenter.init({ notify: toast });
+    PluginCenter.init({
+        notify: toast,
+        restartApplication: () => {
+            const bridge = window.AlexTavernAndroid;
+            if (!bridge || typeof bridge.restartApplication !== 'function') return false;
+            bridge.restartApplication();
+            return true;
+        },
+    });
     Setup.init({
         onStart: (cfg) => startSession(cfg),
         onOpen: () => RuntimeConfig.refresh(),

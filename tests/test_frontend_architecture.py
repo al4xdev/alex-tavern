@@ -371,6 +371,7 @@ def test_plugin_center_confirms_experiences_and_supports_uninstall() -> None:
 
 def test_plugin_center_batches_active_changes_until_every_close_path() -> None:
     source = (STATIC / "plugin-center.js").read_text(encoding="utf-8")
+    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
     api_source = (STATIC / "api.js").read_text(encoding="utf-8")
 
     assert "let restartPending = false;" in source
@@ -379,6 +380,9 @@ def test_plugin_center_batches_active_changes_until_every_close_path() -> None:
     assert "restartPlugins()" in api_source
     assert "apiFetch('/plugins/restart', { method: 'POST' })" in api_source
     assert source.count("window.location.reload()") == 1
+    assert "if (!restartApplication()) {" in source
+    assert "window.AlexTavernAndroid" in app_source
+    assert "bridge.restartApplication();" in app_source
     assert "else close();" in source
     assert "if (event.target === overlay) close();" in source
     assert "const result = await api.activatePlugin" in source
@@ -427,6 +431,17 @@ def test_plugin_center_tabs_are_accessible_and_touch_draggable() -> None:
     assert "reducedMotion.matches" in source
     assert "touch-action: pan-y" in styles
     assert ".plugin-view-track" in styles
+
+
+def test_mobile_scene_panel_reserves_a_complete_row_for_tags() -> None:
+    styles = (STATIC / "style.css").read_text(encoding="utf-8")
+
+    mobile_start = styles.index("/* ══════════════════ Responsive / mobile")
+    mobile_styles = styles[mobile_start:]
+    assert "min-height: 74px;" in mobile_styles
+    assert "max-height: 74px;" in mobile_styles
+    assert "flex: 1 0 100%;" in mobile_styles
+    assert ".scene-panel.expanded { max-height: 500px; }" in mobile_styles
 
 
 def test_shared_toggle_remains_keyboard_focusable() -> None:

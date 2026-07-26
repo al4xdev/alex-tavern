@@ -2659,7 +2659,24 @@ select.text-input { cursor: pointer; }
     #new-session-btn { padding: 8px 12px; font-size: 0.8rem; }
     .install-btn, #install-btn { padding: 8px 12px; font-size: 0.8rem; }
 
-    .scene-panel { font-size: 0.78rem; padding: 8px 30px 8px 12px; gap: 6px; }
+    /* On narrow screens the location consumes the first row. Reserve a full
+       second row for facts so collapsed tags are visible instead of clipped
+       halfway by the desktop one-line height. */
+    .scene-panel {
+        min-height: 74px;
+        max-height: 74px;
+        align-content: flex-start;
+        font-size: 0.78rem;
+        padding: 8px 30px 8px 12px;
+        gap: 6px;
+    }
+    .scene-panel.expanded { max-height: 500px; }
+    .scene-location {
+        flex: 1 0 100%;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     .scene-tag { font-size: 0.65rem; padding: 2px 6px; }
     
     .msg { max-width: 92%; }

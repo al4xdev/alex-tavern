@@ -109,3 +109,48 @@ def test_android_identity_matches_the_pwa() -> None:
     assert (
         app / "src" / "main" / "res" / "drawable-nodpi" / "ic_launcher_foreground.png"
     ).read_bytes() == (ROOT / "src" / "static" / "icon-maskable-512.png").read_bytes()
+
+
+def test_android_restarts_the_python_process_after_plugin_changes() -> None:
+    app = ANDROID / "app"
+    java = app / "src" / "main" / "java" / "com" / "al4xdev" / "alextavern"
+    manifest = (app / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
+    main_activity = (java / "MainActivity.kt").read_text(encoding="utf-8")
+    restart_activity = (java / "RestartActivity.kt").read_text(encoding="utf-8")
+
+    assert 'addJavascriptInterface(AndroidBridge(), "AlexTavernAndroid")' in main_activity
+    assert 'currentUrl.startsWith("$SERVER_URL/") || currentUrl == ASSET_URL' in main_activity
+    assert "putExtra(RestartActivity.EXTRA_MAIN_PID, android.os.Process.myPid())" in main_activity
+    assert 'android:name=".RestartActivity"' in manifest
+    assert 'android:exported="false"' in manifest
+    assert 'android:process=":restart"' in manifest
+    assert "Process.killProcess(mainPid)" in restart_activity
+    assert "getLaunchIntentForPackage(packageName)" in restart_activity
+
+
+def test_android_shell_supports_native_files_and_immersive_mode() -> None:
+    activity = (
+        ANDROID
+        / "app"
+        / "src"
+        / "main"
+        / "java"
+        / "com"
+        / "al4xdev"
+        / "alextavern"
+        / "MainActivity.kt"
+    ).read_text(encoding="utf-8")
+
+    assert "ActivityResultContracts.StartActivityForResult()" in activity
+    assert "override fun onShowFileChooser(" in activity
+    assert "WebChromeClient.FileChooserParams.parseResult" in activity
+    assert "fileChooserLauncher.launch(pickerIntent)" in activity
+    assert "window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)" in activity
+    assert "LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES" in activity
+    assert "hide(WindowInsetsCompat.Type.systemBars())" in activity
+    assert "BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE" in activity
+    assert "if (hasFocus) enterImmersiveMode()" in activity
+    assert "Ver Logs de Boot" not in activity
+    assert "showLogsDialog" not in activity
+    assert "tailBootstrapLog" not in activity
+    assert "Iniciando Alex Tavern…" in activity

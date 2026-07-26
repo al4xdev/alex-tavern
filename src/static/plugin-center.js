@@ -26,6 +26,7 @@ export const PluginCenter = (() => {
     const tabNames = tabs.map((tab) => tab.dataset.pluginTab);
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let notify = () => {};
+    let restartApplication = () => false;
     let pendingConfirmation = null;
     let confirmationReturnFocus = null;
     let activeTab = 0;
@@ -678,6 +679,7 @@ export const PluginCenter = (() => {
 
     function init(options = {}) {
         notify = options.notify || notify;
+        restartApplication = options.restartApplication || restartApplication;
         selectTab(tabNames[0], { animate: false });
         openBtn.addEventListener('click', open);
         closeBtn.addEventListener('click', () => {
@@ -751,7 +753,9 @@ export const PluginCenter = (() => {
             restartPending = false;
             overlay.classList.remove('active');
             notify(t('plugins.restarting'), 'success', 6000);
-            setTimeout(() => window.location.reload(), 1400);
+            if (!restartApplication()) {
+                setTimeout(() => window.location.reload(), 1400);
+            }
         } catch (error) {
             notify(t('plugins.operationError', { error: error.message }), 'error', 6000);
         } finally {

@@ -1,13 +1,24 @@
 package com.al4xdev.alextavern
 
 import android.annotation.SuppressLint
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.view.WindowManager
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import java.io.File
@@ -20,6 +31,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var statusView: android.widget.TextView
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = filePathCallback ?: return@registerForActivityResult
+        filePathCallback = null
+        callback.onReceiveValue(
+            WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        )
+    }
 
     companion object {
         private const val SERVER_URL = "http://127.0.0.1:8889"
@@ -48,8 +69,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        enterImmersiveMode()
         setContentView(buildLayout())
-        showStatus("Iniciando servidor…")
+        showStatus("Iniciando Alex Tavern…")
 
         // Asset copying and the Chaquopy runtime extraction are both heavy disk
         // I/O — on a first boot they take seconds and would freeze the UI.
@@ -69,6 +91,30 @@ class MainActivity : AppCompatActivity() {
         webView.settings.allowFileAccess = true
         webView.settings.allowFileAccessFromFileURLs = true
         webView.settings.allowUniversalAccessFromFileURLs = true
+        webView.addJavascriptInterface(AndroidBridge(), "AlexTavernAndroid")
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                webView: WebView?,
+                newCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                filePathCallback?.onReceiveValue(null)
+                filePathCallback = newCallback
+                val pickerIntent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/zip"
+                }
+                return try {
+                    fileChooserLauncher.launch(pickerIntent)
+                    true
+                } catch (error: Exception) {
+                    logBootstrap("file chooser ERROR: ${error.message}")
+                    filePathCallback?.onReceiveValue(null)
+                    filePathCallback = null
+                    false
+                }
+            }
+        }
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 return false
@@ -84,20 +130,56 @@ class MainActivity : AppCompatActivity() {
             movementMethod = android.text.method.ScrollingMovementMethod()
         }
         container.addView(statusView)
-
-        val logButton = android.widget.Button(this).apply {
-            text = "Ver Logs de Boot"
-            layoutParams = android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
-                android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = android.view.Gravity.BOTTOM or android.view.Gravity.END
-                setMargins(0, 0, 32, 100) // Margens para não sobrepor botões virtuais
-            }
-            setOnClickListener { showLogsDialog() }
-        }
-        container.addView(logButton)
         return container
+    }
+
+    private fun enterImmersiveMode() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) enterImmersiveMode()
+    }
+
+    /**
+     * Restarts the process which owns Python and Uvicorn after plugin changes.
+     *
+     * Javascript interfaces are visible to every page loaded in this WebView,
+     * so the call is accepted only from Alex Tavern's local frontend. The
+     * separate relay process survives long enough to kill and relaunch us.
+     */
+    private inner class AndroidBridge {
+        @JavascriptInterface
+        fun restartApplication() {
+            mainHandler.post {
+                val currentUrl = webView.url.orEmpty()
+                val trustedPage = currentUrl.startsWith("$SERVER_URL/") || currentUrl == ASSET_URL
+                if (!trustedPage) {
+                    logBootstrap("restartApplication: rejected untrusted page $currentUrl")
+                    return@post
+                }
+
+                logBootstrap("restartApplication: handing off to restart relay")
+                val restartIntent = Intent(this@MainActivity, RestartActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    putExtra(RestartActivity.EXTRA_MAIN_PID, android.os.Process.myPid())
+                }
+                startActivity(restartIntent)
+            }
+        }
     }
 
     private fun showStatus(message: String) {
@@ -183,7 +265,7 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             val waited = (READY_TIMEOUT_MS - (deadline - System.currentTimeMillis())) / 1000
-            showStatus("Iniciando servidor… (${waited}s)\n\n${tailBootstrapLog()}")
+            showStatus("Iniciando Alex Tavern… (${waited}s)")
             try {
                 Thread.sleep(READY_POLL_INTERVAL_MS)
             } catch (e: InterruptedException) {
@@ -192,10 +274,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         logBootstrap("awaitServer: timed out after ${READY_TIMEOUT_MS}ms.")
-        showStatus(
-            "O servidor não respondeu em ${READY_TIMEOUT_MS / 1000}s.\n\n" +
-                "Log de boot:\n\n${tailBootstrapLog()}"
-        )
+        showStatus("Não foi possível iniciar o Alex Tavern. Conecte o aparelho para diagnóstico.")
     }
 
     /** Response code for a GET, or -1 when the request could not be made at all. */
@@ -212,16 +291,6 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             -1
-        }
-    }
-
-    private fun tailBootstrapLog(lines: Int = 12): String {
-        return try {
-            val logFile = File(filesDir, "bootstrap.log")
-            if (!logFile.exists()) return ""
-            logFile.readLines().takeLast(lines).joinToString("\n")
-        } catch (e: Exception) {
-            ""
         }
     }
 
@@ -260,42 +329,6 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             logBootstrap("copyAssetsFolder ERROR for '$assetDirPath': ${e.message}\n${e.stackTraceToString()}")
         }
-    }
-
-    private fun showLogsDialog() {
-        val logFile = File(filesDir, "bootstrap.log")
-        val logs = if (logFile.exists()) logFile.readText() else "Nenhum log de inicialização encontrado."
-
-        val textView = android.widget.TextView(this).apply {
-            text = logs
-            setPadding(40, 40, 40, 40)
-            setTextIsSelectable(true)
-            movementMethod = android.text.method.ScrollingMovementMethod()
-            textSize = 12f
-        }
-
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Logs de Boot do App")
-            .setView(textView)
-            .setPositiveButton("Fechar", null)
-            .setNeutralButton("Limpar") { _, _ ->
-                try {
-                    logFile.writeText("")
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            .setNegativeButton("Copiar") { _, _ ->
-                try {
-                    val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    val clip = android.content.ClipData.newPlainText("TavernLogs", logs)
-                    clipboard.setPrimaryClip(clip)
-                    android.widget.Toast.makeText(this, "Logs copiados!", android.widget.Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            .show()
     }
 
     override fun onBackPressed() {
