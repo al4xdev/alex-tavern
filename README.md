@@ -1391,12 +1391,10 @@ External MCP client
         v
 tools/mcp_server.py
         |
-        | ordinary HTTP / fresh Playwright context
+        | ordinary HTTP
         +-----------------------> Roleplay API :8889
         |                           Runner, sessions, frontend,
         |                           undo, suggestions, compaction
-        +-----------------------> Headless browser
-        |                           PNG + console/page errors in /tmp
         |
         +-----------------------> Replay API :8888
                                     recorded output tape,
@@ -1411,7 +1409,7 @@ The three processes have separate responsibilities:
 
 | Component | Responsibility | Persistent state |
 |---|---|---|
-| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay/replay HTTP requests or bounded Playwright captures | None |
+| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay/replay HTTP requests | None |
 | `src.main:app` | Run the real application, persistence, prompts, and frontend | Session data under `ROLEPLAY_DATA_DIR` |
 | `tools/replay_llm.py` | Serve recorded successful LLM responses in strict sequence | Immutable fixture loaded once plus an in-memory cursor |
 
@@ -1428,7 +1426,6 @@ separate from mutation.
 | `inspect_session_history` | Read a bounded recent history window |
 | `inspect_debug_log` | Read bounded raw LLM/debug records |
 | `inspect_replay_status` | Inspect tape size, cursor, remaining entries, and next response metadata |
-| `inspect_frontend` | Passively capture a fresh headless viewport, visible text and browser errors under `/tmp` |
 | `replay_extract_call` | Locate one recorded LLM call in a session's debug log by agent, turn, and occurrence |
 
 | Mutating tool | Purpose |
@@ -1437,7 +1434,6 @@ separate from mutation.
 | `mutate_fork_session` | Create a non-destructive copy |
 | `mutate_submit_turn` | Submit speech/thought/action and optionally force a speaker |
 | `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
-| `mutate_frontend_flow` | Run bounded click/fill/press/select/wait steps, then capture the resulting UI |
 | `mutate_undo_turn` | Undo the latest complete turn |
 | `mutate_compact_session` | Summarize older history and retain the configured recent window |
 | `mutate_restore_compaction` | Undo the newest incremental compaction checkpoint while preserving later turns |
@@ -1461,13 +1457,6 @@ Start the Roleplay application first:
 
 ```bash
 ./start.sh
-```
-
-For frontend tools, synchronize the dev group and install Playwright's managed Chromium once:
-
-```bash
-uv sync --group dev
-uv run playwright install chromium
 ```
 
 Then register this repository-local process in an MCP client:

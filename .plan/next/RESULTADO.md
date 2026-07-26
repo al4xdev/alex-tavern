@@ -55,14 +55,9 @@ Branch `refactor/pre-1.0-cleanup`, 15 commits sobre `969b939`, 2026-07-26.
 
 ## Portões que dependem de você
 
-1. **Playtest manual** pelo roteiro de
-   `.plan/backlog/02-readme-media/manual-playtest-script.md`. O Playwright aqui
-   valida carga e render com zero erro de console, mas não consegue clicar (os
-   overlays interceptam a checagem de actionability do Playwright), então
-   interação é olho humano.
-2. **Turno real contra o provider ativo.** Não tenho sua chave; tudo que exercitei
-   foi com LLM mockado, mais o boot real com os 3 plugins curados.
-3. **APK e aparelho** (`.claude/skills/android-apk-lab`). Os docs 10 e 11 mexem
+1. ~~**Playtest manual**~~ — **feito pelo dono em 2026-07-26**; a task 02 foi
+   fechada e os achados viraram `.plan/tasks/57-player-ontology-prompt-leakage.md`.
+2. **APK e aparelho** (`.claude/skills/android-apk-lab`). Os docs 10 e 11 mexem
    justamente no que só falha no celular: `android-bridge.js`, o shell do service
    worker, `build_info`, as strings nativas de boot e o lado v1 do
    `pydantic_compat` (que nenhum teste de desktop cobre).
@@ -76,3 +71,18 @@ Branch `refactor/pre-1.0-cleanup`, 15 commits sobre `969b939`, 2026-07-26.
   LLM ad-hoc.
 - Fora de escopo desde o plano: `config: dict` → dataclass tipada, divisão de
   `main.py` em routers, `style.css`.
+
+## Playwright saiu do repositório
+
+`tools/frontend_inspector.py`, seu teste, os dois tools de MCP
+(`inspect_frontend`, `mutate_frontend_flow`) e a dependência de dev `playwright`
+foram removidos. O plugin oficial de Playwright do Claude Code cobre o mesmo
+terreno com muito mais alcance (snapshot de acessibilidade, console, rede,
+`evaluate`) e sem código nosso para manter. `.plan/closed/50` fica como história.
+
+Registro de um erro meu que estava aqui: eu tinha escrito que "o Playwright não
+consegue clicar porque os overlays interceptam a actionability". **É falso.** Os
+alvos que falhavam (`#compaction-help-btn` e vizinhos) vivem dentro de
+`#setup-overlay`, um modal **fechado** (`opacity: 0`, `pointer-events: none`) — o
+Playwright recusou porque um humano também não clicaria ali. Com o modal aberto
+na ordem certa, ele dirige a UI inteira.

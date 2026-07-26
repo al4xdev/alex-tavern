@@ -9,13 +9,17 @@
 > lista) e cache em `rpt-shell-v24`. `app.js`: 2.424 → 2.050 linhas.
 >
 > **Falta:** `transcript.js`, `composer.js`, `sessions-modal.js`,
-> `compaction-ui.js`, `opening-picker.js`, `dom.js`. Motivo declarado: a
-> acoplagem medida desses cinco é de 6 a 11 funções externas cada (contra 1 do
-> debug drawer), e todos ficam no caminho do turno ao vivo. O portão que tenho
-> aqui — Playwright — valida carga e render com zero erro de console, mas **não
-> consegue clicar**: o `pointer-events` dos overlays intercepta a checagem de
-> actionability, então uma regressão de interação passaria batido. Esses cinco
-> pedem o playtest manual do dono como portão, não um teste headless.
+> `compaction-ui.js`, `opening-picker.js`, `dom.js`. Motivo: a acoplagem medida
+> desses cinco é de 6 a 11 funções externas cada (contra 1 do debug drawer), e
+> todos ficam no caminho do turno ao vivo.
+>
+> **Correção de um erro meu:** eu tinha escrito aqui que o Playwright "não
+> consegue clicar" porque os overlays interceptam a actionability. **É falso.**
+> Os alvos que falhavam estão dentro de `#setup-overlay`, um modal fechado
+> (`opacity: 0`, `pointer-events: none`); o Playwright recusou corretamente. Com
+> o modal aberto na ordem certa, ele dirige a UI inteira. O portão headless para
+> esses cinco módulos é viável — pelo plugin de Playwright do Claude Code, já que
+> o `tools/frontend_inspector.py` foi removido do repositório.
 >
 > **Chaves de i18n órfãs: NÃO remover.** Foram removidas e restauradas no mesmo
 > commit: `presence.*` e `character.inScene` são o contrato do plugin curado de
@@ -135,7 +139,7 @@ da config de build, e um `catch` que não polua o console em modo avião.
 
 - `uv run pytest tests/test_frontend_architecture.py tests/test_frontend_i18n.py
   tests/test_whisper_ui.py`;
-- `tools/frontend_inspector.py` (Playwright) com **zero** erros de console e de
+- plugin de Playwright do Claude Code com **zero** erros de console e de
   página, nos dois locales;
 - inspeção manual do fluxo completo: criar sessão, turno, whisper, sugestão,
   compactar, undo, debug drawer, help — o `.plan/backlog/02-readme-media/manual-playtest-script.md`

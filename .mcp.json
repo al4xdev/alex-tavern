@@ -7,7 +7,7 @@
         "python",
         "tools/mcp_server.py"
       ],
-      "cwd": "/home/alex/git/my/roleplay",
+      "cwd": "/home/alex/git/my/alex-tavern",
       "directTools": true
     },
     "alex-tavern-plugin-author": {
@@ -17,7 +17,7 @@
         "python",
         "mcp_server.py",
         "--core-root",
-        "/home/alex/git/my/roleplay"
+        "/home/alex/git/my/alex-tavern"
       ],
       "cwd": "/home/alex/git/my/alex-tavern-plugins",
       "directTools": true
