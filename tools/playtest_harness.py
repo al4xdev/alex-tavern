@@ -743,9 +743,18 @@ def analyze_debug_records(
         "recall_reply_failures": sum(not recall["reply_passed"] for recall in recall_results),
         "llm_calls": len(calls),
         "llm_errors": sum(record.get("error") is not None for record in calls),
+        # Transport retry: the same request resent after a provider/schema failure.
         "retry_attempts": sum(
             isinstance(record.get("attempt_number"), int) and record["attempt_number"] > 1
             for record in calls
+        ),
+        # Guard retry: a second structured call the agent chose to make after
+        # reading the first answer. It carries attempt_number 1, so counting only
+        # the field above reports "zero retries" for a turn that called the model
+        # twice (task 54, finding 7).
+        "guard_retries": sum(bool(record.get("guard_retry")) for record in calls),
+        "guard_retry_reasons": sorted(
+            {str(record["guard_retry"]) for record in calls if record.get("guard_retry")}
         ),
         "max_prompt_chars": max(prompt_sizes, default=0),
         "max_duration_ms": round(max(durations, default=0.0), 3),

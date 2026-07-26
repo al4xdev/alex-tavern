@@ -191,6 +191,9 @@ class TestAgentCallContract:
             "session_id": "abc123",
             "turn_number": 7,
             "agent": "director",
+            # Empty unless an agent chose a second structured call after reading
+            # the first answer (task 54, finding 7).
+            "guard_retry": "",
             "provider": "deepseek",
             "api_base": "https://api.deepseek.com/v1",
             "api_key": "secret",

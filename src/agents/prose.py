@@ -337,7 +337,9 @@ async def render_narration(
         # has not already read, and guarantees the lexical-variation invariant
         # by construction rather than by instruction.
         retry_messages = messages + [{"role": "user", "content": REPETITION_CORRECTION}]
-        result = await call_agent(client, config, retry_messages, **request_kwargs)
+        result = await call_agent(
+            client, config, retry_messages, guard_retry="repetition", **request_kwargs
+        )
         narration = str(result.get("narration", "")).strip()
         if _repeats_prior_narration(narration, history):
             narration = _strip_echoed_sentences(narration, history) or narration

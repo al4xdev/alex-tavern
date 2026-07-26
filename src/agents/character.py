@@ -509,6 +509,7 @@ async def act(
 
     last_error: ValueError | None = None
     correction: str | None = None
+    guard_reason = ""
     for attempt in range(2):
         attempt_messages = messages
         if correction is not None:
@@ -523,12 +524,14 @@ async def act(
             max_tokens=max_tokens_character,
             session_id=session_id,
             turn_number=turn_number,
+            guard_retry=guard_reason,
         )
         try:
             output = _normalize_output(result)
         except ValueError as exc:
             last_error = exc
             correction = _PHYSICAL_ACTION_CORRECTION
+            guard_reason = "physical_action"
             continue
 
         # Deterministic whisper guard on the OUTPUT side (mirror of the Narrator
@@ -556,6 +559,7 @@ async def act(
                         attempt_number=attempt + 1,
                     )
                 correction = _WHISPER_LEAK_CORRECTION
+                guard_reason = "whisper_leak"
                 continue
             if session_id:
                 log_whisper_output_guard(
@@ -579,6 +583,7 @@ async def act(
         if echoed:
             if attempt == 0:
                 correction = _REPETITION_CORRECTION
+                guard_reason = "repetition"
                 continue
             other = "speech" if echoed == "thought" else "thought"
             if output.get(other):

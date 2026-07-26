@@ -174,6 +174,8 @@ def test_analysis_detects_observable_signals() -> None:
 
     assert analysis["llm_calls"] == 2
     assert analysis["retry_attempts"] == 1
+    assert analysis["guard_retries"] == 0
+    assert analysis["guard_retry_reasons"] == []
     assert analysis["nested_physical_facts_outputs"] == 1
     assert analysis["second_person_narrations"] == 1
     assert analysis["character_action_heuristic_hits"] == 1

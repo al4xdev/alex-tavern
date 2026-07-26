@@ -172,6 +172,12 @@ class LlmCallRequest:
     provider: str
     api_base: str
     thinking_enabled: bool
+    # A guard retry is a SECOND structured call the agent chose to make after
+    # reading the first answer (repetition, whisper leak, malformed action) -
+    # not a transport retry. Both carry attempt_number 1, so a tool counting
+    # only that field reports "zero retries" for a turn that called the model
+    # twice (task 54, finding 7).
+    guard_retry: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +224,7 @@ def log_llm_call(
             },
         },
         response=outcome.content,
+        guard_retry=request.guard_retry,
         usage=outcome.usage,
         prompt_cache=(
             {"hit_tokens": outcome.cache_hit_tokens, "miss_tokens": outcome.cache_miss_tokens}

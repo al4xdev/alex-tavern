@@ -50,6 +50,7 @@ async def chat_completion(
     thinking_enabled: bool = False,
     validation_schema: dict[str, Any] | None = None,
     json_schema: dict[str, Any] | None = None,
+    guard_retry: str = "",
 ) -> str:
     """Calls /v1/chat/completions and returns ``content`` as string.
 
@@ -129,6 +130,7 @@ async def chat_completion(
         provider=provider,
         api_base=api_base,
         thinking_enabled=thinking_enabled,
+        guard_retry=guard_retry,
     )
     started = time.perf_counter()
     # None only while nothing has been received: the failure log needs to record
@@ -207,6 +209,7 @@ async def chat_completion_json(
     api_base: str = "",
     api_key: str = "",
     thinking_enabled: bool = False,
+    guard_retry: str = "",
 ) -> dict:
     """Wrapper that forces JSON output and performs ``json.loads()``.
 
@@ -268,6 +271,7 @@ async def chat_completion_json(
                 thinking_enabled=thinking_enabled,
                 validation_schema=json_schema["schema"] if json_schema is not None else None,
                 json_schema=json_schema,
+                guard_retry=guard_retry,
             )
             return cast(dict, json.loads(content))
         except (
@@ -301,6 +305,7 @@ async def call_agent(
     turn_number: int = 0,
     retries: int = 2,
     use_configured_language: bool = True,
+    guard_retry: str = "",
 ) -> dict:
     """One structured call from a named agent, with transport taken from config.
 
@@ -324,6 +329,7 @@ async def call_agent(
         session_id=session_id,
         turn_number=turn_number,
         agent=agent,
+        guard_retry=guard_retry,
         **llm_request_options(config),
     )
 
