@@ -68,7 +68,11 @@ API through provider adapters.
 > - **No public-vs-real persona split for the player character yet** — deliberate bluff/disguise
 >   (presenting power you lack, or hiding what you have) is not a first-class mechanic. Backlog.
 
-<place_1:gif of a full turn — player submits an action, narration streams in, a character responds, mood/scene update in the debug panel>
+<p align="center">
+  <img src="docs/images/readme/full-turn-mobile.gif"
+       alt="Mobile turn in Alex Tavern: Thorn submits speech, private thought, and an action; the Director resolves the scene; narration and Lyra's response appear"
+       width="393">
+</p>
 
 ---
 
@@ -355,7 +359,11 @@ assembled.
 > 
 > In Alex Tavern, because the LLMs are completely blind to the presence of a 'User' (every human input is translated into their character's name at the prompt boundary), the engine treats the player's character as just another natural actor in the physical world. For example, if you write a physical action trying to force another character to do something, the Narrator maintains strict physical consistency and mediates/restricts it just as it would for any NPC. This physical boundary reinforcement is what makes the engine feel so immersive. To actually override the world, the operator must use application-level controls (like 'God-Mode' GM overrides) rather than breaking character inside the narrative."
 
-<place_2:screenshot of the debug/observability panel with the raw LLM call log open, showing narrator + character calls for one turn>
+<p align="center">
+  <img src="docs/images/readme/debug-raw-calls.png"
+       alt="Mobile debug drawer showing the raw Director, prose renderer, perspective, and Character calls for one turn"
+       width="393">
+</p>
 
 ---
 
@@ -457,7 +465,11 @@ snapshot those records carry.
 Scene and mood restoration use the snapshots stored with the removed turn records, so one undo
 reverts the complete step rather than only its visible messages.
 
-<place_3:short gif of the undo button reverting a mood + scene change in one click>
+<p align="center">
+  <img src="docs/images/readme/undo-turn-mobile.gif"
+       alt="Long-pressing Send on mobile, opening the advanced action menu, and atomically undoing the latest turn"
+       width="393">
+</p>
 
 Session load and undo always re-render from the authoritative backend history. Typed speech,
 thought, and action records sharing a speaker and turn number are grouped into the same bubble,
@@ -480,7 +492,11 @@ The action menu next to Send provides two explicit routing controls:
   thought field, while the human still
   has to press send, so it enters the world through the completely normal path.
 
-<place_4:screenshot of the suggestion popup with three candidate speech/action pairs>
+<p align="center">
+  <img src="docs/images/readme/move-suggestions.png"
+       alt="Three model-generated move suggestions in the mobile composer, each pairing speech with a physical action"
+       width="393">
+</p>
 
 An entirely empty turn is rejected. A force-speaker override is meaningful only with observable
 speech or action; a thought-only submission remains private, is persisted as its own undoable
@@ -573,6 +589,12 @@ Initials remain the fallback. Dynamic addition to a running session remains sepa
 
 The in-app **Shortcuts & Features** guide explains the same behavior in English and Brazilian
 Portuguese for non-technical users.
+
+<p align="center">
+  <img src="docs/images/readme/slash-command-palette.png"
+       alt="The animated slash-command palette open above the mobile Speech field"
+       width="393">
+</p>
 
 ---
 
@@ -715,7 +737,15 @@ Current deliberate constraints and known gaps include:
   remaining gap is flat scenes without zones, where public records are treated as perceived by
   everyone present.
 
-<place_5:screenshot of the compact-session button with its progress bar mid-animation>
+On mobile, long-press **Send** to expose the advanced action sheet. Compaction and its checkpoint
+restore live beside Suggest, Event, and atomic turn Undo; while compaction runs, the Compact
+control receives the SSE progress updates described above.
+
+<p align="center">
+  <img src="docs/images/readme/mobile-action-menu.png"
+       alt="Mobile advanced action sheet with Suggest, Narrator Event, Undo, and Compact controls"
+       width="393">
+</p>
 
 Summary and memory are wired into the actual prompts: the Narrator's user prompt has an
 optional "story so far" section, placed before the current scene, populated only once a
@@ -764,7 +794,11 @@ The interface is dependency-free and built from native ES modules. Current behav
 - a session-list landing screen with load, fork, delete, and new-session controls;
 - a responsive debug drawer that becomes a full-screen sheet on narrow displays.
 
-<place_6:screenshot of the session list landing screen>
+<p align="center">
+  <img src="docs/images/readme/session-list-mobile.png"
+       alt="Mobile session manager with character tags, scene metadata, turn count, and New session action"
+       width="393">
+</p>
 
 ---
 
@@ -1332,7 +1366,15 @@ stopped. Scenarios (character and scene starting points) live under `.data/scena
 For a containerized installation, run `./start_docker.sh` on Linux or use the Docker Desktop
 command from [Docker](#-docker).
 
-<place_7:gif of ./start.sh booting and a fresh session being created from a scenario>
+Once `./start.sh` has brought up the backend, the same responsive client opens directly into its
+mobile landing screen. The session manager keeps load, fork, delete, and new-session entry points
+inside the phone-sized interface:
+
+<p align="center">
+  <img src="docs/images/readme/session-flow-mobile.gif"
+       alt="Opening the Alex Tavern mobile session manager and loading an English adventure"
+       width="393">
+</p>
 
 ---
 
