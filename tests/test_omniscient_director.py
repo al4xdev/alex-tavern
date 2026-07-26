@@ -151,7 +151,7 @@ class TestRunnerZoneMaterialization:
         return game, prose_scenes
 
     @pytest.mark.asyncio
-    async def test_first_split_creates_stage_and_isolated_zone(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_first_split_creates_stage_and_audible_zone(self, monkeypatch) -> None:  # noqa: ANN001
         game, _ = await self._turn(
             monkeypatch,
             {
@@ -164,14 +164,33 @@ class TestRunnerZoneMaterialization:
             },
         )
         assert game is not None
-        # New zone materialized isolated; everyone else got the stage zone, so
-        # the mover is genuinely imperceptible to them (unplaced would see all).
-        assert game.scene.zones["ruas da cidade"] == []
         stage = "Salao dos Quatro Arcos"
-        assert game.scene.zones[stage] == []
+        # A new zone is born audible from where its mover came (task 54, finding
+        # 1): crossing a room must not make anyone deaf. Sealing it off is what
+        # zone_link_updates declares, exercised by the next test.
+        assert game.scene.zones["ruas da cidade"] == [stage]
+        assert game.scene.zones[stage] == ["ruas da cidade"]
         assert game.scene.positions["C1"] == "ruas da cidade"
         assert game.scene.positions["C2"] == stage
         assert game.scene.positions["C3"] == stage
+
+    @pytest.mark.asyncio
+    async def test_a_declared_gap_seals_the_new_zone_in_the_same_beat(self, monkeypatch) -> None:  # noqa: ANN001
+        """The Director separates by saying so, not by the runtime assuming it."""
+        game, _ = await self._turn(
+            monkeypatch,
+            {
+                "next_speakers": ["Narrator"],
+                "perception_events": [],
+                "scene_update": None,
+                "mood_updates": None,
+                "zone_moves": {"C1": "ruas da cidade"},
+                "zone_link_updates": {"ruas da cidade": []},
+                "return_control": False,
+            },
+        )
+        assert game is not None
+        assert game.scene.zones["ruas da cidade"] == []
 
     @pytest.mark.asyncio
     async def test_prose_renders_with_reconciled_canon(self, monkeypatch) -> None:  # noqa: ANN001
@@ -219,5 +238,5 @@ class TestPartialMoveLocationClamp:
         assert game.scene.location == "Salao dos Quatro Arcos"  # stage unchanged
         assert game.scene.time_of_day == "manha"  # non-location updates still apply
         assert game.scene.positions["C1"] == "Ruas da Cidade Alta"
-        assert game.scene.zones["Ruas da Cidade Alta"] == []
+        assert game.scene.zones["Ruas da Cidade Alta"] == ["Salao dos Quatro Arcos"]
         assert game.scene.positions["C2"] == "Salao dos Quatro Arcos"

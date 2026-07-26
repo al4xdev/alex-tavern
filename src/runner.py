@@ -993,22 +993,58 @@ class Runner:
 
         new_zones = [z for z in zone_moves.values() if z not in game.scene.zones]
         if new_zones and not game.scene.zones:
-            # First split of a zone-less stage: everyone else keeps the current
-            # stage as their zone, so the new zone is genuinely isolated (unplaced
-            # characters perceive everything).
+            # First split of a zone-less stage: name the stage and place EVERYONE
+            # on it, movers included. Before this beat they were all standing in
+            # the same place, and the mover's origin is what the new zone links
+            # back to — the move loop below overwrites their position anyway.
             stage = (game.scene.location or "").strip()[:60] or "palco"
             game.scene.zones[stage] = []
             for cid in game.scene.present_characters:
-                if cid in game.characters and cid not in zone_moves:
+                if cid in game.characters:
                     game.scene.positions[cid] = stage
-        for zone in new_zones:
-            game.scene.zones.setdefault(zone, [])  # new zones start isolated
+        self._open_new_zones(game, zone_moves, new_zones)
         for moved_id, zone in zone_moves.items():
             game.scene.positions[moved_id] = zone
         for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
             if zone in game.scene.zones:
                 game.scene.zones[zone] = [other for other in audible if other in game.scene.zones]
         return scene_up
+
+    @staticmethod
+    def _open_new_zones(
+        game: GameState, zone_moves: dict[str, str], new_zones: list[str]
+    ) -> None:
+        """Create each new zone already audible from where its movers came.
+
+        A new zone used to start deaf to everything, and the Director was told so
+        in its own contract. It ignored that and kept using ``zone_moves`` for
+        positions inside one room: in the live session `1cad8c55`, "C18 walks to
+        the central table" turned an open hall into two sealed spaces and left 12
+        records with an empty audience, including the player shouting a warning
+        that reached nobody (task 54, finding 1).
+
+        So the default is inverted: sound carries within a place unless something
+        stops it, and stopping it is exactly what ``zone_link_updates`` is for —
+        applied after this, so an explicit seal still wins. Erring toward hearing
+        costs nothing in secrecy: a zone audience is ``audience_origin="zone"``,
+        which the model layer already declares to be perception and never a
+        secrecy source.
+        """
+        for zone in new_zones:
+            if zone in game.scene.zones:
+                continue
+            origins = {
+                game.scene.positions.get(mover)
+                for mover, destination in zone_moves.items()
+                if destination == zone
+            }
+            audible = sorted(
+                origin for origin in origins if origin and origin in game.scene.zones
+            )
+            game.scene.zones[zone] = audible
+            for origin in audible:
+                if zone not in game.scene.zones[origin]:
+                    game.scene.zones[origin].append(zone)
 
     def _apply_time_skip(self, game: GameState, narrator_raw: dict[str, Any], step: int) -> None:
         """Apply a Director-requested time compression, clamped by the code (Task 40 v2).
