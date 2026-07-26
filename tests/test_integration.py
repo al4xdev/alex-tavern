@@ -2571,13 +2571,6 @@ class TestEdgeCases:
         assert body.skip is True
         # não levanta — skip=true bypassa o validator
 
-    def test_pydantic_turn_request_rejects_empty(self) -> None:
-        """PlayerTurnRequest totalmente vazio ainda é rejeitado."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="needs speech, thought, action, or narrator_hint"):
-            PlayerTurnRequest()
-
     def test_pydantic_turn_request_logs_narrator_hint(self) -> None:
         """PlayerTurnRequest com narrator_hint preenche o campo no debug log input."""
         from src.main import PlayerTurnRequest
@@ -2596,26 +2589,27 @@ class TestEdgeCases:
         with pytest.raises(ValidationError, match="narrator_hnit"):
             PlayerTurnRequest(**{"speech": "Hi", "narrator_hnit": "typo"})
 
-    def test_pydantic_turn_request_rejects_skip_with_speech(self) -> None:
-        """skip=True + speech lança erro."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="skip=True cannot be combined"):
-            PlayerTurnRequest(skip=True, speech="Don't ignore me")
-
-    def test_pydantic_turn_request_rejects_skip_with_thought(self) -> None:
-        """skip=True + thought lança erro."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="skip=True cannot be combined"):
-            PlayerTurnRequest(skip=True, thought="I think")
-
-    def test_pydantic_turn_request_rejects_skip_with_action(self) -> None:
-        """skip=True + action lança erro."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="skip=True cannot be combined"):
-            PlayerTurnRequest(skip=True, action="Move")
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({}, "needs speech, thought, action, narrator_hint, or skip"),
+            ({"skip": True, "speech": "Don't ignore me"}, "skip cannot be combined"),
+            ({"skip": True, "thought": "I think"}, "skip cannot be combined"),
+            ({"skip": True, "action": "Move"}, "skip cannot be combined"),
+        ],
+    )
+    async def test_runner_rejects_a_meaningless_submission(
+        self, kwargs: dict, message: str
+    ) -> None:
+        """The rules live in the domain, so every caller obeys them, not only HTTP."""
+        runner = Runner(httpx.AsyncClient(), {})
+        sid = await runner.start_session()
+        try:
+            with pytest.raises(ValueError, match=message):
+                await runner.player_turn(session_id=sid, **kwargs)
+        finally:
+            delete_session(sid)
+            await runner.client.aclose()
 
     def test_pydantic_turn_request_accepts_skip_with_hint(self) -> None:
         """skip=True + narrator_hint é aceito."""
@@ -2679,6 +2673,36 @@ class TestHttpBoundary:
 
         delete_session(sid)
         assert captured.get("narrator_hint") == "A storm approaches."
+
+    @pytest.mark.asyncio
+    async def test_a_domain_rule_violation_still_answers_422(self) -> None:
+        """The rules moved into the Runner; the HTTP contract did not change."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        llm_client = httpx.AsyncClient()
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=Runner(llm_client, {}),
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
+        ) as http:
+            sid = (await http.post("/session/start", json={})).json()["session_id"]
+
+            empty = await http.post(f"/session/{sid}/turn", json={})
+            combined = await http.post(
+                f"/session/{sid}/turn", json={"skip": True, "speech": "hello"}
+            )
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert empty.status_code == 422
+        assert "needs speech" in empty.json()["detail"]
+        assert combined.status_code == 422
+        assert "skip cannot be combined" in combined.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_skip_only_reaches_runner(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001

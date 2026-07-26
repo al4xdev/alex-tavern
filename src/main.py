@@ -29,7 +29,7 @@ from src.config import (
 from src.llm.debug_log import read_entries
 from src.paths import DATA_DIR, STATIC_DIR
 from src.plugins.runtime import PluginRuntime
-from src.pydantic_compat import StrictModel, after_validator, dump, validate
+from src.pydantic_compat import StrictModel, dump, validate
 from src.runner import PresenceRevisionConflictError, Runner
 from src.runtime_bootstrap import prepare_runtime_config
 from src.security import (
@@ -104,6 +104,17 @@ async def incompatible_session_handler(
             "current_version": exc.current_version,
         },
     )
+
+
+@app.exception_handler(ValueError)
+async def invalid_request_handler(request: Request, exc: ValueError) -> JSONResponse:
+    """Turn a domain rule violation into 422, the same status a schema error gets.
+
+    Validation of MEANING lives in the domain (see ``PlayerTurnRequest``), so it
+    reaches HTTP as an exception rather than a pydantic error. Subclasses that
+    carry their own status handle it themselves and never reach here.
+    """
+    return JSONResponse(status_code=422, content={"error": "invalid_request", "detail": str(exc)})
 
 
 def _runtime() -> RuntimeState:
@@ -220,6 +231,13 @@ class StartSessionResponse(BaseModel):
 
 
 class PlayerTurnRequest(StrictModel):
+    """The SHAPE of a turn submission; its rules live in ``Runner.player_turn``.
+
+    Keeping the two apart is deliberate: what makes a turn valid (skip excludes
+    content, a whisper needs something audible, an audience must be present) is
+    domain law that every caller must obey, not only the HTTP one.
+    """
+
     speech: str = ""
     thought: str = ""
     action: str = ""
@@ -228,20 +246,6 @@ class PlayerTurnRequest(StrictModel):
     skip: bool = False
     # Whisper: character IDs that perceive this turn's speech/action. None = public.
     audience: list[str] | None = None
-
-    @after_validator
-    def require_content(self) -> PlayerTurnRequest:
-        if self.skip:
-            if self.speech.strip() or self.thought.strip() or self.action.strip():
-                raise ValueError("skip=True cannot be combined with speech, thought, or action")
-            return self
-        if not any(
-            value.strip() for value in (self.speech, self.thought, self.action, self.narrator_hint)
-        ):
-            raise ValueError("A turn needs speech, thought, action, or narrator_hint")
-        if self.audience is not None and not self.speech.strip() and not self.action.strip():
-            raise ValueError("audience (whisper) requires speech or action")
-        return self
 
 
 class PresenceUpdateRequest(StrictModel):

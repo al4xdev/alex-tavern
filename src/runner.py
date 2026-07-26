@@ -402,9 +402,12 @@ class Runner:
             Dict with: narration, character_responses, next_speakers,
             scene_update, turn_number.
         """
-        if not skip and not any(
-            value.strip() for value in (speech, thought, action, narrator_hint)
-        ):
+        # One place decides what a valid submission is, for every caller: HTTP,
+        # the playtest harness, the MCP tools and plugin code all land here.
+        if skip:
+            if speech.strip() or thought.strip() or action.strip():
+                raise ValueError("skip cannot be combined with speech, thought, or action")
+        elif not any(value.strip() for value in (speech, thought, action, narrator_hint)):
             raise ValueError("A turn needs speech, thought, action, narrator_hint, or skip")
         async with session_lock(session_id):
             game = load_game(session_id)
