@@ -5,7 +5,7 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v25';
+const CACHE = 'rpt-shell-v26';
 const SHELL = [
     '/',
     '/index.html',
@@ -29,6 +29,7 @@ const SHELL = [
     '/debug-drawer.js',
     '/markdown.js',
     '/onboarding.js',
+    '/transcript.js',
     '/app.js',
     '/manifest.webmanifest',
     '/icon.svg',

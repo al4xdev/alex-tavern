@@ -1,7 +1,12 @@
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
-APP = (ROOT / "src/static/app.js").read_text()
+# The observer warning spans the turn flow (app.js) and the transcript render,
+# so the assertions read the view as a whole rather than one file.
+APP = "\n".join(
+    (ROOT / "src/static" / name).read_text()
+    for name in ("app.js", "transcript.js")
+)
 I18N = (ROOT / "src/static/i18n.js").read_text()
 
 

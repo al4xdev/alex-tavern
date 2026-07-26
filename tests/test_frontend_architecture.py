@@ -15,6 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "static"
 
 
+def view_source() -> str:
+    """Every module that makes up the game view, concatenated.
+
+    Behaviour keeps moving out of `app.js` into focused modules, so a test
+    that greps a single file pins a filename instead of the invariant it
+    means to protect. Reading the view as a whole survives the next split.
+    """
+    names = ("app.js", "transcript.js", "debug-drawer.js", "onboarding.js", "markdown.js")
+    return "\n".join((STATIC / name).read_text(encoding="utf-8") for name in names)
+
+
 def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
     assert '<script type="module" src="app.js"></script>' in html
@@ -182,7 +193,7 @@ def test_session_list_renders_compatible_and_incompatible_cards() -> None:
 
         const app = fs.readFileSync('./src/static/app.js', 'utf8');
         const start = app.indexOf('function renderSessionList(sessions)');
-        const end = app.indexOf('/* Clears the chat log', start);
+        const end = app.indexOf('async function loadSession', start);
         if (start < 0 || end < 0) throw new Error('renderSessionList source not found');
 
         const sessionList = new Element();
@@ -489,11 +500,11 @@ def test_disabled_alignment_keeps_mandatory_warning_readable() -> None:
 
 def test_empty_session_invites_first_move_and_mobile_input_opens_directly() -> None:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    source = view_source()
     styles = (STATIC / "style.css").read_text(encoding="utf-8")
 
     assert 'id="empty-scroll-cue"' in html
-    assert "else showEmptyState(true);" in source
+    assert "else deps.showEmptyState(true);" in source
     assert "function expandMobileInput" in source
     assert "inputArea.classList.remove('collapsed');" in source
     assert (
@@ -594,7 +605,7 @@ def test_frontend_adapter_registry_loads_both_provider_modules() -> None:
 
 
 def test_transformed_player_input_updates_live_and_persisted_bubbles() -> None:
-    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
+    app_source = view_source()
     i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
 
     assert "data.effective_input" in app_source
