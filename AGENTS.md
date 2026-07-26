@@ -9,7 +9,8 @@ descreve a arquitetura e as decisões vigentes. História, auditorias e implemen
 ficam em `.plan/closed/`; trabalho ativo fica em `.plan/tasks/`; ideias futuras
 sem trabalho ativo em `.plan/backlog/`; docs de arquitetura vivos em
 `.plan/reference/`; itens esperando ação do dono em `.plan/para-o-dono/`.
-O mapa completo está em `.plan/README.md` e a fila em `.plan/ROADMAP.md`.
+O mapa completo está em `.plan/README.md` (o `ROADMAP.md` monolítico foi removido em
+2026-07-20: o estado vive distribuído entre essas pastas).
 
 > [!IMPORTANT]
 > **Regra Básica de Execução para Agentes:**
@@ -76,6 +77,14 @@ schema de `GameState`/`TurnRecord` mudar de forma que sessões antigas não honr
 Consequência para agentes: **não trave uma melhoria de core por medo de quebrar sessões
 existentes.** Quebrar compatibilidade de sessão é barato e previsto; basta subir a versão.
 O custo real está em carregar shims de compatibilidade, nunca em invalidá-las.
+
+**Campo novo = versão nova. Sem exceção "aditiva".** Não existe campo "puramente aditivo
+que pode ficar sem bump": se `dict_to_game_state` (ou qualquer `dict_to_*`) precisar de
+`.get(campo, default)` para ler uma sessão, o default é uma migração disfarçada e vai
+sobreviver para sempre. Todo campo do schema atual é lido com acesso direto (`data["campo"]`)
+e um `KeyError` significa arquivo corrompido, não versão antiga — o loader já recusou
+qualquer versão diferente antes de chegar ali. Ler campo com default só é legítimo quando
+o valor é opcional *no schema atual* (o `roteiro`, que é `None` com a feature desligada).
 
 ## 3. Invariantes de domínio
 

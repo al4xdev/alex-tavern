@@ -476,10 +476,17 @@ class TestPersistence:
         restored = dict_to_game_state(game_state_to_dict(game))
         assert restored.roteiro == game.roteiro
 
-    def test_legacy_session_without_roteiro_loads_none(self) -> None:
+    def test_a_session_with_the_roteiro_disabled_loads_none(self) -> None:
+        data = game_state_to_dict(_game())
+        data["roteiro"] = None
+        assert dict_to_game_state(data).roteiro is None
+
+    def test_a_session_missing_the_roteiro_field_is_refused(self) -> None:
+        """Forward-only: absent is corruption, null is "the roteiro is off"."""
         data = game_state_to_dict(_game())
         data.pop("roteiro")
-        assert dict_to_game_state(data).roteiro is None
+        with pytest.raises(KeyError):
+            dict_to_game_state(data)
 
 
 class TestConfidentialityAndConsumption:

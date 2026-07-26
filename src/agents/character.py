@@ -151,11 +151,10 @@ def _ledger_memory_text(viewer_perspective) -> str:  # noqa: ANN001
     if viewer_perspective is None:
         return ""
     parts: list[str] = []
-    summary = getattr(viewer_perspective, "memory_summary", "").strip()
+    summary = viewer_perspective.memory_summary.strip()
     if summary:
         parts.append(summary)
-    recent = getattr(viewer_perspective, "recent_memory", [])
-    parts.extend(recent)
+    parts.extend(viewer_perspective.recent_memory)
     return "\n".join(parts)
 
 
@@ -330,7 +329,7 @@ def _format_history_for_character(
         if (
             rec.audience is not None
             and rec.content_type in ("speech", "action")
-            and getattr(rec, "audience_origin", "whisper") == "whisper"
+            and rec.audience_origin == "whisper"
         ):
             kind = f"WHISPERED {kind} (confidential, not everyone present perceived this)"
         lines.append(f"Turn {rec.turn_number} | TYPE={kind} | SPEAKER={label}: {rec.content}")

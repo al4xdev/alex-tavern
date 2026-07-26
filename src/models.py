@@ -141,9 +141,9 @@ def dict_to_perspective(data: dict[str, Any]) -> CharacterPerspective:
     return CharacterPerspective(
         initialized_turn=int(data["initialized_turn"]),
         processed_through_turn=int(data["processed_through_turn"]),
-        recent_memory=list(data.get("recent_memory", [])),
-        memory_summary=str(data.get("memory_summary", "")),
-        memory_through_turn=int(data.get("memory_through_turn", 0)),
+        recent_memory=list(data["recent_memory"]),
+        memory_summary=str(data["memory_summary"]),
+        memory_through_turn=int(data["memory_through_turn"]),
         people={
             subject_id: PersonView(
                 known_name=item["known_name"],
@@ -321,39 +321,39 @@ class Roteiro:
 
 
 def dict_to_roteiro(data: dict[str, Any]) -> Roteiro:
-    beat_data = data.get("beat")
+    beat_data = data["beat"]
     return Roteiro(
         premise=str(data["premise"]),
         acts=[
             RoteiroAct(
                 act_id=str(item["act_id"]),
                 summary=str(item["summary"]),
-                exit_condition=str(item.get("exit_condition", "")),
-                duration_ticks=int(item.get("duration_ticks", 0)),
-                world_event=str(item.get("world_event", "")),
+                exit_condition=str(item["exit_condition"]),
+                duration_ticks=int(item["duration_ticks"]),
+                world_event=str(item["world_event"]),
             )
-            for item in data.get("acts", [])
+            for item in data["acts"]
         ],
-        act_index=int(data.get("act_index", 0)),
+        act_index=int(data["act_index"]),
         beat=(
             RoteiroBeat(
                 beat_id=str(beat_data["beat_id"]),
                 intent=str(beat_data["intent"]),
-                expected_actors=list(beat_data.get("expected_actors", [])),
-                expected_anchors=list(beat_data.get("expected_anchors", [])),
-                exit_condition=str(beat_data.get("exit_condition", "")),
-                budget_turns=int(beat_data.get("budget_turns", 6)),
+                expected_actors=list(beat_data["expected_actors"]),
+                expected_anchors=list(beat_data["expected_anchors"]),
+                exit_condition=str(beat_data["exit_condition"]),
+                budget_turns=int(beat_data["budget_turns"]),
             )
             if beat_data
             else None
         ),
-        beat_started_turn=int(data.get("beat_started_turn", 0)),
-        act_started_tick=int(data.get("act_started_tick", 0)),
-        beat_actions_elapsed=int(data.get("beat_actions_elapsed", 0)),
-        anchors_seen=list(data.get("anchors_seen", [])),
-        cooldown_until_turn=int(data.get("cooldown_until_turn", 0)),
-        beat_replans_in_act=int(data.get("beat_replans_in_act", 0)),
-        beat_log=list(data.get("beat_log", [])),
+        beat_started_turn=int(data["beat_started_turn"]),
+        act_started_tick=int(data["act_started_tick"]),
+        beat_actions_elapsed=int(data["beat_actions_elapsed"]),
+        anchors_seen=list(data["anchors_seen"]),
+        cooldown_until_turn=int(data["cooldown_until_turn"]),
+        beat_replans_in_act=int(data["beat_replans_in_act"]),
+        beat_log=list(data["beat_log"]),
     )
 
 
@@ -552,15 +552,15 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
             time_of_day=snap["time_of_day"],
             present_characters=list(snap["present_characters"]),
             physical_facts=dict(snap["physical_facts"]),
-            zones={zone: list(audible) for zone, audible in snap.get("zones", {}).items()},
-            positions=dict(snap.get("positions", {})),
+            zones={zone: list(audible) for zone, audible in snap["zones"].items()},
+            positions=dict(snap["positions"]),
         ),
         input_transformed=data["input_transformed"],
         mood_snapshot=dict(data["mood_snapshot"]),
         plugin_state_snapshot=copy.deepcopy(data["plugin_state_snapshot"]),
-        audience=list(data["audience"]) if data.get("audience") is not None else None,
-        audience_origin=str(data.get("audience_origin", "whisper")),
-        perspective_snapshot=copy.deepcopy(data.get("perspective_snapshot", {})),
+        audience=list(data["audience"]) if data["audience"] is not None else None,
+        audience_origin=str(data["audience_origin"]),
+        perspective_snapshot=copy.deepcopy(data["perspective_snapshot"]),
         disposition_snapshot=copy.deepcopy(data["disposition_snapshot"]),
     )
 
@@ -586,8 +586,8 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         time_of_day=scene_data["time_of_day"],
         present_characters=list(scene_data["present_characters"]),
         physical_facts=dict(scene_data["physical_facts"]),
-        zones={zone: list(audible) for zone, audible in scene_data.get("zones", {}).items()},
-        positions=dict(scene_data.get("positions", {})),
+        zones={zone: list(audible) for zone, audible in scene_data["zones"].items()},
+        positions=dict(scene_data["positions"]),
     )
 
     history = [dict_to_turn_record(item) for item in data["history"]]
@@ -631,14 +631,15 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         presence_edit_stack=presence_edit_stack,
         character_perspectives={
             viewer_id: dict_to_perspective(item)
-            for viewer_id, item in data.get("character_perspectives", {}).items()
+            for viewer_id, item in data["character_perspectives"].items()
         },
-        turns_since_injected_event=int(data.get("turns_since_injected_event", 0)),
-        roteiro=dict_to_roteiro(data["roteiro"]) if data.get("roteiro") else None,
-        narrative_tick=int(data.get("narrative_tick", 0)),
-        watcher_quiet_turns=int(data.get("watcher_quiet_turns", 0)),
-        watcher_last_intervention_tick=int(data.get("watcher_last_intervention_tick", -999)),
-        watcher_silence_spent=bool(data.get("watcher_silence_spent", False)),
+        turns_since_injected_event=int(data["turns_since_injected_event"]),
+        # The only genuinely optional field: None whenever the roteiro is off.
+        roteiro=dict_to_roteiro(data["roteiro"]) if data["roteiro"] else None,
+        narrative_tick=int(data["narrative_tick"]),
+        watcher_quiet_turns=int(data["watcher_quiet_turns"]),
+        watcher_last_intervention_tick=int(data["watcher_last_intervention_tick"]),
+        watcher_silence_spent=bool(data["watcher_silence_spent"]),
         dispositions=dict_to_disposition_state(data["dispositions"]),
-        schema_version=int(data.get("schema_version", 1)),
+        schema_version=int(data["schema_version"]),
     )

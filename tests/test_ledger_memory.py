@@ -116,12 +116,11 @@ class TestPersistence:
         assert restored.memory_summary == "resumo"
         assert restored.memory_through_turn == 3
 
-    def test_legacy_perspective_without_memory_loads_empty(self) -> None:
+    def test_a_perspective_missing_memory_fields_is_refused(self) -> None:
+        """Forward-only: schema 13 always writes them, so a default would hide corruption."""
         data = {"initialized_turn": 0, "processed_through_turn": 2, "people": {}}
-        restored = dict_to_perspective(data)
-        assert restored.recent_memory == []
-        assert restored.memory_summary == ""
-        assert restored.memory_through_turn == 0
+        with pytest.raises(KeyError):
+            dict_to_perspective(data)
 
 
 class TestUndoPreservesMemory:
