@@ -1139,16 +1139,6 @@ async def _async_main(args: argparse.Namespace) -> int:
     return 1 if any("error" in run for run in runs) else 0
 
 
-def main(argv: Sequence[str] | None = None) -> None:
-    """CLI entrypoint."""
-    args = _parse_args(argv)
-    raise SystemExit(asyncio.run(_async_main(args)))
-
-
-if __name__ == "__main__":
-    main()
-
-
 def write_text(path: Path, content: str) -> None:
     """Publish a report atomically, reusing the store's durability contract.
 
@@ -1159,3 +1149,14 @@ def write_text(path: Path, content: str) -> None:
     from src.store.jsonfile import write_bytes
 
     write_bytes(path, content.encode("utf-8"))
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    """CLI entrypoint."""
+    args = _parse_args(argv)
+    raise SystemExit(asyncio.run(_async_main(args)))
+
+
+if __name__ == "__main__":
+    main()
+

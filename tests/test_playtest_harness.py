@@ -597,3 +597,35 @@ def test_aggregation_and_markdown_are_repeatable() -> None:
     report = build_markdown_report(manifest)
     assert "same" in report
     assert "model" in report
+
+
+def test_every_name_the_entrypoint_uses_is_defined_before_it_runs() -> None:
+    """`python -m tools.playtest_harness` executes main() at import time.
+
+    A helper defined BELOW `if __name__ == "__main__"` is still unbound when
+    main() reaches it, so the run dies with a NameError only after doing all the
+    work. That happened to `write_text` and cost six real sessions: no test
+    noticed because every test imports the analysis functions directly instead
+    of running the module.
+    """
+    import ast
+
+    source = (Path(__file__).resolve().parents[1] / "tools" / "playtest_harness.py").read_text()
+    tree = ast.parse(source)
+    guard_line = next(
+        (
+            node.lineno
+            for node in tree.body
+            if isinstance(node, ast.If)
+            and ast.dump(node.test).find("__main__") >= 0
+        ),
+        None,
+    )
+    assert guard_line is not None, "the module lost its __main__ guard"
+    late = [
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        and node.lineno > guard_line
+    ]
+    assert late == [], f"defined after the entrypoint runs: {late}"
