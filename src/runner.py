@@ -87,6 +87,7 @@ from src.models import (
     default_present_characters,
     dict_to_disposition_state,
     dict_to_perspective,
+    dict_to_roteiro,
     dict_to_turn_record,
     perspective_to_dict,
     validate_present_characters,
@@ -165,6 +166,28 @@ def _echoes_recent_speech(game: GameState, subject: str, spoken: str) -> bool:
         if SequenceMatcher(None, candidate, prior).ratio() >= _SPEECH_ECHO_THRESHOLD:
             return True
     return False
+
+
+def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None]:
+    """The clock and screenplay as they are right now, for this beat's records."""
+    return game.narrative_tick, (asdict(game.roteiro) if game.roteiro is not None else None)
+
+
+def _stamp_undo_anchor(
+    game: GameState, step: int, anchor: tuple[int, dict[str, Any] | None]
+) -> None:
+    """Write the pre-beat clock and screenplay onto every record of this beat.
+
+    Records are appended at different moments of a beat - the player's input
+    before the Director runs, the narration after - so the anchor is stamped
+    once, at commit, instead of being read from a moving ``game``.
+    """
+    tick, roteiro = anchor
+    for record in reversed(game.history):
+        if record.turn_number != step:
+            break
+        record.narrative_tick_snapshot = tick
+        record.roteiro_snapshot = copy.deepcopy(roteiro)
 
 
 def _current_turn(game: GameState) -> int:
@@ -553,6 +576,11 @@ class Runner:
             for beat_index in range(max_beats):
                 if beat_index:
                     step = _next_turn_number(game)
+                # Captured before the roteiro can be replanned and before the
+                # clock advances, so undoing this beat restores the world the
+                # player acted in. Each beat commits as its own turn, so each
+                # one carries its own anchor.
+                beat_anchor = _undo_anchor(game)
 
                 hint, injected_event = await self._resolve_beat_hint(
                     game, step, beat_index, turn, pending_hint
@@ -597,6 +625,7 @@ class Runner:
                     game, queue, narrator_raw, turn, step
                 )
                 self._persist_audible_speech(game, narrator_raw, step)
+                _stamp_undo_anchor(game, step, beat_anchor)
                 game = await self._commit_beat(
                     game, narrator_raw, character_responses, step, injected_event
                 )
@@ -1413,6 +1442,12 @@ class Runner:
                 for viewer_id, item in restore.perspective_snapshot.items()
             }
             game.dispositions = dict_to_disposition_state(restore.disposition_snapshot)
+            game.narrative_tick = restore.narrative_tick_snapshot
+            game.roteiro = (
+                dict_to_roteiro(copy.deepcopy(restore.roteiro_snapshot))
+                if restore.roteiro_snapshot is not None
+                else None
+            )
 
             game = await self.plugins.hooks.filter(
                 Hook.UNDO_BEFORE_COMMIT,

@@ -38,7 +38,7 @@ from typing import Any
 # 13 = Task 43 close: composure removed after failing its empirical razor,
 # relationship appraisal revisions clamped to evidence the observer perceived,
 # and disposition state included in each TurnRecord's atomic undo snapshot.
-SESSION_SCHEMA_VERSION = 13
+SESSION_SCHEMA_VERSION = 14
 
 
 @dataclass
@@ -211,6 +211,13 @@ class TurnRecord:
     # Relationship state before this turn's appraisal/gravity pass. Stored as a
     # plain serialized dict so TurnRecord remains a forward-only JSON contract.
     disposition_snapshot: dict[str, Any] = field(default_factory=lambda: {"per_dyad": {}})
+    # The story clock and the screenplay as they were BEFORE this beat. Without
+    # them, undo rewound history and the scene but left the clock ahead, so
+    # replaying the same action could cross an act deadline and land the player
+    # in a different act while the persisted scene had not moved (task 54,
+    # finding 6). Undo now means "this beat did not happen", with no exception.
+    narrative_tick_snapshot: int = 0
+    roteiro_snapshot: dict[str, Any] | None = None
 
 
 def record_visible_to(record: TurnRecord, character_id: str) -> bool:
@@ -562,6 +569,8 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
         audience_origin=str(data["audience_origin"]),
         perspective_snapshot=copy.deepcopy(data["perspective_snapshot"]),
         disposition_snapshot=copy.deepcopy(data["disposition_snapshot"]),
+        narrative_tick_snapshot=int(data["narrative_tick_snapshot"]),
+        roteiro_snapshot=copy.deepcopy(data["roteiro_snapshot"]),
     )
 
 

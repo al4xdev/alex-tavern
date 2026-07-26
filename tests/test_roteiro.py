@@ -780,7 +780,13 @@ class TestNarrativeClock:
             await client.aclose()
 
     @pytest.mark.asyncio
-    async def test_undo_does_not_regress_the_clock(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_undo_rewinds_the_clock_with_the_turn(self, monkeypatch) -> None:  # noqa: ANN001
+        """Undo means the beat did not happen - clock included (task 54, finding 6).
+
+        It used to rewind history and the scene while leaving the clock ahead, so
+        replaying the same action could cross an act deadline and drop the player
+        into a different act while the persisted scene had not moved.
+        """
         from src.store.sessions import delete_session
 
         acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e")]  # no deadline
@@ -791,12 +797,53 @@ class TestNarrativeClock:
             before = await runner.get_state(sid)
             assert before.narrative_tick == 2
             last_turn = before.history[-1].turn_number
-            # Time always moves forward: undoing a turn rewinds scene/history but
-            # NEVER the clock (an undone turn replays at a later tick).
+
             await runner.undo_turn(sid)
             game = await runner.get_state(sid)
             assert game.history[-1].turn_number < last_turn  # a turn was undone
-            assert game.narrative_tick == 2  # clock held, did not regress to 1
+            assert game.narrative_tick == 1  # and the clock came back with it
+
+            # Replaying the same action lands on the same tick it would have had.
+            await runner.player_turn(sid, speech="Dois, de novo.")
+            assert (await runner.get_state(sid)).narrative_tick == 2
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_undo_restores_the_screenplay_the_player_acted_under(self, monkeypatch) -> None:  # noqa: ANN001
+        """An act deadline crossed by the undone turn is crossed back."""
+        from src.store.sessions import delete_session
+
+        acts = [
+            RoteiroAct(
+                act_id="a1",
+                summary="s",
+                exit_condition="e",
+                duration_ticks=2,
+                world_event="O sino da torre soa.",
+            ),
+            RoteiroAct(act_id="a2", summary="s2", exit_condition="e2"),
+        ]
+        runner, sid, client, _, _ = await self._clock_session(
+            monkeypatch, _roteiro(acts=acts, act_started_tick=0)
+        )
+        try:
+            await runner.player_turn(sid, speech="Um.")  # tick 0->1
+            await runner.player_turn(sid, speech="Dois.")  # tick 1->2
+            # The third turn crosses the deadline: tick(2) - started(0) >= 2.
+            await runner.player_turn(sid, speech="Tres.")
+            crossed = await runner.get_state(sid)
+            assert crossed.roteiro is not None
+            assert crossed.roteiro.act_index == 1, "the deadline was crossed"
+            assert crossed.narrative_tick == 3
+
+            await runner.undo_turn(sid)
+            game = await runner.get_state(sid)
+            assert game.roteiro is not None
+            assert game.roteiro.act_index == 0, "and undo put the act back"
+            assert game.roteiro.act_started_tick == 0
+            assert game.narrative_tick == 2
         finally:
             await delete_session(sid)
             await client.aclose()
