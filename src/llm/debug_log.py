@@ -320,6 +320,16 @@ def log_drive_decision(
     )
 
 
+def log_scenario_contract_warning(session_id: str, *, phrases: list[str]) -> None:
+    """A scenario's own directives named the operator (AGENTS.md section 3).
+
+    Written, never acted on: the directives belong to whoever wrote the
+    scenario, and silently rewriting narrative text is a worse failure than the
+    leak it would hide. See src/prompt_contract.py for the rule.
+    """
+    _emit(session_id, "scenario_contract", 0, status="operator_ontology", phrases=phrases)
+
+
 def log_time_skip(
     session_id: str,
     turn_number: int,

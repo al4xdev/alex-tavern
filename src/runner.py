@@ -71,6 +71,7 @@ from src.llm.debug_log import (
     log_presence_undo,
     log_restore_compaction,
     log_roteiro_decision,
+    log_scenario_contract_warning,
     log_time_skip,
     log_turn_input,
     log_unanswered_player,
@@ -93,6 +94,7 @@ from src.models import (
 from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
 from src.plugins.contracts import Hook
 from src.plugins.runtime import PluginRuntime
+from src.prompt_contract import operator_ontology_hits
 from src.roteiro import (
     ReplanDecision,
     collect_beat_evidence,
@@ -359,8 +361,27 @@ class Runner:
             Hook.SESSION_BEFORE_COMMIT, game, {"kind": "start", "runner": self}
         )
         save_game(game)
+        self._warn_on_directive_contract(game)
         await self.plugins.hooks.action(Hook.SESSION_AFTER_COMMIT, {"game": game, "kind": "start"})
         return session_id
+
+    @staticmethod
+    def _warn_on_directive_contract(game: GameState) -> None:
+        """Record it when a scenario's own directives name the operator.
+
+        `narrator_directives` reach the Director, the Historian, both suggestion
+        paths and the Architect. A scenario that says "the player controls Link"
+        therefore tells every one of them that a human exists — the thing
+        AGENTS.md section 3 promises they never learn.
+
+        Scenarios written by their owner are theirs. Rewriting somebody's
+        narrative text behind their back would be worse than the leak, so this
+        only writes the finding to the session log where the debug drawer and
+        the tools can show it.
+        """
+        hits = operator_ontology_hits(game.narrator_directives)
+        if hits:
+            log_scenario_contract_warning(game.session_id, phrases=sorted(set(hits)))
 
     async def execute_command(
         self, session_id: str, command_name: str, payload: dict[str, Any]
