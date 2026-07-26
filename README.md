@@ -70,8 +70,11 @@ API through provider adapters.
 
 <p align="center">
   <img src="docs/images/readme/full-turn-mobile.gif"
-       alt="Mobile turn in Alex Tavern: Thorn submits speech, private thought, and an action; the Director resolves the scene; narration and Lyra's response appear"
-       width="393">
+       alt="Complete mobile turn in Alex Tavern: a suggestion fills Thorn's speech and action, the turn is sent, and the Narrator and Lyra respond"
+       width="300">
+  <img src="docs/images/readme/mobile-gestures.gif"
+       alt="Alex Tavern mobile gestures: reveal suggestions, undo a complete turn, open a Narrator event, and continue the story"
+       width="300">
 </p>
 
 ---

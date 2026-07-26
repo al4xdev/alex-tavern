@@ -67,4 +67,22 @@ than fabricating a progress state that disappears with that sheet.
 - No API key, provider configuration, personal session list, or Android private
   path appears in any tracked frame.
 - Contact-sheet inspection covered the initial, transition, and final frames of
-  all three GIFs.
+  every tracked GIF.
+
+## Physical-device revision — 2026-07-25
+
+An owner-recorded Android session replaced the original synthetic-browser
+full-turn GIF. The 91.8-second source recording remained outside the repository;
+long model waits were removed while interaction states were preserved. The result
+is presented as two adjacent 392 × 872 GIFs:
+
+- `full-turn-mobile.gif`: 12.0 seconds and 7,376,438 bytes, covering suggestion
+  selection, submission, bounded processing, narration, Character response, and
+  the next suggestion set;
+- `mobile-gestures.gif`: 17.2 seconds and 6,755,682 bytes, covering suggestion
+  reveal, atomic Undo, the Narrator-event gesture, event submission, and the
+  resulting continued turn.
+
+Both files use 10 fps and a 128-color measured palette. Contact sheets at
+one-second intervals verified the first frame, gesture transitions, post-cut
+boundaries, and final state; neither GIF retains a long loading interval.
