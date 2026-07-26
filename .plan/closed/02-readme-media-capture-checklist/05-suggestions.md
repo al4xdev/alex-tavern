@@ -1,4 +1,4 @@
-# Capture 05: Suggestions popup
+# Historical brief — Capture 05: Suggestions popup
 
 **README placeholder (`README.md:262`):**
 

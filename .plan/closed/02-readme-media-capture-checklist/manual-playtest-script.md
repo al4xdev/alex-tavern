@@ -1,4 +1,4 @@
-# Thorn and Lyra manual playtest script
+# Historical brief — Thorn and Lyra manual playtest script
 
 Use the built-in **`thorn-lyra`** preset and keep **Thorn (`C1`)** as the
 controlled character. The script starts in Old Mork's Tavern and follows one

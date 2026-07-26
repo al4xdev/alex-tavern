@@ -1,4 +1,4 @@
-# Capture 02: Complete turn
+# Historical brief — Capture 02: Complete turn
 
 **README placeholder (`README.md:19`):**
 

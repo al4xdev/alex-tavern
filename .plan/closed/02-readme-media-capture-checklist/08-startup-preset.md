@@ -1,4 +1,4 @@
-# Capture 08: Startup and preset session
+# Historical brief — Capture 08: Startup and preset session
 
 **README placeholder (`README.md:465`):**
 

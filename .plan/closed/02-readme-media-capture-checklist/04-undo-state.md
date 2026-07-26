@@ -1,4 +1,4 @@
-# Capture 04: Undo restoring mood and scene
+# Historical brief — Capture 04: Undo restoring mood and scene
 
 **README placeholder (`README.md:222`):**
 

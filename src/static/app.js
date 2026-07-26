@@ -598,7 +598,7 @@ function renderHistory(history) {
         if (!responseBuffer) return;
         addMessage(responseBuffer.speaker, responseBuffer, 'response', {
             transformed: responseBuffer.transformed,
-            whisperNames: responseBuffer.audience
+            whisperNames: responseBuffer.audienceOrigin === 'whisper' && responseBuffer.audience
                 ? whisperNamesFor(responseBuffer.audience) : '',
         });
         responseBuffer = null;
@@ -618,11 +618,15 @@ function renderHistory(history) {
                     action: null,
                     transformed: false,
                     audience: null,
+                    audienceOrigin: null,
                 };
             }
             responseBuffer[record.content_type] = record.content;
             responseBuffer.transformed ||= record.input_transformed === true;
-            if (record.audience != null) responseBuffer.audience = record.audience;
+            if (record.audience != null) {
+                responseBuffer.audience = record.audience;
+                responseBuffer.audienceOrigin = record.audience_origin;
+            }
             continue;
         }
         flushResponseBuffer();

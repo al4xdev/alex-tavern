@@ -43,10 +43,11 @@ class TestComposerControl:
 
 
 class TestWhisperedRendering:
-    def test_history_records_with_audience_render_a_badge(self) -> None:
+    def test_only_explicit_whispers_render_a_badge(self) -> None:
         assert "msg-whisper-badge" in APP
-        assert "whisperNamesFor(responseBuffer.audience)" in APP
+        assert "responseBuffer.audienceOrigin === 'whisper'" in APP
         assert "record.audience != null" in APP
+        assert "responseBuffer.audienceOrigin = record.audience_origin" in APP
 
     def test_badge_uses_localized_label(self) -> None:
         assert "msg.whisperTo" in APP

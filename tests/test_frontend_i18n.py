@@ -113,6 +113,7 @@ def test_every_referenced_translation_key_exists_in_english_catalog() -> None:
         const {catalogs} = await import('./src/static/i18n.js');
         const files = [
             'index.html', 'app.js', 'setup.js', 'runtime-config.js',
+            'debug-drawer.js',
             'adapters/base.js', 'adapters/llama-cpp.js', 'adapters/deepseek.js',
         ];
         const patterns = [

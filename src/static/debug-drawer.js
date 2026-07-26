@@ -7,7 +7,7 @@
    ══════════════════════════════════════════════════════════════════════ */
 
 import { api } from './api.js';
-import { t, translateDocument } from './i18n.js';
+import { bindTranslation, t, translateDocument } from './i18n.js';
 
 const debugToggle = document.getElementById('debug-toggle');
 const debugDrawer = document.getElementById('debug-drawer');
@@ -197,4 +197,3 @@ export async function previewPrompt() {
         deps.notify(t('debug.previewError', { error: err.message }), 'error');
     }
 }
-

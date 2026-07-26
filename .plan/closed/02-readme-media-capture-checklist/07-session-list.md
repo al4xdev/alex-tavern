@@ -1,4 +1,4 @@
-# Capture 07: Session-list landing screen
+# Historical brief — Capture 07: Session-list landing screen
 
 **README placeholder (`README.md:434`):**
 

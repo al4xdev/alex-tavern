@@ -495,12 +495,6 @@ The action menu next to Send provides two explicit routing controls:
   thought field, while the human still
   has to press send, so it enters the world through the completely normal path.
 
-<p align="center">
-  <img src="docs/images/readme/move-suggestions.png"
-       alt="Three model-generated move suggestions in the mobile composer, each pairing speech with a physical action"
-       width="393">
-</p>
-
 An entirely empty turn is rejected. A force-speaker override is meaningful only with observable
 speech or action; a thought-only submission remains private, is persisted as its own undoable
 step, and does not cause another character to react to information they cannot know.
@@ -796,12 +790,6 @@ The interface is dependency-free and built from native ES modules. Current behav
 - instant rendering for player echoes and history replay;
 - a session-list landing screen with load, fork, delete, and new-session controls;
 - a responsive debug drawer that becomes a full-screen sheet on narrow displays.
-
-<p align="center">
-  <img src="docs/images/readme/session-list-mobile.png"
-       alt="Mobile session manager with character tags, scene metadata, turn count, and New session action"
-       width="393">
-</p>
 
 ---
 
@@ -1370,12 +1358,12 @@ For a containerized installation, run `./start_docker.sh` on Linux or use the Do
 command from [Docker](#-docker).
 
 Once `./start.sh` has brought up the backend, the same responsive client opens directly into its
-mobile landing screen. The session manager keeps load, fork, delete, and new-session entry points
-inside the phone-sized interface:
+mobile landing screen. In a fresh session, the opening picker can generate three scenario-grounded
+beginnings; choosing one starts the first narrated beat through the normal turn flow:
 
 <p align="center">
   <img src="docs/images/readme/session-flow-mobile.gif"
-       alt="Opening the Alex Tavern mobile session manager and loading an English adventure"
+       alt="Generating three beginnings in an empty mobile session, choosing one, and starting the first narrated beat"
        width="393">
 </p>
 

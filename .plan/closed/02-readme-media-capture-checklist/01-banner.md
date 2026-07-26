@@ -1,4 +1,4 @@
-# Capture 01: Application banner
+# Historical brief — Capture 01: Application banner
 
 **README placeholder (`README.md:3`):**
 

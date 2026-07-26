@@ -52,6 +52,7 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     # The raw-log renderer moved to its own module with the rest of the drawer.
     debug_source = (STATIC / "debug-drawer.js").read_text(encoding="utf-8")
     assert "input: e.input," in debug_source
+    assert "import { bindTranslation, t, translateDocument } from './i18n.js';" in debug_source
     assert "import * as DebugDrawer from './debug-drawer.js';" in app_source
     # The update check lives in onboarding.js and stays silent in debug mode or
     # on a build with no commit stamp — it is a courtesy, never an error.

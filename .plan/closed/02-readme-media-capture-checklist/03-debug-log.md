@@ -1,4 +1,4 @@
-# Capture 03: Raw debug log
+# Historical brief — Capture 03: Raw debug log
 
 **README placeholder (`README.md:163`):**
 

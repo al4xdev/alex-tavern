@@ -61,3 +61,8 @@ mechanics are invisible in the product.
 > validated by the partition/perspective live runs. Residual: a human
 > click-through in a real browser (cannot be automated here) — the payload the
 > UI emits is byte-identical to the harness-validated shape.
+
+> **Superseded rendering detail (2026-07-26, Task 56):** after
+> `audience_origin` began distinguishing explicit whispers from zone-computed
+> perception, zone-scoped records stopped receiving the `🤫` badge. Only
+> `audience_origin="whisper"` is now labeled as whispered.

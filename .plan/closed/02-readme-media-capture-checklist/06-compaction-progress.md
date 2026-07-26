@@ -1,4 +1,4 @@
-# Capture 06: Compaction progress
+# Historical brief — Capture 06: Compaction progress
 
 **README placeholder (`README.md:388`):**
 
