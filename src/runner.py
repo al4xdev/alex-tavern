@@ -2082,7 +2082,6 @@ class Runner:
                 self.client,
                 viewer_id,
                 game.characters,
-                game.player.controlled_character_id,
                 self.config,
                 session_id=game.session_id,
                 turn_number=turn_number,

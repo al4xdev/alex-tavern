@@ -1,9 +1,13 @@
 # Task 57 — Eliminar vazamento da ontologia de jogador nos prompts LLM
 
-> **Status (2026-07-26): ABERTA — violação de invariante confirmada em código e logs reais.**
-> O primeiro produtor conhecido está ativo desde 2026-07-16. A correção é gate
-> pré-1.0: conhecimento de agência humana pertence ao Runner e não pode ser
-> convertido em texto para nenhum agente.
+> ✅ **FECHADA em 2026-07-26** (branch `refactor/pre-1.0-cleanup`). Os quatro
+> vazamentos do core saíram, o Director foi revalidado por replay real e uma
+> sessão ao vivo com 24 chamadas cobriu as seis famílias exigidas com **zero**
+> ocorrências. Evidência completa em "Resultado" no fim do arquivo.
+>
+> Duas coisas ficaram **abertas de propósito** e viraram achado novo: a
+> `ROUTING CONSTRAINT` do Director e o contrato de cenários do usuário. Ambas
+> descritas no fim.
 
 ## Invariante violado
 
@@ -293,3 +297,119 @@ código.
 - [ ] Requests, respostas brutas e contagens ficam registrados nesta task.
 - [ ] README permanece verdadeiro sem precisar enfraquecer a garantia.
 
+
+
+---
+
+# Resultado (2026-07-26)
+
+## O que mudou
+
+| # | Vazamento | Correção |
+|---|---|---|
+| 1 | `(controlled by the player)` em `perspective._roster_lines` | Marcador removido; o parâmetro `controlled_id` ficou sem uso e saiu de `_roster_lines` **e** de `initialize_perspective` (`runner.py:2081` acompanhou) |
+| 2 | "The player's own..." / "ignoring the player" na regra 5 do Director | Reescrita em termos da última entrada de HISTORY e do zone daquele falante — **validada por replay**, ver abaixo |
+| 3 | "reaja à agência humana" em `turma-dos-portais-pt.json` | Virou "reaja ao que ele fizer ali"; o resto da diretiva (não decidir escolhas de Link) ficou intacto |
+| 4 | `(PROTAGONIST — never an expected actor)` no roteiro | Marcador removido do roster, e `_ARCHITECT_RULES` deixou de citar "protagonist" nas 3 posições. `_validate_beat` continua removendo o controlado de `expected_actors` deterministicamente |
+| 5 | `assert "Player" not in prompt` e `prompts.count("Player")` | Substituídos pela regra compartilhada `src/prompt_contract.py` |
+
+## A regra, agora explícita e testada
+
+`src/prompt_contract.py` define `operator_ontology_hits` / `leaks_operator_ontology`
+sobre **frases operacionais**, nunca palavras soltas — o requisito da própria task.
+Dois consumidores compartilham a mesma definição: `tests/test_prompt_operator_ontology.py`
+e a métrica `operator_ontology_hits` do `tools/playtest_harness.py` (que também
+passou a reportar `operator_ontology_phrases`).
+
+Os testes cobrem as duas direções, que é o que faltava antes:
+
+- `test_the_rule_catches_the_four_shapes_that_actually_shipped` — fixtures com as
+  strings exatas que estavam em produção, inclusive as minúsculas que o assert
+  case-sensitive aceitava;
+- `test_the_rule_leaves_diegetic_language_alone` — "a única humana entre os elfos",
+  "um player de alaúde", "as escolhas de cada personagem são sagradas" não podem
+  disparar.
+
+## Boundary real — o A/B do Director (curl-first, AGENTS.md §6)
+
+Regra de decisão **pré-registrada antes de rodar**: shippar a variante cega só se,
+em 4 runs por variante sobre o mesmo payload gravado, ela produzir `next_speakers`
+não-vazio pelo menos tanto quanto a atual, e sem escolher o personagem controlado.
+
+Payload: chamada `director` real do turno 1 da sessão `34f16498` (fala audível do
+personagem controlado na última entrada de HISTORY). Só a regra 5 mudou entre as
+variantes; o resto é byte a byte o que o servidor mandou.
+
+| Variante | Filas vazias | `next_speakers` por run | Média de falantes |
+|---|---:|---|---:|
+| atual (com "player") | **0/4** | `[C2]`, `[C2,C3]`, `[C2]`, `[C2]` | 1,25 |
+| cega (shippada) | **0/4** | `[C2,C3]`, `[C2]`, `[C2]`, `[C2,C3,C4]` | 1,75 |
+
+Nenhuma das 8 runs escolheu C1 (o controlado). A regra pré-registrada passou e a
+variante cega foi shippada exatamente como testada. **Observação honesta:** a
+variante cega escolheu em média mais falantes (1,75 vs 1,25). Não é reprovação
+pela regra registrada, mas se bursts ficarem mais longos que o esperado, este é o
+primeiro lugar para olhar.
+
+## Sessão real — as seis famílias
+
+Servidor com a config real (DeepSeek), cenário built-in `turma-dos-portais-pt`,
+jogado pelo frontend em viewport mobile (390×844) com swipe no carrossel.
+**24 requests LLM auditados, 0 ocorrências:**
+
+| Família | Chamadas |
+|---|---:|
+| `director` | 3 |
+| `prose` | 4 |
+| `alignment:impulse` | 4 |
+| `character:*` | 4 |
+| `roteiro:compile` + `roteiro_replan` | 3 |
+| `perspective:init:*` + `perspective:update:*` | 4 |
+| `narrator_suggest` | 2 |
+| `opening_suggest` | 1 |
+| `summarizer:world` (Historian, compactação forçada) | 1 |
+
+Auditoria estática dos builders shippados, no mesmo estado real: **17 builders,
+0 vazando**. Os três cenários built-in também: 0.
+
+## Achado novo #1 — a `ROUTING CONSTRAINT` identifica o controlado
+
+`narrator.py:451-456` emite `Do not include C1 in next_speakers this turn; they
+just spoke or passed.` e `runner.py:2019` mostra que `exclude_speaker` é
+**sempre** `game.player.controlled_character_id`. Ou seja: toda chamada do
+Director com essa linha aponta qual personagem tem proteção especial.
+
+Não corrigi de propósito. Duas razões:
+
+1. na maior parte dos turnos a linha não acrescenta informação — que C1 acabou de
+   agir já está visível no HISTORY;
+2. mas durante um burst multi-beat (`beat_index < BURST_PROTAGONIST_EXCLUDE_BEATS`)
+   ela reaparece em beats onde C1 **não** agiu, e aí marca C1 de graça.
+
+Mexer nisso é mudar política de roteamento, o que exige o mesmo A/B da regra 5.
+Fica como próximo passo, não como resto.
+
+## Achado novo #2 — cenários do usuário não têm contrato
+
+O cenário `star-wars-cantina-pt` (de usuário, em `.data/scenarios/`) tem uma
+seção inteira:
+
+```
+AGÊNCIA DO JOGADOR
+O jogador controla Dax Vanguard (C1). NENHUM agente escolhe falas, pensamentos,
+decisões ou ações morais por Dax.
+...as decisões do personagem controlado pelo humano (Dax Vanguard)...
+```
+
+Isso propaga para Director, Historian, sugestões e roteiro — 4 dos 17 builders
+acusaram, e a origem é 100% conteúdo do dono. A task proíbe sanitização
+silenciosa, e com razão: reescrever texto narrativo de alguém sem avisar é pior
+que o vazamento.
+
+O core está limpo; o que falta é **decidir o contrato**. Recomendação: avisar na
+carga do cenário (a regra já existe e é barata de rodar), nunca mutar. Precisa da
+sua decisão, então não implementei.
+
+## Estado da suíte
+
+815 testes passam (eram 805), `ruff` limpo, `mypy` limpo em 57 arquivos.

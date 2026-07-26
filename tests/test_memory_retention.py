@@ -120,7 +120,6 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
         client,
         viewer_id,
         characters,
-        controlled_id,
         config,
         **kwargs,  # noqa: ANN001, ANN003
     ) -> CharacterPerspective:

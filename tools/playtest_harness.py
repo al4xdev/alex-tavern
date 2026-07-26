@@ -604,6 +604,8 @@ def analyze_debug_records(
     records: list[dict[str, Any]], event_results: list[dict[str, Any]]
 ) -> dict[str, Any]:
     """Calculate deterministic signals without asking another model to judge prose."""
+    from src.prompt_contract import operator_ontology_hits
+
     calls = [record for record in records if isinstance(record.get("request"), dict)]
     prompts = "\n".join(
         str(message.get("content", ""))
@@ -611,6 +613,7 @@ def analyze_debug_records(
         for message in record["request"].get("messages", [])
         if isinstance(message, dict)
     )
+    ontology_hits = operator_ontology_hits(prompts)
     successful = [
         record
         for record in calls
@@ -747,7 +750,10 @@ def analyze_debug_records(
         "max_prompt_chars": max(prompt_sizes, default=0),
         "max_duration_ms": round(max(durations, default=0.0), 3),
         "mean_duration_ms": round(statistics.mean(durations), 3) if durations else 0.0,
-        "player_prompt_occurrences": prompts.count("Player"),
+        # AGENTS.md §3: a run that scores anything but zero here has told some
+        # agent that a human drives one of the characters (see src/prompt_contract.py).
+        "operator_ontology_hits": len(ontology_hits),
+        "operator_ontology_phrases": sorted(set(ontology_hits)),
         "nested_physical_facts_outputs": nested_physical_facts,
         "second_person_narrations": second_person_narrations,
         "narrator_outputs": len(narrator_outputs),

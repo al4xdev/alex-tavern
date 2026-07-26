@@ -96,17 +96,21 @@ Rules:
 
 
 def _roster_lines(
-    characters: dict[str, Character], viewer_id: str, controlled_id: str
+    characters: dict[str, Character], viewer_id: str
 ) -> tuple[list[str], list[str]]:
+    """Everyone the viewer can hold an opinion about, with no role attached.
+
+    The roster deliberately says nothing about which character is driven from
+    outside the fiction: the agency lock lives in the Runner (AGENTS.md §3),
+    and a label here would let the model infer a protected identity it has no
+    business knowing.
+    """
     subject_ids = [cid for cid in characters if cid != viewer_id]
-    lines = []
-    for cid in subject_ids:
-        character = characters[cid]
-        role = " (controlled by the player)" if cid == controlled_id else ""
-        lines.append(
-            f'  {cid}: canonical name "{character.mind.name}"{role} | '
-            f"visible appearance: {character.body.physical_description[:160]}"
-        )
+    lines = [
+        f'  {cid}: canonical name "{characters[cid].mind.name}" | '
+        f"visible appearance: {characters[cid].body.physical_description[:160]}"
+        for cid in subject_ids
+    ]
     return subject_ids, lines
 
 
@@ -184,14 +188,13 @@ async def initialize_perspective(
     client: httpx.AsyncClient,
     viewer_id: str,
     characters: dict[str, Character],
-    controlled_id: str,
     config: dict,
     session_id: str = "",
     turn_number: int = 0,
 ) -> CharacterPerspective:
     """Compile the viewer's priors into their version-1 identity ledger."""
     viewer = characters[viewer_id]
-    subject_ids, roster = _roster_lines(characters, viewer_id, controlled_id)
+    subject_ids, roster = _roster_lines(characters, viewer_id)
     if not subject_ids:
         return CharacterPerspective(
             initialized_turn=turn_number, processed_through_turn=turn_number

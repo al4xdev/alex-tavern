@@ -26,6 +26,7 @@ from src.models import (
     dict_to_game_state,
     game_state_to_dict,
 )
+from src.prompt_contract import leaks_operator_ontology
 from src.runner import Runner
 from src.store.locks import session_lock
 from src.store.sessions import (
@@ -124,7 +125,6 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
         client,
         viewer_id,
         characters,
-        controlled_id,
         config,
         **kwargs,  # noqa: ANN001, ANN003
     ) -> CharacterPerspective:
@@ -1782,12 +1782,15 @@ class TestCustomSessionAndDebug:
         assert "SILENT SCENE BLOCKING" in prompt
         assert "1. PLACE EVERYONE." in prompt
         assert "5. ROUTE FROM PERCEPTION." in prompt
-        # The player writing to a room that can hear them is never a valid
-        # empty queue (2026-07-21: real turns answered by nobody).
+        # Speech into a room that can hear it is never a valid empty queue
+        # (2026-07-21: real turns answered by nobody).
         assert "at least one of those" in prompt
         assert "only correct" in prompt
         assert 'Use ["Narrator"]' not in prompt
-        assert "Player" not in prompt
+        # Case-sensitive "Player" accepted the lowercase leak this rule used to
+        # carry for ten days; the shared contract check is what holds now
+        # (tests/test_prompt_operator_ontology.py).
+        assert not leaks_operator_ontology(prompt)
         assert "Regras do mundo aqui." in prompt
 
     def test_build_system_prompt_no_directives(self) -> None:

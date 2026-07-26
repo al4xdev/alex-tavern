@@ -178,7 +178,8 @@ def test_analysis_detects_observable_signals() -> None:
     assert analysis["second_person_narrations"] == 1
     assert analysis["character_action_heuristic_hits"] == 1
     assert analysis["redundant_mood_updates"] == 1
-    assert analysis["player_prompt_occurrences"] == 0
+    assert analysis["operator_ontology_hits"] == 0
+    assert analysis["operator_ontology_phrases"] == []
 
 
 def _character_payload(name: str) -> dict:

@@ -366,12 +366,13 @@ def _validate_acts(raw_acts: object) -> list[RoteiroAct]:
 def _story_context_lines(game: GameState, recent_turns: int = 12) -> list[str]:
     lines = [
         f"LOCATION: {game.scene.location} | TIME: {game.scene.time_of_day}",
-        "CHARACTERS (the protagonist acts freely; never plan their choices):",
+        "CHARACTERS (nobody's decisions are ever planned):",
     ]
-    controlled = game.player.controlled_character_id
+    # No role marker: the roster must not reveal which character the Runner
+    # protects (AGENTS.md §3). _validate_beat already drops that character from
+    # expected_actors deterministically, so the prompt gains nothing by knowing.
     for cid, ch in game.characters.items():
-        role = " (PROTAGONIST — never an expected actor)" if cid == controlled else ""
-        lines.append(f"  ID={cid} | {ch.mind.name}{role}: {ch.mind.personality[:160]}")
+        lines.append(f"  ID={cid} | {ch.mind.name}: {ch.mind.personality[:160]}")
     if game.narrator_directives.strip():
         lines.append(f"WORLD DIRECTIVES: {game.narrator_directives.strip()[:600]}")
     if game.story_summary.strip():
@@ -388,19 +389,19 @@ _ARCHITECT_RULES = (
     "PRIVATE roteiro consumed only by the scene Director — the characters and\n"
     "the reader never see it.\n"
     "Rules:\n"
-    "- Beats plan SITUATIONS and pressures, never anyone's decisions. The\n"
-    "  protagonist's choices are sacred: plan around them, not for them.\n"
+    "- Beats plan SITUATIONS and pressures, never anyone's decisions. Every\n"
+    "  character's choices are sacred: plan around them, not for them.\n"
     "- ESCALATE. Every beat must raise the stakes with a NEW external pressure\n"
     "  that physically enters or changes the scene (an arrival, a threat, a\n"
     "  discovery, a thing breaking, a deadline closing). The world does not\n"
-    "  wait for the protagonist; danger and events advance on their own. Tension\n"
+    "  wait for anyone; danger and events advance on their own. Tension\n"
     "  must rise from act to act, never plateau in talk.\n"
     "- SITUATIONS, NOT EXPOSITION. Never plan a beat whose content is a\n"
     "  character telling backstory, lore, or history, or the cast discussing the\n"
     "  past. Reveal the past ONLY through a present physical event the scene can\n"
     "  show. A beat is something that HAPPENS, not something explained.\n"
-    "- expected_actors: character IDs (never the protagonist) who should get\n"
-    "  stage time during the beat.\n"
+    "- expected_actors: character IDs who should get stage time during the\n"
+    "  beat. Naming someone here is a request for presence, never a script.\n"
     "- expected_anchors: 2-4 short CONCRETE tokens (objects, places, names) that\n"
     "  physically ENTER or CHANGE in the scene when the beat lands, not topics\n"
     "  of conversation. Measurable, not abstract.\n"

@@ -22,6 +22,8 @@ from src.models import (
     GameState,
     Player,
     Scene,
+    TurnRecord,
+    deepcopy_scene,
 )
 
 # The historical placeholder values, kept verbatim so every migrated test keeps
@@ -97,5 +99,26 @@ def make_game(
         characters=cast,
         player=Player(controlled_character_id=controlled),
         scene=scene if scene is not None else make_scene(characters=cast),
+        **overrides,
+    )
+
+
+def make_record(
+    turn: int,
+    speaker: str,
+    content: str,
+    content_type: str = "speech",
+    *,
+    scene: Scene | None = None,
+    **overrides: Any,
+) -> TurnRecord:
+    """One history entry. ``scene_snapshot`` is required by the model and is
+    almost never what a test is about, so it defaults to a throwaway scene."""
+    return TurnRecord(
+        turn_number=turn,
+        speaker=speaker,
+        content=content,
+        content_type=content_type,
+        scene_snapshot=deepcopy_scene(scene if scene is not None else make_scene()),
         **overrides,
     )

@@ -52,7 +52,7 @@ async def _run(monkeypatch, config, director_beats, skip=True, force=None, speec
     import src.runner as runner_mod
     from src.runner import Runner
 
-    async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+    async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
         return CharacterPerspective(
             initialized_turn=kwargs.get("turn_number", 0),
             processed_through_turn=kwargs.get("turn_number", 0),
@@ -105,7 +105,7 @@ class TestBurst:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(initialized_turn=0, processed_through_turn=0)
 
         monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
@@ -242,7 +242,7 @@ class TestBurst:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
