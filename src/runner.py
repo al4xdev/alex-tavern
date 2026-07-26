@@ -133,6 +133,11 @@ CLOCK_SKIP_INVITE = (
 BURST_PROTAGONIST_EXCLUDE_BEATS = 2
 
 
+def _current_turn(game: GameState) -> int:
+    """The turn number an out-of-band event belongs to (0 before the first turn)."""
+    return game.history[-1].turn_number if game.history else 0
+
+
 class PresenceRevisionConflictError(ValueError):
     """Raised by ``Runner.set_presence`` when the caller's revision is stale."""
 
@@ -1427,6 +1432,7 @@ class Runner:
                 len(compacted.history),
                 checkpoint_id=checkpoint_id,
                 trigger=trigger,
+                turn_number=turn_number if turn_number is not None else cutoff,
                 estimated_context_tokens=estimated_context_tokens,
                 threshold_tokens=threshold_tokens,
             )
@@ -1459,7 +1465,7 @@ class Runner:
                     "reason": "No compaction checkpoint found.",
                     "remaining_undo_depth": 0,
                 }
-                log_restore_compaction(session_id, False, result["reason"])
+                log_restore_compaction(session_id, False, result["reason"], _current_turn(game))
                 return result
 
             entry = game.compaction_stack[-1]
@@ -1521,7 +1527,7 @@ class Runner:
                         "plugin_conflicts": sorted(unresolved),
                         "remaining_undo_depth": len(game.compaction_stack),
                     }
-                    log_restore_compaction(session_id, False, reason)
+                    log_restore_compaction(session_id, False, reason, _current_turn(game))
                     return result
 
                 evicted = [dict_to_turn_record(record) for record in checkpoint["evicted_history"]]
@@ -1552,7 +1558,10 @@ class Runner:
                     "remaining_undo_depth": len(game.compaction_stack),
                 }
             log_restore_compaction(
-                session_id, result.get("restored", False), result.get("reason", "")
+                session_id,
+                result.get("restored", False),
+                result.get("reason", ""),
+                _current_turn(game),
             )
             if result.get("restored"):
                 await self.plugins.hooks.action(
@@ -1601,6 +1610,7 @@ class Runner:
                 changed_ids=changed_ids,
                 revision=game.revision,
                 edit_id=entry.edit_id,
+                turn_number=_current_turn(game),
             )
             return {
                 "changed": True,
@@ -1624,7 +1634,7 @@ class Runner:
                 return {"error": f"Session {session_id} not found"}
             if not game.presence_edit_stack:
                 reason = "No presence edit found."
-                log_presence_undo(session_id, False, reason)
+                log_presence_undo(session_id, False, reason, _current_turn(game))
                 return {"restored": False, "reason": reason, "remaining_undo_depth": 0}
 
             entry = game.presence_edit_stack[-1]
@@ -1632,7 +1642,7 @@ class Runner:
                 reason = (
                     "Presence changed again since this edit; undo would overwrite a later change."
                 )
-                log_presence_undo(session_id, False, reason)
+                log_presence_undo(session_id, False, reason, _current_turn(game))
                 return {
                     "restored": False,
                     "reason": reason,
@@ -1644,7 +1654,7 @@ class Runner:
                     entry.before, game.characters, game.player.controlled_character_id
                 )
             except ValueError as error:
-                log_presence_undo(session_id, False, str(error))
+                log_presence_undo(session_id, False, str(error), _current_turn(game))
                 return {
                     "restored": False,
                     "reason": str(error),
@@ -1655,7 +1665,7 @@ class Runner:
             game.presence_edit_stack.pop()
             game.revision += 1
             save_game(game)
-            log_presence_undo(session_id, True, "")
+            log_presence_undo(session_id, True, "", _current_turn(game))
             return {
                 "restored": True,
                 "present_characters": restored,

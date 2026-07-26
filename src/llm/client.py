@@ -12,7 +12,7 @@ import httpx
 
 from src.config import llm_request_options
 from src.llm.adapters import get_provider_adapter
-from src.llm.debug_log import log_llm_call
+from src.llm.debug_log import LlmCallOutcome, LlmCallRequest, log_llm_call
 from src.llm.schema import JSONSchemaValidationError, validate_json_schema
 
 DEFAULT_LLM_TIMEOUT_SECONDS = 60.0
@@ -98,14 +98,8 @@ async def chat_completion(
     else:
         messages.insert(0, {"role": "system", "content": instruction.strip()})
 
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "stream": False,
-    }
-    if response_format is not None:
-        payload["response_format"] = response_format
+    # The adapter owns capability adaptation, so the payload is assembled from
+    # what it prepared — never assembled first and patched afterwards.
     adapter = get_provider_adapter(provider)
     prepared = adapter.prepare_request(
         messages,
@@ -115,15 +109,27 @@ async def chat_completion(
     )
     messages = prepared.messages
     response_format = prepared.response_format
-    payload["messages"] = messages
-    if response_format is None:
-        payload.pop("response_format", None)
-    else:
-        payload["response_format"] = response_format
-    payload.update(prepared.extra_payload)
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "stream": False,
+        **({"response_format": response_format} if response_format is not None else {}),
+        **prepared.extra_payload,
+    }
     request_url = adapter.completion_url(api_base)
     headers = adapter.headers(api_key)
 
+    logged_request = LlmCallRequest(
+        agent=agent,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+        response_format=response_format,
+        provider=provider,
+        api_base=api_base,
+        thinking_enabled=thinking_enabled,
+    )
     started = time.perf_counter()
     content: str | None = None
     usage: dict[str, Any] | None = None
@@ -148,47 +154,35 @@ async def chat_completion(
             parsed = json.loads(content)
             if validation_schema is not None:
                 validate_json_schema(parsed, validation_schema)
-    except Exception as e:
-        duration_ms = round((time.perf_counter() - started) * 1000, 3)
+    except Exception as error:
         log_llm_call(
             session_id,
             turn_number,
-            agent,
-            model,
-            messages,
-            max_tokens,
-            response_format,
-            content,
-            e,
-            duration_ms,
-            attempt_number,
-            provider,
-            api_base,
-            thinking_enabled,
-            usage,
-            cache_hit_tokens,
-            cache_miss_tokens,
+            logged_request,
+            LlmCallOutcome(
+                content=content,
+                error=error,
+                duration_ms=round((time.perf_counter() - started) * 1000, 3),
+                attempt_number=attempt_number,
+                usage=usage,
+                cache_hit_tokens=cache_hit_tokens,
+                cache_miss_tokens=cache_miss_tokens,
+            ),
         )
         raise
-    duration_ms = round((time.perf_counter() - started) * 1000, 3)
     log_llm_call(
         session_id,
         turn_number,
-        agent,
-        model,
-        messages,
-        max_tokens,
-        response_format,
-        content,
-        None,
-        duration_ms,
-        attempt_number,
-        provider,
-        api_base,
-        thinking_enabled,
-        usage,
-        cache_hit_tokens,
-        cache_miss_tokens,
+        logged_request,
+        LlmCallOutcome(
+            content=content,
+            error=None,
+            duration_ms=round((time.perf_counter() - started) * 1000, 3),
+            attempt_number=attempt_number,
+            usage=usage,
+            cache_hit_tokens=cache_hit_tokens,
+            cache_miss_tokens=cache_miss_tokens,
+        ),
     )
     return content
 
