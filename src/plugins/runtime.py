@@ -161,7 +161,7 @@ class PluginRuntime:
                 setup = getattr(module, "setup", None)
                 if not callable(setup):
                     raise TypeError("Backend entrypoint must export setup(context)")
-                setup(PluginContext(manifest, self.hooks, self, default_before))
+                setup(PluginContext(manifest, self.hooks, self, default_before, self.commands))
                 self._materialize_settings_defaults(manifest.plugin_id)
             self.loaded[manifest.plugin_id] = LoadedPlugin(manifest, package, module)
             emit(

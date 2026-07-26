@@ -224,6 +224,7 @@ class PluginContext:
         hooks: HookRegistry,
         runtime: Any,
         default_before: tuple[str, ...] = (),
+        commands: Any = None,
     ) -> None:
         self.manifest = manifest
         self.plugin_id = manifest.plugin_id
@@ -234,6 +235,7 @@ class PluginContext:
         self.unsafe = UnsafeAccess(self.plugin_id, runtime)
         self._hooks = hooks
         self._default_before = default_before
+        self._commands = commands if commands is not None else runtime.commands
 
     def register(
         self,
@@ -268,8 +270,13 @@ class PluginContext:
         self._hooks.contribute(self.plugin_id, slot, value)
 
     def command(self, descriptor: dict[str, Any], handler: Callable[..., Any]) -> None:
-        """Register one executable utility command in the global slash namespace."""
-        self.unsafe.runtime.commands.register(
+        """Register one executable utility command in the global slash namespace.
+
+        A first-class SDK surface, so it goes straight to the registry: routing
+        it through ``unsafe`` made every plugin with a command journal a
+        ``permission: "unsafe"`` access and read as dangerous under review.
+        """
+        self._commands.register(
             self.plugin_id, self.manifest.name, self.manifest.version, descriptor, handler
         )
 

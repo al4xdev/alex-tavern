@@ -92,6 +92,7 @@ from src.models import (
     validate_present_characters,
 )
 from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
+from src.plugins.contracts import Hook
 from src.plugins.runtime import PluginRuntime
 from src.roteiro import (
     ReplanDecision,
@@ -182,7 +183,7 @@ class Runner:
             ValueError: If there is not at least one character.
         """
         cfg = copy.deepcopy(session_config or {})
-        cfg = await self.plugins.hooks.filter("session.start", cfg, {"runner": self})
+        cfg = await self.plugins.hooks.filter(Hook.SESSION_START, cfg, {"runner": self})
         session_id = generate_session_id()
         scenario_data: dict | None = None
 
@@ -272,10 +273,10 @@ class Runner:
             character_preset_ids=character_preset_ids,
         )
         game = await self.plugins.hooks.filter(
-            "session.before_commit", game, {"kind": "start", "runner": self}
+            Hook.SESSION_BEFORE_COMMIT, game, {"kind": "start", "runner": self}
         )
         save_game(game)
-        await self.plugins.hooks.action("session.after_commit", {"game": game, "kind": "start"})
+        await self.plugins.hooks.action(Hook.SESSION_AFTER_COMMIT, {"game": game, "kind": "start"})
         return session_id
 
     async def execute_command(
@@ -455,7 +456,7 @@ class Runner:
                 skip=skip,
             )
             turn_input = await self.plugins.hooks.filter(
-                "turn.input",
+                Hook.TURN_INPUT,
                 turn_input,
                 {"game": game, "turn_number": step, "runner": self},
             )
@@ -677,10 +678,10 @@ class Runner:
                 # prompt lines and an optional output key (narrator.context/narrator.schema)
                 # without a provider- or plugin-specific branch here.
                 extra_context: list[str] = await self.plugins.hooks.filter(
-                    "narrator.context", [], {"game": game, "turn_number": step, "runner": self}
+                    Hook.NARRATOR_CONTEXT, [], {"game": game, "turn_number": step, "runner": self}
                 )
                 schema_extension = await self.plugins.hooks.filter(
-                    "narrator.schema",
+                    Hook.NARRATOR_SCHEMA,
                     {"properties": {}, "required": []},
                     {"game": game, "turn_number": step, "runner": self},
                 )
@@ -694,7 +695,7 @@ class Runner:
                 # the Narrator choosing them ends the burst (player_addressed).
                 exclude_controlled = beat_index < BURST_PROTAGONIST_EXCLUDE_BEATS
                 narrator_raw = await self.plugins.hooks.call_wrapped(
-                    "narrator.call",
+                    Hook.NARRATOR_CALL,
                     partial(
                         self._call_narrator,
                         game,
@@ -709,7 +710,7 @@ class Runner:
                     {"game": game, "turn_number": step, "runner": self},
                 )
                 narrator_raw = await self.plugins.hooks.filter(
-                    "narrator.output",
+                    Hook.NARRATOR_OUTPUT,
                     narrator_raw,
                     {"game": game, "turn_number": step, "runner": self},
                 )
@@ -903,7 +904,7 @@ class Runner:
                         ctx, game.history, speaker, game.characters, game.scene
                     )
                     character_response = await self.plugins.hooks.call_wrapped(
-                        "character.call",
+                        Hook.CHARACTER_CALL,
                         partial(
                             self._call_character,
                             game,
@@ -920,7 +921,7 @@ class Runner:
                         },
                     )
                     character_response = await self.plugins.hooks.filter(
-                        "character.output",
+                        Hook.CHARACTER_OUTPUT,
                         character_response,
                         {
                             "game": game,
@@ -1021,12 +1022,12 @@ class Runner:
                 # raising here would trip the shared crash policy and disable the plugin,
                 # which is reserved for genuine bugs, not routine LLM validation failures.
                 game = await self.plugins.hooks.filter(
-                    "narrator.result",
+                    Hook.NARRATOR_RESULT,
                     game,
                     {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
                 )
                 game = await self.plugins.hooks.filter(
-                    "turn.before_commit", game, {"kind": "turn", "runner": self}
+                    Hook.TURN_BEFORE_COMMIT, game, {"kind": "turn", "runner": self}
                 )
                 game.turns_since_injected_event = (
                     0 if injected_event else game.turns_since_injected_event + 1
@@ -1054,7 +1055,9 @@ class Runner:
                 await self._apply_disposition_feedback(game, step)
                 game.revision += 1
                 save_game(game)
-                await self.plugins.hooks.action("turn.after_commit", {"game": game, "kind": "turn"})
+                await self.plugins.hooks.action(
+                    Hook.TURN_AFTER_COMMIT, {"game": game, "kind": "turn"}
+                )
 
                 beat_result = {
                     "narration": narration,
@@ -1160,14 +1163,14 @@ class Runner:
             game.dispositions = dict_to_disposition_state(restore.disposition_snapshot)
 
             game = await self.plugins.hooks.filter(
-                "undo.before_commit",
+                Hook.UNDO_BEFORE_COMMIT,
                 game,
                 {"turn_number": last_turn_number, "removed": removed, "runner": self},
             )
             game.revision += 1
             save_game(game)
             await self.plugins.hooks.action(
-                "undo.after_commit",
+                Hook.UNDO_AFTER_COMMIT,
                 {"game": game, "turn_number": last_turn_number, "removed": removed},
             )
             log_undo(session_id, last_turn_number, removed)
@@ -1202,7 +1205,7 @@ class Runner:
                 turn_number=turn_number,
             )
             suggestions = await self.plugins.hooks.filter(
-                "suggestions.output",
+                Hook.SUGGESTIONS_OUTPUT,
                 suggestions,
                 {"game": game, "target_id": target_id, "runner": self},
             )
@@ -1366,7 +1369,7 @@ class Runner:
             )
             emit("before_commit", completed_units, total_units)
             draft = await self.plugins.hooks.filter_strict(
-                "compaction.before_commit",
+                Hook.COMPACTION_BEFORE_COMMIT,
                 draft,
                 {"cutoff": cutoff, "evicted": copy.deepcopy(evicted), "runner": self},
             )
@@ -1444,7 +1447,7 @@ class Runner:
                 threshold_tokens=threshold_tokens,
             )
             await self.plugins.hooks.action(
-                "compaction.after_commit",
+                Hook.COMPACTION_AFTER_COMMIT,
                 {
                     "game": compacted,
                     "cutoff": cutoff,
@@ -1506,13 +1509,13 @@ class Runner:
                 unresolved: dict[str, list[str]] = {}
                 for plugin_id, paths in conflicts.items():
                     if not self.plugins.hooks.has_registration(
-                        "compaction.undo_conflict", "filter", plugin_id
+                        Hook.COMPACTION_UNDO_CONFLICT, "filter", plugin_id
                     ):
                         unresolved[plugin_id] = paths
                         continue
                     current_namespace = copy.deepcopy(game.plugin_state.get(plugin_id))
                     resolved = await self.plugins.hooks.filter_for_plugin(
-                        "compaction.undo_conflict",
+                        Hook.COMPACTION_UNDO_CONFLICT,
                         plugin_id,
                         current_namespace,
                         {
@@ -1572,7 +1575,7 @@ class Runner:
             )
             if result.get("restored"):
                 await self.plugins.hooks.action(
-                    "compaction.restore_after_commit",
+                    Hook.COMPACTION_RESTORE_AFTER_COMMIT,
                     {"game": load_game(session_id), "result": result},
                 )
             return result
