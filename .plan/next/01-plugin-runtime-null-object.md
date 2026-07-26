@@ -1,5 +1,7 @@
 # 01 — `PluginRuntime` como null object
 
+> ✅ **Aplicado em `f2e5e3d`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/runner.py`, `src/plugins/hooks.py`, `src/plugins/runtime.py`
 **Esforço:** S · **Risco:** baixo · **Quebra contrato:** SDK (só remoção de variantes internas)
 

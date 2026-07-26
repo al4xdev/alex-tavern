@@ -1,5 +1,27 @@
 # 10 — `app.js`: quebrar o monólito e fechar os bypasses
 
+> 🟡 **PARCIAL** (branch `refactor/pre-1.0-cleanup`, 2026-07-26).
+>
+> **Feito:** `android-bridge.js` (8bfa8ce), `markdown.js` + `onboarding.js`
+> (79f8529), `debug-drawer.js` (6319304); `checkVersionSync` arrumado com i18n e
+> toast compartilhado; comentários "Antigravity" e código comentado removidos;
+> `sw.js` com shell completo (agora travado por teste que exige TODO módulo na
+> lista) e cache em `rpt-shell-v24`. `app.js`: 2.424 → 2.050 linhas.
+>
+> **Falta:** `transcript.js`, `composer.js`, `sessions-modal.js`,
+> `compaction-ui.js`, `opening-picker.js`, `dom.js`. Motivo declarado: a
+> acoplagem medida desses cinco é de 6 a 11 funções externas cada (contra 1 do
+> debug drawer), e todos ficam no caminho do turno ao vivo. O portão que tenho
+> aqui — Playwright — valida carga e render com zero erro de console, mas **não
+> consegue clicar**: o `pointer-events` dos overlays intercepta a checagem de
+> actionability, então uma regressão de interação passaria batido. Esses cinco
+> pedem o playtest manual do dono como portão, não um teste headless.
+>
+> **Chaves de i18n órfãs: NÃO remover.** Foram removidas e restauradas no mesmo
+> commit: `presence.*` e `character.inScene` são o contrato do plugin curado de
+> presença (ver `tests/test_frontend_architecture.py`). O cabeçalho de `i18n.js`
+> agora diz isso.
+
 **Escopo:** `src/static/app.js` (2.424 linhas), `i18n.js`, `api.js`, `index.html`
 **Esforço:** M/L · **Risco:** médio (é a view do jogo) · **Quebra contrato:** nenhuma
 

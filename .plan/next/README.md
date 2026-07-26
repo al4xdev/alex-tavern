@@ -12,6 +12,11 @@ Vale a regra forward-only do `AGENTS.md` §2 em toda esta pasta: **nada aqui cri
 retrocompatibilidade**. Onde a limpeza quebra o SDK de plugins ou o schema de
 sessão, o doc diz explicitamente e trata a quebra como parte do trabalho.
 
+> **Estado (2026-07-26):** os 13 itens foram aplicados na branch
+> `refactor/pre-1.0-cleanup`. Números, quebras intencionais e o que ficou
+> pendente estão em [RESULTADO.md](RESULTADO.md); cada doc abaixo tem banner de
+> status no topo. Dois ficaram parciais de propósito (10 e 12).
+
 ## Ordem sugerida
 
 | # | Doc | Ganho | Esforço | Quebra |

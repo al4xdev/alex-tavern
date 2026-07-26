@@ -1,5 +1,7 @@
 # 08 — Uma validação de turno, e um shim de pydantic menor
 
+> ✅ **Aplicado em `358838e`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/main.py`, `src/runner.py`, `src/pydantic_compat.py`
 **Esforço:** M · **Risco:** baixo · **Quebra contrato:** nenhuma (status HTTP muda de 422 para 422)
 

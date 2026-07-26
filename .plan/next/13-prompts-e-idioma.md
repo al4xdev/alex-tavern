@@ -1,5 +1,7 @@
 # 13 — Contexto de prompt duplicado e idioma misturado
 
+> ✅ **Aplicado em `92ca271`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/drive.py`, `src/watcher.py`, `src/roteiro.py`, `src/llm/client.py`,
 `src/agents/narrator.py`
 **Esforço:** S · **Risco:** baixo (mexe em prompt: exige método curl-first) · **Quebra contrato:** nenhuma

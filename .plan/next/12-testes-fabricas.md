@@ -1,5 +1,21 @@
 # 12 — Fábricas de teste (19 arquivos repetem o mesmo cenário)
 
+> 🟡 **PARCIAL** (branch `refactor/pre-1.0-cleanup`, `0fdf91d`, 2026-07-26).
+>
+> **Feito:** `tests/factories.py` com `make_character`/`make_cast`/`make_scene`/
+> `make_game`; os 15 arquivos que repetiam o `_char` idêntico migrados
+> (158 remoções contra 31 inserções).
+>
+> **Falta:** o `FakeDirector` único no lugar dos ~10 duplos de LLM ad-hoc. Cada
+> um programa respostas de um jeito diferente (fila, dict por agente, closure), e
+> unificá-los é reescrever a intenção de cada teste — trabalho de verdade, não
+> substituição mecânica. Fica como tarefa própria.
+>
+> **Revisão do escopo:** o doc dizia "19 arquivos"; a duplicação byte-a-byte real
+> é o helper `_char` em 15. Os `SCENE` de cada arquivo NÃO foram unificados de
+> propósito: um teste que se passa no "Salao do Prisma" com três personagens está
+> descrevendo a própria situação.
+
 **Escopo:** `tests/conftest.py`, novo `tests/factories.py`
 **Esforço:** M · **Risco:** nenhum (não toca produção) · **Quebra contrato:** nenhuma
 

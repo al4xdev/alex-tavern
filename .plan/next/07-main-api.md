@@ -1,5 +1,7 @@
 # 07 — `src/main.py`: contrato de erro, imports e duplicações
 
+> ✅ **Aplicado em `fbba3b6`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado; divisao de main.py em routers segue fora de escopo, como o proprio doc previa
+
 **Escopo:** `src/main.py` (1.219 linhas, 46 rotas)
 **Esforço:** M · **Risco:** baixo · **Quebra contrato:** HTTP interno (frontend acompanha)
 

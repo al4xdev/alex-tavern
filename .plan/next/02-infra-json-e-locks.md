@@ -1,5 +1,7 @@
 # 02 — Infra compartilhada: escrita atômica de JSON e registry de locks
 
+> ✅ **Aplicado em `df73737`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente (o 7o writer, em tools/playtest_harness.py, entrou em 34d25ab)
+
 **Escopo:** novo `src/store/jsonfile.py` (ou `src/atomic.py`), 6 módulos consumidores
 **Esforço:** S · **Risco:** baixo · **Quebra contrato:** nenhuma
 

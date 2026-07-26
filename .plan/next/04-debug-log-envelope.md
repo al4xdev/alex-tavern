@@ -1,5 +1,7 @@
 # 04 — Envelope único no `debug_log`
 
+> ✅ **Aplicado em `b7ba81c`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/llm/debug_log.py` (496 linhas) e seus 18 chamadores
 **Esforço:** S · **Risco:** baixo · **Quebra contrato:** formato JSONL (só aditivo, se feito certo)
 

@@ -1,5 +1,7 @@
 # 05 — Quebrar `Runner.player_turn`
 
+> ✅ **Aplicado em `9f43c36`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/runner.py:360-1120`
 **Esforço:** L · **Risco:** médio (é o caminho quente do produto) · **Quebra contrato:** nenhuma
 **Depende de:** doc 01 (o null object tira ~19 branches antes de você começar)

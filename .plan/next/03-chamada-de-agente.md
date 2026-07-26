@@ -1,5 +1,7 @@
 # 03 — Uma função para "chamar um agente"
 
+> ✅ **Aplicado em `600e437`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/llm/client.py` + 11 módulos que chamam modelo
 **Esforço:** S/M · **Risco:** baixo · **Quebra contrato:** nenhuma
 

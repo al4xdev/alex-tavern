@@ -1,5 +1,7 @@
 # 06 — Resíduo de retrocompatibilidade (contra o `AGENTS.md` §2)
 
+> ✅ **Aplicado em `333de4c`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/config.py`, `src/models.py`, `src/store/sessions.py`,
 `src/agents/character.py`, `src/confidentiality.py`
 **Esforço:** M · **Risco:** baixo · **Quebra contrato:** config e sessão — **é o objetivo**

@@ -1,5 +1,7 @@
 # 09 — O contrato de hooks precisa ser verificável
 
+> ✅ **Aplicado em `b53dab3`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/plugins/contracts.py`, `src/runner.py`, `tests/`
 **Esforço:** S/M · **Risco:** baixo · **Quebra contrato:** SDK (nomes exportados)
 

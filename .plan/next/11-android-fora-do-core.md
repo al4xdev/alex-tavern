@@ -1,5 +1,7 @@
 # 11 — O que é do APK sai de `src/`
 
+> ✅ **Aplicado em `8bfa8ce`** (branch `refactor/pre-1.0-cleanup`, 2026-07-26) — aplicado integralmente
+
 **Escopo:** `src/main.py`, `src/static/app.js`, `.ci-cd/android/`
 **Esforço:** M · **Risco:** baixo · **Quebra contrato:** remove `GET /bootstrap_log`
 
