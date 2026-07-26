@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { restartApplication } from './android-bridge.js';
+import * as DebugDrawer from './debug-drawer.js';
 import * as Onboarding from './onboarding.js';
 import { RuntimeConfig } from './runtime-config.js';
 import { PluginRuntime } from './plugin-runtime.js';
@@ -87,14 +88,8 @@ const openingDots   = document.getElementById('opening-dots');
 const openingCounter = document.getElementById('opening-counter');
 const openingStartBtn = document.getElementById('opening-start-btn');
 const openingRegenerateBtn = document.getElementById('opening-regenerate-btn');
-const debugToggle   = document.getElementById('debug-toggle');
-const debugDrawer   = document.getElementById('debug-drawer');
-const debugContent  = document.getElementById('debug-content');
-const previewBtn    = document.getElementById('preview-prompt-btn');
 const toastWrap     = document.getElementById('toast-wrap');
 const installBtn    = document.getElementById('install-btn');
-const debugCloseBtn = document.getElementById('debug-close-btn');
-const debugRefreshBtn = document.getElementById('debug-refresh-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
 const actionRetryBtn = document.getElementById('action-retry-btn');
 const actionSkipBtn = document.getElementById('action-skip-btn');
@@ -124,7 +119,6 @@ const hintCloseBtn  = document.getElementById('hint-close-btn');
 
 
 let lastSessionList = null;
-let lastDebugEntries = null;
 let openingSuggestions = [];
 let openingIndex = 0;
 let openingBusy = false;
@@ -363,7 +357,7 @@ async function skipTurn() {
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
         const historyWasReconciled = await reconcileAutomaticCompaction(data);
-        if (state.debug) refreshDebugLog();
+        if (state.debug) DebugDrawer.refreshDebugLog();
         if (!historyWasReconciled) {
             const beats = data.beats || [data];
             for (const beat of beats) {
@@ -643,9 +637,7 @@ async function loadSession(sessionId) {
         let gameState = await api.getState(sessionId);
         gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
-        lastDebugEntries = null;
-        debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
-        translateDocument(debugContent);
+        DebugDrawer.reset();
 
         state.sessionId = sessionId;
         state.lastInputs = null;
@@ -1294,151 +1286,6 @@ function registerBuiltinSlashEntries() {
 }
 
 /* ── Debug drawer ─────────────────────────────────────────────────────── */
-function messagesToText(messages) {
-    return (messages || [])
-        .map((m) => `[${m.role.toUpperCase()}]\n${m.content}`)
-        .join('\n\n');
-}
-
-function makeCopyBtn(getText) {
-    const btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    bindTranslation(btn, 'debug.copy');
-    btn.addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(getText());
-            btn.textContent = `✓ ${t('debug.copied')}`;
-            btn.classList.add('copied');
-            setTimeout(() => { bindTranslation(btn, 'debug.copy'); btn.classList.remove('copied'); }, 1500);
-        } catch {
-            toast(t('debug.copyError'), 'error');
-        }
-    });
-    return btn;
-}
-
-function renderDebugBlock(title, messages, raw) {
-    const block = document.createElement('div');
-    block.className = 'debug-block';
-
-    const head = document.createElement('div');
-    head.className = 'debug-block-head';
-    head.appendChild(document.createTextNode(title));
-    const allText = () =>
-        `${messagesToText(messages)}${raw != null ? `\n\n[RAW RESPONSE]\n${raw}` : ''}`;
-    head.appendChild(makeCopyBtn(allText));
-    block.appendChild(head);
-
-    const pre = document.createElement('div');
-    pre.className = 'debug-pre';
-    (messages || []).forEach((m) => {
-        const role = document.createElement('div');
-        role.className = 'debug-role';
-        role.textContent = m.role;
-        pre.appendChild(role);
-        pre.appendChild(document.createTextNode(m.content));
-    });
-    if (raw != null) {
-        const role = document.createElement('div');
-        role.className = 'debug-role';
-        role.textContent = 'raw response';
-        pre.appendChild(role);
-        pre.appendChild(document.createTextNode(raw));
-    }
-    block.appendChild(pre);
-    return block;
-}
-
-/* Raw sequential log of all LLM calls for the session. */
-function renderRawLog(entries) {
-    lastDebugEntries = entries;
-    debugContent.innerHTML = '';
-    if (!entries || entries.length === 0) {
-        debugContent.innerHTML =
-            '<p class="debug-placeholder" data-i18n="debug.noCalls"></p>';
-        translateDocument(debugContent);
-        return;
-    }
-    entries.forEach((e) => {
-        try {
-            const metrics = e.duration_ms != null
-                ? t('debug.logMetrics', { attempt: e.attempt_number || 1, duration: e.duration_ms })
-                : '';
-            const title = t('debug.logTitle', {
-                turn: e.turn_number,
-                agent: e.agent,
-                error: e.error ? t('debug.logErrorSuffix') : '',
-                metrics,
-            });
-            const messages = (e.request && e.request.messages) || [];
-            let raw;
-            if (e.agent === 'turn_input') {
-                raw = `[TURN INPUT]\n${JSON.stringify({
-                    input: e.input,
-                }, null, 2)}`;
-            } else if (e.agent === 'turn_input_effective') {
-                raw = `[EFFECTIVE TURN INPUT]\n${JSON.stringify({
-                    input: e.input,
-                    effective_force_speaker: e.effective_force_speaker,
-                    transformed_fields: e.transformed_fields,
-                }, null, 2)}`;
-            } else if (e.error) {
-                raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
-            } else if (e.agent === 'compact' || e.agent === 'restore' || e.agent === 'undo') {
-                raw = `[${e.agent.toUpperCase()}]\n${JSON.stringify(e.details || {}, null, 2)}`;
-            } else {
-                raw = typeof e.response === 'string' ? e.response : JSON.stringify(e.response, null, 2);
-            }
-            debugContent.appendChild(renderDebugBlock(title, messages, raw));
-        } catch (err) {
-            debugContent.appendChild(renderDebugBlock('Error rendering entry', [], String(err.stack || err)));
-        }
-    });
-}
-
-async function refreshDebugLog() {
-    if (!state.sessionId) return;
-    try {
-        const entries = await api.getDebugLog(state.sessionId);
-        renderRawLog(entries);
-    } catch (err) {
-        toast(t('debug.logError', { error: err.message }), 'error');
-    }
-}
-
-async function previewPrompt() {
-    if (!state.sessionId) { toast(t('debug.startFirst'), 'error'); return; }
-    try {
-        const entries = await api.getDebugLog(state.sessionId);
-        debugContent.innerHTML = '';
-        lastDebugEntries = entries;
-        // Find the last narrator call from the JSONL log
-        const lastNarrator = [...(entries || [])].reverse().find(
-            (e) => e.agent === 'narrator' && e.request && e.request.messages
-        );
-        if (lastNarrator) {
-            const messages = lastNarrator.request.messages;
-            const raw = lastNarrator.response;
-            const title = t('debug.logTitle', {
-                turn: lastNarrator.turn_number,
-                agent: 'narrator',
-                error: '',
-                metrics: lastNarrator.duration_ms != null
-                    ? t('debug.logMetrics', { attempt: lastNarrator.attempt_number || 1, duration: lastNarrator.duration_ms })
-                    : '',
-            });
-            debugContent.appendChild(renderDebugBlock(title, messages, raw));
-            toast(t('debug.previewReady'), 'success', 2500);
-        } else {
-            debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.noCalls"></p>';
-            translateDocument(debugContent);
-            toast(t('debug.previewError', { error: 'No narrator call found' }), 'info', 2500);
-        }
-    } catch (err) {
-        toast(t('debug.previewError', { error: err.message }), 'error');
-    }
-}
-
 function populateForceSpeakerOptions() {
     if (!forceSpeakerSelect) return;
     const current = forceSpeakerSelect.value;
@@ -1554,12 +1401,9 @@ async function startSession(cfg) {
     chatLog.appendChild(emptyState);
     showEmptyState(false);
     clearSuggestions();
-    lastDebugEntries = null;
+    DebugDrawer.reset();
     sceneTags.innerHTML = '';
     sceneLocation.textContent = '';
-    debugContent.innerHTML =
-        '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
-    translateDocument(debugContent);
 
     setLoading(true);
     try {
@@ -1688,7 +1532,7 @@ async function sendTurn(isRetry = false) {
             updateSpeechPlaceholder();
         }
 
-        if (state.debug) refreshDebugLog();
+        if (state.debug) DebugDrawer.refreshDebugLog();
 
         if (!historyWasReconciled) {
             const beats = data.beats || [data];
@@ -2095,7 +1939,7 @@ if (interfaceLanguage) {
     onLocaleChange((locale) => {
         interfaceLanguage.value = locale;
         if (lastSessionList) renderSessionList(lastSessionList);
-        if (lastDebugEntries) renderRawLog(lastDebugEntries);
+        DebugDrawer.retranslate();
         renderOpeningPicker();
         updateSpeechPlaceholder();
         if (state.sessionId) {
@@ -2104,18 +1948,6 @@ if (interfaceLanguage) {
         }
     });
 }
-
-function setDebug(on) {
-    state.debug = on;
-    debugToggle.checked = on;
-    debugDrawer.classList.toggle('active', on);
-    if (on) refreshDebugLog();
-}
-debugToggle.addEventListener('change', () => setDebug(debugToggle.checked));
-if (debugCloseBtn) debugCloseBtn.addEventListener('click', () => setDebug(false));
-if (debugRefreshBtn) debugRefreshBtn.addEventListener('click', refreshDebugLog);
-
-previewBtn.addEventListener('click', previewPrompt);
 
 // Scene panel expand/collapse gestures
 let sceneStartY = null;
@@ -2189,7 +2021,12 @@ async function initializeApplication() {
         },
     });
     PluginCenter.init({ notify: toast, restartApplication });
-    Onboarding.init({ setDebug, notify: toast });
+    DebugDrawer.init({
+        getSessionId: () => state.sessionId,
+        onToggle: (on) => { state.debug = on; },
+        notify: toast,
+    });
+    Onboarding.init({ setDebug: DebugDrawer.setDebug, notify: toast });
     Setup.init({
         onStart: (cfg) => startSession(cfg),
         onOpen: () => RuntimeConfig.refresh(),

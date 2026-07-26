@@ -49,7 +49,10 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     assert "queueLanguageSync();" in runtime_source
     assert "typeof RuntimeConfig" not in setup_source
     assert "typeof toast" not in setup_source
-    assert "input: e.input," in app_source
+    # The raw-log renderer moved to its own module with the rest of the drawer.
+    debug_source = (STATIC / "debug-drawer.js").read_text(encoding="utf-8")
+    assert "input: e.input," in debug_source
+    assert "import * as DebugDrawer from './debug-drawer.js';" in app_source
     # The update check lives in onboarding.js and stays silent in debug mode or
     # on a build with no commit stamp — it is a courtesy, never an error.
     onboarding_source = (STATIC / "onboarding.js").read_text(encoding="utf-8")
