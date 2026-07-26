@@ -9,6 +9,15 @@ Trabalhar sempre a partir da raiz do checkout. Consultar `.plan/tasks/` e
 `AGENTS.md` antes de editar. Não fazer push. Não desinstalar o app sem autorização:
 `adb install -r` preserva os dados; `adb uninstall` apaga todo o diretório privado.
 
+Os dois scripts do fluxo vivem junto desta skill, não em `scripts/` na raiz:
+
+```fish
+set lab .claude/skills/android-apk-lab/scripts
+```
+
+Eles descobrem a raiz do repositório sozinhos, então podem ser chamados de
+qualquer diretório.
+
 ## Fluxo obrigatório
 
 1. Confirmar alterações locais e o aparelho:
@@ -21,19 +30,22 @@ Trabalhar sempre a partir da raiz do checkout. Consultar `.plan/tasks/` e
 2. Rodar regressões proporcionais antes do build:
 
    ```fish
-   uv run pytest -q tests/test_android_packaging.py tests/test_frontend_architecture.py tests/test_plugins.py
+   uv run pytest -q tests/test_android_packaging.py tests/test_frontend_architecture.py tests/test_plugins.py tests/test_plugin_hub.py
    uvx ruff check .
    uvx ruff format --check .
    uvx mypy src/ tools/playtest_harness.py tools/mcp_server.py tools/replay_llm.py tools/replay_session.py
    ```
 
-3. Executar `scripts/build-debug-apk.sh`. O primeiro uso baixa um SDK isolado
-   para `.ci-cd/android/.local/`; os usos seguintes reutilizam SDK, Gradle e a
-   mesma `debug.keystore`. A chave estável é essencial para instalar com `-r`.
+3. Executar `$lab/build-debug-apk.sh`. O primeiro uso baixa um SDK isolado
+   para `.ci-cd/android/.local/` (ignorado pelo Git); os usos seguintes
+   reutilizam SDK, Gradle e a mesma `debug.keystore`. A chave estável é
+   essencial para instalar com `-r`.
 
-4. Executar `scripts/adb-smoke.sh`. O script instala por cima, inicia o app,
+4. Executar `$lab/adb-smoke.sh`. O script instala por cima, inicia o app,
    cria um forward local para a porta 8889 do aparelho, verifica `/health` e
    `/version`, coleta PID, pacote, janela ativa, log de boot e screenshot.
+   Aceita o caminho de um APK como primeiro argumento; sem argumento usa o
+   build de debug recém-gerado.
 
 5. Exercitar manualmente o boundary alterado. Teste estático não substitui:
 
