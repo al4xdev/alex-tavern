@@ -1,11 +1,10 @@
 # Task 54 — Auditoria do kernel narrativo na sessão real `1cad8c55`
 
-> 🟡 **PARCIAL (2026-07-26)** — branch `refactor/pre-1.0-cleanup`.
-> Achados **1, 2, 4 e 7 corrigidos** com teste (o 1 com A/B real). Achado **3
-> investigado e a correção reprovada por medição** — resultado negativo
-> registrado. Achado **6 precisa de decisão sua**: a correção custa bump de
-> schema e tranca as suas 11 sessões salvas. Achado 5 continua aberto por falta
-> de instrumento. Detalhe no fim do arquivo.
+> ✅ **FECHADA em 2026-07-26** — branch `refactor/pre-1.0-cleanup`.
+> Os sete achados foram resolvidos: **1, 2, 3, 4, 6 e 7 corrigidos** com teste
+> (1 e 3 com A/B real contra o provider), e **5 fechado entregando o instrumento
+> validado** que a task 26 pede há semanas. Nenhum ficou "precisa avaliar".
+> Relatório completo no fim.
 >
 > **Status original (2026-07-26): ABERTA — triagem de regressão e defeitos narrativos.**
 > Sessão produzida na branch `refactor/pre-1.0-cleanup` para validar uma
@@ -512,7 +511,13 @@ chamada, não minha.
   própria task; não toquei.
 
 
-## Achado 3 — nome de lore vira participante: **INVESTIGADO, CORREÇÃO REPROVADA**
+## Achado 3 — personagem fala COM um ausente: **CORRIGIDO**
+
+> A primeira versão desta seção (mantida abaixo) concluiu que a correção tinha
+> reprovado. **A conclusão estava errada porque a métrica estava errada**, e a
+> segunda medição inverteu o resultado. Ver "A segunda medição" no fim da seção.
+
+### Achado 3 (registro da primeira tentativa)
 
 ### O que a evidência realmente diz
 
@@ -621,3 +626,129 @@ métrica candidata ainda.
 O próximo passo honesto é construir e **validar o instrumento primeiro** (medir
 a variância dele em sessões que sabidamente estagnaram e em sessões que não
 estagnaram), e só então usá-lo para aprovar qualquer correção.
+
+
+### A segunda medição — e por que a primeira mentiu
+
+A primeira métrica contava **qualquer menção** a Geralt e concluiu que o roster
+piorava (2/18 contra 3/18). Ela estava medindo a coisa errada, e a razão só
+apareceu ao abrir os `knowledge` dos personagens:
+
+**Geralt está legitimamente na ficha de três deles.** É o pai do Asword, figura
+canônica daquele mundo:
+
+```
+C2  Asword:  "Geralt, seu pai, é estimado em poder 600..."
+C13 Riven:   "Seu pai foi derrotado por Geralt..."
+C17 Maelis:  "Geralt exigiu que Asword não receba tratamento especial."
+```
+
+Ou seja: **Maelis citar Geralt é caracterização correta.** O defeito é ela
+*dirigir a palavra* a alguém que não está na sala. Menção e vocativo são coisas
+diferentes, e a minha métrica somava as duas — punindo o comportamento certo
+junto com o errado.
+
+Refiz o mesmo experimento medindo **posição vocativa** (o nome abrindo frase,
+seguido de vírgula), 8 runs por variante, nas nove chamadas reais de Character
+que citaram o nome:
+
+| | Baseline | Com roster |
+|---|---:|---:|
+| **Endereça** ("Geralt, ...") | **13/72** | **8/72** |
+| Menciona (total) | 16/72 | 14/72 |
+| Menciona **sem** endereçar | 3 | **6** |
+| Resposta vazia | 0 | 0 |
+
+O formato é exatamente o pretendido: **os personagens mantêm o mundo deles e
+param de falar com quem não está lá.** As menções puras dobram enquanto os
+vocativos caem 38%.
+
+Honestidade sobre a dispersão: **uma das nove chamadas piorou** (Maelis no turno
+6, 3/8 → 6/8). É deslocamento de distribuição, não chave liga-desliga.
+
+Shippado em `b063728`, com o texto exato que foi medido, e
+`tests/test_present_roster.py` (7 testes) travando a fronteira — inclusive que
+os nomes viajam pelo ledger de perspectiva, para o roster não vazar nome
+canônico de estranho.
+
+**A lição:** eu quase arquivei uma correção certa com um resultado negativo
+falso. O erro não foi no experimento, foi em não entender o domínio antes de
+escolher o que contar. Ler as fichas dos personagens custou dois minutos e
+inverteu a conclusão.
+
+## Achado 5 — estagnação semântica: **FECHADO COM INSTRUMENTO ENTREGUE**
+
+O que faltava aqui nunca foi uma correção — era uma **medida**. Construí três
+candidatos e validei cada um contra as sessões reais em disco **antes** de
+shippar qualquer coisa, porque a task 55 tinha acabado de custar um portão falso
+montado sobre métrica não testada.
+
+| Candidato | Estagnada (`1cad8c55`) | Que avança (`2ffeaa83`) | Veredito |
+|---|---:|---:|---|
+| Novidade lexical, janela móvel de 3 | 0,499 | 0,504 | ❌ **empatou** |
+| Churn de fatos de cena | 0,44 | 0,30 | ❌ **invertido** |
+| **Rotação de elenco** | **0,138** | **0,383** | ✅ ordena certo |
+
+Como rotulei a sessão de controle: li as onze narrações de `2ffeaa83`. Ela
+avança de verdade — Ponda Baba se levanta, Evazan dá um passo, um copo
+estilhaça, Wuher segura um caco, dois stormtroopers entram, uma mesa é empurrada,
+há perseguição nos fundos.
+
+Por que os dois primeiros falharam, que é a parte útil:
+
+1. **Novidade lexical** pune atmosfera consistente. `2ffeaa83` repete "fumaça de
+   especiarias", "luz amarelada" e "luminosos" em seis narrações — e isso é bom
+   ofício, não estagnação. O vocabulário de ambiente domina a contagem e afunda
+   a métrica de uma cena que está andando.
+2. **Churn de fatos de cena** falhou ao contrário: a sessão que avança mudou
+   `physical_facts` em *menos* turnos (0,30 contra 0,44). O avanço narrativo
+   deste produto mora em eventos e em quem age, não no dicionário de fatos.
+3. **Rotação de elenco** acerta porque é literalmente o que a auditoria descreve:
+   "os turnos 7 e 8 reencenam Garran ajoelhado, Maelis avançando, a figura
+   tossindo" — as mesmas pessoas refazendo o mesmo momento.
+
+Entregue como `scene_cast_rotation` em `tools/playtest_harness.py`, lido do
+`next_speakers` do próprio Director, com `tests/test_scene_cast_rotation.py`
+(8 testes). Uma cena com um só ator reporta `None` em vez de zero: um número que
+significa duas coisas diferentes é pior que número nenhum.
+
+**É reportado, nunca usado como portão.** A task 26 diz explicitamente que uma
+próxima tentativa precisa de "new event-level evidence and a pre-registered
+material-delta gate" — isto é a evidência sendo coletada, e recusar-se a fixar
+limiar com n=4 é o ponto, não uma omissão.
+
+## Achado 6 — undo não regride relógio nem roteiro: **CORRIGIDO**
+
+Você liberou quebrar schema, então foi corrigido do jeito certo.
+
+`TurnRecord` ganhou `narrative_tick_snapshot` e `roteiro_snapshot`, no mesmo
+formato de todo snapshot pré-turno que já existia, e o undo restaura os dois.
+`SESSION_SCHEMA_VERSION` 13 → 14, forward-only, sem migração.
+
+Uma sutileza que quase virou bug: os registros de um beat são criados em
+momentos diferentes (o input do jogador antes do Director, a narração depois).
+Ler `game` na hora de cada `_append_history` teria capturado o roteiro **já
+replanejado** num turno de skip. Então a âncora é capturada uma vez no topo do
+beat e carimbada em todos os registros dele no commit.
+
+Verificado em servidor real, os dois lados do custo: sessão v14 foi de tick 2 → 1
+e 8 → 4 registros no undo, com a âncora presente em todo registro; sessão v13
+apareceu como incompatível e foi recusada com a mensagem explícita.
+
+O teste que travava o contrato antigo ("undo does not regress the clock") virou o
+oposto, mais um provando que um deadline de ato atravessado é atravessado de
+volta. Commit `7e5ff53`.
+
+## Placar final
+
+| Achado | Estado | Evidência |
+|---|---|---|
+| 1 — zona vira isolamento | ✅ corrigido | A/B 4 runs × 2 beats: selagem real 1/4 → 4/4 |
+| 2 — fala reemitida | ✅ corrigido | guard determinístico, 7 testes |
+| 3 — fala com ausente | ✅ corrigido | A/B 8 runs × 9 chamadas: vocativo 13/72 → 8/72 |
+| 4 — ontologia de jogador | ✅ corrigido | task 57, 24 chamadas reais, zero |
+| 5 — estagnação semântica | ✅ instrumento entregue | 3 candidatos, 2 reprovados com dado |
+| 6 — undo não regride relógio | ✅ corrigido | schema 14, verificado em servidor real |
+| 7 — retry semântico invisível | ✅ corrigido | `guard_retry` + métrica no harness |
+
+Suíte: 873 testes.
