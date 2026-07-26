@@ -158,6 +158,46 @@ def _ledger_memory_text(viewer_perspective) -> str:  # noqa: ANN001
     return "\n".join(parts)
 
 
+def _build_present_roster(
+    scene: Scene | None,
+    characters: dict[str, Character],
+    character_id: str,
+    controlled_id: str,
+    viewer_perspective=None,  # noqa: ANN001
+) -> str:
+    """The people physically here, as code knows them - not as the text implies.
+
+    Task 54, finding 3: characters spoke TO someone who was not in the room.
+    In the live session that was Geralt, who is legitimately in three characters'
+    knowledge sheets (Asword's father, a canonical figure of that world) but has
+    no ID, no position and was never present. Knowing him is correct; addressing
+    him is the defect.
+
+    Measured before shipping, on the nine recorded Character calls that named
+    him, 8 runs per variant: addressing him fell 13/72 to 8/72, while mentions
+    that are NOT an address rose 3 to 6. The characters keep their world and
+    stop talking to the absent.
+
+    Names travel through the viewer's ledger, so a stranger stays a stranger.
+    """
+    if scene is None:
+        return ""
+    others = [
+        cid for cid in scene.present_characters if cid != character_id and cid in characters
+    ]
+    if not others:
+        return "WHO IS HERE WITH YOU: nobody else. You are alone in this place."
+    names = ", ".join(
+        viewer_speaker_label(cid, characters, controlled_id, viewer_perspective)
+        for cid in others
+    )
+    return (
+        f"WHO IS HERE WITH YOU: {names}.\n"
+        "That list is complete. Anyone else you know of is elsewhere right now: "
+        "you may think or speak ABOUT them, but you cannot speak TO them."
+    )
+
+
 def _build_user_prompt(
     context: str,
     history_text: str,
@@ -166,6 +206,7 @@ def _build_user_prompt(
     ledger_memory: str = "",
     disposition_note: str = "",
     alignment_impulse: str = "",
+    present_roster: str = "",
 ) -> str:
     """Put append-only history before the Character's changing state and context.
 
@@ -179,10 +220,12 @@ def _build_user_prompt(
     memory = ledger_memory.strip() or "(none yet)"
     disposition_block = f"{disposition_note}\n" if disposition_note else ""
     impulse_block = f"{alignment_impulse}\n" if alignment_impulse else ""
+    roster_block = f"{present_roster}\n" if present_roster else ""
     return (
         "RECENT EVENTS:\n"
         f"{history_text}\n"
         "\n"
+        f"{roster_block}"
         "CURRENT PRIVATE STATE:\n"
         f"Current mood: {current_mood}\n"
         f"{disposition_block}"
@@ -486,6 +529,9 @@ async def act(
                 context,
                 history_text,
                 character.mind.current_mood,
+                present_roster=_build_present_roster(
+                    scene, characters, character_id, controlled_id, viewer_perspective
+                ),
                 whisper_note=_whisper_turn_note(
                     reply_audience,
                     characters,
