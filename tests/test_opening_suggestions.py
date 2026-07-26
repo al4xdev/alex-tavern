@@ -213,7 +213,7 @@ class TestOpeningRunnerAndRoute:
 class TestOpeningFrontend:
     def test_empty_state_carousel_composes_existing_hint_and_skip(self) -> None:
         html = (STATIC / "index.html").read_text(encoding="utf-8")
-        source = (STATIC / "app.js").read_text(encoding="utf-8")
+        source = (STATIC / "opening-picker.js").read_text(encoding="utf-8")
         api = (STATIC / "api.js").read_text(encoding="utf-8")
         styles = (STATIC / "style.css").read_text(encoding="utf-8")
 
@@ -228,10 +228,9 @@ class TestOpeningFrontend:
         ):
             assert f'id="{element_id}"' in html
         assert "/opening-suggestions" in api
-        assert "state.narratorHint = opening;\n    await skipTurn();" in source
-        assert "openingSuggestions" in source and "resetOpeningSuggestions()" in source
-        opening_state = source[source.index("let openingSuggestions") : source.index("/* ── Toast")]
-        assert "localStorage" not in opening_state
+        assert "state.narratorHint = opening;\n    await deps.skipTurn();" in source
+        # The carousel is ephemeral: it lives in module state and is never persisted.
+        assert "localStorage" not in source
         assert "pointerdown" in source and "ArrowLeft" in source and "ArrowRight" in source
         assert ".opening-card.from-right" in styles and ".opening-dot.active" in styles
         assert "touch-action: pan-y" in styles

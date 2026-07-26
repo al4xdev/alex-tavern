@@ -2,6 +2,7 @@ import { api } from './api.js';
 import { restartApplication } from './android-bridge.js';
 import * as DebugDrawer from './debug-drawer.js';
 import * as Onboarding from './onboarding.js';
+import * as OpeningPicker from './opening-picker.js';
 import * as Transcript from './transcript.js';
 import {
     addMessage,
@@ -86,17 +87,6 @@ const emptyState    = document.getElementById('empty-state');
 const emptyKicker   = document.getElementById('empty-kicker');
 const emptyPrompt   = document.getElementById('empty-prompt');
 const emptyScrollCue= document.getElementById('empty-scroll-cue');
-const openingStart  = document.getElementById('opening-start');
-const openingGenerateBtn = document.getElementById('opening-generate-btn');
-const openingCarousel = document.getElementById('opening-carousel');
-const openingCard   = document.getElementById('opening-card');
-const openingCardText = document.getElementById('opening-card-text');
-const openingPrevBtn = document.getElementById('opening-prev-btn');
-const openingNextBtn = document.getElementById('opening-next-btn');
-const openingDots   = document.getElementById('opening-dots');
-const openingCounter = document.getElementById('opening-counter');
-const openingStartBtn = document.getElementById('opening-start-btn');
-const openingRegenerateBtn = document.getElementById('opening-regenerate-btn');
 const toastWrap     = document.getElementById('toast-wrap');
 const installBtn    = document.getElementById('install-btn');
 const actionUndoBtn = document.getElementById('action-undo-btn');
@@ -128,10 +118,6 @@ const hintCloseBtn  = document.getElementById('hint-close-btn');
 
 
 let lastSessionList = null;
-let openingSuggestions = [];
-let openingIndex = 0;
-let openingBusy = false;
-let openingPointerStartX = null;
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 function toast(message, type = 'info', ms = 4000) {
@@ -177,104 +163,13 @@ function setLoading(on, { multiStep = false } = {}) {
     }
 }
 
-function renderOpeningPicker(direction = 0) {
-    const hasSuggestions = openingSuggestions.length === 3;
-    openingGenerateBtn.hidden = hasSuggestions;
-    openingGenerateBtn.disabled = openingBusy;
-    openingCarousel.hidden = !hasSuggestions;
-    if (!hasSuggestions) return;
-
-    openingCardText.textContent = openingSuggestions[openingIndex];
-    openingCounter.textContent = t('opening.counter', {
-        current: openingIndex + 1,
-        total: openingSuggestions.length,
-    });
-    openingPrevBtn.disabled = openingBusy || openingIndex === 0;
-    openingNextBtn.disabled = openingBusy || openingIndex === openingSuggestions.length - 1;
-    openingStartBtn.disabled = openingBusy;
-    openingRegenerateBtn.disabled = openingBusy;
-
-    openingDots.replaceChildren(...openingSuggestions.map((_, index) => {
-        const dot = document.createElement('button');
-        dot.type = 'button';
-        dot.className = `opening-dot${index === openingIndex ? ' active' : ''}`;
-        dot.disabled = openingBusy;
-        dot.setAttribute('aria-label', t('opening.option', { number: index + 1 }));
-        dot.setAttribute('aria-current', index === openingIndex ? 'true' : 'false');
-        dot.addEventListener('click', () => showOpening(index));
-        return dot;
-    }));
-
-    openingCard.classList.remove('from-left', 'from-right');
-    if (direction) {
-        void openingCard.offsetWidth;
-        openingCard.classList.add(direction > 0 ? 'from-right' : 'from-left');
-    }
-}
-
-function resetOpeningSuggestions() {
-    openingSuggestions = [];
-    openingIndex = 0;
-    openingBusy = false;
-    openingPointerStartX = null;
-    renderOpeningPicker();
-}
-
-function showOpening(index) {
-    if (openingBusy || index < 0 || index >= openingSuggestions.length || index === openingIndex) {
-        return;
-    }
-    const direction = index > openingIndex ? 1 : -1;
-    openingIndex = index;
-    renderOpeningPicker(direction);
-}
-
-async function generateOpeningSuggestions() {
-    if (!state.sessionId || openingBusy) return;
-    openingBusy = true;
-    renderOpeningPicker();
-    setLoading(true);
-    try {
-        const data = await api.suggestOpenings(state.sessionId);
-        if (!Array.isArray(data.suggestions) || data.suggestions.length !== 3) {
-            throw new Error('Opening suggestions response is invalid');
-        }
-        openingSuggestions = data.suggestions.map((item) => String(item));
-        openingIndex = 0;
-        toast(t('opening.ready'), 'success', 2500);
-    } catch (err) {
-        toast(t('opening.error', { error: err.message }), 'error');
-    } finally {
-        openingBusy = false;
-        setLoading(false);
-        renderOpeningPicker(1);
-    }
-}
-
-async function startWithOpening() {
-    const opening = openingSuggestions[openingIndex];
-    if (!opening || openingBusy || !state.sessionId) return;
-    openingBusy = true;
-    renderOpeningPicker();
-    state.narratorHint = opening;
-    await skipTurn();
-    if (state.lastTurnFailed) {
-        openingBusy = false;
-        renderOpeningPicker();
-    } else {
-        resetOpeningSuggestions();
-    }
-}
-
 function showEmptyState(sessionReady = false) {
     emptyState.classList.toggle('session-ready', sessionReady);
     bindTranslation(emptyKicker, sessionReady ? 'empty.sessionKicker' : 'empty.kicker');
     bindTranslation(emptyPrompt, sessionReady ? 'empty.sessionPrompt' : 'empty.prompt');
     emptyConfigBtn.hidden = sessionReady;
     if (!sessionReady) bindTranslation(emptyConfigBtn, 'sessions.manage');
-    openingStart.hidden = !sessionReady;
-    if (!sessionReady) resetOpeningSuggestions();
-    else renderOpeningPicker();
+    OpeningPicker.setVisible(sessionReady);
     emptyScrollCue.hidden = !sessionReady;
     emptyState.style.display = 'flex';
 }
@@ -578,7 +473,7 @@ function renderSessionList(sessions) {
 async function loadSession(sessionId) {
     try {
         state.compactionAbortController?.abort();
-        resetOpeningSuggestions();
+        OpeningPicker.reset();
         let gameState = await api.getState(sessionId);
         gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
@@ -1137,7 +1032,7 @@ async function hydrateAvatarUrls(gameState) {
 
 async function startSession(cfg) {
     state.compactionAbortController?.abort();
-    resetOpeningSuggestions();
+    OpeningPicker.reset();
     // reset the view
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
@@ -1389,38 +1284,6 @@ if (hintSendBtn) hintSendBtn.addEventListener('click', sendHint);
 if (hintOverlay) hintOverlay.addEventListener('click', (e) => {
     if (e.target === hintOverlay) closeHintPopup();
 });
-
-// Empty-session opening picker. Generation is ephemeral; confirmation reuses
-// the existing hint + skip path without a second turn implementation.
-if (openingGenerateBtn) openingGenerateBtn.addEventListener('click', generateOpeningSuggestions);
-if (openingRegenerateBtn) openingRegenerateBtn.addEventListener('click', generateOpeningSuggestions);
-if (openingStartBtn) openingStartBtn.addEventListener('click', startWithOpening);
-if (openingPrevBtn) openingPrevBtn.addEventListener('click', () => showOpening(openingIndex - 1));
-if (openingNextBtn) openingNextBtn.addEventListener('click', () => showOpening(openingIndex + 1));
-if (openingCarousel) openingCarousel.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        showOpening(openingIndex - 1);
-    } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        showOpening(openingIndex + 1);
-    }
-});
-if (openingCard) {
-    openingCard.addEventListener('pointerdown', (e) => {
-        openingPointerStartX = e.clientX;
-    });
-    openingCard.addEventListener('pointerup', (e) => {
-        if (openingPointerStartX == null) return;
-        const distance = e.clientX - openingPointerStartX;
-        openingPointerStartX = null;
-        if (Math.abs(distance) < 45) return;
-        showOpening(openingIndex + (distance < 0 ? 1 : -1));
-    });
-    openingCard.addEventListener('pointercancel', () => {
-        openingPointerStartX = null;
-    });
-}
 
 // Stop button — abort current turn
 if (stopBtn) stopBtn.addEventListener('click', () => {
@@ -1682,7 +1545,7 @@ if (interfaceLanguage) {
         interfaceLanguage.value = locale;
         if (lastSessionList) renderSessionList(lastSessionList);
         DebugDrawer.retranslate();
-        renderOpeningPicker();
+        OpeningPicker.render();
         updateSpeechPlaceholder();
         if (state.sessionId) {
             bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
@@ -1763,10 +1626,16 @@ async function initializeApplication() {
         },
     });
     PluginCenter.init({ notify: toast, restartApplication });
+    OpeningPicker.init({
+        state,
+        setLoading,
+        notify: toast,
+        skipTurn,
+    });
     Transcript.init({
         state,
         isScrollAnchored: () => isCompactLayout() && inputArea.classList.contains('collapsed'),
-        resetOpeningSuggestions,
+        resetOpeningSuggestions: OpeningPicker.reset,
         showEmptyState,
         updateSpeechPlaceholder,
         whisperNamesFor,
