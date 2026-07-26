@@ -4,6 +4,7 @@ import * as DebugDrawer from './debug-drawer.js';
 import * as Onboarding from './onboarding.js';
 import * as OpeningPicker from './opening-picker.js';
 import * as SessionsModal from './sessions-modal.js';
+import * as Compaction from './compaction-ui.js';
 import * as Transcript from './transcript.js';
 import {
     addMessage,
@@ -96,10 +97,6 @@ const actionExpandMoreBtn = document.getElementById('action-expand-more-btn');
 const actionPopupSecondary = document.getElementById('action-popup-secondary');
 const actionSuggestBtn = document.getElementById('action-suggest-btn');
 const actionHintBtn = document.getElementById('action-hint-btn');
-const actionCompactBtn = document.getElementById('action-compact-btn');
-const compactProgress = document.getElementById('compact-progress');
-const compactProgressStatus = document.getElementById('compact-progress-status');
-const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
 const forceSpeakerSelect = document.getElementById('force-speaker-select');
 const whisperBtn = document.getElementById('action-whisper-btn');
 const whisperPopup = document.getElementById('whisper-popup');
@@ -191,10 +188,7 @@ function updateActionPopup() {
     if (whisperBtn) whisperBtn.style.display = hasSession ? '' : 'none';
     if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
     if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
-    if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
-    if (actionRestoreCompactionBtn) {
-        actionRestoreCompactionBtn.style.display = hasSession && state.compactionDepth > 0 ? '' : 'none';
-    }
+    Compaction.setAvailable(hasSession, state.compactionDepth > 0);
     // Hide the popup entirely when there's nothing to show — prevents
     // an empty bordered box (tiny black dot) from appearing on hover/long-press.
     if (actionPopup) {
@@ -247,7 +241,7 @@ async function skipTurn() {
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
-        const historyWasReconciled = await reconcileAutomaticCompaction(data);
+        const historyWasReconciled = await Compaction.reconcileAutomatic(data);
         if (state.debug) DebugDrawer.refreshDebugLog();
         if (!historyWasReconciled) {
             const beats = data.beats || [data];
@@ -541,135 +535,6 @@ function sendHint() {
 }
 
 /* ── Session compaction ───────────────────────────────────────────────── */
-function compactionProgressPercent(event) {
-    const fixed = {
-        checking: 3,
-        before_commit: 88,
-        checkpointing: 93,
-        committing: 97,
-        completed: 100,
-        skipped: 3,
-    };
-    if (event.stage === 'failed') {
-        return Number.parseFloat(compactProgress.style.width) || 0;
-    }
-    if (!['summarizing', 'model_completed'].includes(event.stage)) {
-        return fixed[event.stage] ?? 0;
-    }
-    if (!event.total_units) return 8;
-    return 8 + (event.completed_units / event.total_units) * 76;
-}
-
-function renderCompactionProgress(event) {
-    const percent = Math.max(0, Math.min(100, compactionProgressPercent(event)));
-    compactProgress.style.width = `${percent}%`;
-    if (compactProgressStatus) {
-        compactProgressStatus.textContent = t(`compaction.stage.${event.stage}`, {
-            completed: event.completed_units ?? 0,
-            total: event.total_units ?? 0,
-        });
-    }
-}
-
-function setCompactionBusy(on) {
-    actionCompactBtn.classList.toggle('busy', on);
-    for (const control of [
-        sendBtn,
-        actionUndoBtn,
-        actionRetryBtn,
-        actionSkipBtn,
-        actionSuggestBtn,
-        actionHintBtn,
-        actionRestoreCompactionBtn,
-    ]) {
-        if (control) control.disabled = on;
-    }
-}
-
-async function compactSession() {
-    if (!state.sessionId || !actionCompactBtn || !compactProgress) return;
-    hideActionPopup();
-
-    setCompactionBusy(true);
-    compactProgress.style.width = '0%';
-    const ac = new AbortController();
-    state.compactionAbortController = ac;
-
-    try {
-        const data = await api.compact(
-            state.sessionId,
-            renderCompactionProgress,
-            ac.signal,
-        );
-        if (data.compacted) {
-            toast(
-                t('compaction.done', {
-                    evicted: data.evicted_records,
-                    kept: data.kept_records,
-                }),
-                'success',
-                3500
-            );
-            let gameState = await api.getState(state.sessionId);
-            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-            ingestState(gameState);
-            renderHistory(gameState.history);
-            state.canUndo = !!(gameState.history && gameState.history.length > 0);
-            updateActionPopup();
-        } else {
-            toast(data.reason || t('compaction.none'), 'info', 2500);
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            toast(t('compaction.error', { error: err.message }), 'error');
-        }
-    } finally {
-        state.compactionAbortController = null;
-        setTimeout(() => {
-            setCompactionBusy(false);
-            compactProgress.style.width = '0%';
-            if (compactProgressStatus) compactProgressStatus.textContent = '';
-        }, 400);
-    }
-}
-
-/* ── Undo last compaction ─────────────────────────────────────────────────── */
-// Checkpoints are undone in LIFO order. Turns played after the checkpoint are
-// preserved, while divergent plugin-owned state requires an explicit resolver.
-async function restoreCompaction() {
-    if (!state.sessionId) return;
-    hideActionPopup();
-    const confirmed = confirm(t('compaction.restoreConfirm'));
-    if (!confirmed) return;
-
-    setLoading(true);
-    try {
-        const data = await api.restoreCompaction(state.sessionId);
-        if (data.restored) {
-            toast(
-                t('compaction.restored', {
-                    count: data.restored_records,
-                    depth: data.remaining_compaction_depth,
-                }),
-                'success',
-                3500
-            );
-            let gameState = await api.getState(state.sessionId);
-            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-            ingestState(gameState);
-            renderHistory(gameState.history);
-            state.canUndo = !!(gameState.history && gameState.history.length > 0);
-            updateActionPopup();
-        } else {
-            toast(data.reason || t('compaction.restoreUnavailable'), 'info', 3500);
-        }
-    } catch (err) {
-        toast(t('compaction.restoreError', { error: err.message }), 'error');
-    } finally {
-        setLoading(false);
-    }
-}
-
 function builtinAction(name, icon, scope, title, summary, aliases, keywords, handler, availability = null) {
     registerCoreAction({
         name,
@@ -722,11 +587,11 @@ function registerBuiltinSlashEntries() {
         terms([], ['pular']), terms(['pass', 'continue'], ['passar', 'continuar']), skipTurn);
     builtinAction('compact', '🗜', 'session', localized('Compact history', 'Compactar histórico'),
         localized('Summarize older events into memory.', 'Resuma eventos antigos na memória.'),
-        terms([], ['compactar']), terms(['summarize', 'memory'], ['resumir', 'memoria']), compactSession);
+        terms([], ['compactar']), terms(['summarize', 'memory'], ['resumir', 'memoria']), Compaction.compactSession);
     builtinAction('restore', '🧯', 'session', localized('Restore compaction', 'Restaurar compactação'),
         localized('Undo the latest compaction checkpoint.', 'Desfaça o checkpoint de compactação mais recente.'),
         terms([], ['restaurar']), terms(['checkpoint', 'uncompact'], ['checkpoint', 'descompactar']),
-        restoreCompaction, (context) => context.compactionDepth > 0 || t('commands.noCheckpoint'));
+        Compaction.restoreCompaction, (context) => context.compactionDepth > 0 || t('commands.noCheckpoint'));
 
     registerCoreCommandResultRenderer('core/completion', async () => {});
     registerCoreCommandResultRenderer('core/character-preset-draft', async (result, context) => {
@@ -833,6 +698,29 @@ function ingestState(gameState) {
     updateActionPopup();
 }
 
+/* Re-read the session from the backend and redraw everything that depends on
+   it. The backend is authoritative after any operation that rewrites history —
+   compaction, checkpoint restore, undo — so the view never patches its own
+   guess of what changed. */
+async function reloadView() {
+    let gameState = await api.getState(state.sessionId);
+    gameState = await PluginRuntime.runHook('session.state', gameState, { state });
+    ingestState(gameState);
+    renderHistory(gameState.history);
+    state.canUndo = !!(gameState.history && gameState.history.length > 0);
+    updateActionPopup();
+}
+
+/* Everything that submits or alters a turn, disabled as one group while a
+   long backend operation owns the session. */
+function setTurnControlsDisabled(on) {
+    for (const control of [
+        sendBtn, actionUndoBtn, actionRetryBtn, actionSkipBtn, actionSuggestBtn, actionHintBtn,
+    ]) {
+        control.disabled = on;
+    }
+}
+
 async function hydrateAvatarUrls(gameState) {
     state.avatarUrls = {};
     const byPreset = new Map();
@@ -884,29 +772,6 @@ async function startSession(cfg) {
     } finally {
         setLoading(false);
     }
-}
-
-async function reconcileAutomaticCompaction(data) {
-    const result = data?.automatic_compaction;
-    if (!result) return false;
-    if (result.compacted) {
-        let gameState = await api.getState(state.sessionId);
-        gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-        ingestState(gameState);
-        renderHistory(gameState.history);
-        toast(
-            t('compaction.automaticDone', { count: result.evicted_records }),
-            'info',
-            3500,
-        );
-        return true;
-    }
-    if (result.status === 'blocked_by_retention_window') {
-        toast(t('compaction.automaticBlocked'), 'info', 3000);
-    } else if (result.status === 'failed') {
-        toast(t('compaction.automaticFailed'), 'error', 4500);
-    }
-    return false;
 }
 
 async function sendTurn(isRetry = false) {
@@ -968,7 +833,7 @@ async function sendTurn(isRetry = false) {
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
-        const historyWasReconciled = await reconcileAutomaticCompaction(data);
+        const historyWasReconciled = await Compaction.reconcileAutomatic(data);
         if (!historyWasReconciled) {
             updatePlayerEcho(
                 state.lastEchoMessage,
@@ -1090,8 +955,6 @@ if (actionExpandMoreBtn && actionPopupSecondary) {
 }
 if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
 if (actionHintBtn) actionHintBtn.addEventListener('click', openHintPopup);
-if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
-if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.addEventListener('click', restoreCompaction);
 
 // Hint popup events
 if (hintCloseBtn) hintCloseBtn.addEventListener('click', closeHintPopup);
@@ -1432,6 +1295,14 @@ async function initializeApplication() {
         },
     });
     PluginCenter.init({ notify: toast, restartApplication });
+    Compaction.init({
+        state,
+        reloadView,
+        setTurnControlsDisabled,
+        setLoading,
+        hideActionPopup,
+        notify: toast,
+    });
     SessionsModal.init({
         state,
         loadSession,
