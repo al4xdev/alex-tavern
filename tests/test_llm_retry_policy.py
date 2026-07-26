@@ -102,7 +102,7 @@ class TestUnifiedRetryPolicy:
         post, calls = _sequenced_post([(400, "bad request")])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
-            with pytest.raises(ValueError, match="após 1 tentativas"):
+            with pytest.raises(ValueError, match="after 1 attempts"):
                 await chat_completion_json(client, [{"role": "user", "content": "JSON."}])
         assert len(calls) == 1
 
@@ -126,7 +126,7 @@ class TestUnifiedRetryPolicy:
         post, calls = _sequenced_post([(200, "not-json")])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
-            with pytest.raises(ValueError, match="após 3 tentativas"):
+            with pytest.raises(ValueError, match="after 3 attempts"):
                 await _act(client)
         assert len(calls) == 3
 

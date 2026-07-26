@@ -29,6 +29,7 @@ import httpx
 
 from src.llm.client import call_agent
 from src.models import GameState, speaker_label
+from src.prompting import stalled_scene_context
 
 # The material-delta taxonomy (design freeze, 2026-07-19). ``none`` is the
 # explicit immobility verdict — kept in the enum so the model can assert "I
@@ -320,23 +321,7 @@ class CausalIntervention:
 
 
 def build_causal_intervention_messages(game: GameState) -> list[dict]:
-    recent = [
-        record
-        for record in game.history[-12:]
-        if record.content_type in ("speech", "action", "narration")
-    ]
-    lines = [
-        f"LOCATION: {game.scene.location} | TIME: {game.scene.time_of_day}",
-        f"PHYSICAL FACTS: {game.scene.physical_facts}",
-        "RECENT EVENTS (oldest to newest):",
-        *(
-            f"  {speaker_label(r.speaker, game.characters, game.player.controlled_character_id)}:"
-            f" {r.content[:160]}"
-            for r in recent
-        ),
-    ]
-    if game.story_summary:
-        lines.insert(0, f"STORY SO FAR: {game.story_summary[:600]}")
+    lines = stalled_scene_context(game)
     system = (
         "The scene has stalled: nothing has materially changed for several\n"
         "turns and gentler recoveries are exhausted. Intervene, as a json\n"

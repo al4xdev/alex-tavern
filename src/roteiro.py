@@ -21,6 +21,11 @@ import httpx
 
 from src.llm.client import call_agent
 from src.models import GameState, Roteiro, RoteiroAct, RoteiroBeat, TurnRecord
+from src.prompting import (
+    PROGRESS_RECORD_TYPES,
+    RECENT_EVENTS_HEADER,
+    recent_event_lines,
+)
 
 ROTEIRO_DEFAULTS = {
     "roteiro_enabled": False,
@@ -44,7 +49,6 @@ MAX_BUDGET_TURNS = 10
 MAX_ANCHORS = 5
 _ANCHOR_FUZZY_THRESHOLD = 0.85
 
-_PROGRESS_RECORD_TYPES = ("speech", "action", "narration")
 
 
 def _normalize(text: str) -> str:
@@ -104,7 +108,7 @@ def _beat_records(history: list[TurnRecord], since_turn: int) -> list[TurnRecord
     return [
         rec
         for rec in history
-        if rec.turn_number >= since_turn and rec.content_type in _PROGRESS_RECORD_TYPES
+        if rec.turn_number >= since_turn and rec.content_type in PROGRESS_RECORD_TYPES
     ]
 
 
@@ -372,15 +376,10 @@ def _story_context_lines(game: GameState, recent_turns: int = 12) -> list[str]:
         lines.append(f"WORLD DIRECTIVES: {game.narrator_directives.strip()[:600]}")
     if game.story_summary.strip():
         lines.append(f"STORY SO FAR: {game.story_summary.strip()[:600]}")
-    recent = [
-        rec for rec in game.history[-recent_turns:] if rec.content_type in _PROGRESS_RECORD_TYPES
-    ]
-    if recent:
-        lines.append("RECENT EVENTS (oldest to newest):")
-        for rec in recent:
-            speaker = controlled if rec.speaker == "Player" else rec.speaker
-            name = game.characters[speaker].mind.name if speaker in game.characters else rec.speaker
-            lines.append(f"  {name}: {rec.content[:160]}")
+    events = recent_event_lines(game, limit=recent_turns, resolve_names=True)
+    if events:
+        lines.append(RECENT_EVENTS_HEADER)
+        lines.extend(events)
     return lines
 
 

@@ -619,8 +619,8 @@ async def narrate(
     missing = [k for k in required if k not in result]
     if missing:
         raise ValueError(
-            f"Resposta do Narrador sem campos obrigatórios: {missing}. "
-            f"Recebido: {json.dumps(result, ensure_ascii=False)[:300]}"
+            f"Director response is missing required fields: {missing}. "
+            f"Received: {json.dumps(result, ensure_ascii=False)[:300]}"
         )
 
     # Normalize next_speakers — only present characters (plus Narrator) are valid;

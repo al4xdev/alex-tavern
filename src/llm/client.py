@@ -131,6 +131,9 @@ async def chat_completion(
         thinking_enabled=thinking_enabled,
     )
     started = time.perf_counter()
+    # None only while nothing has been received: the failure log needs to record
+    # "no content" distinctly from an empty string. Every path that returns has
+    # assigned the provider's string.
     content: str | None = None
     usage: dict[str, Any] | None = None
     cache_hit_tokens: int | None = None
@@ -282,7 +285,7 @@ async def chat_completion_json(
             continue
 
     raise ValueError(
-        f"Falha ao obter JSON válido após {attempts_made} tentativas. Último erro: {last_error}"
+        f"Could not obtain valid JSON after {attempts_made} attempts. Last error: {last_error}"
     )
 
 

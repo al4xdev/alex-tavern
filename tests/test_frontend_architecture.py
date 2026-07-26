@@ -751,3 +751,28 @@ def test_access_token_failure_is_not_cached_across_requests() -> None:
         capture_output=True,
         text=True,
     )
+
+
+def test_no_exception_message_in_src_is_written_in_portuguese() -> None:
+    """Technical errors are diagnostics, in English, like the rest of src/.
+
+    They surface in debug.jsonl, in tools/replay_llm.py and inside the frontend's
+    already-translated error toast, so a Portuguese message there reads as broken
+    i18n rather than as a translation.
+    """
+    import ast
+
+    offenders: list[str] = []
+    for path in (ROOT / "src").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Raise) or node.exc is None:
+                continue
+            for text in ast.walk(node.exc):
+                if (
+                    isinstance(text, ast.Constant)
+                    and isinstance(text.value, str)
+                    and any(ch in text.value for ch in "áàâãéêíóôõúüç")
+                ):
+                    offenders.append(f"{path.relative_to(ROOT)}: {text.value[:60]}")
+    assert offenders == []
