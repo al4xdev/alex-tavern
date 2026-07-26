@@ -801,7 +801,10 @@ function renderScene(scene, changedKeys = []) {
     
     // Evaluate if tags wrap to multiple lines to show the chevron
     requestAnimationFrame(() => {
-        if (scenePanel.scrollHeight > 50) {
+        const collapsedHeight = Number.parseFloat(
+            getComputedStyle(scenePanel).getPropertyValue('--scene-collapsed-height'),
+        );
+        if (scenePanel.scrollHeight > collapsedHeight + 1) {
             scenePanel.classList.add('has-multiple-lines');
         } else {
             scenePanel.classList.remove('has-multiple-lines');

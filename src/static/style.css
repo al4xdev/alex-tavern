@@ -1218,6 +1218,7 @@ select.text-input { cursor: pointer; }
 
 /* Scene panel */
 .scene-panel {
+    --scene-collapsed-height: 44px;
     background: var(--surface);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -1230,8 +1231,8 @@ select.text-input { cursor: pointer; }
     gap: 8px; /* Tighter gap to match tag spacing */
     flex-wrap: wrap;
     font-size: 0.82rem;
-    min-height: 44px;
-    max-height: 44px;
+    min-height: var(--scene-collapsed-height);
+    max-height: var(--scene-collapsed-height);
     overflow: hidden;
     transition: max-height 0.4s var(--ease);
     cursor: pointer;
@@ -2629,7 +2630,7 @@ select.text-input { cursor: pointer; }
         gap: 14px;
     }
     .header { padding-bottom: 16px; }
-    .scene-panel { min-height: 48px; max-height: 48px; }
+    .scene-panel { --scene-collapsed-height: 48px; }
     .scene-panel.expanded { max-height: 500px; }
     .chat-log { gap: 13px; padding-block: 12px; }
     .msg { max-width: min(82%, 78ch); }
@@ -2659,12 +2660,10 @@ select.text-input { cursor: pointer; }
     #new-session-btn { padding: 8px 12px; font-size: 0.8rem; }
     .install-btn, #install-btn { padding: 8px 12px; font-size: 0.8rem; }
 
-    /* On narrow screens the location consumes the first row. Reserve a full
-       second row for facts so collapsed tags are visible instead of clipped
-       halfway by the desktop one-line height. */
+    /* The collapsed surface ends before a third flex row begins: one complete
+       location row plus one complete fact row, with no half-visible tags. */
     .scene-panel {
-        min-height: 74px;
-        max-height: 74px;
+        --scene-collapsed-height: 64px;
         align-content: flex-start;
         font-size: 0.78rem;
         padding: 8px 30px 8px 12px;

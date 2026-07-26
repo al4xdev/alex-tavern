@@ -434,15 +434,20 @@ def test_plugin_center_tabs_are_accessible_and_touch_draggable() -> None:
     assert ".plugin-view-track" in styles
 
 
-def test_mobile_scene_panel_reserves_a_complete_row_for_tags() -> None:
+def test_mobile_scene_panel_hides_wrapped_rows_without_cutting_tags() -> None:
     styles = (STATIC / "style.css").read_text(encoding="utf-8")
+    source = (STATIC / "app.js").read_text(encoding="utf-8")
 
     mobile_start = styles.index("/* ══════════════════ Responsive / mobile")
     mobile_styles = styles[mobile_start:]
-    assert "min-height: 74px;" in mobile_styles
-    assert "max-height: 74px;" in mobile_styles
+    assert "--scene-collapsed-height: 44px;" in styles
+    assert "min-height: var(--scene-collapsed-height);" in styles
+    assert "max-height: var(--scene-collapsed-height);" in styles
+    assert "--scene-collapsed-height: 64px;" in mobile_styles
     assert "flex: 1 0 100%;" in mobile_styles
     assert ".scene-panel.expanded { max-height: 500px; }" in mobile_styles
+    assert "getPropertyValue('--scene-collapsed-height')" in source
+    assert "scenePanel.scrollHeight > collapsedHeight + 1" in source
 
 
 def test_shared_toggle_remains_keyboard_focusable() -> None:
