@@ -34,6 +34,8 @@ part of the variant.
 | 14 | [When the room hears but nobody remembers](./14-audible-speech-persistence-wt09-2026-07-20.md) | WT-09 was a data-flow gap, not model confabulation: audible-speech events never reached history. Fixed leak-safely; a second, variance-bound mode remains. |
 | 15 | [Characters that change: a governed disposition substrate](./15-character-disposition-substrate-2026-07-20.md) | The frontier definition: the scalar is the code's, the band is the model's; an axis earns its place only if a blind reader can name its pole. Roadmap = Task 43. |
 | 16 | [Disposition after measurement: two axes survive, the public prior does not](./16-disposition-substrate-measured-verdict-2026-07-21.md) | Trust/Warmth survive; Composure and the public-prior reuse fail their gates and are removed. |
+| 17 | [A healthy server that could not publish](./17-android-runtime-plugin-integrity-2026-07-25.md) | Android exposed three ownership defects: bridge mutation, metadata-preserving copies, and browser reload mistaken for process restart. |
+| 18 | [From embedded WebView to named application](./18-android-native-shell-mobile-evidence-2026-07-25.md) | Native identity, file selection and immersive mode shipped; measured tag geometry fixed the shared PWA without retaining failed flicker hacks. |
 
 ## Reading paths
 

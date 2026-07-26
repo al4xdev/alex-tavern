@@ -1,6 +1,8 @@
 # Task 51 — Android runtime and plugin integrity
 
-> **Status:** in progress — implementation complete; final APK/device evidence pending.
+> **Status:** implementation and exact APK build complete; one physical gate
+> remains because the final restricted process cannot access the ADB daemon.
+> Evidence article: [Case No. 17](../../docs/cases/17-android-runtime-plugin-integrity-2026-07-25.md).
 
 ## Research question
 
@@ -20,9 +22,19 @@ changes through a real process restart?
 
 ## Closure evidence required
 
-- reproducible debug APK build;
-- HTTP health/version/plugin inventory from the physical device;
-- old and new Android PIDs proving a complete restart;
-- active plugin visible after the restarted server boots;
-- regression tests, Ruff, formatting, mypy, and full pytest;
-- local commits only; no push.
+- [x] reproducible debug APK build;
+- [x] HTTP health/version/plugin inventory from the physical device earlier in
+  the session;
+- [ ] old and new Android PIDs proving a complete restart;
+- [ ] active plugin visible after that measured restarted server boots;
+- [x] regression tests (785 passed, 2 deliberately deselected), Ruff and mypy;
+- [x] local commits only; no push.
+
+## Exact remaining command boundary
+
+Run `.claude/skills/android-apk-lab/scripts/adb-smoke.sh`, record the current PID,
+toggle one plugin, close Plugin Center, then record the new PID and `/plugins`.
+The current execution sandbox rejects the ADB smart-socket listener with
+`Operation not permitted`; this is an evidence-access limitation, not a passing
+restart measurement. Do not move this task to `closed/` until the two PIDs differ
+and the selected activation survives the new `/health`.
