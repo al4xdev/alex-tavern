@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
@@ -138,6 +138,59 @@ BURST_PROTAGONIST_EXCLUDE_BEATS = 2
 def _current_turn(game: GameState) -> int:
     """The turn number an out-of-band event belongs to (0 before the first turn)."""
     return game.history[-1].turn_number if game.history else 0
+
+
+def _next_turn_number(game: GameState) -> int:
+    """The number every record and model call of the next step will share."""
+    return (game.history[-1].turn_number + 1) if game.history else 1
+
+
+def _adopt_state(target: GameState, source: GameState) -> None:
+    """Copy every field of ``source`` into ``target``, in place.
+
+    Used when a caller already holds a GameState reference that has to reflect
+    state committed by another operation (compaction inside a running turn).
+    Declared field by field, so adding a field to GameState cannot silently skip
+    it the way mutating ``__dict__`` could.
+    """
+    for field_info in fields(GameState):
+        setattr(target, field_info.name, copy.deepcopy(getattr(source, field_info.name)))
+
+
+@dataclass(slots=True)
+class TurnInput:
+    """One submitted move, after the plugin filter and routing resolution.
+
+    ``narrator_hint`` is the PENDING hint the first beat starts from; a burst's
+    later beats resolve their own (see ``Runner._resolve_beat_hint``).
+    """
+
+    speech: str
+    thought: str
+    action: str
+    force_speaker: str | None
+    narrator_hint: str
+    skip: bool
+    audience: list[str] | None
+    transformed_fields: list[str]
+    # None when the requested speaker is absent or unknown: the Director routes.
+    effective_force_speaker: str | None
+
+    @property
+    def effective_input(self) -> dict[str, str]:
+        """What the frontend echoes back as the move that actually happened."""
+        return {"speech": self.speech, "thought": self.thought, "action": self.action}
+
+
+@dataclass(slots=True)
+class BurstState:
+    """Accumulators of one autonomous continuation (Task 37)."""
+
+    beats: list[dict[str, Any]] = field(default_factory=list)
+    # Event texts already told this burst, so a stimulus is resolved once.
+    event_texts: list[str] = field(default_factory=list)
+    narrator_only_streak: int = 0
+    stop_reason: str = "budget_exhausted"
 
 
 class PresenceRevisionConflictError(ValueError):
@@ -420,190 +473,21 @@ class Runner:
             if game is None:
                 raise SessionNotFoundError(session_id)
 
-            if audience is not None:
-                if not speech.strip() and not action.strip():
-                    raise ValueError("audience (whisper) requires speech or action")
-                if not audience:
-                    raise ValueError("audience cannot be an empty list")
-                unknown = [cid for cid in audience if cid not in game.characters]
-                if unknown:
-                    raise ValueError(f"audience references unknown character IDs: {unknown}")
-                absent = [cid for cid in audience if cid not in game.scene.present_characters]
-                if absent:
-                    raise ValueError(f"audience references absent characters: {absent}")
-                audience = list(dict.fromkeys(audience))
-
-            turn_input: dict[str, Any] = {
-                "speech": speech,
-                "thought": thought,
-                "action": action,
-                "force_speaker": force_speaker,
-                "narrator_hint": narrator_hint,
-                "skip": skip,
-            }
-            original_input = copy.deepcopy(turn_input)
-
             # All records and model calls from this step share one number.
-            step = (game.history[-1].turn_number + 1) if game.history else 1
-            log_turn_input(
-                session_id=session_id,
-                turn_number=step,
+            step = _next_turn_number(game)
+            turn = await self._resolve_turn_input(
+                game,
+                step,
                 speech=speech,
                 thought=thought,
                 action=action,
-                requested_force_speaker=force_speaker,
+                force_speaker=force_speaker,
                 narrator_hint=narrator_hint,
                 skip=skip,
+                audience=self._validate_audience(game, audience, speech, action),
             )
-            turn_input = await self.plugins.hooks.filter(
-                Hook.TURN_INPUT,
-                turn_input,
-                {"game": game, "turn_number": step, "runner": self},
-            )
-            speech = str(turn_input["speech"])
-            thought = str(turn_input["thought"])
-            action = str(turn_input["action"])
-            raw_force = turn_input["force_speaker"]
-            force_speaker = str(raw_force) if raw_force is not None else None
-            narrator_hint = str(turn_input["narrator_hint"])
-            skip = bool(turn_input["skip"])
-
-            force_speaker_present = (
-                force_speaker in game.characters and force_speaker in game.scene.present_characters
-            )
-            effective_force_speaker = (
-                force_speaker
-                if force_speaker and (force_speaker_present or force_speaker == "Narrator")
-                else None
-            )
-            transformed_fields = [
-                field
-                for field in ("speech", "thought", "action")
-                if turn_input[field] != original_input[field]
-            ]
-            log_effective_turn_input(
-                session_id,
-                step,
-                turn_input,
-                effective_force_speaker=effective_force_speaker,
-                transformed_fields=transformed_fields,
-            )
-            effective_input = {
-                field: str(turn_input[field]) for field in ("speech", "thought", "action")
-            }
-
-            automatic_compaction: dict[str, Any] | None = None
-            context_max = self.config.get("context_max")
-            if self.config.get("automatic_compaction_enabled", False) and isinstance(
-                context_max, int
-            ):
-                probe = copy.deepcopy(game)
-                if not skip:
-                    if speech:
-                        self._append_history(probe, "Player", speech, "speech", step)
-                    if thought:
-                        self._append_history(probe, "Player", thought, "thought", step)
-                    if action:
-                        self._append_history(probe, "Player", action, "action", step)
-                max_tokens = int(self.config.get("max_tokens_narrator", 2048))
-                messages = build_narrator_messages(
-                    scene=probe.scene,
-                    characters=probe.characters,
-                    player_controlled_id=probe.player.controlled_character_id,
-                    history=probe.history,
-                    narrator_directives=probe.narrator_directives,
-                    context_max=None,
-                    max_tokens_narrator=max_tokens,
-                    story_summary=probe.story_summary,
-                    forced_speaker=effective_force_speaker,
-                    narrator_hint=narrator_hint,
-                )
-                estimated_context_tokens = estimate_prompt_tokens(messages) + max_tokens
-                threshold_tokens = int(
-                    context_max
-                    * int(self.config.get("automatic_compaction_threshold_percent", 80))
-                    / 100
-                )
-                if estimated_context_tokens >= threshold_tokens:
-                    try:
-                        automatic_compaction = await self._compact_loaded_game(
-                            game,
-                            trigger="automatic",
-                            turn_number=step,
-                            estimated_context_tokens=estimated_context_tokens,
-                            threshold_tokens=threshold_tokens,
-                        )
-                    except Exception as error:
-                        reason = "Automatic compaction failed before commit."
-                        automatic_compaction = {
-                            "status": "failed",
-                            "trigger": "automatic",
-                            "compacted": False,
-                            "reason": reason,
-                            "estimated_context_tokens": estimated_context_tokens,
-                            "threshold_tokens": threshold_tokens,
-                            "context_max": context_max,
-                            "undo_depth": len(game.compaction_stack),
-                        }
-                        log_compaction_status(
-                            session_id,
-                            step,
-                            status="failed",
-                            trigger="automatic",
-                            estimated_context_tokens=estimated_context_tokens,
-                            threshold_tokens=threshold_tokens,
-                            reason=reason,
-                            error=error,
-                        )
-                else:
-                    reason = "Estimated context remains below the threshold."
-                    automatic_compaction = {
-                        "status": "not_needed",
-                        "trigger": "automatic",
-                        "compacted": False,
-                        "reason": reason,
-                        "estimated_context_tokens": estimated_context_tokens,
-                        "threshold_tokens": threshold_tokens,
-                        "context_max": context_max,
-                        "undo_depth": len(game.compaction_stack),
-                    }
-                    log_compaction_status(
-                        session_id,
-                        step,
-                        status="not_needed",
-                        trigger="automatic",
-                        estimated_context_tokens=estimated_context_tokens,
-                        threshold_tokens=threshold_tokens,
-                        reason=reason,
-                    )
-
-            # Persist the turn BEFORE calling the Narrator (blind).
-            # Skip: no player input to persist — Narrator reacts to current state alone.
-            if not skip:
-                if speech:
-                    self._append_history(
-                        game,
-                        "Player",
-                        speech,
-                        "speech",
-                        step,
-                        "speech" in transformed_fields,
-                        audience=audience,
-                    )
-                if thought:
-                    self._append_history(
-                        game, "Player", thought, "thought", step, "thought" in transformed_fields
-                    )
-                if action:
-                    self._append_history(
-                        game,
-                        "Player",
-                        action,
-                        "action",
-                        step,
-                        "action" in transformed_fields,
-                        audience=audience,
-                    )
+            automatic_compaction = await self._maybe_automatic_compaction(game, turn, step)
+            self._persist_player_input(game, turn, step)
 
             # Bounded autonomous burst (Task 37): on a bare skip turn the world
             # may play several beats before control returns. Each beat commits
@@ -611,138 +495,40 @@ class Runner:
             # beats). Stop conditions are deterministic; a manual force always
             # means exactly one beat.
             max_beats = 1
-            if skip and not effective_force_speaker:
+            if turn.skip and not turn.effective_force_speaker:
                 max_beats = max(1, int(self.config.get("autonomous_burst_max_beats", 1)))
-            beats: list[dict[str, Any]] = []
-            narrator_only_streak = 0
-            burst_event_texts: list[str] = []
-            stop_reason = "budget_exhausted"
+            burst = BurstState()
+            pending_hint = turn.narrator_hint
             for beat_index in range(max_beats):
                 if beat_index:
-                    step = (game.history[-1].turn_number + 1) if game.history else 1
-                # Drive scheduler (Task 33): on a skip turn without a manual hint,
-                # CODE decides whether the world receives an autonomous event; a
-                # small structured call only writes WHAT the event is. The seed is
-                # always an external world event for the blind Narrator — never a
-                # move for the human's character.
-                injected_event = False
-                if beat_index == 0 and skip and not narrator_hint.strip():
-                    decision = evaluate_event_hazard(game, self.config)
-                    event_seed = ""
-                    if decision.fired:
-                        event_seed = await generate_event_seed(self.client, game, self.config, step)
-                        if event_seed:
-                            narrator_hint = event_seed
-                            injected_event = True
-                    log_drive_decision(
-                        game.session_id,
-                        step,
-                        fired=injected_event,
-                        probability=decision.probability,
-                        quiet_turns=decision.quiet_turns,
-                        roll=decision.roll,
-                        event_seed=event_seed,
-                    )
-                if beat_index == 0 and skip and not narrator_hint.strip():
-                    # Time compression invite (Task 40 v2): the player passing is
-                    # the human "summary mode" signal. The Director DECIDES the
-                    # skip; the code only invites and later clamps the result.
-                    # Validated: a live scene never skips even when invited.
-                    narrator_hint = CLOCK_SKIP_INVITE
+                    step = _next_turn_number(game)
 
-                # Roteiro maintenance (Task 38): CODE decides whether the story
-                # direction needs a new rolling beat (coverage/budget/drift over
-                # history, with hysteresis); a structured call only writes WHAT
-                # the beat says. Runs per beat so bursts stay on-plan too, but
-                # the beat's budget only advances on the FIRST beat: the unit is
-                # the player's action, not the turns one action commits.
-                clock_event = await self._maintain_roteiro(game, step, first_beat=(beat_index == 0))
-                if clock_event and not narrator_hint.strip():
-                    # The act deadline's world_event stages THIS beat via the
-                    # UPCOMING EVENT contract (same channel the drive uses).
-                    narrator_hint = clock_event
-                    injected_event = True
-
-                # Roteiro watcher (Task 33b): the semantic fallback. When the
-                # delta auditor has seen the scene stand still for several turns
-                # and nothing gentler carried it (the clock above owns promised
-                # transitions), the recovery ladder grows a causal disruption
-                # from a thread already open — same blind narrator_hint channel.
-                if not narrator_hint.strip():
-                    watch_hint = await self._maybe_watcher_recovery(game, step)
-                    if watch_hint:
-                        narrator_hint = watch_hint
-                        injected_event = True
-
-                # Call Narrator — extra_context/extra_schema let plugins add read-only
-                # prompt lines and an optional output key (narrator.context/narrator.schema)
-                # without a provider- or plugin-specific branch here.
-                extra_context: list[str] = await self.plugins.hooks.filter(
-                    Hook.NARRATOR_CONTEXT, [], {"game": game, "turn_number": step, "runner": self}
+                hint, injected_event = await self._resolve_beat_hint(
+                    game, step, beat_index, turn, pending_hint
                 )
-                schema_extension = await self.plugins.hooks.filter(
-                    Hook.NARRATOR_SCHEMA,
-                    {"properties": {}, "required": []},
-                    {"game": game, "turn_number": step, "runner": self},
+                narrator_raw = await self._director_beat(
+                    game, step, turn, beat_index, hint, multi_beat=max_beats > 1, burst=burst
                 )
-                extra_schema_properties = dict(schema_extension.get("properties", {}))
-                extra_schema_required = list(schema_extension.get("required", []))
-
-                # Hybrid protagonist routing (Task 45): keep the controlled character
-                # out of next_speakers for the first BURST_PROTAGONIST_EXCLUDE_BEATS
-                # beats of a continuation so the world reacts before the story can
-                # pull the human back in; from then on they are eligible again, and
-                # the Narrator choosing them ends the burst (player_addressed).
-                exclude_controlled = beat_index < BURST_PROTAGONIST_EXCLUDE_BEATS
-                narrator_raw = await self.plugins.hooks.call_wrapped(
-                    Hook.NARRATOR_CALL,
-                    partial(
-                        self._call_narrator,
-                        game,
-                        step,
-                        effective_force_speaker,
-                        narrator_hint,
-                        extra_context=extra_context,
-                        extra_schema_properties=extra_schema_properties,
-                        extra_schema_required=extra_schema_required,
-                        exclude_controlled=exclude_controlled,
-                    ),
-                    {"game": game, "turn_number": step, "runner": self},
-                )
-                narrator_raw = await self.plugins.hooks.filter(
-                    Hook.NARRATOR_OUTPUT,
-                    narrator_raw,
-                    {"game": game, "turn_number": step, "runner": self},
-                )
-
-                # Within a burst a stimulus must be resolved once: events that
-                # near-duplicate an earlier beat's event are dropped so the
-                # renderer never tells the same thud-and-whinny three times
-                # (Task 37, critic finding).
-                if max_beats > 1:
-                    fresh_events = [
-                        event
-                        for event in narrator_raw["perception_events"]
-                        if not repeats_event_text(event["content"], burst_event_texts)
-                    ]
-                    narrator_raw["perception_events"] = fresh_events
-                    burst_event_texts.extend(event["content"] for event in fresh_events)
 
                 # A manual force wins over whatever the Director (or a plugin filter)
                 # returned — the queue collapses to the forced speaker alone.
                 queue: list[str] = (
-                    [effective_force_speaker]
-                    if effective_force_speaker
+                    [turn.effective_force_speaker]
+                    if turn.effective_force_speaker
                     else list(narrator_raw["next_speakers"])
                 )
                 controlled = game.player.controlled_character_id
-                character_responses: list[dict[str, Any]] = []
 
                 # Observability for the "the world ignored my message" symptom:
                 # the player wrote something and the Director routed nobody. The
                 # queue is already normalized to ["Narrator"] by then, so this is
                 # the only place the two cases are still distinguishable.
-                if beat_index == 0 and not skip and (speech or action) and queue == ["Narrator"]:
+                if (
+                    beat_index == 0
+                    and not turn.skip
+                    and (turn.speech or turn.action)
+                    and queue == ["Narrator"]
+                ):
                     log_unanswered_player(
                         game.session_id,
                         step,
@@ -751,357 +537,734 @@ class Runner:
                         ),
                     )
 
-                # Canon applies BEFORE the prose renders (Task 41): the renderer
-                # must stage the reconciled scene, not the stale one — rendering
-                # old canon against new events made the prose invent its own
-                # reconciliation ("he enters the hall" while the event had him
-                # racing through the city). Witness clamps were already computed
-                # from the pre-move scene inside narrate(), so perception
-                # fairness ("arrival counts next beat") is unchanged.
-                scene_up = narrator_raw.get("scene_update")
-                zone_moves = narrator_raw.get("zone_moves") or {}
-                if zone_moves and scene_up and "location" in scene_up:
-                    # Partial movement is expressed by zones; the stage location
-                    # only changes when the WHOLE scene moves. The model often
-                    # emits both (zone split + a location change that would drag
-                    # the rest of the cast along in canon) — clamp the location
-                    # change unless every present character moved.
-                    movers = set(zone_moves)
-                    present = {
-                        cid for cid in game.scene.present_characters if cid in game.characters
+                scene_up = self._apply_canon(game, narrator_raw)
+                self._apply_time_skip(game, narrator_raw, step)
+                narration = await self._render_and_prepare(
+                    game, narrator_raw, queue, step, multi_beat=max_beats > 1
+                )
+                character_responses = await self._run_speaker_queue(
+                    game, queue, narrator_raw, turn, step
+                )
+                self._persist_audible_speech(game, narrator_raw, step)
+                game = await self._commit_beat(
+                    game, narrator_raw, character_responses, step, injected_event
+                )
+
+                burst.beats.append(
+                    {
+                        "narration": narration,
+                        "character_responses": character_responses,
+                        "next_speakers": queue,
+                        "scene_update": scene_up,
+                        "turn_number": step,
                     }
-                    if not present.issubset(movers):
-                        scene_up = {k: v for k, v in scene_up.items() if k != "location"}
-                if scene_up:
-                    self._update_scene(game, scene_up)
-                new_zones = [z for z in zone_moves.values() if z not in game.scene.zones]
-                if new_zones and not game.scene.zones:
-                    # First split of a zone-less stage: everyone else keeps the
-                    # current stage as their zone, so the new zone is genuinely
-                    # isolated (unplaced characters perceive everything).
-                    stage = (game.scene.location or "").strip()[:60] or "palco"
-                    game.scene.zones[stage] = []
-                    for cid in game.scene.present_characters:
-                        if cid in game.characters and cid not in zone_moves:
-                            game.scene.positions[cid] = stage
-                for zone in new_zones:
-                    game.scene.zones.setdefault(zone, [])  # new zones start isolated
-                for moved_id, zone in zone_moves.items():
-                    game.scene.positions[moved_id] = zone
-                for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
-                    if zone in game.scene.zones:
-                        game.scene.zones[zone] = [
-                            other for other in audible if other in game.scene.zones
-                        ]
-
-                # Time compression (Task 40 v2): the Director may REQUEST a skip;
-                # the CODE clamps and applies it. The offstage change enters the
-                # world as a typed observation every present character witnesses,
-                # so prose, perspectives and history inherit it through the
-                # normal channels — the clock itself only ever moves forward.
-                raw_ticks = narrator_raw.get("time_skip_ticks")
-                skip_ticks = max(0, min(8, raw_ticks)) if isinstance(raw_ticks, int) else 0
-                if skip_ticks:
-                    skip_summary = str(narrator_raw.get("time_skip_summary") or "").strip()[:300]
-                    game.narrative_tick += skip_ticks
-                    if skip_summary:
-                        narrator_raw["perception_events"].append(
-                            {
-                                "event_kind": "observation",
-                                "subject_id": "Narrator",
-                                "content": skip_summary,
-                                "witness_ids": [
-                                    cid
-                                    for cid in game.scene.present_characters
-                                    if cid in game.characters
-                                ],
-                            }
-                        )
-                    log_time_skip(
-                        game.session_id,
-                        step,
-                        ticks=skip_ticks,
-                        summary=skip_summary,
-                        narrative_tick_after=game.narrative_tick,
-                    )
-
-                # Decision -> Prose split (Task 36): the blind renderer turns the
-                # validated events into reader prose CONCURRENTLY with the routed
-                # speakers' ledger preparation (they share no data dependency; the
-                # latency concentrates at this beat boundary). Deterministic merge:
-                # the narration record is always appended before any character
-                # record, regardless of completion order.
-                prepare_ids = list(
-                    dict.fromkeys(
-                        speaker
-                        for speaker in queue
-                        if speaker != controlled
-                        and speaker in game.characters
-                        and speaker in game.scene.present_characters
-                    )
                 )
-                if max_beats > 1 and not narrator_raw["perception_events"]:
-                    # A burst beat with zero novel events narrates NOTHING: the
-                    # atmospheric fallback would only re-describe the standing
-                    # tableau (a null recap turn). Routed characters still speak.
-                    narration = ""
-                    await asyncio.gather(
-                        *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids)
-                    )
-                else:
-                    render_results = await asyncio.gather(
-                        self._render_narration(game, narrator_raw["perception_events"], step),
-                        *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
-                    )
-                    narration = str(render_results[0] or "")
-                if narration:
-                    self._append_history(game, "Narrator", narration, "narration", step)
-
-                # The queue runs sequentially WITHOUT Narrator calls in between: each
-                # response is appended to history before the next character call, so a
-                # later speaker perceives the earlier ones through the normal visibility
-                # filter. The Narrator is blind and can route to the controlled
-                # character — the queue stops there and control returns to the human
-                # (the runner never generates their speech). A whispered exchange stays
-                # whispered: when a replying character is part of the turn's audience,
-                # its reply keeps the same audience.
-                for speaker in queue:
-                    if speaker == controlled:
-                        break
-                    if (
-                        speaker not in game.characters
-                        or speaker not in game.scene.present_characters
-                    ):
-                        continue
-                    reply_audience = (
-                        audience if audience is not None and speaker in audience else None
-                    )
-                    await self._ensure_perspective(game, speaker, step)
-                    # Each speaker receives only the typed perception events they
-                    # witness (zone-clamped upstream), projected through their own
-                    # identity ledger — the free-prose context_for_character is gone.
-                    ctx = render_events_for_viewer(
-                        narrator_raw["perception_events"],
-                        speaker,
-                        game.characters,
-                        game.character_perspectives.get(speaker),
-                    )
-                    if not ctx.strip():
-                        # An empty perception void invites the model to hallucinate a
-                        # stimulus (an isolated character greeted a visitor that does
-                        # not exist). State the deterministic fact instead: nothing
-                        # new reached this character's senses.
-                        ctx = (
-                            "Nothing new reaches your senses right now; you are "
-                            "alone with your current activity and thoughts."
-                        )
-                    # Deterministic guard behind the Narrator's whisper rule: the
-                    # "denial that reveals" pattern ("you did not hear the password X")
-                    # occasionally leaks whispered content into an event rendered for
-                    # a character outside the whisper's audience. Strip it here,
-                    # before the character ever sees it; audience members unaffected.
-                    ctx = redact_whisper_leaks(
-                        ctx, game.history, speaker, game.characters, game.scene
-                    )
-                    character_response = await self.plugins.hooks.call_wrapped(
-                        Hook.CHARACTER_CALL,
-                        partial(
-                            self._call_character,
-                            game,
-                            speaker,
-                            ctx,
-                            step,
-                            reply_audience=reply_audience,
-                        ),
-                        {
-                            "game": game,
-                            "character_id": speaker,
-                            "turn_number": step,
-                            "runner": self,
-                        },
-                    )
-                    character_response = await self.plugins.hooks.filter(
-                        Hook.CHARACTER_OUTPUT,
-                        character_response,
-                        {
-                            "game": game,
-                            "character_id": speaker,
-                            "turn_number": step,
-                            "runner": self,
-                        },
-                    )
-                    if character_response["thought"]:
-                        self._append_history(
-                            game, speaker, character_response["thought"], "thought", step
-                        )
-                    if character_response["speech"]:
-                        self._append_history(
-                            game,
-                            speaker,
-                            character_response["speech"],
-                            "speech",
-                            step,
-                            audience=reply_audience,
-                        )
-                    action_intent = character_response.get("action_intent")
-                    if action_intent:
-                        # An intent is an ATTEMPT: it becomes an action record (the
-                        # existing physics — resolved by the next beat's Director),
-                        # never an outcome. Zone-scoped audience is computed by
-                        # _append_history like any physical act.
-                        self._append_history(
-                            game,
-                            speaker,
-                            action_intent,
-                            "action",
-                            step,
-                        )
-                    character_responses.append({"character_id": speaker, **character_response})
-
-                # Persist the Director's audible_speech events as spoken records
-                # (WT-09 fix). A fact voiced to the room — a decoded cipher, a
-                # name, a verdict — is a real world event: every witness must be
-                # able to RECALL it on a later turn, not only whoever happened to
-                # reply this turn. These events were rendered to this turn's
-                # repliers and the prose, then discarded, so a witness who did not
-                # speak never got the fact and memory (which reads history) never
-                # had it. Scoped to who heard it (witness_ids), zone origin.
-                #
-                # Leak guard: the Director sometimes re-narrates a WHISPER with a
-                # broad "just audible to those nearby" scope but the secret
-                # content inside. The transient render path redacts that per
-                # viewer; a persisted shared record cannot, so we SKIP any event
-                # whose content would hand a whisper secret to a listener who is
-                # not that whisper's confidant. A public reveal of Director canon
-                # (a name never whispered) carries no whisper token, so it
-                # persists. Recorded AFTER the reply loop so this turn's repliers
-                # still get it through perception alone, never doubled into
-                # RECENT EVENTS (and after the whisper records exist in history).
-                for event in narrator_raw["perception_events"]:
-                    if event.get("event_kind") != "audible_speech":
-                        continue
-                    spoken = str(event.get("content", "")).strip()
-                    subject = event.get("subject_id")
-                    if not spoken or subject not in game.characters:
-                        continue
-                    present_others = {
-                        cid
-                        for cid in game.scene.present_characters
-                        if cid in game.characters and cid != subject
-                    }
-                    witnesses = {w for w in event.get("witness_ids", []) if w in game.characters}
-                    heard_by = None if witnesses >= present_others else sorted(witnesses)
-                    listeners = present_others if heard_by is None else set(heard_by)
-                    if any(
-                        redact_tokens(
-                            spoken,
-                            hidden_whisper_tokens(game.history, vid, game.characters, game.scene),
-                        )
-                        != spoken
-                        for vid in listeners
-                    ):
-                        continue  # would leak a whisper secret to a non-confidant
-                    self._append_history(
-                        game,
-                        subject,
-                        spoken,
-                        "speech",
-                        step,
-                        audience=heard_by,
-                        audience_origin="zone",
-                    )
-
-                # Update characters' moods
-                mood_updates = narrator_raw.get("mood_updates")
-                if mood_updates:
-                    self._update_moods(game, mood_updates)
-
-                # Each plugin validates and applies its own narrator.schema property (if
-                # present in narrator_raw) to this same-turn draft. A plugin that finds
-                # its own proposal invalid returns the draft unchanged instead of raising —
-                # raising here would trip the shared crash policy and disable the plugin,
-                # which is reserved for genuine bugs, not routine LLM validation failures.
-                game = await self.plugins.hooks.filter(
-                    Hook.NARRATOR_RESULT,
-                    game,
-                    {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
-                )
-                game = await self.plugins.hooks.filter(
-                    Hook.TURN_BEFORE_COMMIT, game, {"kind": "turn", "runner": self}
-                )
-                game.turns_since_injected_event = (
-                    0 if injected_event else game.turns_since_injected_event + 1
-                )
-                # Roteiro coverage (Task 38): record which of the current beat's
-                # anchors this beat actually put in play, measured on the
-                # AUTHORITATIVE evidence — the Director's typed events and the
-                # characters' own words/acts — not the lossy prose. Audible
-                # speech never reaches the renderer, so the prose can never be
-                # the coverage surface without punishing the Director for obeying.
-                if game.roteiro is not None and game.roteiro.beat is not None:
-                    evidence_texts = [
-                        event["content"] for event in narrator_raw["perception_events"]
-                    ]
-                    for response in character_responses:
-                        if response.get("speech"):
-                            evidence_texts.append(response["speech"])
-                        if response.get("action_intent"):
-                            evidence_texts.append(response["action_intent"])
-                    newly_seen = collect_beat_evidence(game.roteiro, evidence_texts)
-                    if newly_seen:
-                        game.roteiro.anchors_seen.extend(newly_seen)
-                game.narrative_tick += 1
-                await self._audit_turn_for_watcher(game, step)
-                await self._apply_disposition_feedback(game, step)
-                game.revision += 1
-                save_game(game)
-                await self.plugins.hooks.action(
-                    Hook.TURN_AFTER_COMMIT, {"game": game, "kind": "turn"}
-                )
-
-                beat_result = {
-                    "narration": narration,
-                    "character_responses": character_responses,
-                    "next_speakers": queue,
-                    "scene_update": scene_up,
-                    "turn_number": step,
-                }
-                beats.append(beat_result)
-                narrator_hint = ""
-                if controlled in queue:
-                    stop_reason = "player_addressed"
+                pending_hint = ""
+                if self._beat_settled(
+                    burst,
+                    queue,
+                    narrator_raw,
+                    character_responses,
+                    controlled,
+                    multi_beat=max_beats > 1,
+                ):
                     break
-                if narrator_raw.get("return_control"):
-                    stop_reason = "protagonist_decision"
-                    break
-                if character_responses:
-                    narrator_only_streak = 0
-                elif max_beats > 1 and not narrator_raw["perception_events"]:
-                    # Nothing new happened and nobody spoke: the beat settled.
-                    stop_reason = "beat_settled"
-                    break
-                else:
-                    narrator_only_streak += 1
-                    if narrator_only_streak >= 2:
-                        stop_reason = "beat_settled"
-                        break
 
             if max_beats > 1:
                 log_burst(
                     game.session_id,
-                    beats[-1]["turn_number"],
-                    beat_count=len(beats),
-                    stop_reason=stop_reason,
-                    first_turn=beats[0]["turn_number"],
+                    burst.beats[-1]["turn_number"],
+                    beat_count=len(burst.beats),
+                    stop_reason=burst.stop_reason,
+                    first_turn=burst.beats[0]["turn_number"],
                 )
             return {
-                **beats[-1],
-                "beats": beats,
-                "burst_stop_reason": stop_reason if max_beats > 1 else None,
-                "effective_input": effective_input,
-                "transformed_fields": transformed_fields,
+                **burst.beats[-1],
+                "beats": burst.beats,
+                "burst_stop_reason": burst.stop_reason if max_beats > 1 else None,
+                "effective_input": turn.effective_input,
+                "transformed_fields": turn.transformed_fields,
                 "automatic_compaction": automatic_compaction,
             }
+
+    # ── Turn stages ───────────────────────────────────────────────────────
+    # player_turn above reads as the sequence of these; each one owns a single
+    # step of the beat and can be read (or tested) without the others.
+
+    def _validate_audience(
+        self, game: GameState, audience: list[str] | None, speech: str, action: str
+    ) -> list[str] | None:
+        """Check a whisper audience against the scene and deduplicate it."""
+        if audience is None:
+            return None
+        if not speech.strip() and not action.strip():
+            raise ValueError("audience (whisper) requires speech or action")
+        if not audience:
+            raise ValueError("audience cannot be an empty list")
+        unknown = [cid for cid in audience if cid not in game.characters]
+        if unknown:
+            raise ValueError(f"audience references unknown character IDs: {unknown}")
+        absent = [cid for cid in audience if cid not in game.scene.present_characters]
+        if absent:
+            raise ValueError(f"audience references absent characters: {absent}")
+        return list(dict.fromkeys(audience))
+
+    async def _resolve_turn_input(
+        self,
+        game: GameState,
+        step: int,
+        *,
+        speech: str,
+        thought: str,
+        action: str,
+        force_speaker: str | None,
+        narrator_hint: str,
+        skip: bool,
+        audience: list[str] | None,
+    ) -> TurnInput:
+        """Log the raw submission, run the plugin filter, resolve the routing.
+
+        Both the submitted and the effective input are logged: a plugin that
+        rewrites a turn must be auditable against what the human actually sent.
+        """
+        raw: dict[str, Any] = {
+            "speech": speech,
+            "thought": thought,
+            "action": action,
+            "force_speaker": force_speaker,
+            "narrator_hint": narrator_hint,
+            "skip": skip,
+        }
+        original = copy.deepcopy(raw)
+        log_turn_input(
+            session_id=game.session_id,
+            turn_number=step,
+            speech=speech,
+            thought=thought,
+            action=action,
+            requested_force_speaker=force_speaker,
+            narrator_hint=narrator_hint,
+            skip=skip,
+        )
+        filtered = await self.plugins.hooks.filter(
+            Hook.TURN_INPUT, raw, {"game": game, "turn_number": step, "runner": self}
+        )
+        raw_force = filtered["force_speaker"]
+        resolved_force = str(raw_force) if raw_force is not None else None
+        force_speaker_present = (
+            resolved_force in game.characters and resolved_force in game.scene.present_characters
+        )
+        turn = TurnInput(
+            speech=str(filtered["speech"]),
+            thought=str(filtered["thought"]),
+            action=str(filtered["action"]),
+            force_speaker=resolved_force,
+            narrator_hint=str(filtered["narrator_hint"]),
+            skip=bool(filtered["skip"]),
+            audience=audience,
+            transformed_fields=[
+                field
+                for field in ("speech", "thought", "action")
+                if filtered[field] != original[field]
+            ],
+            effective_force_speaker=(
+                resolved_force
+                if resolved_force and (force_speaker_present or resolved_force == "Narrator")
+                else None
+            ),
+        )
+        log_effective_turn_input(
+            game.session_id,
+            step,
+            filtered,
+            effective_force_speaker=turn.effective_force_speaker,
+            transformed_fields=turn.transformed_fields,
+        )
+        return turn
+
+    async def _maybe_automatic_compaction(
+        self, game: GameState, turn: TurnInput, step: int
+    ) -> dict[str, Any] | None:
+        """Compact before the turn commits when the estimated context is too large.
+
+        The estimate is measured on a PROBE that already contains this turn's
+        input, so the decision reflects the prompt the Director is about to get.
+        """
+        context_max = self.config.get("context_max")
+        if not self.config.get("automatic_compaction_enabled", False) or not isinstance(
+            context_max, int
+        ):
+            return None
+
+        probe = copy.deepcopy(game)
+        if not turn.skip:
+            for content, content_type in (
+                (turn.speech, "speech"),
+                (turn.thought, "thought"),
+                (turn.action, "action"),
+            ):
+                if content:
+                    self._append_history(probe, "Player", content, content_type, step)
+        max_tokens = int(self.config.get("max_tokens_narrator", 2048))
+        messages = build_narrator_messages(
+            scene=probe.scene,
+            characters=probe.characters,
+            player_controlled_id=probe.player.controlled_character_id,
+            history=probe.history,
+            narrator_directives=probe.narrator_directives,
+            context_max=None,
+            max_tokens_narrator=max_tokens,
+            story_summary=probe.story_summary,
+            forced_speaker=turn.effective_force_speaker,
+            narrator_hint=turn.narrator_hint,
+        )
+        estimated = estimate_prompt_tokens(messages) + max_tokens
+        threshold = int(
+            context_max * int(self.config.get("automatic_compaction_threshold_percent", 80)) / 100
+        )
+        if estimated < threshold:
+            reason = "Estimated context remains below the threshold."
+            log_compaction_status(
+                game.session_id,
+                step,
+                status="not_needed",
+                trigger="automatic",
+                estimated_context_tokens=estimated,
+                threshold_tokens=threshold,
+                reason=reason,
+            )
+            return self._compaction_result(
+                "not_needed", reason, game, estimated=estimated, threshold=threshold
+            )
+        try:
+            return await self._compact_loaded_game(
+                game,
+                trigger="automatic",
+                turn_number=step,
+                estimated_context_tokens=estimated,
+                threshold_tokens=threshold,
+            )
+        except Exception as error:
+            reason = "Automatic compaction failed before commit."
+            log_compaction_status(
+                game.session_id,
+                step,
+                status="failed",
+                trigger="automatic",
+                estimated_context_tokens=estimated,
+                threshold_tokens=threshold,
+                reason=reason,
+                error=error,
+            )
+            return self._compaction_result(
+                "failed", reason, game, estimated=estimated, threshold=threshold
+            )
+
+    def _compaction_result(
+        self,
+        status: str,
+        reason: str | None,
+        game: GameState,
+        *,
+        estimated: int | None,
+        threshold: int | None,
+        trigger: CompactionTrigger = "automatic",
+    ) -> dict[str, Any]:
+        """The shape every NON-compacted outcome reports back to the caller."""
+        return {
+            "status": status,
+            "trigger": trigger,
+            "compacted": False,
+            "reason": reason,
+            "estimated_context_tokens": estimated,
+            "threshold_tokens": threshold,
+            "context_max": self.config.get("context_max"),
+            "undo_depth": len(game.compaction_stack),
+        }
+
+    def _persist_player_input(self, game: GameState, turn: TurnInput, step: int) -> None:
+        """Commit the human's move BEFORE the Narrator sees it (it stays blind).
+
+        A skip persists nothing: the Narrator reacts to the current state alone.
+        """
+        if turn.skip:
+            return
+        for content, content_type, audience in (
+            (turn.speech, "speech", turn.audience),
+            (turn.thought, "thought", None),
+            (turn.action, "action", turn.audience),
+        ):
+            if content:
+                self._append_history(
+                    game,
+                    "Player",
+                    content,
+                    content_type,
+                    step,
+                    content_type in turn.transformed_fields,
+                    audience=audience,
+                )
+
+    async def _resolve_beat_hint(
+        self, game: GameState, step: int, beat_index: int, turn: TurnInput, pending: str
+    ) -> tuple[str, bool]:
+        """Decide this beat's UPCOMING EVENT line, and whether the code injected it.
+
+        Four producers share one blind channel, in strict precedence:
+
+        1. the hint the player wrote (or a plugin set) — never overridden;
+        2. the drive scheduler's autonomous event (Task 33), first beat of a skip;
+        3. the time-compression invite (Task 40 v2), same position;
+        4. the act deadline's staged world_event (Task 40), any beat;
+        5. the watcher's causal disruption (Task 33b), the semantic fallback that
+           only speaks when everything gentler left the scene standing still.
+
+        Returns the hint and whether it came from the world rather than the human,
+        which is what ``turns_since_injected_event`` counts.
+        """
+        hint = pending
+        injected = False
+        opening_skip = beat_index == 0 and turn.skip
+
+        if opening_skip and not hint.strip():
+            # CODE decides whether the world receives an autonomous event; a small
+            # structured call only writes WHAT the event is. The seed is always an
+            # external world event for the blind Narrator — never a move for the
+            # human's character.
+            decision = evaluate_event_hazard(game, self.config)
+            event_seed = ""
+            if decision.fired:
+                event_seed = await generate_event_seed(self.client, game, self.config, step)
+                if event_seed:
+                    hint = event_seed
+                    injected = True
+            log_drive_decision(
+                game.session_id,
+                step,
+                fired=injected,
+                probability=decision.probability,
+                quiet_turns=decision.quiet_turns,
+                roll=decision.roll,
+                event_seed=event_seed,
+            )
+
+        if opening_skip and not hint.strip():
+            # The player passing is the human "summary mode" signal. The Director
+            # DECIDES the skip; the code only invites and later clamps the result.
+            # Validated: a live scene never skips even when invited.
+            hint = CLOCK_SKIP_INVITE
+
+        # Roteiro maintenance (Task 38): CODE decides whether the story direction
+        # needs a new rolling beat (coverage/budget/drift over history, with
+        # hysteresis); a structured call only writes WHAT the beat says. Runs per
+        # beat so bursts stay on-plan too, but the beat's budget only advances on
+        # the FIRST beat: the unit is the player's action, not the turns one
+        # action commits.
+        clock_event = await self._maintain_roteiro(game, step, first_beat=(beat_index == 0))
+        if clock_event and not hint.strip():
+            # The act deadline's world_event stages THIS beat via the UPCOMING
+            # EVENT contract (the same channel the drive uses).
+            hint = clock_event
+            injected = True
+
+        if not hint.strip():
+            watch_hint = await self._maybe_watcher_recovery(game, step)
+            if watch_hint:
+                hint = watch_hint
+                injected = True
+        return hint, injected
+
+    async def _director_beat(
+        self,
+        game: GameState,
+        step: int,
+        turn: TurnInput,
+        beat_index: int,
+        hint: str,
+        *,
+        multi_beat: bool,
+        burst: BurstState,
+    ) -> dict[str, Any]:
+        """Run the Director call for one beat, with the plugin surfaces around it.
+
+        ``narrator.context``/``narrator.schema`` let a plugin add read-only prompt
+        lines and one output key without a provider- or plugin-specific branch
+        here; ``narrator.call`` can replace the whole operation.
+        """
+        extra_context: list[str] = await self.plugins.hooks.filter(
+            Hook.NARRATOR_CONTEXT, [], {"game": game, "turn_number": step, "runner": self}
+        )
+        schema_extension = await self.plugins.hooks.filter(
+            Hook.NARRATOR_SCHEMA,
+            {"properties": {}, "required": []},
+            {"game": game, "turn_number": step, "runner": self},
+        )
+        # Hybrid protagonist routing (Task 45): keep the controlled character out
+        # of next_speakers for the first BURST_PROTAGONIST_EXCLUDE_BEATS beats of
+        # a continuation so the world reacts before the story can pull the human
+        # back in; from then on they are eligible again, and the Narrator choosing
+        # them ends the burst (player_addressed).
+        narrator_raw: dict[str, Any] = await self.plugins.hooks.call_wrapped(
+            Hook.NARRATOR_CALL,
+            partial(
+                self._call_narrator,
+                game,
+                step,
+                turn.effective_force_speaker,
+                hint,
+                extra_context=extra_context,
+                extra_schema_properties=dict(schema_extension.get("properties", {})),
+                extra_schema_required=list(schema_extension.get("required", [])),
+                exclude_controlled=beat_index < BURST_PROTAGONIST_EXCLUDE_BEATS,
+            ),
+            {"game": game, "turn_number": step, "runner": self},
+        )
+        narrator_raw = await self.plugins.hooks.filter(
+            Hook.NARRATOR_OUTPUT,
+            narrator_raw,
+            {"game": game, "turn_number": step, "runner": self},
+        )
+        if multi_beat:
+            # Within a burst a stimulus must be resolved once: events that
+            # near-duplicate an earlier beat's event are dropped so the renderer
+            # never tells the same thud-and-whinny three times (Task 37).
+            fresh_events = [
+                event
+                for event in narrator_raw["perception_events"]
+                if not repeats_event_text(event["content"], burst.event_texts)
+            ]
+            narrator_raw["perception_events"] = fresh_events
+            burst.event_texts.extend(event["content"] for event in fresh_events)
+        return narrator_raw
+
+    def _apply_canon(self, game: GameState, narrator_raw: dict[str, Any]) -> dict[str, Any] | None:
+        """Reconcile the scene BEFORE the prose renders (Task 41).
+
+        The renderer must stage the reconciled scene, not the stale one: rendering
+        old canon against new events made the prose invent its own reconciliation
+        ("he enters the hall" while the event had him racing through the city).
+        Witness clamps were already computed from the pre-move scene inside
+        ``narrate()``, so perception fairness ("arrival counts next beat") is
+        unchanged.
+        """
+        scene_up = narrator_raw.get("scene_update")
+        zone_moves = narrator_raw.get("zone_moves") or {}
+        if zone_moves and scene_up and "location" in scene_up:
+            # Partial movement is expressed by zones; the stage location only
+            # changes when the WHOLE scene moves. The model often emits both (zone
+            # split + a location change that would drag the rest of the cast along
+            # in canon) — clamp the location change unless every present character
+            # moved.
+            present = {cid for cid in game.scene.present_characters if cid in game.characters}
+            if not present.issubset(set(zone_moves)):
+                scene_up = {k: v for k, v in scene_up.items() if k != "location"}
+        if scene_up:
+            self._update_scene(game, scene_up)
+
+        new_zones = [z for z in zone_moves.values() if z not in game.scene.zones]
+        if new_zones and not game.scene.zones:
+            # First split of a zone-less stage: everyone else keeps the current
+            # stage as their zone, so the new zone is genuinely isolated (unplaced
+            # characters perceive everything).
+            stage = (game.scene.location or "").strip()[:60] or "palco"
+            game.scene.zones[stage] = []
+            for cid in game.scene.present_characters:
+                if cid in game.characters and cid not in zone_moves:
+                    game.scene.positions[cid] = stage
+        for zone in new_zones:
+            game.scene.zones.setdefault(zone, [])  # new zones start isolated
+        for moved_id, zone in zone_moves.items():
+            game.scene.positions[moved_id] = zone
+        for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
+            if zone in game.scene.zones:
+                game.scene.zones[zone] = [other for other in audible if other in game.scene.zones]
+        return scene_up
+
+    def _apply_time_skip(self, game: GameState, narrator_raw: dict[str, Any], step: int) -> None:
+        """Apply a Director-requested time compression, clamped by the code (Task 40 v2).
+
+        The offstage change enters the world as a typed observation every present
+        character witnesses, so prose, perspectives and history inherit it through
+        the normal channels — the clock itself only ever moves forward.
+        """
+        raw_ticks = narrator_raw.get("time_skip_ticks")
+        ticks = max(0, min(8, raw_ticks)) if isinstance(raw_ticks, int) else 0
+        if not ticks:
+            return
+        summary = str(narrator_raw.get("time_skip_summary") or "").strip()[:300]
+        game.narrative_tick += ticks
+        if summary:
+            narrator_raw["perception_events"].append(
+                {
+                    "event_kind": "observation",
+                    "subject_id": "Narrator",
+                    "content": summary,
+                    "witness_ids": [
+                        cid for cid in game.scene.present_characters if cid in game.characters
+                    ],
+                }
+            )
+        log_time_skip(
+            game.session_id,
+            step,
+            ticks=ticks,
+            summary=summary,
+            narrative_tick_after=game.narrative_tick,
+        )
+
+    async def _render_and_prepare(
+        self,
+        game: GameState,
+        narrator_raw: dict[str, Any],
+        queue: list[str],
+        step: int,
+        *,
+        multi_beat: bool,
+    ) -> str:
+        """Render the prose while the routed speakers' ledgers are prepared.
+
+        Decision -> Prose split (Task 36): the two share no data dependency and
+        the latency concentrates at this beat boundary, so they run concurrently.
+        The merge stays deterministic — the narration record is always appended
+        before any character record, whatever finishes first.
+        """
+        controlled = game.player.controlled_character_id
+        prepare_ids = list(
+            dict.fromkeys(
+                speaker
+                for speaker in queue
+                if speaker != controlled
+                and speaker in game.characters
+                and speaker in game.scene.present_characters
+            )
+        )
+        if multi_beat and not narrator_raw["perception_events"]:
+            # A burst beat with zero novel events narrates NOTHING: the atmospheric
+            # fallback would only re-describe the standing tableau (a null recap
+            # turn). Routed characters still speak.
+            await asyncio.gather(
+                *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids)
+            )
+            return ""
+        render_results = await asyncio.gather(
+            self._render_narration(game, narrator_raw["perception_events"], step),
+            *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
+        )
+        narration = str(render_results[0] or "")
+        if narration:
+            self._append_history(game, "Narrator", narration, "narration", step)
+        return narration
+
+    async def _run_speaker_queue(
+        self,
+        game: GameState,
+        queue: list[str],
+        narrator_raw: dict[str, Any],
+        turn: TurnInput,
+        step: int,
+    ) -> list[dict[str, Any]]:
+        """Let each routed character speak, in order, seeing the previous replies.
+
+        No Narrator call happens in between: each response is appended to history
+        before the next character call, so a later speaker perceives the earlier
+        ones through the normal visibility filter. The Narrator is blind and can
+        route to the controlled character — the queue stops there and control
+        returns to the human (the runner never generates their speech). A
+        whispered exchange stays whispered: when a replying character is part of
+        the turn's audience, its reply keeps the same audience.
+        """
+        controlled = game.player.controlled_character_id
+        responses: list[dict[str, Any]] = []
+        for speaker in queue:
+            if speaker == controlled:
+                break
+            if speaker not in game.characters or speaker not in game.scene.present_characters:
+                continue
+            reply_audience = (
+                turn.audience if turn.audience is not None and speaker in turn.audience else None
+            )
+            await self._ensure_perspective(game, speaker, step)
+            # Each speaker receives only the typed perception events they witness
+            # (zone-clamped upstream), projected through their own identity ledger.
+            ctx = render_events_for_viewer(
+                narrator_raw["perception_events"],
+                speaker,
+                game.characters,
+                game.character_perspectives.get(speaker),
+            )
+            if not ctx.strip():
+                # An empty perception void invites the model to hallucinate a
+                # stimulus (an isolated character greeted a visitor that does not
+                # exist). State the deterministic fact instead.
+                ctx = (
+                    "Nothing new reaches your senses right now; you are "
+                    "alone with your current activity and thoughts."
+                )
+            # Deterministic guard behind the Narrator's whisper rule: the "denial
+            # that reveals" pattern ("you did not hear the password X")
+            # occasionally leaks whispered content into an event rendered for a
+            # character outside the whisper's audience. Strip it here, before the
+            # character ever sees it; audience members unaffected.
+            ctx = redact_whisper_leaks(ctx, game.history, speaker, game.characters, game.scene)
+            response = await self.plugins.hooks.call_wrapped(
+                Hook.CHARACTER_CALL,
+                partial(
+                    self._call_character, game, speaker, ctx, step, reply_audience=reply_audience
+                ),
+                {"game": game, "character_id": speaker, "turn_number": step, "runner": self},
+            )
+            response = await self.plugins.hooks.filter(
+                Hook.CHARACTER_OUTPUT,
+                response,
+                {"game": game, "character_id": speaker, "turn_number": step, "runner": self},
+            )
+            if response["thought"]:
+                self._append_history(game, speaker, response["thought"], "thought", step)
+            if response["speech"]:
+                self._append_history(
+                    game, speaker, response["speech"], "speech", step, audience=reply_audience
+                )
+            if response.get("action_intent"):
+                # An intent is an ATTEMPT: it becomes an action record (the
+                # existing physics — resolved by the next beat's Director), never
+                # an outcome. Zone-scoped audience is computed by _append_history
+                # like any physical act.
+                self._append_history(game, speaker, response["action_intent"], "action", step)
+            responses.append({"character_id": speaker, **response})
+        return responses
+
+    def _persist_audible_speech(
+        self, game: GameState, narrator_raw: dict[str, Any], step: int
+    ) -> None:
+        """Persist the Director's audible_speech events as spoken records (WT-09).
+
+        A fact voiced to the room — a decoded cipher, a name, a verdict — is a
+        real world event: every witness must be able to RECALL it on a later turn,
+        not only whoever happened to reply this turn. These events were rendered
+        to this turn's repliers and the prose, then discarded, so a witness who
+        did not speak never got the fact and memory (which reads history) never
+        had it. Scoped to who heard it (witness_ids), zone origin.
+
+        Leak guard: the Director sometimes re-narrates a WHISPER with a broad
+        "just audible to those nearby" scope but the secret content inside. The
+        transient render path redacts that per viewer; a persisted shared record
+        cannot, so any event whose content would hand a whisper secret to a
+        non-confidant is SKIPPED. A public reveal of Director canon (a name never
+        whispered) carries no whisper token, so it persists.
+
+        Called AFTER the reply loop so this turn's repliers still get it through
+        perception alone, never doubled into RECENT EVENTS, and after the whisper
+        records exist in history.
+        """
+        for event in narrator_raw["perception_events"]:
+            if event.get("event_kind") != "audible_speech":
+                continue
+            spoken = str(event.get("content", "")).strip()
+            subject = event.get("subject_id")
+            if not spoken or subject not in game.characters:
+                continue
+            present_others = {
+                cid
+                for cid in game.scene.present_characters
+                if cid in game.characters and cid != subject
+            }
+            witnesses = {w for w in event.get("witness_ids", []) if w in game.characters}
+            heard_by = None if witnesses >= present_others else sorted(witnesses)
+            listeners = present_others if heard_by is None else set(heard_by)
+            if any(
+                redact_tokens(
+                    spoken, hidden_whisper_tokens(game.history, vid, game.characters, game.scene)
+                )
+                != spoken
+                for vid in listeners
+            ):
+                continue  # would leak a whisper secret to a non-confidant
+            self._append_history(
+                game, subject, spoken, "speech", step, audience=heard_by, audience_origin="zone"
+            )
+
+    async def _commit_beat(
+        self,
+        game: GameState,
+        narrator_raw: dict[str, Any],
+        character_responses: list[dict[str, Any]],
+        step: int,
+        injected_event: bool,
+    ) -> GameState:
+        """Apply the beat's remaining state and save it as one transaction."""
+        mood_updates = narrator_raw.get("mood_updates")
+        if mood_updates:
+            self._update_moods(game, mood_updates)
+
+        # Each plugin validates and applies its own narrator.schema property (if
+        # present in narrator_raw) to this same-turn draft. A plugin that finds
+        # its own proposal invalid returns the draft unchanged instead of raising —
+        # raising here would trip the shared crash policy and disable the plugin,
+        # which is reserved for genuine bugs, not routine LLM validation failures.
+        game = await self.plugins.hooks.filter(
+            Hook.NARRATOR_RESULT,
+            game,
+            {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
+        )
+        game = await self.plugins.hooks.filter(
+            Hook.TURN_BEFORE_COMMIT, game, {"kind": "turn", "runner": self}
+        )
+        game.turns_since_injected_event = (
+            0 if injected_event else game.turns_since_injected_event + 1
+        )
+        # Roteiro coverage (Task 38): record which of the current beat's anchors
+        # this beat actually put in play, measured on the AUTHORITATIVE evidence —
+        # the Director's typed events and the characters' own words/acts — not the
+        # lossy prose. Audible speech never reaches the renderer, so the prose can
+        # never be the coverage surface without punishing the Director for obeying.
+        if game.roteiro is not None and game.roteiro.beat is not None:
+            evidence_texts = [event["content"] for event in narrator_raw["perception_events"]]
+            for response in character_responses:
+                if response.get("speech"):
+                    evidence_texts.append(response["speech"])
+                if response.get("action_intent"):
+                    evidence_texts.append(response["action_intent"])
+            newly_seen = collect_beat_evidence(game.roteiro, evidence_texts)
+            if newly_seen:
+                game.roteiro.anchors_seen.extend(newly_seen)
+        game.narrative_tick += 1
+        await self._audit_turn_for_watcher(game, step)
+        await self._apply_disposition_feedback(game, step)
+        game.revision += 1
+        save_game(game)
+        await self.plugins.hooks.action(Hook.TURN_AFTER_COMMIT, {"game": game, "kind": "turn"})
+        return game
+
+    def _beat_settled(
+        self,
+        burst: BurstState,
+        queue: list[str],
+        narrator_raw: dict[str, Any],
+        character_responses: list[dict[str, Any]],
+        controlled: str,
+        *,
+        multi_beat: bool,
+    ) -> bool:
+        """Whether the burst stops here, recording why on ``burst.stop_reason``."""
+        if controlled in queue:
+            burst.stop_reason = "player_addressed"
+            return True
+        if narrator_raw.get("return_control"):
+            burst.stop_reason = "protagonist_decision"
+            return True
+        if character_responses:
+            burst.narrator_only_streak = 0
+            return False
+        if multi_beat and not narrator_raw["perception_events"]:
+            # Nothing new happened and nobody spoke: the beat settled.
+            burst.stop_reason = "beat_settled"
+            return True
+        burst.narrator_only_streak += 1
+        if burst.narrator_only_streak >= 2:
+            burst.stop_reason = "beat_settled"
+            return True
+        return False
+
 
     async def get_state(self, session_id: str) -> GameState | None:
         """Load one consistent state snapshot after active mutations finish."""
@@ -1306,16 +1469,14 @@ class Runner:
                 if trigger == "automatic" and estimated_context_tokens is not None
                 else "not_needed"
             )
-            result = {
-                "status": status,
-                "trigger": trigger,
-                "compacted": False,
-                "reason": "History smaller than the retained window.",
-                "estimated_context_tokens": estimated_context_tokens,
-                "threshold_tokens": threshold_tokens,
-                "context_max": self.config.get("context_max"),
-                "undo_depth": len(game.compaction_stack),
-            }
+            result = self._compaction_result(
+                status,
+                "History smaller than the retained window.",
+                game,
+                estimated=estimated_context_tokens,
+                threshold=threshold_tokens,
+                trigger=trigger,
+            )
             if trigger == "automatic":
                 log_compaction_status(
                     game.session_id,
@@ -1419,7 +1580,10 @@ class Runner:
             except BaseException:
                 checkpoint_path.unlink(missing_ok=True)
                 raise
-            game.__dict__.update(copy.deepcopy(compacted.__dict__))
+            # The caller (a turn in progress) holds this exact object and must
+            # see the compacted history from here on, so the committed state is
+            # copied into it field by field.
+            _adopt_state(game, compacted)
 
             result = {
                 "status": "compacted",
@@ -2086,9 +2250,9 @@ class Runner:
         ``audible_speech`` event, whose ``witness_ids`` are already zone-clamped
         and are perception scoping, never a whisper secret.
         """
-        if audience_origin is not None:
-            pass  # authoritative audience + origin; skip the zone recompute below
-        else:
+        # An explicit origin means the caller's audience is already authoritative
+        # (a Director audible_speech event), so the zone recompute is skipped.
+        if audience_origin is None:
             audience_origin = "whisper" if audience is not None else "zone"
             if game.scene.zones and content_type in ("speech", "action"):
                 subject = game.player.controlled_character_id if speaker == "Player" else speaker
