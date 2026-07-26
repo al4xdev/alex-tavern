@@ -3034,10 +3034,11 @@ class TestHttpBoundary:
         assert captured.get("narrator_hint") == "Lyra enters."
 
     @pytest.mark.asyncio
-    async def test_version_endpoint(self) -> None:
+    async def test_version_endpoint(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """GET /version retorna a informação do commit hash do git."""
         from src.main import app
 
+        monkeypatch.delenv("DEBUG", raising=False)
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
         ) as http:
@@ -3046,6 +3047,12 @@ class TestHttpBoundary:
             data = resp.json()
             assert "commit" in data
             assert isinstance(data["commit"], str)
+            assert data["debug"] is False
+
+            monkeypatch.setenv("DEBUG", "true")
+            debug_resp = await http.get("/version")
+            assert debug_resp.status_code == 200
+            assert debug_resp.json()["debug"] is True
 
 
 class TestDynamicConfigAndScenarios:

@@ -2374,7 +2374,7 @@ async function checkVersionSync() {
     try {
         const localData = await api.getVersion();
         const localCommit = localData?.commit;
-        if (!localCommit || localCommit === 'unknown') return;
+        if (localData?.debug || !localCommit || localCommit === 'unknown') return;
 
         const remoteRes = await fetch('https://api.github.com/repos/al4xdev/alex-tavern/commits/master');
         if (!remoteRes.ok) return;

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import html
 import json
+import os
 import tempfile
 import threading
 from contextlib import asynccontextmanager
@@ -1185,8 +1186,9 @@ def get_git_commit() -> str:
 
 @app.get("/version")
 def get_version() -> dict:
-    """Returns the current backend git commit hash."""
-    return {"commit": get_git_commit()}
+    """Returns the current build identity and development-mode status."""
+    debug = os.environ.get("DEBUG", "").strip().casefold() in {"1", "true", "yes", "on"}
+    return {"commit": get_git_commit(), "debug": debug}
 
 
 @app.get("/health")

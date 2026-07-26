@@ -99,6 +99,10 @@ Portuguese browsers start in Portuguese. Changing the interface between `en` and
 the visible application immediately and synchronizes the model response language to **English**
 or **Brazilian Portuguese** without changing the active session, form contents, or chat history.
 
+For local UI development or automated media capture, start with `DEBUG=1 ./start.sh`. Debug mode
+keeps the normal runtime intact but skips the remote GitHub version comparison and its update
+banner, so an intentionally unpushed checkout does not obscure the interface.
+
 
 ### 🐳 Docker
 
