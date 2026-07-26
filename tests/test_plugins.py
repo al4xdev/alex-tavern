@@ -219,11 +219,9 @@ def test_plugin_restart_waits_for_explicit_endpoint(
     package = _pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip")
     installed = install_zip(package)
     restart_requests: list[bool] = []
-    monkeypatch.setattr(
-        "src.supervisor.request_restart",
-        lambda: restart_requests.append(True) or True,
-    )
-    monkeypatch.setattr(store_module, "rebuild_environment", lambda pointers=None: {"locked": []})
+    # Patch where the route USES them, not where they are defined.
+    monkeypatch.setattr(main, "request_restart", lambda: restart_requests.append(True) or True)
+    monkeypatch.setattr(main, "rebuild_environment", lambda pointers=None: {"locked": []})
     activated = main.activate_plugin(
         "dev.alex-tavern.turn-counter",
         main.PluginActivationRequest(
@@ -339,6 +337,8 @@ def test_failed_environment_build_keeps_previous_activation(
     def fail(pointers=None):  # noqa: ANN001, ANN202, ARG001
         raise RuntimeError("dependency installation failed")
 
+    # switch_activation is called directly here, so the store's own reference
+    # is the one that has to fail.
     monkeypatch.setattr(store_module, "rebuild_environment", fail)
     with pytest.raises(RuntimeError, match="dependency installation failed"):
         switch_activation("dev.test.release", "2.0.0", second["sha256"])

@@ -103,6 +103,7 @@ from src.roteiro import (
 )
 from src.store.locks import session_lock
 from src.store.sessions import (
+    SessionNotFoundError,
     generate_session_id,
     load_compaction_checkpoint,
     load_game,
@@ -140,6 +141,10 @@ def _current_turn(game: GameState) -> int:
 
 class PresenceRevisionConflictError(ValueError):
     """Raised by ``Runner.set_presence`` when the caller's revision is stale."""
+
+
+class ConversationAlreadyStartedError(LookupError):
+    """Raised when an opening-only operation reaches a session that has history."""
 
 
 class Runner:
@@ -412,7 +417,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
 
             if audience is not None:
                 if not speech.strip() and not action.strip():
@@ -1127,7 +1132,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"undone": False, "error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
 
             # No history -> nothing to undo
             if not game.history:
@@ -1181,7 +1186,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
 
             target_id = game.player.controlled_character_id
             turn_number = game.history[-1].turn_number if game.history else 0
@@ -1208,12 +1213,11 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found", "code": "session_not_found"}
+                raise SessionNotFoundError(session_id)
             if game.history:
-                return {
-                    "error": "Opening suggestions are available only before the first turn.",
-                    "code": "conversation_started",
-                }
+                raise ConversationAlreadyStartedError(
+                    "Opening suggestions are available only before the first turn."
+                )
             suggestions = await narrator_suggest_openings(
                 client=self.client,
                 scene=game.scene,
@@ -1233,7 +1237,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
             return await self._compact_loaded_game(game, trigger="manual", progress=progress)
 
     async def _compact_loaded_game(
@@ -1459,7 +1463,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
             result: dict[str, Any]
             if not game.compaction_stack:
                 result = {
@@ -1585,7 +1589,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
             if game.revision != expected_revision:
                 raise PresenceRevisionConflictError(
                     "Session was modified concurrently; reload and retry with the current revision."
@@ -1634,7 +1638,7 @@ class Runner:
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
-                return {"error": f"Session {session_id} not found"}
+                raise SessionNotFoundError(session_id)
             if not game.presence_edit_stack:
                 reason = "No presence edit found."
                 log_presence_undo(session_id, False, reason, _current_turn(game))

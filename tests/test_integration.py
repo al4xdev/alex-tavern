@@ -30,6 +30,7 @@ from src.runner import Runner
 from src.store.locks import session_lock
 from src.store.sessions import (
     SESSIONS_DIR,
+    SessionNotFoundError,
     fork_session,
     generate_session_id,
     list_sessions,
@@ -712,10 +713,9 @@ class TestRunnerLogic:
 
     @pytest.mark.asyncio
     async def test_undo_nonexistent_session(self) -> None:
-        """Undo em sessão inexistente retorna error."""
-        result = await self.runner.undo_turn("ffffffff")
-        assert result["undone"] is False
-        assert "error" in result
+        """Undo em sessão inexistente levanta o erro de domínio (HTTP 404)."""
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.undo_turn("ffffffff")
 
     @pytest.mark.asyncio
     async def test_undo_idempotent(self) -> None:
@@ -1371,9 +1371,9 @@ class TestCompactSession:
 
     @pytest.mark.asyncio
     async def test_compact_missing_session(self) -> None:
-        """Compactar sessão inexistente devolve erro, sem levantar exceção."""
-        result = await self.runner.compact_session("naoexiste")
-        assert "error" in result
+        """Toda operação numa sessão inexistente levanta o mesmo erro (HTTP 404)."""
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.compact_session("naoexiste")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1488,9 +1488,9 @@ class TestRestoreCompaction:
 
     @pytest.mark.asyncio
     async def test_restore_missing_session(self) -> None:
-        """Sessão inexistente devolve erro, no mesmo formato de compact/undo."""
-        result = await self.runner.restore_last_compaction("naoexiste")
-        assert "error" in result
+        """Mesmo erro de domínio de compact/undo, não um dict com "error"."""
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.restore_last_compaction("naoexiste")
 
     @pytest.mark.asyncio
     async def test_restore_only_undoes_the_most_recent_compaction(
@@ -1643,16 +1643,14 @@ class TestPresenceAdmin:
         assert len(game_after.presence_edit_stack) == 1  # not popped
 
     @pytest.mark.asyncio
-    async def test_set_presence_missing_session_returns_error(self) -> None:
-        result = await self.runner.set_presence(
-            "nonexistent", ["C1", "Player"], expected_revision=0
-        )
-        assert "error" in result
+    async def test_set_presence_missing_session_raises(self) -> None:
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.set_presence("nonexistent", ["C1", "Player"], expected_revision=0)
 
     @pytest.mark.asyncio
-    async def test_undo_missing_session_returns_error(self) -> None:
-        result = await self.runner.undo_last_presence_edit("nonexistent")
-        assert "error" in result
+    async def test_undo_missing_session_raises(self) -> None:
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.undo_last_presence_edit("nonexistent")
 
     @pytest.mark.asyncio
     async def test_set_presence_concurrent_with_turn_is_rejected_not_overwritten(

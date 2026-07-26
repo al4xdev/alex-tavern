@@ -8,6 +8,7 @@ import json
 import os
 import tempfile
 import threading
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -27,24 +28,72 @@ from src.config import (
     resolve_active_config,
 )
 from src.llm.debug_log import read_entries
-from src.paths import DATA_DIR, STATIC_DIR
+from src.models import Scene, dict_to_character, game_state_to_dict
+from src.paths import DATA_DIR, EXPERIENCES_DIR, STATIC_DIR
+from src.plugins.commands import CommandError
+from src.plugins.experiences import (
+    ExperienceError,
+    activate_experience,
+    list_experiences,
+    save_experience,
+)
+from src.plugins.hub import HubSyncError, ensure_hub_synced
+from src.plugins.journal import emit, read
 from src.plugins.runtime import PluginRuntime
+from src.plugins.sdk import PluginConfig
+from src.plugins.store import (
+    PluginInstallError,
+    curated_catalog,
+    deactivate,
+    inspect_zip,
+    install_curated,
+    install_zip,
+    plugin_inventory,
+    rebuild_environment,
+    switch_activation,
+    uninstall,
+    update_curated,
+)
 from src.pydantic_compat import StrictModel, dump, validate
-from src.runner import PresenceRevisionConflictError, Runner
+from src.runner import ConversationAlreadyStartedError, PresenceRevisionConflictError, Runner
 from src.runtime_bootstrap import prepare_runtime_config
 from src.security import (
     ACCESS_TOKEN_HEADER,
     generate_access_token,
     unsafe_request_allowed,
 )
+from src.store.presets import (
+    PresetConflictError,
+    PresetError,
+    delete_preset,
+    list_presets,
+    load_avatar,
+    load_preset,
+    save_preset,
+)
+from src.store.scenarios import (
+    delete_scenario,
+    list_builtin_scenarios,
+    list_scenarios,
+    load_builtin_scenario,
+    load_scenario,
+    load_user_scenario,
+    save_scenario,
+)
 from src.store.sessions import (
     IncompatibleSessionError,
+    SessionNotFoundError,
     delete_session,
     fork_session,
     list_sessions,
 )
+from src.supervisor import request_restart
 
 MAX_READ_LIMIT = 1000
+# Bound enforced while an upload streams, so an oversized ZIP is never buffered.
+MAX_PLUGIN_ZIP_BYTES = 100 * 1024 * 1024
+# Seconds between SSE keepalive comments while a compaction runs.
+COMPACTION_KEEPALIVE_SECONDS = 15
 
 
 @dataclass(slots=True)
@@ -103,6 +152,26 @@ async def incompatible_session_handler(
             "found_version": exc.found_version,
             "current_version": exc.current_version,
         },
+    )
+
+
+@app.exception_handler(SessionNotFoundError)
+async def session_not_found_handler(request: Request, exc: SessionNotFoundError) -> JSONResponse:
+    """Answer 404 for every operation on a session that does not exist."""
+    return JSONResponse(
+        status_code=404,
+        content={"error": "session_not_found", "detail": str(exc), "session_id": exc.session_id},
+    )
+
+
+@app.exception_handler(ConversationAlreadyStartedError)
+async def conversation_started_handler(
+    request: Request, exc: ConversationAlreadyStartedError
+) -> JSONResponse:
+    """Opening-only operations are a conflict once the story has begun."""
+    return JSONResponse(
+        status_code=409,
+        content={"code": "conversation_started", "message": str(exc)},
     )
 
 
@@ -356,12 +425,6 @@ class RestoreCompactionResponse(BaseModel):
 async def start_session(req: StartSessionRequest) -> dict:
     """Creates a new roleplay session."""
     active_runner = _runtime().runner
-    from src.models import (
-        Scene,
-        dict_to_character,
-        game_state_to_dict,
-    )
-    from src.store.scenarios import list_builtin_scenarios, load_builtin_scenario, load_scenario
 
     scenario_data: dict[str, Any] = {}
     if req.scenario_name:
@@ -441,7 +504,8 @@ async def start_session(req: StartSessionRequest) -> dict:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
     game = await active_runner.get_state(session_id)
-    assert game is not None, "Newly-created session should exist"
+    if game is None:  # pragma: no cover - the session was just committed
+        raise RuntimeError(f"Session {session_id} vanished right after creation")
     return {"session_id": session_id, "state": game_state_to_dict(game)}
 
 
@@ -472,7 +536,6 @@ async def execute_command(
     session_id: str, command_name: str, body: CommandRequest
 ) -> dict[str, Any]:
     """Execute a non-narrative plugin command under the session lock."""
-    from src.plugins.commands import CommandError
 
     try:
         return await _runtime().runner.execute_command(session_id, command_name, dump(body))
@@ -495,10 +558,7 @@ async def execute_command(
 @app.post("/session/{session_id}/suggest", response_model=SuggestResponse)
 async def suggest_actions(session_id: str) -> dict:
     """Possible move suggestions from the Narrator for the controlled character (manual trigger)."""
-    result = await _runtime().runner.suggest_actions(session_id)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
+    return await _runtime().runner.suggest_actions(session_id)
 
 
 @app.post(
@@ -507,14 +567,7 @@ async def suggest_actions(session_id: str) -> dict:
 )
 async def suggest_openings(session_id: str) -> dict:
     """Return three scenario-only opening hints for an empty session."""
-    result = await _runtime().runner.suggest_openings(session_id)
-    if "error" in result:
-        status = 409 if result.get("code") == "conversation_started" else 404
-        raise HTTPException(
-            status_code=status,
-            detail={"code": result.get("code"), "message": result["error"]},
-        )
-    return result
+    return await _runtime().runner.suggest_openings(session_id)
 
 
 @app.post("/session/{session_id}/compact", response_model=CompactResponse)
@@ -533,10 +586,7 @@ async def compact_session(session_id: str, request: Request):  # noqa: ANN201
             media_type="text/event-stream",
             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
         )
-    result = await runner.compact_session(session_id)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
+    return await runner.compact_session(session_id)
 
 
 async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: ANN201
@@ -555,7 +605,9 @@ async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: AN
             if operation.done() and queue.empty():
                 break
             try:
-                event = await asyncio.wait_for(queue.get(), timeout=15)
+                event = await asyncio.wait_for(
+                    queue.get(), timeout=COMPACTION_KEEPALIVE_SECONDS
+                )
             except TimeoutError:
                 yield ": keepalive\n\n"
                 continue
@@ -571,14 +623,9 @@ async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: AN
                 raise
         else:
             if not saw_terminal:
-                if "error" in result:
-                    stage = "failed"
-                    normalized_result = None
-                    error_type = "SessionUnavailable"
-                else:
-                    stage = "completed" if result.get("compacted") else "skipped"
-                    normalized_result = dump(validate(CompactResponse, result))
-                    error_type = None
+                stage = "completed" if result.get("compacted") else "skipped"
+                normalized_result = dump(validate(CompactResponse, result))
+                error_type = None
                 payload = {
                     "operation_id": "",
                     "sequence": 1,
@@ -599,8 +646,6 @@ async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: AN
 async def restore_compaction(session_id: str):  # noqa: ANN201
     """Undo the latest compaction while preserving all later turns."""
     result = await _runtime().runner.restore_last_compaction(session_id)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
     if result.get("plugin_conflicts"):
         return JSONResponse(status_code=409, content=result)
     return result
@@ -623,10 +668,7 @@ def get_debug_log(
 @app.post("/session/{session_id}/undo")
 async def undo_turn(session_id: str) -> dict:
     """Undoes the last turn of the session."""
-    result = await _runtime().runner.undo_turn(session_id)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
+    return await _runtime().runner.undo_turn(session_id)
 
 
 @app.post("/session/{session_id}/presence")
@@ -638,20 +680,13 @@ async def set_presence(session_id: str, body: PresenceUpdateRequest) -> dict:
         )
     except PresenceRevisionConflictError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
-    except ValueError as error:
-        raise HTTPException(status_code=422, detail=str(error)) from error
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
     return result
 
 
 @app.post("/session/{session_id}/presence/undo")
 async def undo_presence(session_id: str) -> dict:
     """Undo the newest out-of-band admin presence edit (strictly LIFO)."""
-    result = await _runtime().runner.undo_last_presence_edit(session_id)
-    if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
-    return result
+    return await _runtime().runner.undo_last_presence_edit(session_id)
 
 
 @app.get("/session/{session_id}/state")
@@ -660,7 +695,6 @@ async def get_state(session_id: str) -> dict:
     game = await _runtime().runner.get_state(session_id)
     if game is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    from src.models import game_state_to_dict
 
     return game_state_to_dict(game)
 
@@ -686,7 +720,6 @@ async def get_history(
 @app.get("/scenario-defaults")
 def get_builtin_scenarios(name: str | None = None) -> dict:
     """Returns the default scenario for the UI to pre-fill."""
-    from src.store.scenarios import list_builtin_scenarios, load_builtin_scenario
 
     defaults = list_builtin_scenarios()
     target_name = name
@@ -733,14 +766,12 @@ def put_runtime_config(body: dict[str, Any]) -> dict:
 
 @app.get("/presets")
 def get_presets() -> dict[str, Any]:
-    from src.store.presets import list_presets
 
     return {"schema_version": 1, "presets": list_presets()}
 
 
 @app.get("/presets/{preset_name}")
 def get_preset(preset_name: str) -> dict[str, Any]:
-    from src.store.presets import PresetError, load_preset
 
     try:
         value = load_preset(preset_name)
@@ -755,7 +786,6 @@ def get_preset(preset_name: str) -> dict[str, Any]:
 
 @app.put("/presets/{preset_name}")
 def put_preset(preset_name: str, body: PresetPutRequest) -> dict[str, Any]:
-    from src.store.presets import PresetConflictError, PresetError, save_preset
 
     try:
         return save_preset(
@@ -779,7 +809,6 @@ def put_preset(preset_name: str, body: PresetPutRequest) -> dict[str, Any]:
 def remove_preset(
     preset_name: str, expected_revision: Annotated[int, Query(ge=1)]
 ) -> dict[str, bool]:
-    from src.store.presets import PresetConflictError, PresetError, delete_preset
 
     try:
         deleted = delete_preset(preset_name, expected_revision=expected_revision)
@@ -798,7 +827,6 @@ def remove_preset(
 
 @app.get("/presets/{preset_name}/avatar")
 def get_preset_avatar(preset_name: str, request: Request) -> Response:
-    from src.store.presets import PresetError, load_avatar
 
     try:
         value = load_avatar(preset_name)
@@ -825,7 +853,6 @@ def get_preset_avatar(preset_name: str, request: Request) -> Response:
 @app.get("/scenarios")
 def get_scenarios() -> list[str]:
     """Lists the names of all user scenarios."""
-    from src.store.scenarios import list_scenarios
 
     return list_scenarios()
 
@@ -833,7 +860,6 @@ def get_scenarios() -> list[str]:
 @app.get("/scenarios/{name}")
 def get_scenario(name: str) -> dict:
     """Returns the complete scenario configuration."""
-    from src.store.scenarios import load_user_scenario
 
     scenario_val = load_user_scenario(name)
     if scenario_val is None:
@@ -844,16 +870,14 @@ def get_scenario(name: str) -> dict:
 @app.put("/scenarios/{name}")
 def put_scenario(name: str, body: StartSessionRequest) -> dict:
     """Saves or updates a user scenario."""
-    from src.store.scenarios import save_scenario
 
-    save_scenario(name, body.dict(exclude_none=True))
+    save_scenario(name, dump(body, exclude_none=True))
     return {"saved": True}
 
 
 @app.delete("/scenarios/{name}")
 def delete_scenario_endpoint(name: str) -> dict:
     """Removes a user scenario."""
-    from src.store.scenarios import delete_scenario
 
     success = delete_scenario(name)
     if not success:
@@ -903,7 +927,6 @@ class PluginUpdateRequest(BaseModel):
 
 @app.get("/plugins")
 def get_plugins() -> dict[str, Any]:
-    from src.plugins.store import plugin_inventory
 
     return {"plugins": plugin_inventory(), **_runtime().plugins.public_status()}
 
@@ -912,14 +935,12 @@ def get_plugins() -> dict[str, Any]:
 def get_plugin_events(
     limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT)] = 200,
 ) -> list[dict[str, Any]]:
-    from src.plugins.journal import read
 
     return read(limit)
 
 
 @app.post("/plugins/{plugin_id}/observe")
 def observe_frontend_plugin(plugin_id: str, body: dict[str, Any]) -> dict[str, bool]:
-    from src.plugins.journal import emit
 
     permission = body.pop("permission", "frontend.unknown")
     emit("permission_access", plugin_id, permission=permission, **body)
@@ -928,14 +949,12 @@ def observe_frontend_plugin(plugin_id: str, body: dict[str, Any]) -> dict[str, b
 
 @app.get("/plugins/{plugin_id}/config")
 def get_plugin_config(plugin_id: str) -> dict[str, Any]:
-    from src.plugins.sdk import PluginConfig
 
     return PluginConfig(plugin_id).read()
 
 
 @app.put("/plugins/{plugin_id}/config")
 def put_plugin_config(plugin_id: str, body: dict[str, Any]) -> dict[str, bool]:
-    from src.plugins.sdk import PluginConfig
 
     PluginConfig(plugin_id).write(body)
     return {"saved": True}
@@ -943,7 +962,6 @@ def put_plugin_config(plugin_id: str, body: dict[str, Any]) -> dict[str, bool]:
 
 @app.post("/plugins/install")
 def install_plugin(body: PluginInstallRequest) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, install_zip
 
     try:
         return install_zip(Path(body.zip_path).expanduser().resolve())
@@ -951,53 +969,49 @@ def install_plugin(body: PluginInstallRequest) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
 
-@app.post("/plugins/install-upload")
-async def upload_plugin(request: Request) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, install_zip
+async def _receive_plugin_zip(
+    request: Request,
+    handler: Callable[[Path], dict[str, Any]],
+    *,
+    prefix: str,
+) -> dict[str, Any]:
+    """Stream an uploaded ZIP to a temporary file and hand it to ``handler``.
 
-    with tempfile.TemporaryDirectory(prefix="alex-tavern-upload-") as temporary:
+    The body is bounded while it streams, so an oversized upload is refused
+    without ever being fully buffered or written.
+    """
+    with tempfile.TemporaryDirectory(prefix=prefix) as temporary:
         path = Path(temporary) / "plugin.zip"
         size = 0
         with path.open("wb") as handle:
             async for chunk in request.stream():
                 size += len(chunk)
-                if size > 100 * 1024 * 1024:
+                if size > MAX_PLUGIN_ZIP_BYTES:
                     raise HTTPException(status_code=422, detail="Plugin ZIP exceeds 100 MiB")
                 handle.write(chunk)
         if size == 0:
             raise HTTPException(status_code=422, detail="Plugin ZIP is empty")
         try:
-            return install_zip(path)
+            return handler(path)
         except PluginInstallError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.post("/plugins/install-upload")
+async def upload_plugin(request: Request) -> dict[str, Any]:
+
+    return await _receive_plugin_zip(request, install_zip, prefix="alex-tavern-upload-")
 
 
 @app.post("/plugins/inspect-upload")
 async def inspect_uploaded_plugin(request: Request) -> dict[str, Any]:
     """Validate an external ZIP and expose its review contract without installing it."""
-    from src.plugins.store import PluginInstallError, inspect_zip
 
-    with tempfile.TemporaryDirectory(prefix="alex-tavern-inspect-") as temporary:
-        path = Path(temporary) / "plugin.zip"
-        size = 0
-        with path.open("wb") as handle:
-            async for chunk in request.stream():
-                size += len(chunk)
-                if size > 100 * 1024 * 1024:
-                    raise HTTPException(status_code=422, detail="Plugin ZIP exceeds 100 MiB")
-                handle.write(chunk)
-        if size == 0:
-            raise HTTPException(status_code=422, detail="Plugin ZIP is empty")
-        try:
-            return inspect_zip(path)
-        except PluginInstallError as error:
-            raise HTTPException(status_code=422, detail=str(error)) from error
+    return await _receive_plugin_zip(request, inspect_zip, prefix="alex-tavern-inspect-")
 
 
 @app.get("/plugins/catalog")
 def get_plugin_catalog(refresh: bool = False) -> dict[str, Any]:
-    from src.plugins.hub import HubSyncError, ensure_hub_synced
-    from src.plugins.store import PluginInstallError, curated_catalog
 
     try:
         ensure_hub_synced(force=refresh)
@@ -1010,7 +1024,6 @@ def get_plugin_catalog(refresh: bool = False) -> dict[str, Any]:
 
 @app.post("/plugins/catalog/{plugin_id}/install")
 def install_curated_plugin(plugin_id: str, version: str | None = None) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, install_curated
 
     try:
         return install_curated(plugin_id, version)
@@ -1023,7 +1036,6 @@ def update_curated_plugin(
     plugin_id: str,
     body: PluginUpdateRequest,
 ) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, update_curated
 
     try:
         result = update_curated(plugin_id, body.version, body.sha256)
@@ -1037,7 +1049,6 @@ def activate_plugin(
     plugin_id: str,
     body: PluginActivationRequest,
 ) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, switch_activation
 
     try:
         result = switch_activation(plugin_id, body.version, body.sha256)
@@ -1048,7 +1059,6 @@ def activate_plugin(
 
 @app.post("/plugins/{plugin_id}/deactivate")
 def deactivate_plugin(plugin_id: str) -> dict[str, Any]:
-    from src.plugins.store import deactivate, rebuild_environment
 
     changed = deactivate(plugin_id)
     environment = rebuild_environment()
@@ -1061,7 +1071,6 @@ def uninstall_plugin(
     version: str,
     sha256: str,
 ) -> dict[str, Any]:
-    from src.plugins.store import PluginInstallError, rebuild_environment, uninstall
 
     try:
         result = uninstall(plugin_id, version, sha256)
@@ -1078,7 +1087,6 @@ def uninstall_plugin(
 @app.post("/plugins/restart")
 def restart_plugins(background_tasks: BackgroundTasks) -> dict[str, bool]:
     """Apply the persisted active set by replacing the supervised server process."""
-    from src.supervisor import request_restart
 
     background_tasks.add_task(request_restart)
     return {"restart": True}
@@ -1094,14 +1102,12 @@ def plugin_asset(plugin_id: str, relative_path: str) -> FileResponse:
 
 @app.get("/experiences")
 def get_experiences() -> list[dict[str, Any]]:
-    from src.plugins.experiences import list_experiences
 
     return list_experiences()
 
 
 @app.get("/experiences/assets/{relative_path:path}")
 def experience_asset(relative_path: str) -> FileResponse:
-    from src.paths import EXPERIENCES_DIR
 
     root = (EXPERIENCES_DIR / "assets").resolve()
     path = (root / relative_path).resolve()
@@ -1112,7 +1118,6 @@ def experience_asset(relative_path: str) -> FileResponse:
 
 @app.put("/experiences/{experience_id}")
 def put_experience(experience_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    from src.plugins.experiences import ExperienceError, save_experience
 
     if body.get("id") != experience_id:
         raise HTTPException(status_code=422, detail="Path and Experience id must match")
@@ -1127,8 +1132,6 @@ def put_experience(experience_id: str, body: dict[str, Any]) -> dict[str, Any]:
 def activate_experience_endpoint(
     experience_id: str,
 ) -> dict[str, Any]:
-    from src.plugins.experiences import ExperienceError, activate_experience
-    from src.plugins.store import rebuild_environment
 
     try:
         result = activate_experience(experience_id)

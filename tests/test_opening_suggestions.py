@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
-from fastapi import HTTPException
 
 from src.agents.narrator import (
     build_opening_suggestions_messages,
@@ -16,8 +16,9 @@ from src.agents.narrator import (
 )
 from src.llm.schema import JSONSchemaValidationError, validate_json_schema
 from src.models import Scene, game_state_to_dict
+from src.runner import ConversationAlreadyStartedError
 from src.store.locks import session_lock
-from src.store.sessions import delete_session
+from src.store.sessions import SessionNotFoundError, delete_session
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "static"
@@ -169,36 +170,43 @@ class TestOpeningRunnerAndRoute:
                 assert game is not None
                 runner._append_history(game, "Narrator", "A cena começou.", "narration", 1)
                 save_game(game)
-                started = await runner.suggest_openings(sid)
-                missing = await runner.suggest_openings("does-not-exist")
+                with pytest.raises(ConversationAlreadyStartedError):
+                    await runner.suggest_openings(sid)
+                with pytest.raises(SessionNotFoundError):
+                    await runner.suggest_openings("does-not-exist")
             finally:
                 await delete_session(sid)
 
-        assert started["code"] == "conversation_started"
-        assert missing["code"] == "session_not_found"
-
     @pytest.mark.asyncio
     async def test_http_handler_maps_not_found_conflict_and_success(self, monkeypatch) -> None:  # noqa: ANN001
+        """The route passes results through; the app handlers map the two errors."""
         from src import main as main_mod
 
         class FakeRunner:
-            result: dict = {"suggestions": OPENINGS}
+            outcome: object = {"suggestions": OPENINGS}
 
             async def suggest_openings(self, session_id):  # noqa: ANN001, ANN202
-                return self.result
+                if isinstance(self.outcome, BaseException):
+                    raise self.outcome
+                return self.outcome
 
         fake_runner = FakeRunner()
         monkeypatch.setattr(main_mod, "_runtime", lambda: SimpleNamespace(runner=fake_runner))
 
         assert await main_mod.suggest_openings("sid") == {"suggestions": OPENINGS}
-        fake_runner.result = {"error": "gone", "code": "session_not_found"}
-        with pytest.raises(HTTPException) as missing:
+
+        fake_runner.outcome = SessionNotFoundError("sid")
+        response = await main_mod.session_not_found_handler(None, fake_runner.outcome)
+        assert response.status_code == 404
+        with pytest.raises(SessionNotFoundError):
             await main_mod.suggest_openings("sid")
-        assert missing.value.status_code == 404
-        fake_runner.result = {"error": "started", "code": "conversation_started"}
-        with pytest.raises(HTTPException) as conflict:
+
+        fake_runner.outcome = ConversationAlreadyStartedError("started")
+        response = await main_mod.conversation_started_handler(None, fake_runner.outcome)
+        assert response.status_code == 409
+        assert json.loads(response.body)["code"] == "conversation_started"
+        with pytest.raises(ConversationAlreadyStartedError):
             await main_mod.suggest_openings("sid")
-        assert conflict.value.status_code == 409
 
 
 class TestOpeningFrontend:

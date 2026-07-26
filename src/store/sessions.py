@@ -48,6 +48,19 @@ def save_game(game: GameState) -> None:
     write_json(session_state_path(game.session_id), game_state_to_dict(game))
 
 
+class SessionNotFoundError(LookupError):
+    """No session with this id exists (the caller asked for a ghost).
+
+    Raised instead of returning an in-band ``{"error": ...}`` so a single HTTP
+    handler answers 404 and no route has to inspect a result dict for a control
+    signal that also looks like a payload field.
+    """
+
+    def __init__(self, session_id: str) -> None:
+        self.session_id = session_id
+        super().__init__(f"Session {session_id} not found")
+
+
 class IncompatibleSessionError(ValueError):
     """A persisted session's schema version does not match the current one.
 
