@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from typing import Any
 
 import httpx
@@ -23,6 +24,47 @@ from src.models import (
 from src.perception import describe_zones_for_narrator, validate_perception_events
 
 MAX_SPEAKERS_PER_TURN = 3
+
+# A manual event the human queued is the one thing in the prompt that the world
+# did not decide. Measured (task 53): the Director dropped it 3 times out of 4
+# when its content clashed with the scene's coherence, while a plausible event
+# landed 4/4 under the same prompt. The rule in _build_system_prompt fixed most
+# of it; this is the deterministic half, in the shape the codebase already uses
+# for prose repetition and character whisper leaks - one correction retry, then
+# accept.
+HINT_CORRECTION = (
+    "\nCORRECTION: your perception_events did not contain the UPCOMING EVENT "
+    "you were given. It is not optional and it does not wait for a better "
+    "moment. Return the decision again with that event as the FIRST entry of "
+    "perception_events, described as a witness would perceive it, and resolve "
+    "the final HISTORY action in the events that follow it.\n"
+)
+_HINT_WORD_MIN_CHARS = 4
+
+
+def _fold(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in normalized if not unicodedata.combining(c)).lower()
+
+
+def _hint_materialized(result: dict[str, Any], narrator_hint: str) -> bool:
+    """True when some perception event carries a distinctive word of the hint.
+
+    Lexical on purpose. A full paraphrase that avoids every content word reads
+    as a miss and costs one retry - measured at 1 run in 4, which is cheaper
+    than letting a queued event vanish silently.
+    """
+    words = {w for w in _fold(narrator_hint).split() if len(w) >= _HINT_WORD_MIN_CHARS}
+    if not words:
+        return True
+    events = result.get("perception_events")
+    if not isinstance(events, list):
+        return False
+    return any(
+        words & set(_fold(str(event.get("content", ""))).split())
+        for event in events
+        if isinstance(event, dict)
+    )
 
 
 def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
@@ -97,6 +139,18 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  personally; false while the world can keep moving on its own.\n"
         "\n"
         "RULES:\n"
+        # Measured 2026-07-26 (task 53). Without this rule the Director dropped a
+        # manual event it had been given: 1/4 materialized on two real payloads.
+        # With it, 3/4 (4/4 counting a paraphrase that avoided the noun). A
+        # plausible event materialized 4/4 under the OLD prompt, which is how we
+        # know the omission was the model's coherence prior refusing the content,
+        # not a missing instruction.
+        "- UPCOMING EVENT IS MANDATORY. When an UPCOMING EVENT block is present,\n"
+        "  the FIRST entry of perception_events IS that event, written\n"
+        "  as a witness would perceive it, with witness_ids covering everyone who\n"
+        "  could sense it. It happens: it is not a suggestion, it does not wait for\n"
+        "  a better moment, and no coherence concern overrides it. Resolve the final\n"
+        "  HISTORY action in the events that follow it.\n"
         "- Resolve the immediate consequence of the final HISTORY event before adding\n"
         "  atmosphere, introducing a new thread, or moving the scene forward.\n"
         "- Never assert a character's unspoken thoughts, intentions, or emotions as\n"
@@ -605,22 +659,29 @@ async def narrate(
         roteiro_lines=roteiro_lines,
     )
 
-    result = await call_agent(
-        client,
-        config,
-        messages,
-        agent="director",
-        json_schema=build_narrator_json_schema(
+    request_kwargs: dict[str, Any] = {
+        "agent": "director",
+        "json_schema": build_narrator_json_schema(
             present_ids,
             forced_speaker=forced_speaker,
             exclude_speaker=exclude_speaker,
             extra_properties=extra_schema_properties,
             extra_required=extra_schema_required,
         ),
-        max_tokens=max_tokens_narrator,
-        session_id=session_id,
-        turn_number=turn_number,
-    )
+        "max_tokens": max_tokens_narrator,
+        "session_id": session_id,
+        "turn_number": turn_number,
+    }
+    result = await call_agent(client, config, messages, **request_kwargs)
+
+    if narrator_hint.strip() and not _hint_materialized(result, narrator_hint):
+        result = await call_agent(
+            client,
+            config,
+            messages + [{"role": "user", "content": HINT_CORRECTION}],
+            guard_retry="hint_omitted",
+            **request_kwargs,
+        )
 
     # Validate required fields
     required = ["next_speakers", "perception_events"]
@@ -660,8 +721,9 @@ async def narrate(
     if isinstance(raw_moves, dict):
         for cid, zone in raw_moves.items():
             # A move may target a NEW zone (Task 41 canon reconciliation): the
-            # Director names it and the runner materializes it isolated. Only
-            # the character clamps stay hard; the zone name is sanitized.
+            # Director names it and the runner materializes it audible from the
+            # zone its mover left (task 54, finding 1). Only the character clamps
+            # stay hard; the zone name is sanitized.
             if (
                 isinstance(zone, str)
                 and zone.strip()
