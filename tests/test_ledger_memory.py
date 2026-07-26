@@ -7,9 +7,6 @@ import pytest
 from src.agents.character import _build_user_prompt, _ledger_memory_text
 from src.agents.perspective import MAX_RECENT_MEMORY, capture_memory
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     PersonView,
     Scene,
@@ -18,20 +15,15 @@ from src.models import (
     dict_to_perspective,
     perspective_to_dict,
 )
+from tests.factories import make_cast
 
 SCENE = Scene(
     location="Salao", time_of_day="Noite", present_characters=["C1", "C2", "C3"], physical_facts={}
 )
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Rui", "Marta", "Bento")
 
 
 def _rec(turn: int, speaker: str, content: str, ctype: str = "speech") -> TurnRecord:

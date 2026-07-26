@@ -7,28 +7,20 @@ import pytest
 
 from src.agents.character import _normalize_output
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     Scene,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import make_cast
 
 
 async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Bruno"), "C3": _char("Vitor")}
+CHARACTERS = make_cast("Alice", "Bruno", "Vitor")
 
 ZONED_SCENE = Scene(
     location="Embaixada",

@@ -13,27 +13,18 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     GameState,
     Player,
     Scene,
 )
 from src.runner import CLOCK_SKIP_INVITE, BurstState, Runner, TurnInput
-
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
+from tests.factories import make_character
 
 
 def _game() -> GameState:
     return GameState(
         session_id="stage001",
-        characters={"C1": _char("Rui"), "C2": _char("Marta")},
+        characters={"C1": make_character("Rui"), "C2": make_character("Marta")},
         player=Player(controlled_character_id="C1"),
         scene=Scene(
             location="Estalagem",

@@ -7,25 +7,15 @@ import pytest
 
 from src.confidentiality import hidden_thought_tokens
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     Scene,
     TurnRecord,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import make_cast
 
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
-
-
-CHARACTERS = {"C1": _char("Link"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Link", "Marta", "Bento")
 SCENE = Scene(
     location="Salao dos Quatro Arcos",
     time_of_day="Manha",

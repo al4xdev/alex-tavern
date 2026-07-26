@@ -20,27 +20,19 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     Scene,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import make_cast
 
 
 async def _fake_prose() -> str:
     return "Alguem leu um documento em voz alta."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Dorothy"), "C3": _char("Holmes")}
+CHARACTERS = make_cast("Alice", "Dorothy", "Holmes")
 SCENE = Scene(
     location="Salao do Prisma",
     time_of_day="Manha",

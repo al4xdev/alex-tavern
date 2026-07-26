@@ -19,17 +19,10 @@ from src.agents.prose import (
     build_prose_messages,
     render_narration,
 )
-from src.models import Character, CharacterBody, CharacterMind, Scene, TurnRecord
+from src.models import Scene, TurnRecord
+from tests.factories import make_cast
 
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
-
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Bruno"), "C3": _char("Vitor")}
+CHARACTERS = make_cast("Alice", "Bruno", "Vitor")
 CONTROLLED_ID = "C1"
 
 SCENE = Scene(

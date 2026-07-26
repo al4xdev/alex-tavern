@@ -6,9 +6,6 @@ import pytest
 
 from src.agents.character import _leaked_secret_tokens
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     PersonView,
     Scene,
@@ -22,20 +19,15 @@ from src.perception import (
     render_events_for_viewer,
     validate_perception_events,
 )
+from tests.factories import make_cast
 
 
 async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Bruno"), "C3": _char("Vitor")}
+CHARACTERS = make_cast("Alice", "Bruno", "Vitor")
 
 # salao hears varanda; varanda hears salao; compartimento is acoustically isolated.
 ZONED_SCENE = Scene(

@@ -6,9 +6,6 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     GameState,
     Player,
@@ -34,16 +31,9 @@ from src.roteiro import (
     replan_roteiro,
 )
 from src.store.sessions import delete_session
+from tests.factories import make_cast
 
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
-
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Rui", "Marta", "Bento")
 SCENE = Scene(
     location="Estalagem",
     time_of_day="Noite",
