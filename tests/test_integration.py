@@ -27,9 +27,9 @@ from src.models import (
     game_state_to_dict,
 )
 from src.runner import Runner
+from src.store.locks import session_lock
 from src.store.sessions import (
     SESSIONS_DIR,
-    _get_lock,
     fork_session,
     generate_session_id,
     list_sessions,
@@ -501,7 +501,7 @@ class TestSessions:
     async def test_fork_waits_for_active_session_transaction(self) -> None:
         """Fork cannot snapshot the middle of an in-flight turn transaction."""
         save_game(_make_test_game(self.sid))
-        lock = _get_lock(self.sid)
+        lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(fork_session(self.sid))
         await asyncio.sleep(0)
@@ -519,7 +519,7 @@ class TestSessions:
         backups = session_backups_dir(self.sid)
         backups.mkdir(parents=True)
         (backups / "compaction.c000001.json").write_text("{}", encoding="utf-8")
-        lock = _get_lock(self.sid)
+        lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(delete_session_async(self.sid))
         await asyncio.sleep(0)
@@ -620,7 +620,7 @@ class TestRunnerLogic:
     async def test_undo_restores_mood_and_full_step(self) -> None:
         """Undo restaura o humor E remove todos os registros do passo (mesmo turn_number)."""
         sid = self.runner.start_session()
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             original_mood_c1 = game.characters["C1"].mind.current_mood
@@ -639,7 +639,7 @@ class TestRunnerLogic:
         result = await self.runner.undo_turn(sid)
         assert result["undone"] is True
 
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 0, "todos os 4 registros do passo devem sumir"
@@ -680,7 +680,7 @@ class TestRunnerLogic:
         undo_turn reverts it without any presence-specific code.
         """
         sid = self.runner.start_session()
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             original_present = list(game.scene.present_characters)
@@ -721,7 +721,7 @@ class TestRunnerLogic:
     async def test_undo_idempotent(self) -> None:
         """Undo duas vezes — segunda retorna undone=False."""
         sid = self.runner.start_session()
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -737,7 +737,7 @@ class TestRunnerLogic:
     async def test_undo_multiple_turns(self) -> None:
         """Três turnos, desfaz um por um — cada undo remove um turno."""
         sid = self.runner.start_session()
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -746,7 +746,7 @@ class TestRunnerLogic:
             save_game(game)
 
         # Turno 2
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -756,7 +756,7 @@ class TestRunnerLogic:
             save_game(game)
 
         # Turno 3
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -767,7 +767,7 @@ class TestRunnerLogic:
         # Undo turno 3
         r = await self.runner.undo_turn(sid)
         assert r["undone"] is True
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 3  # Narrador 1 + Narrador 2 + C1
@@ -776,7 +776,7 @@ class TestRunnerLogic:
         # Undo turno 2
         r = await self.runner.undo_turn(sid)
         assert r["undone"] is True
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 1  # Narrador 1
@@ -785,7 +785,7 @@ class TestRunnerLogic:
         # Undo turno 1
         r = await self.runner.undo_turn(sid)
         assert r["undone"] is True
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 0
@@ -1202,7 +1202,7 @@ class TestRunnerLogic:
             return [{"speech": "Wait.", "action": "Listen."}]
 
         monkeypatch.setattr(runner_mod, "narrator_suggest", fake_suggest)
-        lock = _get_lock(self.sid)
+        lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(self.runner.suggest_actions(self.sid))
         await asyncio.sleep(0)

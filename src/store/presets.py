@@ -5,26 +5,22 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
-import json
-import os
 import re
-import tempfile
 import threading
 from copy import deepcopy
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from weakref import WeakValueDictionary
 
 from src.models import dict_to_character
 from src.paths import PRESETS_DIR
+from src.store.jsonfile import read_json, write_json
+from src.store.locks import named_lock
 
 PRESET_SCHEMA_VERSION = 1
 MAX_PRESET_NAME_LENGTH = 64
 MAX_AVATAR_BYTES = 256 * 1024
 _NAME_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
-_locks: WeakValueDictionary[str, threading.RLock] = WeakValueDictionary()
-_locks_guard = threading.Lock()
 
 
 class PresetError(ValueError):
@@ -47,40 +43,18 @@ def validate_preset_name(value: str) -> str:
     return name
 
 
-def _get_lock(name: str) -> threading.RLock:
-    with _locks_guard:
-        lock = _locks.get(name)
-        if lock is None:
-            lock = threading.RLock()
-            _locks[name] = lock
-        return lock
+def _preset_lock(name: str) -> threading.RLock:
+    return named_lock("preset", name)
 
 
 def _path(name: str) -> Path:
     return PRESETS_DIR / f"{name}.json"
 
 
-def _atomic_write(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(value, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
 def _read(name: str) -> dict[str, Any] | None:
-    path = _path(name)
-    if not path.exists():
+    value = read_json(_path(name))
+    if value is None:
         return None
-    value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict) or value.get("schema_version") != PRESET_SCHEMA_VERSION:
         raise PresetError("invalid_preset", f"Preset {name} does not use schema version 1.")
     return value
@@ -173,7 +147,7 @@ def list_presets() -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
     for path in sorted(PRESETS_DIR.glob("*.json")):
         name = path.stem
-        with _get_lock(name):
+        with _preset_lock(name):
             value = _read(name)
             if value is None:
                 continue
@@ -192,7 +166,7 @@ def list_presets() -> list[dict[str, Any]]:
 
 def load_preset(name: str) -> dict[str, Any] | None:
     name = validate_preset_name(name)
-    with _get_lock(name):
+    with _preset_lock(name):
         value = _read(name)
         return _public(value) if value is not None else None
 
@@ -207,7 +181,7 @@ def save_preset(
 ) -> dict[str, Any]:
     name = validate_preset_name(name)
     normalized_character = _validate_character(character)
-    with _get_lock(name):
+    with _preset_lock(name):
         current = _read(name)
         normalized_avatar = _avatar(avatar)
         if normalized_avatar is None and current is not None:
@@ -242,13 +216,13 @@ def save_preset(
             "created_at": created_at,
             "updated_at": now,
         }
-        _atomic_write(_path(name), value)
+        write_json(_path(name), value)
         return _public(value)
 
 
 def delete_preset(name: str, *, expected_revision: int) -> bool:
     name = validate_preset_name(name)
-    with _get_lock(name):
+    with _preset_lock(name):
         current = _read(name)
         if current is None:
             return False
@@ -262,7 +236,7 @@ def delete_preset(name: str, *, expected_revision: int) -> bool:
 
 def load_avatar(name: str) -> tuple[bytes, str] | None:
     name = validate_preset_name(name)
-    with _get_lock(name):
+    with _preset_lock(name):
         current = _read(name)
         if current is None or current.get("avatar") is None:
             return None

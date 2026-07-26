@@ -100,8 +100,8 @@ from src.roteiro import (
     generate_roteiro,
     replan_roteiro,
 )
+from src.store.locks import session_lock
 from src.store.sessions import (
-    _get_lock,
     generate_session_id,
     load_compaction_checkpoint,
     load_game,
@@ -286,7 +286,7 @@ class Runner:
         if registration is None:
             raise CommandError("command_not_found", f"Command /{command_name} is not available.")
 
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 raise CommandError("session_not_found", f"Session {session_id} was not found.")
@@ -405,7 +405,7 @@ class Runner:
             value.strip() for value in (speech, thought, action, narrator_hint)
         ):
             raise ValueError("A turn needs speech, thought, action, narrator_hint, or skip")
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}
@@ -1121,12 +1121,12 @@ class Runner:
 
     async def get_state(self, session_id: str) -> GameState | None:
         """Load one consistent state snapshot after active mutations finish."""
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             return load_game(session_id)
 
     async def get_history(self, session_id: str, limit: int = 50) -> list[TurnRecord]:
         """Return the last N records from a transactionally consistent snapshot."""
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return []
@@ -1148,7 +1148,7 @@ class Runner:
         """
         from src.models import game_state_to_dict
 
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"undone": False, "error": f"Session {session_id} not found"}
@@ -1204,7 +1204,7 @@ class Runner:
         Returns:
             Dict with ``suggestions`` (list of ``{"speech", "action"}``).
         """
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}
@@ -1232,7 +1232,7 @@ class Runner:
 
     async def suggest_openings(self, session_id: str) -> dict:
         """Generate three ephemeral scenario-only hints before the first turn."""
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found", "code": "session_not_found"}
@@ -1257,7 +1257,7 @@ class Runner:
         progress: ProgressSink | None = None,
     ) -> dict[str, Any]:
         """Compact one session under its canonical transaction lock."""
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}
@@ -1484,7 +1484,7 @@ class Runner:
 
     async def restore_last_compaction(self, session_id: str) -> dict:
         """Undo the newest compaction while preserving every later turn."""
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}
@@ -1607,7 +1607,7 @@ class Runner:
         (the client's whole view of the session). The previous list is pushed onto
         ``presence_edit_stack`` so ``undo_last_presence_edit`` can revert it later.
         """
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}
@@ -1655,7 +1655,7 @@ class Runner:
         comparison), so a later Narrator ``presence_update`` or another admin edit is
         never silently overwritten; the restore is rejected explicitly instead.
         """
-        async with _get_lock(session_id):
+        async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
                 return {"error": f"Session {session_id} not found"}

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -19,6 +18,7 @@ from src.paths import PLUGIN_CONFIG_DIR, PLUGIN_STORAGE_DIR
 from src.plugins.hooks import Handler, HookKind, HookRegistry
 from src.plugins.journal import emit
 from src.plugins.manifest import PluginManifest
+from src.store.jsonfile import write_json
 
 _config_lock = threading.RLock()
 
@@ -112,22 +112,6 @@ class PluginStorage:
         return self.mkdir("sessions", session_id)
 
 
-def _atomic_json(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(value, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
 class PluginConfig:
     def __init__(self, plugin_id: str) -> None:
         self.plugin_id = plugin_id
@@ -146,7 +130,7 @@ class PluginConfig:
     def write(self, value: dict[str, Any]) -> None:
         emit("permission_access", self.plugin_id, permission="config.write")
         with _config_lock:
-            _atomic_json(self.path, value)
+            write_json(self.path, value)
 
 
 class PluginHttp:

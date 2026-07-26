@@ -22,7 +22,7 @@ from src.plugins.manifest import (
     compare_versions,
     load_manifest,
 )
-from src.plugins.sdk import _atomic_json
+from src.store.jsonfile import write_json
 
 _lock = threading.RLock()
 _JSON_READ_ERRORS = (json.JSONDecodeError, OSError)
@@ -387,7 +387,7 @@ def activate(
             "path": selected["path"],
             "order": order,
         }
-        _atomic_json(activation_path(plugin_id), pointer)
+        write_json(activation_path(plugin_id), pointer)
         emit("activated", plugin_id, version=pointer["version"], sha256=pointer["sha256"])
         return pointer
 
@@ -418,7 +418,7 @@ def switch_activation(
         environment = rebuild_environment(proposed)
         try:
             PLUGIN_STARTED_DIR.mkdir(parents=True, exist_ok=True)
-            _atomic_json(activation_path(plugin_id), pointer)
+            write_json(activation_path(plugin_id), pointer)
         except BaseException:
             rebuild_environment(previous)
             raise

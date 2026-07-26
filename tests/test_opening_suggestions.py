@@ -16,7 +16,8 @@ from src.agents.narrator import (
 )
 from src.llm.schema import JSONSchemaValidationError, validate_json_schema
 from src.models import Scene, game_state_to_dict
-from src.store.sessions import _get_lock, delete_session
+from src.store.locks import session_lock
+from src.store.sessions import delete_session
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "static"
@@ -128,7 +129,7 @@ class TestOpeningRunnerAndRoute:
                 assert before is not None
                 before_dict = game_state_to_dict(before)
 
-                lock = _get_lock(sid)
+                lock = session_lock(sid)
                 await lock.acquire()
                 task = asyncio.create_task(runner.suggest_openings(sid))
                 await asyncio.sleep(0)

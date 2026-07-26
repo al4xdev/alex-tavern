@@ -3,32 +3,19 @@
 from __future__ import annotations
 
 import json
-import threading
 from datetime import UTC, datetime
 from typing import Any
-from weakref import WeakValueDictionary
 
 from src.llm.tokens import estimate_prompt_tokens
+from src.store.locks import append_lock
 from src.store.sessions import session_debug_path
-
-_locks: WeakValueDictionary[str, threading.Lock] = WeakValueDictionary()
-_locks_guard = threading.Lock()
-
-
-def _get_lock(session_id: str) -> threading.Lock:
-    with _locks_guard:
-        lock = _locks.get(session_id)
-        if lock is None:
-            lock = threading.Lock()
-            _locks[session_id] = lock
-        return lock
 
 
 def _append(session_id: str, entry: dict[str, Any]) -> None:
     if not session_id:
         return
     line = json.dumps(entry, ensure_ascii=False) + "\n"
-    with _get_lock(session_id):
+    with append_lock(session_id):
         path = session_debug_path(session_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
@@ -40,7 +27,7 @@ def read_entries(session_id: str, limit: int) -> list[dict[str, Any]]:
     """Read a bounded, complete snapshot while excluding any in-progress append."""
     if limit <= 0:
         return []
-    with _get_lock(session_id):
+    with append_lock(session_id):
         path = session_debug_path(session_id)
         if not path.exists():
             return []

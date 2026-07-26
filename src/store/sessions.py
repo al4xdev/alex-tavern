@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
-import os
 import shutil
-import tempfile
-import threading
 import uuid
 from pathlib import Path
 from typing import Any
-from weakref import WeakValueDictionary
 
 from src.models import (
     SESSION_SCHEMA_VERSION,
@@ -20,22 +15,12 @@ from src.models import (
     game_state_to_dict,
 )
 from src.paths import SESSIONS_DIR
+from src.store.jsonfile import read_json, write_json
+from src.store.locks import session_lock
 
-_session_locks: WeakValueDictionary[str, asyncio.Lock] = WeakValueDictionary()
-_session_locks_guard = threading.Lock()
 _JSON_READ_ERRORS = (json.JSONDecodeError, OSError)
 _SESSION_SCHEMA_ERRORS = (KeyError, TypeError, ValueError, AttributeError)
 _SESSION_READ_ERRORS = _JSON_READ_ERRORS + _SESSION_SCHEMA_ERRORS
-
-
-def _get_lock(session_id: str) -> asyncio.Lock:
-    """Return the process-local mutation lock for one session."""
-    with _session_locks_guard:
-        lock = _session_locks.get(session_id)
-        if lock is None:
-            lock = asyncio.Lock()
-            _session_locks[session_id] = lock
-        return lock
 
 
 def generate_session_id() -> str:
@@ -58,24 +43,9 @@ def session_backups_dir(session_id: str) -> Path:
     return session_dir(session_id) / "backups"
 
 
-def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-    tmp_path = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(data, handle, indent=2, ensure_ascii=False)
-            handle.flush()
-            os.fsync(handle.fileno())
-        tmp_path.replace(path)
-    except BaseException:
-        tmp_path.unlink(missing_ok=True)
-        raise
-
-
 def save_game(game: GameState) -> None:
     """Atomically persist the complete current schema for a session."""
-    _atomic_write_json(session_state_path(game.session_id), game_state_to_dict(game))
+    write_json(session_state_path(game.session_id), game_state_to_dict(game))
 
 
 class IncompatibleSessionError(ValueError):
@@ -98,10 +68,9 @@ class IncompatibleSessionError(ValueError):
 
 
 def load_game(session_id: str) -> GameState | None:
-    path = session_state_path(session_id)
-    if not path.exists():
+    data: dict[str, Any] | None = read_json(session_state_path(session_id))
+    if data is None:
         return None
-    data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     found_version = int(data.get("schema_version", 1))
     if found_version != SESSION_SCHEMA_VERSION:
         raise IncompatibleSessionError(session_id, found_version)
@@ -138,7 +107,7 @@ def write_compaction_checkpoint(
     path = compaction_checkpoint_path(session_id, checkpoint_id)
     if path.exists():
         raise FileExistsError(f"Compaction checkpoint {checkpoint_id} already exists")
-    _atomic_write_json(path, checkpoint)
+    write_json(path, checkpoint)
     return str(path)
 
 
@@ -152,7 +121,7 @@ def load_compaction_checkpoint(session_id: str, checkpoint_id: str) -> dict[str,
 
 async def delete_session(session_id: str) -> bool:
     """Permanently remove every artifact owned by one session."""
-    async with _get_lock(session_id):
+    async with session_lock(session_id):
         directory = session_dir(session_id)
         if not directory.exists():
             return False
@@ -221,7 +190,7 @@ def list_sessions() -> list[dict[str, Any]]:
 
 
 async def fork_session(session_id: str) -> str | None:
-    async with _get_lock(session_id):
+    async with session_lock(session_id):
         game = load_game(session_id)
         if game is None:
             return None

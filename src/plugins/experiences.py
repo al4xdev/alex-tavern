@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.paths import EXPERIENCES_DIR
-from src.plugins.sdk import PluginConfig, _atomic_json
+from src.plugins.sdk import PluginConfig
 from src.plugins.store import (
     activate,
     active_pointers,
@@ -17,6 +17,7 @@ from src.plugins.store import (
     install_curated,
     installed_plugins,
 )
+from src.store.jsonfile import write_json
 
 _ID_RE = re.compile(r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$")
 _activation_lock = threading.RLock()
@@ -98,7 +99,7 @@ def parse_experience(value: dict[str, Any]) -> Experience:
 
 def save_experience(value: dict[str, Any]) -> Experience:
     experience = parse_experience(value)
-    _atomic_json(EXPERIENCES_DIR / f"{experience.experience_id}.json", value)
+    write_json(EXPERIENCES_DIR / f"{experience.experience_id}.json", value)
     return experience
 
 

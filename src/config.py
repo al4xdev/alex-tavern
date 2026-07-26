@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import threading
 from copy import deepcopy
 from pathlib import Path
@@ -12,6 +10,7 @@ from typing import Any
 
 from src.llm.adapters import get_provider_adapter, provider_adapters, provider_names
 from src.paths import CONFIG_PATH
+from src.store.jsonfile import write_json
 
 PROVIDER_NAMES = provider_names()
 _config_lock = threading.RLock()
@@ -216,23 +215,6 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
     return canonical
 
 
-def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(value, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        if temporary.exists():
-            temporary.unlink()
-        raise
-
-
 def _read_config_object(path: Path) -> dict[str, Any]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -277,7 +259,7 @@ def load_config(path: Path = CONFIG_PATH, *, persist_migration: bool = True) -> 
         if not path.exists():
             config = deepcopy(DEFAULT_CONFIG)
             if persist_migration:
-                _atomic_write_json(path, config)
+                write_json(path, config)
             return config
         version = config_schema_version(path)
         raw = _read_config_object(path)
@@ -285,7 +267,7 @@ def load_config(path: Path = CONFIG_PATH, *, persist_migration: bool = True) -> 
             raw["schema_version"] = CONFIG_SCHEMA_VERSION
         canonical = validate_config(raw)
         if version == LEGACY_CONFIG_SCHEMA_VERSION and persist_migration:
-            _atomic_write_json(path, canonical)
+            write_json(path, canonical)
         return canonical
 
 
@@ -293,7 +275,7 @@ def save_config(value: dict[str, Any], path: Path = CONFIG_PATH) -> dict[str, An
     """Validate and atomically persist a complete configuration."""
     with _config_lock:
         canonical = validate_config(value)
-        _atomic_write_json(path, canonical)
+        write_json(path, canonical)
         return canonical
 
 
