@@ -606,6 +606,12 @@ def _cast_rotation(calls: list[dict[str, Any]]) -> float | None:
     None when the scene never had more than one actor: a solo scene scores a
     perfect zero for a reason that has nothing to do with stagnation, and a
     number that means two different things is worse than no number.
+
+    That guard has a consequence worth stating plainly, found by running this
+    against a two-character scenario: with one controlled character and one NPC
+    there is never a second possible actor, so EVERY run reports None. This
+    metric only measures scenes with three or more characters. `None` means "not
+    measurable here", never "no stagnation".
     """
     queues: list[set[str]] = []
     for record in calls:

@@ -32,6 +32,14 @@ from src.models import (
 SUGGESTION_MAX_TOKENS = 1024
 SUGGESTION_HISTORY_TOKENS = 1024
 
+# The first-person rule in the system prompt below is measured, not assumed:
+# without it, 6 of 20 action drafts opened with the character's own name
+# ("Thorn approaches the bar"), which is used verbatim as that character's own
+# act and reads as them narrating themselves. With it, 0 of 21. Measured on a
+# session whose configured language and scenario language matched, because the
+# first sighting was in a mismatched session and a mismatch is misuse, not a
+# defect.
+
 _SYSTEM = """\
 You draft three possible next moves for ONE character in a roleplay scene, from
 inside that character's head. You are not narrating and not deciding: each move
@@ -54,6 +62,10 @@ Rules:
 - "speech" is what the character says aloud, or an empty string. "action" is
   what they physically do, or an empty string. At least one of the two must be
   non-empty in every move.
+- Write "action" in the FIRST PERSON, as the character stating what they do:
+  "I draw my sword", never "he draws his sword" and never their own name. The
+  draft is used verbatim as that character's own act, so a report about them
+  reads as them narrating themselves.
 """
 
 

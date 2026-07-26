@@ -45,7 +45,13 @@ def test_a_partial_rotation_lands_between() -> None:
 
 
 def test_a_solo_scene_reports_nothing_instead_of_a_perfect_zero() -> None:
-    """A one-actor scene scores 0 for a reason unrelated to stagnation."""
+    """A one-actor scene scores 0 for a reason unrelated to stagnation.
+
+    Consequence, measured by running this against a two-character scenario: one
+    controlled character plus one NPC never yields a second possible actor, so
+    every run of such a scene reports None. The metric covers three or more
+    characters and nothing smaller.
+    """
     calls = [_director(["C2"]) for _ in range(6)]
     assert _cast_rotation(calls) is None
 
