@@ -5,7 +5,7 @@ ROOT = Path(__file__).parents[1]
 # so the assertions read the view as a whole rather than one file.
 APP = "\n".join(
     (ROOT / "src/static" / name).read_text()
-    for name in ("app.js", "transcript.js")
+    for name in ("app.js", "transcript.js", "composer.js")
 )
 I18N = (ROOT / "src/static/i18n.js").read_text()
 

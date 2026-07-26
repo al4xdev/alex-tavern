@@ -5,7 +5,7 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v29';
+const CACHE = 'rpt-shell-v30';
 const SHELL = [
     '/',
     '/index.html',
@@ -33,6 +33,7 @@ const SHELL = [
     '/opening-picker.js',
     '/sessions-modal.js',
     '/compaction-ui.js',
+    '/composer.js',
     '/app.js',
     '/manifest.webmanifest',
     '/icon.svg',

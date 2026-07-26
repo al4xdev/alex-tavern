@@ -8,7 +8,7 @@ from pathlib import Path
 STATIC = Path(__file__).resolve().parents[1] / "src" / "static"
 APP = "\n".join(
     (STATIC / name).read_text(encoding="utf-8")
-    for name in ("app.js", "transcript.js")
+    for name in ("app.js", "transcript.js", "composer.js")
 )
 HTML = (STATIC / "index.html").read_text(encoding="utf-8")
 I18N = (STATIC / "i18n.js").read_text(encoding="utf-8")

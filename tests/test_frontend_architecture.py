@@ -28,6 +28,7 @@ def view_source() -> str:
         "sessions-modal.js",
         "opening-picker.js",
         "compaction-ui.js",
+        "composer.js",
         "debug-drawer.js",
         "onboarding.js",
         "markdown.js",
@@ -565,7 +566,7 @@ def test_compact_layout_follows_touch_tablet_posture_not_only_phone_width() -> N
 
 
 def test_expand_pill_reports_suggestions_and_retry_states() -> None:
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    source = view_source()
     i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
 
     assert "function updateExpandPill" in source
@@ -574,7 +575,7 @@ def test_expand_pill_reports_suggestions_and_retry_states() -> None:
     assert "'input.expandSuggestionsLoading'" in source
     # A tap during a pending suggestion load explains itself instead of
     # looking like the suggestions vanished.
-    assert "if (state.suggestionsLoading) toast(t('suggestion.stillLoading')" in source
+    assert "if (state.suggestionsLoading) deps.notify(t('suggestion.stillLoading')" in source
     # Filling from a suggestion (or asking for them) must reveal the bar on mobile.
     assert source.count("expandMobileInput({ focus: false })") >= 2
     for key in (

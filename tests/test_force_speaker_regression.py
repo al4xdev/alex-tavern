@@ -39,7 +39,7 @@ class TestFrontendBoundary:
         Regression: a dead `state.forceSpeaker` read silently dropped the force
         on every skip turn ("forced Narrator, a character still answered").
         """
-        source = APP_JS.read_text(encoding="utf-8")
+        source = (APP_JS.parent / "composer.js").read_text(encoding="utf-8")
         skip_block = source[source.index("skip: true") - 400 : source.index("skip: true") + 400]
         assert "forceSpeakerSelect ? forceSpeakerSelect.value : ''" in skip_block
         # The dead-state read must never come back as the payload source.
