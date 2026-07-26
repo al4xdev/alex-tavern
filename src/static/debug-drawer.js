@@ -6,15 +6,16 @@
    and tools/analyze_memory_run.py consume.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { bindTranslation, t, translateDocument } from './i18n.js';
 
-const debugToggle = document.getElementById('debug-toggle');
-const debugDrawer = document.getElementById('debug-drawer');
-const debugContent = document.getElementById('debug-content');
-const debugCloseBtn = document.getElementById('debug-close-btn');
-const debugRefreshBtn = document.getElementById('debug-refresh-btn');
-const previewBtn = document.getElementById('preview-prompt-btn');
+const debugToggle = el('debug-toggle');
+const debugDrawer = el('debug-drawer');
+const debugContent = el('debug-content');
+const debugCloseBtn = el('debug-close-btn');
+const debugRefreshBtn = el('debug-refresh-btn');
+const previewBtn = el('preview-prompt-btn');
 
 let deps = null;
 let lastDebugEntries = null;

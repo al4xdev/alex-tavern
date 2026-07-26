@@ -12,6 +12,7 @@
    one place: applyTurnResult.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import * as Compaction from './compaction-ui.js';
 import * as DebugDrawer from './debug-drawer.js';
@@ -26,32 +27,32 @@ import {
 } from './transcript.js';
 import { bindTranslation, t, translateDocument } from './i18n.js';
 
-const inputArea = document.getElementById('input-area');
-const inputExpandBtn = document.getElementById('input-expand-btn');
-const inputSpeech = document.getElementById('input-speech');
-const inputThought = document.getElementById('input-thought');
-const inputAction = document.getElementById('input-action');
-const inputFieldsContainer = document.getElementById('input-fields-container');
-const optionsPanel = document.getElementById('options-panel');
-const sendBtn = document.getElementById('send-btn');
-const stopBtn = document.getElementById('stop-btn');
-const retryBanner = document.getElementById('retry-banner');
-const retryBannerBtn = document.getElementById('retry-banner-btn');
-const actionPopup = document.getElementById('action-popup');
-const actionPopupSecondary = document.getElementById('action-popup-secondary');
-const actionUndoBtn = document.getElementById('action-undo-btn');
-const actionRetryBtn = document.getElementById('action-retry-btn');
-const actionSkipBtn = document.getElementById('action-skip-btn');
-const actionExpandMoreBtn = document.getElementById('action-expand-more-btn');
-const actionSuggestBtn = document.getElementById('action-suggest-btn');
-const actionHintBtn = document.getElementById('action-hint-btn');
-const forceSpeakerSelect = document.getElementById('force-speaker-select');
-const whisperBtn = document.getElementById('action-whisper-btn');
-const whisperPopup = document.getElementById('whisper-popup');
-const hintOverlay = document.getElementById('hint-overlay');
-const hintTextarea = document.getElementById('hint-textarea');
-const hintSendBtn = document.getElementById('hint-send-btn');
-const hintCloseBtn = document.getElementById('hint-close-btn');
+const inputArea = el('input-area');
+const inputExpandBtn = el('input-expand-btn');
+const inputSpeech = el('input-speech');
+const inputThought = el('input-thought');
+const inputAction = el('input-action');
+const inputFieldsContainer = el('input-fields-container');
+const optionsPanel = el('options-panel');
+const sendBtn = el('send-btn');
+const stopBtn = el('stop-btn');
+const retryBanner = el('retry-banner');
+const retryBannerBtn = el('retry-banner-btn');
+const actionPopup = el('action-popup');
+const actionPopupSecondary = el('action-popup-secondary');
+const actionUndoBtn = el('action-undo-btn');
+const actionRetryBtn = el('action-retry-btn');
+const actionSkipBtn = el('action-skip-btn');
+const actionExpandMoreBtn = el('action-expand-more-btn');
+const actionSuggestBtn = el('action-suggest-btn');
+const actionHintBtn = el('action-hint-btn');
+const forceSpeakerSelect = el('force-speaker-select');
+const whisperBtn = el('action-whisper-btn');
+const whisperPopup = el('whisper-popup');
+const hintOverlay = el('hint-overlay');
+const hintTextarea = el('hint-textarea');
+const hintSendBtn = el('hint-send-btn');
+const hintCloseBtn = el('hint-close-btn');
 
 const LONG_PRESS_MS = 600;
 const SWIPE_AXIS_LOCK_PX = 10;
@@ -679,7 +680,7 @@ let touchStartX = 0;
 let touchStartY = 0;
 let isSwipingX = false;
 let isSwipingY = false;
-const inputFieldsContainer = document.getElementById('input-fields-container');
+const inputFieldsContainer = el('input-fields-container');
 
 inputArea.addEventListener('touchstart', (e) => {
     if (!isCompactLayout()) return;

@@ -1,26 +1,27 @@
 /* Experience-first plugin management UI. */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { t, getLocale } from './i18n.js';
 
 export const PluginCenter = (() => {
-    const overlay = document.getElementById('plugins-overlay');
-    const openBtn = document.getElementById('plugins-btn');
-    const closeBtn = document.getElementById('plugins-close-btn');
-    const experienceGrid = document.getElementById('experience-grid');
-    const catalogStack = document.getElementById('plugin-catalog-stack');
-    const pluginStack = document.getElementById('plugin-stack');
-    const activity = document.getElementById('plugin-activity');
-    const zipPath = document.getElementById('plugin-zip-path');
-    const installBtn = document.getElementById('plugin-install-btn');
-    const confirmLayer = document.getElementById('plugin-confirm-layer');
-    const confirmTitle = document.getElementById('plugin-confirm-title');
-    const confirmDescription = document.getElementById('plugin-confirm-description');
-    const confirmList = document.getElementById('plugin-confirm-list');
-    const confirmCancel = document.getElementById('plugin-confirm-cancel');
-    const confirmAccept = document.getElementById('plugin-confirm-accept');
-    const updateCount = document.getElementById('plugin-update-count');
-    const track = document.getElementById('plugin-view-track');
+    const overlay = el('plugins-overlay');
+    const openBtn = el('plugins-btn');
+    const closeBtn = el('plugins-close-btn');
+    const experienceGrid = el('experience-grid');
+    const catalogStack = el('plugin-catalog-stack');
+    const pluginStack = el('plugin-stack');
+    const activity = el('plugin-activity');
+    const zipPath = el('plugin-zip-path');
+    const installBtn = el('plugin-install-btn');
+    const confirmLayer = el('plugin-confirm-layer');
+    const confirmTitle = el('plugin-confirm-title');
+    const confirmDescription = el('plugin-confirm-description');
+    const confirmList = el('plugin-confirm-list');
+    const confirmCancel = el('plugin-confirm-cancel');
+    const confirmAccept = el('plugin-confirm-accept');
+    const updateCount = el('plugin-update-count');
+    const track = el('plugin-view-track');
     const tabs = [...document.querySelectorAll('[data-plugin-tab]')];
     const views = [...document.querySelectorAll('[data-plugin-view]')];
     const tabNames = tabs.map((tab) => tab.dataset.pluginTab);

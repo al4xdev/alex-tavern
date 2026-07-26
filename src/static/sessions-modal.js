@@ -8,14 +8,15 @@
    interpolation.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { bindTranslation, t } from './i18n.js';
 
-const sessionsOverlay = document.getElementById('sessions-overlay');
-const sessionList = document.getElementById('session-list');
-const sessionsCloseBtn = document.getElementById('sessions-close-btn');
-const sessionsNewBtn = document.getElementById('sessions-new-btn');
-const sessionsBtn = document.getElementById('sessions-btn');
+const sessionsOverlay = el('sessions-overlay');
+const sessionList = el('session-list');
+const sessionsCloseBtn = el('sessions-close-btn');
+const sessionsNewBtn = el('sessions-new-btn');
+const sessionsBtn = el('sessions-btn');
 
 const LONG_PRESS_MS = 600;
 

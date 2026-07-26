@@ -6,10 +6,11 @@
    a turn does; app.js hands it records and it draws them.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { bindTranslation, t } from './i18n.js';
 
-const chatLog = document.getElementById('chat-log');
-const emptyState = document.getElementById('empty-state');
+const chatLog = el('chat-log');
+const emptyState = el('empty-state');
 
 const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
 const TYPE_MS_PER_CHAR = 6;

@@ -9,13 +9,14 @@
    explicit resolver.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { t } from './i18n.js';
 
-const actionCompactBtn = document.getElementById('action-compact-btn');
-const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
-const compactProgress = document.getElementById('compact-progress');
-const compactProgressStatus = document.getElementById('compact-progress-status');
+const actionCompactBtn = el('action-compact-btn');
+const actionRestoreCompactionBtn = el('action-restore-compaction-btn');
+const compactProgress = el('compact-progress');
+const compactProgressStatus = el('compact-progress-status');
 
 // Stages that carry no unit count still have to move the bar somewhere
 // truthful; summarizing owns the 8-84% band because it is the only stage

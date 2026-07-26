@@ -29,6 +29,7 @@ def view_source() -> str:
         "opening-picker.js",
         "compaction-ui.js",
         "composer.js",
+        "dom.js",
         "debug-drawer.js",
         "onboarding.js",
         "markdown.js",
@@ -55,6 +56,22 @@ def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
     assert 'type="range" min="1" max="100"' in html
     assert 'id="compaction-help-btn"' in html
     assert 'id="runtime-compact-turns"' not in html
+
+
+def test_element_lookups_go_through_dom_el_so_a_typo_fails_loudly() -> None:
+    """`getElementById` answers null for a typo and the app breaks elsewhere.
+
+    `el(id)` throws at import with the offending id, which is where the mistake
+    is. dom.js itself is the one place allowed to call the DOM API directly.
+    """
+    offenders = {}
+    for path in sorted(STATIC.glob("*.js")):
+        if path.name in {"dom.js", "sw.js"}:
+            continue
+        count = path.read_text(encoding="utf-8").count("document.getElementById")
+        if count:
+            offenders[path.name] = count
+    assert offenders == {}, f"modules still resolving elements by hand: {offenders}"
 
 
 def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -> None:

@@ -7,20 +7,21 @@
    second turn implementation.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { t } from './i18n.js';
 
-const openingStart = document.getElementById('opening-start');
-const openingGenerateBtn = document.getElementById('opening-generate-btn');
-const openingCarousel = document.getElementById('opening-carousel');
-const openingCard = document.getElementById('opening-card');
-const openingCardText = document.getElementById('opening-card-text');
-const openingPrevBtn = document.getElementById('opening-prev-btn');
-const openingNextBtn = document.getElementById('opening-next-btn');
-const openingDots = document.getElementById('opening-dots');
-const openingCounter = document.getElementById('opening-counter');
-const openingStartBtn = document.getElementById('opening-start-btn');
-const openingRegenerateBtn = document.getElementById('opening-regenerate-btn');
+const openingStart = el('opening-start');
+const openingGenerateBtn = el('opening-generate-btn');
+const openingCarousel = el('opening-carousel');
+const openingCard = el('opening-card');
+const openingCardText = el('opening-card-text');
+const openingPrevBtn = el('opening-prev-btn');
+const openingNextBtn = el('opening-next-btn');
+const openingDots = el('opening-dots');
+const openingCounter = el('opening-counter');
+const openingStartBtn = el('opening-start-btn');
+const openingRegenerateBtn = el('opening-regenerate-btn');
 
 const SWIPE_THRESHOLD_PX = 45;
 

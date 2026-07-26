@@ -4,6 +4,7 @@
    Everything that talks ABOUT the app rather than playing it.
    ══════════════════════════════════════════════════════════════════════ */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { getLocale, t } from './i18n.js';
 import { parseMarkdown } from './markdown.js';
@@ -21,12 +22,12 @@ let deps = null;
  */
 export function init(options) {
     deps = options;
-    const drawer = document.getElementById('help-drawer');
-    const brand = document.getElementById('brand-header');
-    const closeBtn = document.getElementById('help-close-btn');
-    const backBtn = document.getElementById('help-back-btn');
-    const banner = document.getElementById('tip-banner');
-    const bannerClose = document.getElementById('tip-close-btn');
+    const drawer = el('help-drawer');
+    const brand = el('brand-header');
+    const closeBtn = el('help-close-btn');
+    const backBtn = el('help-back-btn');
+    const banner = el('tip-banner');
+    const bannerClose = el('tip-close-btn');
 
     brand.addEventListener('click', () => setHelp(!drawer.classList.contains('active')));
     brand.addEventListener('keydown', (e) => {
@@ -56,7 +57,7 @@ export function init(options) {
 }
 
 export function setHelp(on) {
-    const drawer = document.getElementById('help-drawer');
+    const drawer = el('help-drawer');
     drawer.classList.toggle('active', on);
     if (on) {
         deps.setDebug(false);
@@ -65,16 +66,16 @@ export function setHelp(on) {
 }
 
 function showHelpMenu() {
-    const menu = document.getElementById('help-menu-view');
+    const menu = el('help-menu-view');
     menu.classList.add('active');
     menu.classList.remove('active-left');
-    document.getElementById('help-article-view').classList.remove('active');
+    el('help-article-view').classList.remove('active');
 }
 
 export async function showHelpArticle(topic) {
-    const content = document.getElementById('help-article-content');
-    document.getElementById('help-menu-view').classList.add('active-left');
-    document.getElementById('help-article-view').classList.add('active');
+    const content = el('help-article-content');
+    el('help-menu-view').classList.add('active-left');
+    el('help-article-view').classList.add('active');
     content.textContent = t('help.loading');
 
     const locale = getLocale() || 'en';
@@ -90,7 +91,7 @@ export async function showHelpArticle(topic) {
 
 /** Show one random usage warning, linked to the guide that explains it. */
 export async function showTipBanner() {
-    const banner = document.getElementById('tip-banner');
+    const banner = el('tip-banner');
     try {
         const res = await fetch('help/warning.json');
         if (!res.ok) throw new Error();
@@ -98,7 +99,7 @@ export async function showTipBanner() {
         if (!warnings || warnings.length === 0) return;
         const tip = warnings[Math.floor(Math.random() * warnings.length)];
 
-        const text = document.getElementById('tip-text');
+        const text = el('tip-text');
         text.setAttribute('data-i18n', tip.text_key);
         text.textContent = t(tip.text_key);
         banner.dataset.helpPath = tip.help_path;

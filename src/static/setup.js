@@ -1,3 +1,4 @@
+import { el } from './dom.js';
 import { api } from './api.js';
 import { bindTranslation, onLocaleChange, t, translateDocument } from './i18n.js';
 import { PluginRuntime } from './plugin-runtime.js';
@@ -12,28 +13,28 @@ export const Setup = (() => {
     const LS_KEY = 'rpt_setup_v2'; // canonical nested mind/body setup
 
     // DOM refs
-    const overlay      = document.getElementById('setup-overlay');
-    const closeBtn     = document.getElementById('setup-close-btn');
-    const scenarioSelect = document.getElementById('scenario-select');
-    const scenarioLoadBtn= document.getElementById('scenario-load-btn');
-    const scenarioDelBtn = document.getElementById('scenario-delete-btn');
-    const scenarioNameEl = document.getElementById('scenario-name');
-    const scenarioSaveBtn= document.getElementById('scenario-save-btn');
-    const directivesEl = document.getElementById('setup-directives');
-    const sceneLocEl   = document.getElementById('setup-scene-location');
-    const sceneTimeEl  = document.getElementById('setup-scene-time');
-    const factsListEl  = document.getElementById('scene-facts-list');
-    const addFactBtn   = document.getElementById('add-fact-btn');
-    const charsListEl  = document.getElementById('chars-list');
-    const addCharBtn   = document.getElementById('add-char-btn');
-    const controlledEl = document.getElementById('setup-controlled');
-    const errorEl      = document.getElementById('setup-error');
-    const startBtn     = document.getElementById('start-btn');
-    const cardTpl      = document.getElementById('char-card-template');
-    const presetSelect = document.getElementById('preset-select');
-    const presetLoadBtn = document.getElementById('preset-load-btn');
-    const presetDeleteBtn = document.getElementById('preset-delete-btn');
-    const presetEmpty = document.getElementById('preset-empty');
+    const overlay      = el('setup-overlay');
+    const closeBtn     = el('setup-close-btn');
+    const scenarioSelect = el('scenario-select');
+    const scenarioLoadBtn= el('scenario-load-btn');
+    const scenarioDelBtn = el('scenario-delete-btn');
+    const scenarioNameEl = el('scenario-name');
+    const scenarioSaveBtn= el('scenario-save-btn');
+    const directivesEl = el('setup-directives');
+    const sceneLocEl   = el('setup-scene-location');
+    const sceneTimeEl  = el('setup-scene-time');
+    const factsListEl  = el('scene-facts-list');
+    const addFactBtn   = el('add-fact-btn');
+    const charsListEl  = el('chars-list');
+    const addCharBtn   = el('add-char-btn');
+    const controlledEl = el('setup-controlled');
+    const errorEl      = el('setup-error');
+    const startBtn     = el('start-btn');
+    const cardTpl      = el('char-card-template');
+    const presetSelect = el('preset-select');
+    const presetLoadBtn = el('preset-load-btn');
+    const presetDeleteBtn = el('preset-delete-btn');
+    const presetEmpty = el('preset-empty');
 
     let onStartCb = null;
     let onOpenCb = null;

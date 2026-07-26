@@ -1,3 +1,4 @@
+import { el } from './dom.js';
 import { api } from './api.js';
 import { restartApplication } from './android-bridge.js';
 import * as DebugDrawer from './debug-drawer.js';
@@ -82,48 +83,48 @@ function isCompactLayout() {
 }
 
 /* ── DOM refs ─────────────────────────────────────────────────────────── */
-const chatLog       = document.getElementById('chat-log');
-const sceneLocation = document.getElementById('scene-location');
-const sceneTags     = document.getElementById('scene-tags');
-const scenePanel    = document.getElementById('scene-panel');
-const optionsPanel  = document.getElementById('options-panel');
-const inputArea     = document.getElementById('input-area');
-const inputExpandBtn= document.getElementById('input-expand-btn');
-const inputSpeech   = document.getElementById('input-speech');
-const inputThought  = document.getElementById('input-thought');
-const inputAction   = document.getElementById('input-action');
-const sendBtn       = document.getElementById('send-btn');
-const settingsBtn   = document.getElementById('settings-btn');
-const emptyConfigBtn= document.getElementById('empty-config-btn');
-const spinner       = document.getElementById('spinner');
-const spinnerLabel  = document.getElementById('spinner-label');
-const retryBanner   = document.getElementById('retry-banner');
-const retryBannerBtn = document.getElementById('retry-banner-btn');
-const roteiroEnabledInput = document.getElementById('runtime-roteiro-enabled');
-const emptyState    = document.getElementById('empty-state');
-const emptyKicker   = document.getElementById('empty-kicker');
-const emptyPrompt   = document.getElementById('empty-prompt');
-const emptyScrollCue= document.getElementById('empty-scroll-cue');
-const toastWrap     = document.getElementById('toast-wrap');
-const installBtn    = document.getElementById('install-btn');
-const actionUndoBtn = document.getElementById('action-undo-btn');
-const actionRetryBtn = document.getElementById('action-retry-btn');
-const actionSkipBtn = document.getElementById('action-skip-btn');
-const actionExpandMoreBtn = document.getElementById('action-expand-more-btn');
-const actionPopupSecondary = document.getElementById('action-popup-secondary');
-const actionSuggestBtn = document.getElementById('action-suggest-btn');
-const actionHintBtn = document.getElementById('action-hint-btn');
-const forceSpeakerSelect = document.getElementById('force-speaker-select');
-const whisperBtn = document.getElementById('action-whisper-btn');
-const whisperPopup = document.getElementById('whisper-popup');
-const actionPopup   = document.getElementById('action-popup');
-const stopBtn       = document.getElementById('stop-btn');
-const interfaceLanguage = document.getElementById('interface-language');
+const chatLog       = el('chat-log');
+const sceneLocation = el('scene-location');
+const sceneTags     = el('scene-tags');
+const scenePanel    = el('scene-panel');
+const optionsPanel  = el('options-panel');
+const inputArea     = el('input-area');
+const inputExpandBtn= el('input-expand-btn');
+const inputSpeech   = el('input-speech');
+const inputThought  = el('input-thought');
+const inputAction   = el('input-action');
+const sendBtn       = el('send-btn');
+const settingsBtn   = el('settings-btn');
+const emptyConfigBtn= el('empty-config-btn');
+const spinner       = el('spinner');
+const spinnerLabel  = el('spinner-label');
+const retryBanner   = el('retry-banner');
+const retryBannerBtn = el('retry-banner-btn');
+const roteiroEnabledInput = el('runtime-roteiro-enabled');
+const emptyState    = el('empty-state');
+const emptyKicker   = el('empty-kicker');
+const emptyPrompt   = el('empty-prompt');
+const emptyScrollCue= el('empty-scroll-cue');
+const toastWrap     = el('toast-wrap');
+const installBtn    = el('install-btn');
+const actionUndoBtn = el('action-undo-btn');
+const actionRetryBtn = el('action-retry-btn');
+const actionSkipBtn = el('action-skip-btn');
+const actionExpandMoreBtn = el('action-expand-more-btn');
+const actionPopupSecondary = el('action-popup-secondary');
+const actionSuggestBtn = el('action-suggest-btn');
+const actionHintBtn = el('action-hint-btn');
+const forceSpeakerSelect = el('force-speaker-select');
+const whisperBtn = el('action-whisper-btn');
+const whisperPopup = el('whisper-popup');
+const actionPopup   = el('action-popup');
+const stopBtn       = el('stop-btn');
+const interfaceLanguage = el('interface-language');
 
-const hintOverlay   = document.getElementById('hint-overlay');
-const hintTextarea  = document.getElementById('hint-textarea');
-const hintSendBtn   = document.getElementById('hint-send-btn');
-const hintCloseBtn  = document.getElementById('hint-close-btn');
+const hintOverlay   = el('hint-overlay');
+const hintTextarea  = el('hint-textarea');
+const hintSendBtn   = el('hint-send-btn');
+const hintCloseBtn  = el('hint-close-btn');
 
 
 
