@@ -14,6 +14,7 @@ from src.llm.client import call_agent, normalize_generated_text
 from src.llm.debug_log import log_whisper_output_guard
 from src.models import (
     Character,
+    CharacterPerspective,
     Scene,
     TurnRecord,
     record_visible_to,
@@ -158,6 +159,30 @@ def _ledger_memory_text(viewer_perspective) -> str:  # noqa: ANN001
     return "\n".join(parts)
 
 
+def _roster_label(
+    subject_id: str,
+    perspective: CharacterPerspective | None = None,
+) -> str:
+    """How the viewer would name this person, never how the world names them.
+
+    NOT `viewer_speaker_label`: that one falls back to the canonical name when
+    the viewer has no ledger entry, which is right for history records (a person
+    only reaches history by acting in front of someone) and wrong here. The
+    roster names everyone present, including people the viewer has never met,
+    so the same fallback handed over a name nobody had learned - caught by the
+    task 29 benchmark as `unearned_identity_familiarity` within an hour of this
+    roster shipping.
+    """
+    from src.agents.perspective import FALLBACK_REFERENCE
+
+    if perspective is None:
+        return FALLBACK_REFERENCE
+    view = perspective.people.get(subject_id)
+    if view is None:
+        return FALLBACK_REFERENCE
+    return str(view.known_name or view.reference)
+
+
 def _build_present_roster(
     scene: Scene | None,
     characters: dict[str, Character],
@@ -187,10 +212,7 @@ def _build_present_roster(
     ]
     if not others:
         return "WHO IS HERE WITH YOU: nobody else. You are alone in this place."
-    names = ", ".join(
-        viewer_speaker_label(cid, characters, controlled_id, viewer_perspective)
-        for cid in others
-    )
+    names = ", ".join(_roster_label(cid, viewer_perspective) for cid in others)
     return (
         f"WHO IS HERE WITH YOU: {names}.\n"
         "That list is complete. Anyone else you know of is elsewhere right now: "
