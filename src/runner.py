@@ -11,6 +11,7 @@ import asyncio
 import copy
 from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
+from difflib import SequenceMatcher
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -26,9 +27,6 @@ from src.agents.narrator import (
     redact_whisper_leaks,
 )
 from src.agents.narrator import (
-    suggest as narrator_suggest,
-)
-from src.agents.narrator import (
     suggest_openings as narrator_suggest_openings,
 )
 from src.agents.perspective import (
@@ -40,6 +38,7 @@ from src.agents.perspective import (
     update_identity,
 )
 from src.agents.prose import render_narration
+from src.agents.suggest import suggest_moves
 from src.agents.summarizer import summarize
 from src.alignment import derive_alignment_impulse
 from src.compaction import (
@@ -133,6 +132,37 @@ CLOCK_SKIP_INVITE = (
 # can pull the human back. Owner decision (2026-07-20): 2, so the return is not
 # too fast. From this beat on, the protagonist is eligible again.
 BURST_PROTAGONIST_EXCLUDE_BEATS = 2
+
+# An audible_speech event that near-repeats a line already in history is the
+# Director re-voicing the scene, not a new fact. Persisting it doubles the
+# record, feeds the repetition back as context, and teaches the model that
+# restating counts as progress (task 54, finding 2). Same threshold the
+# Character agent uses for its own echo guard, for the same reason.
+_SPEECH_ECHO_THRESHOLD = 0.88
+_SPEECH_ECHO_MIN_CHARS = 30
+_SPEECH_ECHO_LOOKBACK = 8
+
+
+def _echoes_recent_speech(game: GameState, subject: str, spoken: str) -> bool:
+    """True when this line near-repeats recent speech by the same voice.
+
+    "The same voice" includes the ``Player`` sentinel when the subject is the
+    controlled character: the Director reformulating the human's own input as
+    ``Link diz: ...`` is the exact duplication this guards against.
+    """
+    if len(spoken) < _SPEECH_ECHO_MIN_CHARS:
+        return False
+    voices = {subject}
+    if subject == game.player.controlled_character_id:
+        voices.add("Player")
+    candidate = " ".join(spoken.lower().split())
+    for record in game.history[-_SPEECH_ECHO_LOOKBACK:]:
+        if record.content_type not in ("speech", "action") or record.speaker not in voices:
+            continue
+        prior = " ".join(record.content.lower().split())
+        if SequenceMatcher(None, candidate, prior).ratio() >= _SPEECH_ECHO_THRESHOLD:
+            return True
+    return False
 
 
 def _current_turn(game: GameState) -> int:
@@ -1163,6 +1193,8 @@ class Runner:
             subject = event.get("subject_id")
             if not spoken or subject not in game.characters:
                 continue
+            if _echoes_recent_speech(game, subject, spoken):
+                continue  # the Director re-voiced a line that is already history
             present_others = {
                 cid
                 for cid in game.scene.present_characters
@@ -1356,7 +1388,7 @@ class Runner:
 
             target_id = game.player.controlled_character_id
             turn_number = game.history[-1].turn_number if game.history else 0
-            suggestions = await narrator_suggest(
+            suggestions = await suggest_moves(
                 client=self.client,
                 scene=game.scene,
                 characters=game.characters,
@@ -1366,6 +1398,7 @@ class Runner:
                 narrator_directives=game.narrator_directives,
                 session_id=game.session_id,
                 turn_number=turn_number,
+                viewer_perspective=game.character_perspectives.get(target_id),
             )
             suggestions = await self.plugins.hooks.filter(
                 Hook.SUGGESTIONS_OUTPUT,

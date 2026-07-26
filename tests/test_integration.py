@@ -1201,7 +1201,7 @@ class TestRunnerLogic:
         async def fake_suggest(**kwargs):  # noqa: ANN003, ANN202
             return [{"speech": "Wait.", "action": "Listen."}]
 
-        monkeypatch.setattr(runner_mod, "narrator_suggest", fake_suggest)
+        monkeypatch.setattr(runner_mod, "suggest_moves", fake_suggest)
         lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(self.runner.suggest_actions(self.sid))
