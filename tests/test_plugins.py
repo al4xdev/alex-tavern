@@ -508,7 +508,7 @@ async def test_runner_discards_crashed_precommit_plugin_draft() -> None:
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
         _stub_turn_pipeline(runner)
-        session_id = runner.start_session()
+        session_id = await runner.start_session()
         result = await runner.player_turn(session_id, thought="secret")
     assert result["turn_number"] == 1
     game = load_game(session_id)
@@ -606,7 +606,7 @@ async def test_turn_input_filter_records_raw_and_effective_values() -> None:
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
         _stub_turn_pipeline(runner)
-        session_id = runner.start_session()
+        session_id = await runner.start_session()
         result = await runner.player_turn(session_id, thought="eu esta aqui")
 
     assert result["effective_input"]["thought"] == "Eu estou aqui."

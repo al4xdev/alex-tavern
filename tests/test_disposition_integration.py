@@ -70,7 +70,7 @@ async def test_enabled_feedback_moves_dyad_and_flips_band(monkeypatch) -> None: 
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"disposition_feedback_enabled": True, "auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -109,7 +109,7 @@ async def test_disabled_feedback_never_appraises_and_stays_seeded(monkeypatch) -
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})  # feedback flag absent -> OFF
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -145,7 +145,7 @@ async def test_undo_restores_pre_turn_dispositions(monkeypatch) -> None:  # noqa
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"disposition_feedback_enabled": True, "auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

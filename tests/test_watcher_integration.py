@@ -89,7 +89,7 @@ async def test_stall_accumulates_then_ladder_disrupts_then_refractory(monkeypatc
     }
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -147,7 +147,7 @@ async def test_disabled_watcher_never_audits_or_intervenes(monkeypatch) -> None:
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})  # watcher_enabled absent -> OFF
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

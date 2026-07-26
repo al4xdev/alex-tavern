@@ -144,7 +144,7 @@ class TestRunnerInjection:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -194,7 +194,7 @@ class TestRunnerInjection:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),

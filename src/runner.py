@@ -13,7 +13,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -92,6 +92,7 @@ from src.models import (
     validate_present_characters,
 )
 from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
+from src.plugins.runtime import PluginRuntime
 from src.roteiro import (
     ReplanDecision,
     collect_beat_evidence,
@@ -117,9 +118,6 @@ from src.watcher import (
     generate_causal_intervention,
     select_recovery_step,
 )
-
-if TYPE_CHECKING:
-    from src.plugins.runtime import PluginRuntime
 
 # Task 40 v2 — exact invite text validated by replay (position: hint channel).
 CLOCK_SKIP_INVITE = (
@@ -150,14 +148,17 @@ class Runner:
     ) -> None:
         self.client = llm_client
         self.config = config
-        self.plugins = plugins
+        # An empty runtime is the null object: every hook call resolves to an
+        # empty registration list, so no caller needs a "do I have plugins?"
+        # branch. Only tests construct a Runner without one.
+        self.plugins = plugins if plugins is not None else PluginRuntime()
 
     # ── Public Methods ────────────────────────────────────────────────────
 
-    def start_session(self, session_config: dict | None = None) -> str:
+    async def start_session(self, session_config: dict | None = None) -> str:
         """Creates GameState with default (or custom) characters, scene, and Player.
 
-        Synchronous — only file writing, no LLM call.
+        No LLM call — only file writing and the session lifecycle hooks.
 
         Args:
             session_config: Optional. Can contain 'characters', 'scene',
@@ -171,8 +172,7 @@ class Runner:
             ValueError: If there is not at least one character.
         """
         cfg = copy.deepcopy(session_config or {})
-        if self.plugins is not None:
-            cfg = self.plugins.hooks.filter_sync("session.start", cfg, {"runner": self})
+        cfg = await self.plugins.hooks.filter("session.start", cfg, {"runner": self})
         session_id = generate_session_id()
         scenario_data: dict | None = None
 
@@ -261,13 +261,11 @@ class Runner:
             narrator_directives=cfg.get("narrator_directives", ""),
             character_preset_ids=character_preset_ids,
         )
-        if self.plugins is not None:
-            game = self.plugins.hooks.filter_sync(
-                "session.before_commit", game, {"kind": "start", "runner": self}
-            )
+        game = await self.plugins.hooks.filter(
+            "session.before_commit", game, {"kind": "start", "runner": self}
+        )
         save_game(game)
-        if self.plugins is not None:
-            self.plugins.hooks.action_sync("session.after_commit", {"game": game, "kind": "start"})
+        await self.plugins.hooks.action("session.after_commit", {"game": game, "kind": "start"})
         return session_id
 
     async def execute_command(
@@ -280,8 +278,6 @@ class Runner:
         """
         from src.plugins.commands import CommandError
 
-        if self.plugins is None:
-            raise CommandError("command_not_found", f"Command /{command_name} is not available.")
         registration = self.plugins.commands.get(command_name)
         if registration is None:
             raise CommandError("command_not_found", f"Command /{command_name} is not available.")
@@ -445,19 +441,18 @@ class Runner:
                 narrator_hint=narrator_hint,
                 skip=skip,
             )
-            if self.plugins is not None:
-                turn_input = await self.plugins.hooks.filter(
-                    "turn.input",
-                    turn_input,
-                    {"game": game, "turn_number": step, "runner": self},
-                )
-                speech = str(turn_input["speech"])
-                thought = str(turn_input["thought"])
-                action = str(turn_input["action"])
-                raw_force = turn_input["force_speaker"]
-                force_speaker = str(raw_force) if raw_force is not None else None
-                narrator_hint = str(turn_input["narrator_hint"])
-                skip = bool(turn_input["skip"])
+            turn_input = await self.plugins.hooks.filter(
+                "turn.input",
+                turn_input,
+                {"game": game, "turn_number": step, "runner": self},
+            )
+            speech = str(turn_input["speech"])
+            thought = str(turn_input["thought"])
+            action = str(turn_input["action"])
+            raw_force = turn_input["force_speaker"]
+            force_speaker = str(raw_force) if raw_force is not None else None
+            narrator_hint = str(turn_input["narrator_hint"])
+            skip = bool(turn_input["skip"])
 
             force_speaker_present = (
                 force_speaker in game.characters and force_speaker in game.scene.present_characters
@@ -668,20 +663,16 @@ class Runner:
                 # Call Narrator — extra_context/extra_schema let plugins add read-only
                 # prompt lines and an optional output key (narrator.context/narrator.schema)
                 # without a provider- or plugin-specific branch here.
-                extra_context: list[str] = []
-                extra_schema_properties: dict[str, Any] = {}
-                extra_schema_required: list[str] = []
-                if self.plugins is not None:
-                    extra_context = await self.plugins.hooks.filter(
-                        "narrator.context", [], {"game": game, "turn_number": step, "runner": self}
-                    )
-                    schema_extension = await self.plugins.hooks.filter(
-                        "narrator.schema",
-                        {"properties": {}, "required": []},
-                        {"game": game, "turn_number": step, "runner": self},
-                    )
-                    extra_schema_properties = dict(schema_extension.get("properties", {}))
-                    extra_schema_required = list(schema_extension.get("required", []))
+                extra_context: list[str] = await self.plugins.hooks.filter(
+                    "narrator.context", [], {"game": game, "turn_number": step, "runner": self}
+                )
+                schema_extension = await self.plugins.hooks.filter(
+                    "narrator.schema",
+                    {"properties": {}, "required": []},
+                    {"game": game, "turn_number": step, "runner": self},
+                )
+                extra_schema_properties = dict(schema_extension.get("properties", {}))
+                extra_schema_required = list(schema_extension.get("required", []))
 
                 # Hybrid protagonist routing (Task 45): keep the controlled character
                 # out of next_speakers for the first BURST_PROTAGONIST_EXCLUDE_BEATS
@@ -689,8 +680,10 @@ class Runner:
                 # pull the human back in; from then on they are eligible again, and
                 # the Narrator choosing them ends the burst (player_addressed).
                 exclude_controlled = beat_index < BURST_PROTAGONIST_EXCLUDE_BEATS
-                if self.plugins is None:
-                    narrator_raw = await self._call_narrator(
+                narrator_raw = await self.plugins.hooks.call_wrapped(
+                    "narrator.call",
+                    partial(
+                        self._call_narrator,
                         game,
                         step,
                         effective_force_speaker,
@@ -699,32 +692,14 @@ class Runner:
                         extra_schema_properties=extra_schema_properties,
                         extra_schema_required=extra_schema_required,
                         exclude_controlled=exclude_controlled,
-                    )
-                else:
-                    narrator_game = game
-                    assert narrator_game is not None
-                    call_director = partial(
-                        self._call_narrator,
-                        narrator_game,
-                        step,
-                        effective_force_speaker,
-                        narrator_hint,
-                        extra_context=extra_context,
-                        extra_schema_properties=extra_schema_properties,
-                        extra_schema_required=extra_schema_required,
-                        exclude_controlled=exclude_controlled,
-                    )
-                    narrator_raw = await self.plugins.hooks.call_wrapped(
-                        "narrator.call",
-                        call_director,
-                        {"game": narrator_game, "turn_number": step, "runner": self},
-                    )
-                if self.plugins is not None:
-                    narrator_raw = await self.plugins.hooks.filter(
-                        "narrator.output",
-                        narrator_raw,
-                        {"game": game, "turn_number": step, "runner": self},
-                    )
+                    ),
+                    {"game": game, "turn_number": step, "runner": self},
+                )
+                narrator_raw = await self.plugins.hooks.filter(
+                    "narrator.output",
+                    narrator_raw,
+                    {"game": game, "turn_number": step, "runner": self},
+                )
 
                 # Within a burst a stimulus must be resolved once: events that
                 # near-duplicate an earlier beat's event are dropped so the
@@ -914,36 +889,33 @@ class Runner:
                     ctx = redact_whisper_leaks(
                         ctx, game.history, speaker, game.characters, game.scene
                     )
-                    if self.plugins is None:
-                        character_response = await self._call_character(
-                            game, speaker, ctx, step, reply_audience=reply_audience
-                        )
-                    else:
-                        character_game = game
-                        assert character_game is not None
-                        character_response = await self.plugins.hooks.call_wrapped(
-                            "character.call",
-                            lambda g=character_game, s=speaker, c=ctx, st=step, ra=reply_audience: (
-                                self._call_character(g, s, c, st, reply_audience=ra)
-                            ),
-                            {
-                                "game": character_game,
-                                "character_id": speaker,
-                                "turn_number": step,
-                                "runner": self,
-                            },
-                        )
-                    if self.plugins is not None:
-                        character_response = await self.plugins.hooks.filter(
-                            "character.output",
-                            character_response,
-                            {
-                                "game": game,
-                                "character_id": speaker,
-                                "turn_number": step,
-                                "runner": self,
-                            },
-                        )
+                    character_response = await self.plugins.hooks.call_wrapped(
+                        "character.call",
+                        partial(
+                            self._call_character,
+                            game,
+                            speaker,
+                            ctx,
+                            step,
+                            reply_audience=reply_audience,
+                        ),
+                        {
+                            "game": game,
+                            "character_id": speaker,
+                            "turn_number": step,
+                            "runner": self,
+                        },
+                    )
+                    character_response = await self.plugins.hooks.filter(
+                        "character.output",
+                        character_response,
+                        {
+                            "game": game,
+                            "character_id": speaker,
+                            "turn_number": step,
+                            "runner": self,
+                        },
+                    )
                     if character_response["thought"]:
                         self._append_history(
                             game, speaker, character_response["thought"], "thought", step
@@ -1030,20 +1002,19 @@ class Runner:
                 if mood_updates:
                     self._update_moods(game, mood_updates)
 
-                if self.plugins is not None:
-                    # Each plugin validates and applies its own narrator.schema property (if
-                    # present in narrator_raw) to this same-turn draft. A plugin that finds
-                    # its own proposal invalid returns the draft unchanged instead of raising —
-                    # raising here would trip the shared crash policy and disable the plugin,
-                    # which is reserved for genuine bugs, not routine LLM validation failures.
-                    game = await self.plugins.hooks.filter(
-                        "narrator.result",
-                        game,
-                        {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
-                    )
-                    game = await self.plugins.hooks.filter(
-                        "turn.before_commit", game, {"kind": "turn", "runner": self}
-                    )
+                # Each plugin validates and applies its own narrator.schema property (if
+                # present in narrator_raw) to this same-turn draft. A plugin that finds
+                # its own proposal invalid returns the draft unchanged instead of raising —
+                # raising here would trip the shared crash policy and disable the plugin,
+                # which is reserved for genuine bugs, not routine LLM validation failures.
+                game = await self.plugins.hooks.filter(
+                    "narrator.result",
+                    game,
+                    {"narrator_output": narrator_raw, "turn_number": step, "runner": self},
+                )
+                game = await self.plugins.hooks.filter(
+                    "turn.before_commit", game, {"kind": "turn", "runner": self}
+                )
                 game.turns_since_injected_event = (
                     0 if injected_event else game.turns_since_injected_event + 1
                 )
@@ -1070,10 +1041,7 @@ class Runner:
                 await self._apply_disposition_feedback(game, step)
                 game.revision += 1
                 save_game(game)
-                if self.plugins is not None:
-                    await self.plugins.hooks.action(
-                        "turn.after_commit", {"game": game, "kind": "turn"}
-                    )
+                await self.plugins.hooks.action("turn.after_commit", {"game": game, "kind": "turn"})
 
                 beat_result = {
                     "narration": narration,
@@ -1178,19 +1146,17 @@ class Runner:
             }
             game.dispositions = dict_to_disposition_state(restore.disposition_snapshot)
 
-            if self.plugins is not None:
-                game = await self.plugins.hooks.filter(
-                    "undo.before_commit",
-                    game,
-                    {"turn_number": last_turn_number, "removed": removed, "runner": self},
-                )
+            game = await self.plugins.hooks.filter(
+                "undo.before_commit",
+                game,
+                {"turn_number": last_turn_number, "removed": removed, "runner": self},
+            )
             game.revision += 1
             save_game(game)
-            if self.plugins is not None:
-                await self.plugins.hooks.action(
-                    "undo.after_commit",
-                    {"game": game, "turn_number": last_turn_number, "removed": removed},
-                )
+            await self.plugins.hooks.action(
+                "undo.after_commit",
+                {"game": game, "turn_number": last_turn_number, "removed": removed},
+            )
             log_undo(session_id, last_turn_number, removed)
             return {"undone": True, "state": game_state_to_dict(game)}
 
@@ -1222,12 +1188,11 @@ class Runner:
                 session_id=game.session_id,
                 turn_number=turn_number,
             )
-            if self.plugins is not None:
-                suggestions = await self.plugins.hooks.filter(
-                    "suggestions.output",
-                    suggestions,
-                    {"game": game, "target_id": target_id, "runner": self},
-                )
+            suggestions = await self.plugins.hooks.filter(
+                "suggestions.output",
+                suggestions,
+                {"game": game, "target_id": target_id, "runner": self},
+            )
             return {"suggestions": suggestions}
 
     async def suggest_openings(self, session_id: str) -> dict:
@@ -1388,12 +1353,11 @@ class Runner:
                 plugin_state=copy.deepcopy(game.plugin_state),
             )
             emit("before_commit", completed_units, total_units)
-            if self.plugins is not None:
-                draft = await self.plugins.hooks.filter_strict(
-                    "compaction.before_commit",
-                    draft,
-                    {"cutoff": cutoff, "evicted": copy.deepcopy(evicted), "runner": self},
-                )
+            draft = await self.plugins.hooks.filter_strict(
+                "compaction.before_commit",
+                draft,
+                {"cutoff": cutoff, "evicted": copy.deepcopy(evicted), "runner": self},
+            )
             if not isinstance(draft, CompactionDraft):
                 raise TypeError("compaction.before_commit must return CompactionDraft")
 
@@ -1466,16 +1430,15 @@ class Runner:
                 estimated_context_tokens=estimated_context_tokens,
                 threshold_tokens=threshold_tokens,
             )
-            if self.plugins is not None:
-                await self.plugins.hooks.action(
-                    "compaction.after_commit",
-                    {
-                        "game": compacted,
-                        "cutoff": cutoff,
-                        "evicted": len(evicted),
-                        "result": result,
-                    },
-                )
+            await self.plugins.hooks.action(
+                "compaction.after_commit",
+                {
+                    "game": compacted,
+                    "cutoff": cutoff,
+                    "evicted": len(evicted),
+                    "result": result,
+                },
+            )
             emit("completed", completed_units, total_units, result=result)
             return result
         except BaseException as error:
@@ -1529,7 +1492,7 @@ class Runner:
                 )
                 unresolved: dict[str, list[str]] = {}
                 for plugin_id, paths in conflicts.items():
-                    if self.plugins is None or not self.plugins.hooks.has_registration(
+                    if not self.plugins.hooks.has_registration(
                         "compaction.undo_conflict", "filter", plugin_id
                     ):
                         unresolved[plugin_id] = paths
@@ -1591,7 +1554,7 @@ class Runner:
             log_restore_compaction(
                 session_id, result.get("restored", False), result.get("reason", "")
             )
-            if self.plugins is not None and result.get("restored"):
+            if result.get("restored"):
                 await self.plugins.hooks.action(
                     "compaction.restore_after_commit",
                     {"game": load_game(session_id), "result": result},

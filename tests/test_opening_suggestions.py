@@ -123,7 +123,7 @@ class TestOpeningRunnerAndRoute:
         monkeypatch.setattr(runner_mod, "narrator_suggest_openings", fake_openings)
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session()
+            sid = await runner.start_session()
             try:
                 before = await runner.get_state(sid)
                 assert before is not None
@@ -163,7 +163,7 @@ class TestOpeningRunnerAndRoute:
         monkeypatch.setattr(runner_mod, "narrator_suggest_openings", forbidden)
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session()
+            sid = await runner.start_session()
             try:
                 game = load_game(sid)
                 assert game is not None

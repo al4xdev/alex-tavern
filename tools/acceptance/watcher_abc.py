@@ -76,7 +76,7 @@ async def run_arm(arm: str) -> str:
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
-        sid = runner.start_session(session_args)
+        sid = await runner.start_session(session_args)
         for kind, text in inputs:
             hint = pending_hint
             pending_hint = ""

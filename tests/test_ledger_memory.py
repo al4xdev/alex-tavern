@@ -168,7 +168,7 @@ class TestUndoPreservesMemory:
             present_characters=["C1", "C2", "C3", "Player"],
             physical_facts={},
         )
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": session_scene,

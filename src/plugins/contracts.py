@@ -6,21 +6,21 @@ from typing import Any
 
 HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
     "session.start": {
-        "kind": "sync filter",
+        "kind": "filter",
         "value": "session config dict",
         "context": ["runner"],
         "commit": "before",
         "description": "Rewrite complete session creation input before defaults are resolved.",
     },
     "session.before_commit": {
-        "kind": "sync filter",
+        "kind": "filter",
         "value": "GameState",
         "context": ["kind", "runner"],
         "commit": "before",
         "description": "Mutate a new session draft immediately before its first save.",
     },
     "session.after_commit": {
-        "kind": "sync action",
+        "kind": "action",
         "value": "context only",
         "context": ["game", "kind"],
         "commit": "after",

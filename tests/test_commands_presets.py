@@ -159,7 +159,7 @@ async def test_command_is_locked_logged_and_does_not_mutate_narrative_state() ->
     plugins.commands.register("test.plugin", "Test Plugin", "1.0.0", _descriptor(), handler)
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, plugins)
-        session_id = runner.start_session()
+        session_id = await runner.start_session()
         before = load_game(session_id)
         assert before is not None
         result = await runner.execute_command(

@@ -75,7 +75,7 @@ async def test_audible_speech_event_reaches_history(monkeypatch) -> None:  # noq
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -132,7 +132,7 @@ async def test_whisper_narration_audible_speech_is_not_persisted(monkeypatch) ->
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

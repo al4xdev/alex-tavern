@@ -549,7 +549,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_start_session_persists_default_state(self) -> None:
         """start_session retorna um ID e persiste o estado padrão recuperável."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         assert isinstance(sid, str)
         assert len(sid) == 8
         path = session_state_path(sid)
@@ -570,14 +570,14 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_get_history_empty(self) -> None:
         """get_history de sessão nova retorna lista vazia."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         history = await self.runner.get_history(sid)
         assert history == []
 
     @pytest.mark.asyncio
     async def test_get_history_limit(self) -> None:
         """get_history respeita parâmetro limit."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         game = load_game(sid)
         assert game is not None
         for i in range(10):
@@ -619,7 +619,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_restores_mood_and_full_step(self) -> None:
         """Undo restaura o humor E remove todos os registros do passo (mesmo turn_number)."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
@@ -648,7 +648,7 @@ class TestRunnerLogic:
 
     @pytest.mark.asyncio
     async def test_undo_restores_location_and_previous_scene_facts(self) -> None:
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         game = load_game(sid)
         assert game is not None
         original_scene = copy.deepcopy(game.scene)
@@ -679,7 +679,7 @@ class TestRunnerLogic:
         directly to the same-turn draft and captured by the ordinary scene_snapshot —
         undo_turn reverts it without any presence-specific code.
         """
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
@@ -706,7 +706,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_nothing(self) -> None:
         """Undo em sessão sem histórico retorna undone=False."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         result = await self.runner.undo_turn(sid)
         assert result["undone"] is False
 
@@ -720,7 +720,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_idempotent(self) -> None:
         """Undo duas vezes — segunda retorna undone=False."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
@@ -736,7 +736,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_multiple_turns(self) -> None:
         """Três turnos, desfaz um por um — cada undo remove um turno."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
@@ -879,7 +879,7 @@ class TestRunnerLogic:
         plugins.hooks.register("dev.test.presence", "narrator.schema", "filter", extend_schema)
 
         runner = Runner(self.client, {}, plugins=plugins)
-        sid = runner.start_session()
+        sid = await runner.start_session()
         captured: dict = {}
 
         async def fake_call_narrator(
@@ -931,7 +931,7 @@ class TestRunnerLogic:
         plugins.hooks.register("dev.test.presence", "narrator.result", "filter", apply_presence)
 
         runner = Runner(self.client, {}, plugins=plugins)
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -978,7 +978,7 @@ class TestRunnerLogic:
         )
 
         runner = Runner(self.client, {}, plugins=plugins)
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -1006,7 +1006,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_absent_next_speaker_never_receives_a_character_call(self, monkeypatch) -> None:  # noqa: ANN001
         """The Narrator routing to an absent character must not trigger a Character call."""
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -1042,7 +1042,7 @@ class TestRunnerLogic:
         self, monkeypatch
     ) -> None:  # noqa: ANN001
         """force_speaker naming an absent (but existing) character is ignored, not honored."""
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -1076,7 +1076,7 @@ class TestRunnerLogic:
     async def test_force_speaker_is_known_before_character_context_is_built(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         captured: dict[str, object] = {}
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
@@ -1156,7 +1156,7 @@ class TestRunnerLogic:
     async def test_private_thought_only_turn_calls_narrator_without_leaking_thought(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
 
         async def fake_narrator(game, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
             assert game.history[-1].content_type == "thought"
@@ -1714,7 +1714,7 @@ class TestCustomSessionAndDebug:
         for sid in self.created:
             delete_session(sid)
 
-    def _start_custom(self) -> str:
+    async def _start_custom(self) -> str:
         chars = {
             "C1": _custom_char("Aria"),
             "C2": _custom_char("Bron"),
@@ -1726,7 +1726,7 @@ class TestCustomSessionAndDebug:
             present_characters=[],  # deve ser recomputado
             physical_facts={"ar": "úmido"},
         )
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": chars,
                 "scene": scene,
@@ -1737,9 +1737,9 @@ class TestCustomSessionAndDebug:
         self.created.append(sid)
         return sid
 
-    def test_start_session_custom_round_trip(self) -> None:
+    async def test_start_session_custom_round_trip(self) -> None:
         """Personagens custom + narrator_directives fazem round-trip via load_game."""
-        sid = self._start_custom()
+        sid = await self._start_custom()
         game = load_game(sid)
         assert game is not None
         assert set(game.characters) == {"C1", "C2", "C3"}
@@ -1747,21 +1747,21 @@ class TestCustomSessionAndDebug:
         assert game.player.controlled_character_id == "C2"
         assert game.narrator_directives == "Mundo de horror gótico. Tom sombrio."
 
-    def test_start_session_recomputes_present_characters(self) -> None:
+    async def test_start_session_recomputes_present_characters(self) -> None:
         """present_characters é recomputado no servidor, ignorando o cliente."""
-        sid = self._start_custom()
+        sid = await self._start_custom()
         game = load_game(sid)
         assert game is not None
         assert game.scene.present_characters == ["C1", "C2", "C3", "Player"]
 
-    def test_start_session_no_characters_raises(self) -> None:
+    async def test_start_session_no_characters_raises(self) -> None:
         """start_session sem personagens levanta ValueError."""
         with pytest.raises(ValueError, match="at least one character"):
-            self.runner.start_session({"characters": {}})
+            await self.runner.start_session({"characters": {}})
 
-    def test_start_session_invalid_controlled_fallback(self) -> None:
+    async def test_start_session_invalid_controlled_fallback(self) -> None:
         """controlled_character_id inexistente cai no primeiro personagem."""
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": {"C1": _custom_char("Solo")},
                 "controlled_character_id": "C9",
@@ -1971,7 +1971,7 @@ class TestCustomSessionAndDebug:
 
         # next_speaker="C1" precisa ser diferente do controlado, senão o
         # runner pausa (agência do jogador) em vez de chamar o Personagem.
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": {"C1": _custom_char("Solo"), "C2": _custom_char("Outro")},
                 "controlled_character_id": "C2",
@@ -2509,7 +2509,7 @@ class TestEdgeCases:
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        sid = runner.start_session()
+        sid = await runner.start_session()
         try:
             await runner.player_turn(
                 session_id=sid,
@@ -2542,7 +2542,7 @@ class TestEdgeCases:
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        sid = runner.start_session()
+        sid = await runner.start_session()
         try:
             await runner.player_turn(
                 session_id=sid,

@@ -78,7 +78,7 @@ async def _run(monkeypatch, config, director_beats, skip=True, force=None, speec
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, dict(config))
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -129,7 +129,7 @@ class TestBurst:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, dict(BURST_CONFIG))  # max_beats=4
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -267,7 +267,7 @@ class TestBurst:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, dict(BURST_CONFIG, autonomous_burst_max_beats=2))
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),

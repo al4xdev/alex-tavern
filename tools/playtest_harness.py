@@ -770,7 +770,7 @@ async def run_scenario(
     sessions_dir: Path,
 ) -> dict[str, Any]:
     """Execute one scenario sequentially inside its own real session."""
-    session_id = runner.start_session(build_session_config(scenario))
+    session_id = await runner.start_session(build_session_config(scenario))
     debug_path = sessions_dir / session_id / "debug.jsonl"
     event_results: list[dict[str, Any]] = []
     recall_failures: list[str] = []

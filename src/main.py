@@ -432,7 +432,7 @@ async def start_session(req: StartSessionRequest) -> dict:
         cfg["scene"] = scene
 
     try:
-        session_id = active_runner.start_session(cfg)
+        session_id = await active_runner.start_session(cfg)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 

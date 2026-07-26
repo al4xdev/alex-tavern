@@ -275,7 +275,7 @@ class TestRunnerWiring:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": CHARACTERS,
                     "scene": deepcopy_scene(SCENE),
@@ -338,7 +338,7 @@ class TestRunnerWiring:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": CHARACTERS,
                     "scene": deepcopy_scene(SCENE),

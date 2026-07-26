@@ -315,7 +315,7 @@ class TestZoneScopedRecords:
                 zones={"salao": [], "compartimento": []},
                 positions={"C1": "salao", "C2": "salao", "C3": "compartimento"},
             )
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {"characters": dict(CHARACTERS), "scene": scene, "controlled_character_id": "C1"}
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
@@ -394,7 +394,7 @@ class TestEmptyPerceptionVoid:
                 zones={"salao": [], "compartimento": []},
                 positions={"C1": "salao", "C2": "salao", "C3": "compartimento"},
             )
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {"characters": dict(CHARACTERS), "scene": scene, "controlled_character_id": "C1"}
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)

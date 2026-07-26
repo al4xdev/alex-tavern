@@ -586,7 +586,7 @@ class TestRunnerWiring:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, dict(config))
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -762,7 +762,7 @@ class TestNarrativeClock:
 
         client = _httpx.AsyncClient()
         runner = Runner(client, {"auto_event_enabled": False, "roteiro_enabled": True})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -891,7 +891,7 @@ class TestNarrativeClock:
 
         client = httpx.AsyncClient()
         runner = Runner(client, {"auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
