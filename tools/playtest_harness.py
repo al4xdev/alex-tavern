@@ -600,6 +600,45 @@ def _exact_sentence_duplicates(texts: list[str]) -> int:
     return duplicates
 
 
+def _cast_rotation(calls: list[dict[str, Any]]) -> float | None:
+    """Mean share of each beat's speakers that did not speak in the beat before.
+
+    None when the scene never had more than one actor: a solo scene scores a
+    perfect zero for a reason that has nothing to do with stagnation, and a
+    number that means two different things is worse than no number.
+    """
+    queues: list[set[str]] = []
+    for record in calls:
+        if record.get("agent") != "director":
+            continue
+        response = record.get("response")
+        if isinstance(response, str):
+            try:
+                response = json.loads(response)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(response, dict):
+            continue
+        speakers = {
+            entry
+            for entry in response.get("next_speakers") or []
+            if isinstance(entry, str) and entry != "Narrator"
+        }
+        if speakers:
+            queues.append(speakers)
+    if len(queues) < 2 or len(set().union(*queues)) < 2:
+        return None
+    # Over the current beat, not over the union: both forms were validated on
+    # the real sessions and ordered them identically, and this one separates
+    # them wider (0.138 stagnant to 0.383 advancing, against 0.133 to 0.293).
+    shares = [
+        len(later - earlier) / len(later)
+        for earlier, later in zip(queues, queues[1:], strict=False)
+        if later
+    ]
+    return round(statistics.mean(shares), 4) if shares else None
+
+
 def analyze_debug_records(
     records: list[dict[str, Any]], event_results: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -759,6 +798,17 @@ def analyze_debug_records(
         "max_prompt_chars": max(prompt_sizes, default=0),
         "max_duration_ms": round(max(durations, default=0.0), 3),
         "mean_duration_ms": round(statistics.mean(durations), 3) if durations else 0.0,
+        # How much the acting cast changes from beat to beat, read off the
+        # Director's own next_speakers. Task 54 finding 5 describes stagnation the
+        # lexical guards cannot see: the same people restaging the same moment in
+        # fresh words. Two other candidates were built and REJECTED against real
+        # sessions first - rolling lexical novelty scored an advancing session the
+        # same as the stagnant one (consistent atmosphere drags it down), and
+        # scene-fact churn scored the advancing one LOWER. Cast rotation was the
+        # only candidate that ordered them correctly. It is reported, not gated:
+        # task 26 asks for event-level evidence before any material-delta gate,
+        # and this is that evidence being collected.
+        "scene_cast_rotation": _cast_rotation(calls),
         # AGENTS.md §3: a run that scores anything but zero here has told some
         # agent that a human drives one of the characters (see src/prompt_contract.py).
         "operator_ontology_hits": len(ontology_hits),
