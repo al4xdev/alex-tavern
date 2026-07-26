@@ -45,6 +45,10 @@ Rules:
   or register each time. Three phrasings of the same tactic is a failed answer.
 - Cover different registers across the three: for example one that speaks, one
   that acts physically, one that does neither loudly (observe, withdraw, wait).
+- The three moves must also engage three DIFFERENT targets: one directed at a
+  specific person, one at the physical scene or an object, and one at nobody
+  (the character alone: withdrawing, watching, thinking it over). Never open
+  all three by addressing the same person.
 - Keep each field short and concrete: one sentence, no stage directions, no
   narration of anyone else's reaction.
 - "speech" is what the character says aloud, or an empty string. "action" is
