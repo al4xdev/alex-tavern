@@ -341,7 +341,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro())
         decision = ReplanDecision(action="replan_beat", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -369,7 +369,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(beat_replans_in_act=1))
         decision = ReplanDecision(action="advance", reason="coverage_complete")
         async with httpx.AsyncClient() as client:
@@ -398,7 +398,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD))
         decision = ReplanDecision(action="replan_act", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -437,7 +437,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD))
         decision = ReplanDecision(action="replan_act", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -462,7 +462,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(anchors_seen=["carta lacrada"]))
         decision = ReplanDecision(action="replan_beat", reason="stalled")
         async with httpx.AsyncClient() as client:

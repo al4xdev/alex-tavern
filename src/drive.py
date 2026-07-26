@@ -15,8 +15,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import GameState, speaker_label
 
 AUTO_EVENT_DEFAULTS = {
@@ -123,17 +122,14 @@ async def generate_event_seed(
     config: dict,
     turn_number: int,
 ) -> str:
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_event_seed_messages(game),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=256,
-        timeout=resolve_llm_timeout(config),
+        agent="drive:event_seed",
         json_schema=build_event_seed_schema(),
+        max_tokens=256,
         session_id=game.session_id,
         turn_number=turn_number,
-        agent="drive:event_seed",
-        **llm_request_options(config),
     )
     return str(result.get("event", "")).strip()

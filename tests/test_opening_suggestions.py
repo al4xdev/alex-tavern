@@ -85,11 +85,11 @@ class TestOpeningContract:
 
         captured: dict = {}
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             captured.update({"messages": messages, **kwargs})
             return {"suggestions": RAW_OPENINGS}
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         async with httpx.AsyncClient() as client:
             result = await narrator_mod.suggest_openings(
                 client,

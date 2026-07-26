@@ -415,7 +415,7 @@ async def test_summarize_is_world_only(monkeypatch) -> None:  # noqa: ANN001
         agents.append(kwargs["agent"])
         return {"story_summary": "World."}
 
-    monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+    monkeypatch.setattr(summarizer_mod, "call_agent", fake_json)
     completed: list[str] = []
     async with httpx.AsyncClient() as client:
         summary = await summarizer_mod.summarize(

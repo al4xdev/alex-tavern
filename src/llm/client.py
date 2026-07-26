@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import httpx
 
+from src.config import llm_request_options
 from src.llm.adapters import get_provider_adapter
 from src.llm.debug_log import log_llm_call
 from src.llm.schema import JSONSchemaValidationError, validate_json_schema
@@ -288,6 +289,45 @@ async def chat_completion_json(
 
     raise ValueError(
         f"Falha ao obter JSON válido após {attempts_made} tentativas. Último erro: {last_error}"
+    )
+
+
+async def call_agent(
+    client: httpx.AsyncClient,
+    config: dict,
+    messages: list[dict],
+    *,
+    agent: str,
+    json_schema: dict,
+    max_tokens: int,
+    session_id: str = "",
+    turn_number: int = 0,
+    retries: int = 2,
+    use_configured_language: bool = True,
+) -> dict:
+    """One structured call from a named agent, with transport taken from config.
+
+    Model, language, timeout and provider options belong to the active
+    configuration and are resolved here, so no agent repeats them. What stays
+    explicit is what genuinely differs per agent: its name in the log, its JSON
+    contract and its token budget.
+
+    ``session_id``/``turn_number`` only feed the raw call log; there are no
+    invisible model calls (AGENTS.md section 5).
+    """
+    return await chat_completion_json(
+        client,
+        messages,
+        model=config.get("model", ""),
+        language=config.get("language", "") if use_configured_language else "",
+        max_tokens=max_tokens,
+        timeout=resolve_llm_timeout(config),
+        json_schema=json_schema,
+        retries=retries,
+        session_id=session_id,
+        turn_number=turn_number,
+        agent=agent,
+        **llm_request_options(config),
     )
 
 

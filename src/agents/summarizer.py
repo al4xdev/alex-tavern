@@ -14,8 +14,7 @@ from collections.abc import Callable
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import call_agent, normalize_generated_text
 from src.models import Character, TurnRecord, speaker_label
 
 
@@ -137,18 +136,15 @@ async def summarize(
         narrator_directives=narrator_directives,
     )
     agent = "summarizer:world"
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
+        agent=agent,
         json_schema=build_summarizer_json_schema(),
+        max_tokens=max_tokens,
         session_id=session_id,
         turn_number=turn_number,
-        agent=agent,
-        **llm_request_options(config),
     )
     new_summary = normalize_generated_text(str(result.get("story_summary", story_summary)))
     if on_model_completed is not None:

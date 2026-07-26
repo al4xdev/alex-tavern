@@ -66,10 +66,10 @@ class TestNarrateThoughtGuardAndZones:
     async def _narrate(self, monkeypatch, fake_response, history):  # noqa: ANN001, ANN202
         import src.agents.narrator as narrator_mod
 
-        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return fake_response
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_chat)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_chat)
         return await narrator_mod.narrate(
             client=None,
             scene=SCENE,

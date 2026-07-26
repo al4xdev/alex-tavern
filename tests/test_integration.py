@@ -1812,13 +1812,13 @@ class TestCustomSessionAndDebug:
         """valid_speakers aceita IDs custom (C3) e não faz fallback."""
         from src.agents import narrator as narrator_mod
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "next_speakers": ["C3"],
                 "perception_events": [_perception_event("ctx", "C3")],
             }
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         chars = {"C3": _custom_char("Caius")}
         result = await narrator_mod.narrate(
             client=self.client,
@@ -1840,13 +1840,13 @@ class TestCustomSessionAndDebug:
         """next_speaker inválido cai para Narrator (o Narrador não conhece "Player")."""
         from src.agents import narrator as narrator_mod
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "next_speakers": ["Fantasma"],
                 "perception_events": [],
             }
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(
@@ -1868,7 +1868,7 @@ class TestCustomSessionAndDebug:
 
         captured: dict[str, object] = {}
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             captured["messages"] = messages
             captured["json_schema"] = kwargs["json_schema"]
             return {
@@ -1876,7 +1876,7 @@ class TestCustomSessionAndDebug:
                 "perception_events": [_perception_event("Only C2 can perceive this.", "C2")],
             }
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(
@@ -1908,13 +1908,13 @@ class TestCustomSessionAndDebug:
     async def test_forced_narrator_collapses_queue(self, monkeypatch) -> None:  # noqa: ANN001
         from src.agents import narrator as narrator_mod
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return {
                 "next_speakers": ["C1"],
                 "perception_events": [],
             }
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
@@ -2084,11 +2084,11 @@ class TestSummarizerAgent:
 
         agents: list[str] = []
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             agents.append(kwargs["agent"])
             return {"story_summary": "Resumo atualizado."}
 
-        monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(summarizer_mod, "call_agent", fake_json)
         client = httpx.AsyncClient(base_url="http://localhost:8888")
         summary = await summarizer_mod.summarize(
             client=client,
@@ -2376,7 +2376,7 @@ class TestEdgeCases:
         async def fake_json(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
             return next(responses)
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_json)
         async with httpx.AsyncClient() as client:
             output = await character_mod.act(
                 client=client,

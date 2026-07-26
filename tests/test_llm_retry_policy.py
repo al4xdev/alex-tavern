@@ -141,3 +141,80 @@ class TestUnifiedRetryPolicy:
             with pytest.raises(ValueError):
                 await _act(client)
         assert len(calls) == 2
+
+
+class TestAgentCallContract:
+    """``call_agent`` must resolve transport from config, nothing more."""
+
+    @pytest.mark.asyncio
+    async def test_forwards_exactly_the_transport_the_manual_form_did(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.llm import client as client_mod
+
+        captured: dict = {}
+
+        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            captured.update({"messages": messages, **kwargs})
+            return {"ok": True}
+
+        monkeypatch.setattr(client_mod, "chat_completion_json", fake_chat_completion_json)
+        config = {
+            "model": "deepseek-chat",
+            "language": "Portuguese",
+            "llm_timeout_seconds": 12.5,
+            "provider": "deepseek",
+            "api_base": "https://api.deepseek.com/v1",
+            "api_key": "secret",
+            "thinking_enabled": True,
+        }
+        schema = {"name": "x", "schema": {"type": "object"}}
+
+        result = await client_mod.call_agent(
+            None,
+            config,
+            [{"role": "user", "content": "hi"}],
+            agent="director",
+            json_schema=schema,
+            max_tokens=321,
+            session_id="abc123",
+            turn_number=7,
+        )
+
+        assert result == {"ok": True}
+        assert captured == {
+            "messages": [{"role": "user", "content": "hi"}],
+            "model": "deepseek-chat",
+            "language": "Portuguese",
+            "max_tokens": 321,
+            "timeout": 12.5,
+            "json_schema": schema,
+            "retries": 2,
+            "session_id": "abc123",
+            "turn_number": 7,
+            "agent": "director",
+            "provider": "deepseek",
+            "api_base": "https://api.deepseek.com/v1",
+            "api_key": "secret",
+            "thinking_enabled": True,
+        }
+
+    @pytest.mark.asyncio
+    async def test_plugin_calls_may_opt_out_of_the_configured_language(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.llm import client as client_mod
+
+        captured: dict = {}
+
+        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            captured.update(kwargs)
+            return {}
+
+        monkeypatch.setattr(client_mod, "chat_completion_json", fake_chat_completion_json)
+        await client_mod.call_agent(
+            None,
+            {"language": "Portuguese"},
+            [{"role": "user", "content": "hi"}],
+            agent="plugin:x",
+            json_schema={"name": "x", "schema": {}},
+            max_tokens=8,
+            use_configured_language=False,
+        )
+        assert captured["language"] == ""

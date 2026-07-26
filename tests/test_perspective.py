@@ -207,7 +207,7 @@ async def test_large_cast_identity_update_is_not_capped_at_768_tokens(monkeypatc
         captured.update(kwargs)
         return {"people": []}
 
-    monkeypatch.setattr("src.agents.perspective.chat_completion_json", fake_completion)
+    monkeypatch.setattr("src.agents.perspective.call_agent", fake_completion)
     perspective = _perspective(
         C1=PersonView(known_name=None, reference="o desconhecido", source_turn=1)
     )

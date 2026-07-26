@@ -218,13 +218,15 @@ class TestRepeatsPriorNarration:
 
 
 class _FakeCompletion:
-    """Fake for chat_completion_json returning queued narrations in order."""
+    """Fake for call_agent returning queued narrations in order."""
 
     def __init__(self, narrations: list[str]) -> None:
         self.narrations = list(narrations)
         self.calls: list[dict[str, Any]] = []
 
-    async def __call__(self, client: Any, messages: list[dict], **kwargs: Any) -> dict:
+    async def __call__(
+        self, client: Any, config: dict, messages: list[dict], **kwargs: Any
+    ) -> dict:
         self.calls.append({"messages": messages, "kwargs": kwargs})
         return {"narration": self.narrations[len(self.calls) - 1]}
 
@@ -233,7 +235,7 @@ class TestRepetitionRetry:
     HISTORY = [_record("Narrator", REPEATED_PARAGRAPH, "narration")]
 
     async def _render(self, fake: _FakeCompletion, monkeypatch: Any) -> str:
-        monkeypatch.setattr(prose, "chat_completion_json", fake)
+        monkeypatch.setattr(prose, "call_agent", fake)
         return await render_narration(None, SCENE, CHARACTERS, CONTROLLED_ID, self.HISTORY, [], {})
 
     async def test_repeated_then_fresh_retries_once_and_returns_second(

@@ -29,8 +29,7 @@ from dataclasses import dataclass
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import (
     Disposition,
     DispositionState,
@@ -358,22 +357,19 @@ async def appraise_relationships(
     turn_number: int,
 ) -> list[RelationshipDelta]:
     """Blind, Director-side appraisal of relationship shifts on the latest turn."""
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_appraisal_messages(game),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
+        json_schema=build_appraisal_schema(),
         # OUTPUT cap only (input is bounded by context_max, not this). The JSON is
         # small — most turns emit 0-2 shifts — but a crowded turn with several
         # evidence quotes could run long; a truncated JSON forces a wasted retry,
         # and we bill only for tokens actually generated, so the headroom is free.
         max_tokens=1024,
-        timeout=resolve_llm_timeout(config),
-        json_schema=build_appraisal_schema(),
         session_id=game.session_id,
         turn_number=turn_number,
         agent="disposition:appraisal",
-        **llm_request_options(config),
     )
     present = {cid for cid in game.scene.present_characters if cid in game.characters}
     parsed = parse_relationship_deltas(result.get("shifts"), present)

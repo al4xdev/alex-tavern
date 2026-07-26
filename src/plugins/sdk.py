@@ -12,8 +12,7 @@ from typing import Any
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.paths import PLUGIN_CONFIG_DIR, PLUGIN_STORAGE_DIR
 from src.plugins.hooks import Handler, HookKind, HookRegistry
 from src.plugins.journal import emit
@@ -187,18 +186,16 @@ class PluginModel:
             max_tokens=max_tokens,
             schema=json_schema.get("name", ""),
         )
-        return await chat_completion_json(
-            client=runner.client,
-            messages=messages,
-            model=config.get("model", ""),
-            language=config.get("language", "") if use_configured_language else "",
-            max_tokens=max_tokens,
+        return await call_agent(
+            runner.client,
+            config,
+            messages,
+            agent=f"plugin:{self.plugin_id}",
             json_schema=json_schema,
-            timeout=resolve_llm_timeout(config),
+            max_tokens=max_tokens,
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"plugin:{self.plugin_id}",
-            **llm_request_options(config),
+            use_configured_language=use_configured_language,
         )
 
 

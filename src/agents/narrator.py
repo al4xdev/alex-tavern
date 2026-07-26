@@ -12,8 +12,7 @@ from src.confidentiality import (
     hidden_whisper_tokens,
     redact_tokens,
 )
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import call_agent, normalize_generated_text
 from src.models import (
     Character,
     Scene,
@@ -598,13 +597,11 @@ async def narrate(
         roteiro_lines=roteiro_lines,
     )
 
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens_narrator,
-        timeout=resolve_llm_timeout(config),
+        agent="director",
         json_schema=build_narrator_json_schema(
             present_ids,
             forced_speaker=forced_speaker,
@@ -612,10 +609,9 @@ async def narrate(
             extra_properties=extra_schema_properties,
             extra_required=extra_schema_required,
         ),
+        max_tokens=max_tokens_narrator,
         session_id=session_id,
         turn_number=turn_number,
-        agent="director",
-        **llm_request_options(config),
     )
 
     # Validate required fields
@@ -850,18 +846,15 @@ async def suggest_openings(
 ) -> list[str]:
     """Generate ephemeral scenario-only openings for an empty session."""
     max_tokens = min(int(config.get("max_tokens_narrator", 2048)), 512)
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_opening_suggestions_messages(scene, narrator_directives),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
+        agent="opening_suggest",
         json_schema=build_opening_suggestions_schema(),
+        max_tokens=max_tokens,
         session_id=session_id,
         turn_number=0,
-        agent="opening_suggest",
-        **llm_request_options(config),
     )
     suggestions: list[str] = []
     for item in result["suggestions"]:
@@ -912,18 +905,15 @@ async def suggest(
         },
     ]
 
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens_narrator,
-        timeout=resolve_llm_timeout(config),
+        agent="narrator_suggest",
         json_schema=build_suggest_json_schema(),
+        max_tokens=max_tokens_narrator,
         session_id=session_id,
         turn_number=turn_number,
-        agent="narrator_suggest",
-        **llm_request_options(config),
     )
 
     suggestions: list[dict] = result.get("suggestions", [])

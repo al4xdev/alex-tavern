@@ -22,8 +22,7 @@ from typing import Any
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import (
     Character,
     CharacterPerspective,
@@ -206,22 +205,15 @@ async def initialize_perspective(
         + "\n".join(roster)
         + "\n\nReport the viewer's current identity knowledge for every roster person."
     )
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         [{"role": "system", "content": _INIT_SYSTEM}, {"role": "user", "content": user}],
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        # A large cast produces one identity entry per other character. The
-        # previous fixed 1024-token cap routinely cut the JSON mid-string,
-        # making all three retries fail identically. This is a ceiling, not a
-        # requested output size: the model stops as soon as the ledger closes.
-        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
-        timeout=resolve_llm_timeout(config),
+        agent=f"perspective:init:{viewer_id}",
         json_schema=build_perspective_json_schema(subject_ids),
+        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
         session_id=session_id,
         turn_number=turn_number,
-        agent=f"perspective:init:{viewer_id}",
-        **llm_request_options(config),
     )
     sheet_text = viewer.mind.personality + "\n" + "\n".join(viewer.mind.knowledge)
     people = _validated_people(
@@ -305,22 +297,15 @@ async def update_identity(
         + "\n".join(event_lines)
         + "\n\nReport the viewer's updated identity knowledge for the unknown people only."
     )
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         [{"role": "system", "content": _UPDATE_SYSTEM}, {"role": "user", "content": user}],
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        # Updates can still contain nearly the whole cast while many identities
-        # remain unknown. A fixed 768-token cap truncated those ledgers at the
-        # same byte on every retry, so retries could never produce valid JSON.
-        # Keep this aligned with initialization's large-cast ceiling.
-        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
-        timeout=resolve_llm_timeout(config),
+        agent=f"perspective:update:{viewer_id}",
         json_schema=build_perspective_json_schema(sorted(unknown)),
+        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
         session_id=session_id,
         turn_number=turn_number,
-        agent=f"perspective:update:{viewer_id}",
-        **llm_request_options(config),
     )
     events_text = "\n".join(record.content for record in new_records)
     for subject_id, view in _validated_people(
@@ -472,18 +457,15 @@ async def revise_memory(
     viewer_name = characters[viewer_id].mind.name if viewer_id in characters else viewer_id
     messages = build_memory_revision_messages(viewer_name, perspective.memory_summary, older)
     try:
-        result = await chat_completion_json(
+        result = await call_agent(
             client,
+            config,
             messages,
-            model=config.get("model", ""),
-            language=config.get("language", ""),
-            max_tokens=config.get("summarizer_max_tokens", 1024),
-            timeout=resolve_llm_timeout(config),
+            agent=f"perspective:memory:{viewer_id}",
             json_schema=build_memory_revision_schema(),
+            max_tokens=config.get("summarizer_max_tokens", 1024),
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"perspective:memory:{viewer_id}",
-            **llm_request_options(config),
         )
         revised = str(result.get("memory_summary", "")).strip()
     except Exception:  # noqa: BLE001 - maintenance must never fail the turn

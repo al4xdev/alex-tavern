@@ -178,12 +178,12 @@ class TestFocusSwitchWithoutTrim:
                 "mood_updates": None,
             }
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured.append(messages)
             return {"speech": "Era a senha que me confiaste no início.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         result = await self.runner.player_turn(
             self.sid,
@@ -303,11 +303,11 @@ class TestFocusSwitchWithoutTrim:
                 "mood_updates": None,
             }
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"speech": f"Confirmo baixinho: {MARKER}.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         await self.runner.player_turn(
             self.sid,
@@ -402,12 +402,12 @@ class TestFocusSwitchWithoutTrim:
                 "mood_updates": None,
             }
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured.append(messages)
             return {"speech": "Entendi o que está escrito.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         await self.runner.player_turn(
             self.sid,
@@ -830,11 +830,11 @@ class TestCharacterOutputGuard:
         calls: list[list[dict]] = []
         queue = list(responses)
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             calls.append(messages)
             return queue.pop(0)
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
         output = await character_mod.act(
             client=None,
             character=THREE_CHARACTERS["C2"],
@@ -936,11 +936,11 @@ class TestCharacterOutputGuard:
     async def test_guard_disabled_without_scene(self, monkeypatch) -> None:  # noqa: ANN001
         calls: list[list[dict]] = []
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             calls.append(messages)
             return {"speech": f"A senha era {MARKER}!", "thought": None}
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
         output = await character_mod.act(
             client=None,
             character=THREE_CHARACTERS["C2"],
@@ -969,11 +969,11 @@ class TestCharacterRepetitionGuard:
         queue = list(responses)
         calls: list[list[dict]] = []
 
-        async def fake(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             calls.append(messages)
             return queue.pop(0)
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake)
+        monkeypatch.setattr(character_mod, "call_agent", fake)
         output = await character_mod.act(
             client=None,
             character=THREE_CHARACTERS["C2"],
@@ -1048,11 +1048,11 @@ class TestCharacterRepetitionGuard:
                 "mood_updates": None,
             }
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"speech": f"Todos deviam saber: a senha é {MARKER}!", "thought": None}
 
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         try:
             result = await runner.player_turn(

@@ -19,8 +19,7 @@ from difflib import SequenceMatcher
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import GameState, Roteiro, RoteiroAct, RoteiroBeat, TurnRecord
 
 ROTEIRO_DEFAULTS = {
@@ -479,18 +478,15 @@ async def generate_roteiro(
     turn_number: int,
 ) -> Roteiro:
     """Compile the initial roteiro (premise + acts + first beat) for a session."""
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_roteiro_messages(game),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=1536,
-        timeout=resolve_llm_timeout(config),
+        agent="roteiro:compile",
         json_schema=build_roteiro_schema(),
+        max_tokens=1536,
         session_id=game.session_id,
         turn_number=turn_number,
-        agent="roteiro:compile",
-        **llm_request_options(config),
     )
     premise = str(result.get("premise", "")).strip()
     acts = _validate_acts(result.get("acts"))
@@ -611,18 +607,15 @@ async def replan_roteiro(
     roteiro = game.roteiro
     assert roteiro is not None
     scope = "act" if decision.action == "replan_act" else "beat"
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_next_beat_messages(game, roteiro, decision.reason, scope),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=1024,
-        timeout=resolve_llm_timeout(config),
+        agent="roteiro:replan",
         json_schema=build_next_beat_schema(scope),
+        max_tokens=1024,
         session_id=game.session_id,
         turn_number=turn_number,
-        agent="roteiro:replan",
-        **llm_request_options(config),
     )
     fallback_id = f"act{roteiro.act_index + 1}-replan-t{turn_number}"
     beat = _validate_beat(result.get("beat"), game, fallback_id=fallback_id)

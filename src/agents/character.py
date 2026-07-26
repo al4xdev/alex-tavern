@@ -10,8 +10,7 @@ import httpx
 
 from src.agents.perspective import viewer_speaker_label
 from src.confidentiality import redact_tokens, secret_tokens_exposed_to, tokens
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import call_agent, normalize_generated_text
 from src.llm.debug_log import log_whisper_output_guard
 from src.models import (
     Character,
@@ -516,18 +515,15 @@ async def act(
         if correction is not None:
             attempt_messages = [dict(message) for message in messages]
             attempt_messages[-1]["content"] += correction
-        result = await chat_completion_json(
+        result = await call_agent(
             client,
+            config,
             attempt_messages,
-            model=config.get("model", ""),
-            language=config.get("language", ""),
-            max_tokens=max_tokens_character,
-            timeout=resolve_llm_timeout(config),
+            agent=f"character:{character.mind.name}",
             json_schema=build_character_json_schema(),
+            max_tokens=max_tokens_character,
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"character:{character.mind.name}",
-            **llm_request_options(config),
         )
         try:
             output = _normalize_output(result)

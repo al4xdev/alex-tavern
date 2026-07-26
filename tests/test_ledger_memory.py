@@ -235,10 +235,10 @@ class TestMemoryRevision:
         import src.agents.perspective as pmod
         from src.agents.perspective import MEMORY_KEEP_RAW_TAIL, revise_memory
 
-        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"memory_summary": "Lembro do essencial."}
 
-        monkeypatch.setattr(pmod, "chat_completion_json", fake_chat)
+        monkeypatch.setattr(pmod, "call_agent", fake_chat)
         p = _perspective(recent_memory=[f"linha {i}" for i in range(22)])
         await revise_memory(None, "C2", p, CHARACTERS, {})
         assert p.memory_summary == "Lembro do essencial."
@@ -249,10 +249,10 @@ class TestMemoryRevision:
         import src.agents.perspective as pmod
         from src.agents.perspective import revise_memory
 
-        async def boom(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def boom(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             raise ValueError("provider flake")
 
-        monkeypatch.setattr(pmod, "chat_completion_json", boom)
+        monkeypatch.setattr(pmod, "call_agent", boom)
         p = _perspective(recent_memory=[f"linha {i}" for i in range(22)], memory_summary="antigo")
         await revise_memory(None, "C2", p, CHARACTERS, {})  # must not raise
         assert p.memory_summary == "antigo"

@@ -18,8 +18,7 @@ from typing import Any
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import call_agent, normalize_generated_text
 from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
 
 PROSE_SYSTEM = (
@@ -318,18 +317,15 @@ async def render_narration(
         context_max=config.get("context_max"),
         max_tokens=max_tokens,
     )
-    request_kwargs: dict[str, Any] = dict(
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
-        json_schema=build_prose_schema(),
-        session_id=session_id,
-        turn_number=turn_number,
-        agent="prose",
-        **llm_request_options(config),
-    )
-    result = await chat_completion_json(client, messages, **request_kwargs)
+    # Shared by the first attempt and the anti-repetition retry below.
+    request_kwargs: dict[str, Any] = {
+        "agent": "prose",
+        "json_schema": build_prose_schema(),
+        "max_tokens": max_tokens,
+        "session_id": session_id,
+        "turn_number": turn_number,
+    }
+    result = await call_agent(client, config, messages, **request_kwargs)
     narration = str(result.get("narration", "")).strip()
     if _repeats_prior_narration(narration, history):
         # Deterministic anti-repetition guard (measured failure: the same
@@ -341,7 +337,7 @@ async def render_narration(
         # has not already read, and guarantees the lexical-variation invariant
         # by construction rather than by instruction.
         retry_messages = messages + [{"role": "user", "content": REPETITION_CORRECTION}]
-        result = await chat_completion_json(client, retry_messages, **request_kwargs)
+        result = await call_agent(client, config, retry_messages, **request_kwargs)
         narration = str(result.get("narration", "")).strip()
         if _repeats_prior_narration(narration, history):
             narration = _strip_echoed_sentences(narration, history) or narration
