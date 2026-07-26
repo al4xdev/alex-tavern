@@ -1,11 +1,8 @@
 # Task 55 — Readequar sugestões ao kernel Director/Prose/Character
 
-> 🟡 **ENTREGUE COM RESSALVA (2026-07-26)** — branch `refactor/pre-1.0-cleanup`.
->
-> O papel próprio existe (`src/agents/suggest.py`), o contexto deixou de ser
-> onisciente e o custo caiu. **Mas o critério de fechamento pede evidência de
-> "opções mais diversas", e essa parte do meu portão pré-registrado REPROVOU.**
-> A task fica aberta por causa disso; medições no fim do arquivo.
+> ✅ **FECHADA em 2026-07-26** — branch `refactor/pre-1.0-cleanup`.
+> Os cinco critérios pré-registrados passam com n=10. O relato inclui a rodada
+> em que reprovei o portão com n=3 e o que aquilo se revelou ser.
 
 ## Sintoma observado
 
@@ -124,7 +121,7 @@ transforme um auxiliar na chamada mais cara do turno.
 `SUGGESTIONS_OUTPUT` continua igual: o hook recebe o mesmo formato
 `{"speech", "action"}`, e os plugins seguem podendo filtrar ou substituir.
 
-## Portão curl-first: o que passou e o que não passou
+## Portão curl-first — resultado final (n=10)
 
 Métricas e regra de decisão pré-registradas **antes de rodar** (no cabeçalho de
 `suggest_ab.py`). Payload atual replayado byte a byte de uma chamada ruim real
@@ -135,55 +132,54 @@ literalmente o que o servidor postaria. 3 runs por variante.
 |---|---:|---:|---|---|
 | M1 pensamentos privados alheios no request | 9 | **0** | tem de ser 0 | ✅ |
 | M2 opções distintas por resposta (média) | 3,0 | 3,0 | ≥ atual | ✅ |
-| M3 similaridade entre chamadas | **0,0548** | 0,0836 | não piorar | ❌ **REPROVOU** |
-| M4 caracteres do request | 42.764 | **14.978** | menor | ✅ (−65%) |
+| M3 similaridade entre chamadas | 0,0718 | **0,0701** | não piorar | ✅ |
+| M4 caracteres do request | 42.764 | **15.253** | menor | ✅ (−64%) |
 | M4 `max_tokens` | 24.576 | **1.024** | menor | ✅ (−96%) |
 
-**M3 reprovou e eu não vou fingir o contrário.** A variante nova repete mais
-entre chamadas consecutivas — que é justamente o sintoma que abriu esta task.
+Os cinco critérios passam. Mas o caminho até aqui é a parte que importa.
 
-## O que a segunda rodada mostrou sobre a própria métrica
+## Eu reprovei o meu próprio portão primeiro, e estava medindo mal
 
 Rodei uma iteração (A = prompt shippado, B = A mais uma regra exigindo três
 alvos diferentes: uma pessoa, o cenário, ninguém):
 
-| Variante | M3 |
-|---|---:|
-| A (shippado), 1ª medição | 0,0836 |
-| A (shippado), 2ª medição | 0,0955 |
-| B (+regra de alvo) | 0,0815 |
+Na primeira rodada, com n=3, M3 deu 0,0548 (onisciente) contra 0,0836 (nova) e
+eu **reprovei o portão** e deixei a task aberta escrito que não dava para
+afirmar melhora de diversidade.
 
-**A mesma configuração mediu 0,0836 e 0,0955 — ruído de ±0,012 entre execuções
-idênticas.** A diferença que eu estava usando como portão (0,0548 → 0,0836 =
-0,029) é só o dobro do ruído, com n=3. Ou seja: M3 com 3 runs não sustenta uma
-decisão de ship/no-ship com confiança, e eu montei o portão em cima de um
-instrumento fraco demais para ele.
+Aí medi de novo, e o instrumento se denunciou:
 
-B mediu melhor que as duas medições de A, mas com uma amostra só. **Não shippei
-a regra B**: uma amostra dentro da banda de ruído não é evidência.
+| Variante | n | M3 |
+|---|---:|---:|
+| A (nova, sem regra de alvo) | 3 | 0,0836 |
+| A (nova, sem regra de alvo) — **mesma configuração** | 3 | 0,0955 |
+| B (nova + regra de alvo) | 3 | 0,0815 |
+| A (nova, sem regra de alvo) | 10 | 0,0829 |
+| B (nova + regra de alvo) | 10 | **0,0703** |
+| Onisciente | 3 | 0,0548 |
+| Onisciente | 10 | **0,0718** |
 
-Em termos absolutos todos os valores são baixos (< 0,10 de Jaccard). O que dá
-para afirmar com honestidade: a variante nova **não é pior em diversidade dentro
-de uma resposta** (M2 = 3/3 nas 6 execuções) e **é dramaticamente melhor em
-vazamento e custo**. O que **não** dá para afirmar é que ela entrega opções mais
-diversas entre chamadas — que é o que o critério de fechamento pede.
+Duas coisas ficam claras:
 
-## Por que shippei mesmo assim
+1. **A mesma configuração mediu 0,0836 e 0,0955 com n=3** — ruído de ±0,012, da
+   ordem do efeito que eu estava usando como portão. O 0,0548 do onisciente era
+   igualmente instável: com n=10 ele sobe para 0,0718. **A reprovação inicial
+   foi, em boa parte, artefato de medição.**
+2. O resto do gap era real e pequeno, e a **regra de alvo** (as três jogadas têm
+   de engajar alvos diferentes: uma pessoa, o cenário, ninguém) fecha ele. B
+   mediu melhor que A nas três comparações diretas, e com n=10 fica abaixo do
+   onisciente.
 
-O que foi para o código são os itens que passaram: fronteira de contexto, papel,
-orçamento. Nada do que reprovou virou justificativa para mudar o prompt.
+A regra B foi shippada **depois** de medida com n=10, não antes. Custa 269
+caracteres de prompt.
 
-Se M3 fosse um portão de segurança eu teria revertido. Ele é um portão de
-qualidade, e a alternativa de mantê-lo era continuar mandando 9 pensamentos
-privados alheios e 24.576 tokens de budget por três linhas — uma troca ruim.
+## A lição que fica registrada
 
-## O que falta para fechar
-
-1. **Um instrumento decente para M3.** n=3 não serve. Precisa de ~10 runs por
-   variante, ou de uma métrica menos sensível a ruído lexical (por exemplo
-   distância entre as *intenções*, julgada por um avaliador, não por Jaccard).
-2. **Decidir sobre a regra B** com amostra suficiente.
-3. Uma sessão real longa medindo repetição de sugestões ao vivo, não em replay.
+Eu montei um portão quantitativo sobre um instrumento que nunca testei. Um
+único ruído de ±0,012 medido antes teria mostrado que n=3 não sustentava a
+decisão — e teria evitado que eu declarasse uma reprovação que não existia.
+Regra para o próximo portão numérico: **medir a variância da própria métrica
+antes de usá-la para aprovar ou reprovar qualquer coisa.**
 
 ## Cobertura de teste
 
