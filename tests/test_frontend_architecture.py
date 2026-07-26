@@ -191,10 +191,10 @@ def test_session_list_renders_compatible_and_incompatible_cards() -> None:
           setAttribute(name, value) { this.attributes[name] = String(value); }
         }
 
-        const app = fs.readFileSync('./src/static/app.js', 'utf8');
-        const start = app.indexOf('function renderSessionList(sessions)');
-        const end = app.indexOf('async function loadSession', start);
-        if (start < 0 || end < 0) throw new Error('renderSessionList source not found');
+        const module = fs.readFileSync('./src/static/sessions-modal.js', 'utf8');
+        const start = module.indexOf('export function render(sessions)');
+        if (start < 0) throw new Error('render source not found');
+        const source = module.slice(start).replaceAll('export function', 'function');
 
         const sessionList = new Element();
         const loaded = []; const forked = []; const notices = [];
@@ -208,14 +208,18 @@ def test_session_list_renders_compatible_and_incompatible_cards() -> None:
             listSessions: async () => sessions,
           },
           bindTranslation() {}, clearTimeout, confirm: () => false,
+          deps: {
+            loadSession: (sessionId) => loaded.push(sessionId),
+            notify: (message) => notices.push(message),
+          },
           document: {createElement: (tag) => new Element(tag)}, lastSessionList: null,
-          loadSession: (sessionId) => loaded.push(sessionId), sessionList, setTimeout, state: {sessionId: null},
+          LONG_PRESS_MS: 600, sessionList, setTimeout, state: {sessionId: null},
           t: (key, values = {}) => key === 'sessions.turns' ? `${values.count} turns` : key,
-          timeAgo: () => 'now', toast: (message) => notices.push(message),
+          timeAgo: () => 'now',
         };
         vm.createContext(context);
-        vm.runInContext(`${app.slice(start, end)}\nthis.renderSessionList = renderSessionList;`, context);
-        context.renderSessionList(sessions);
+        vm.runInContext(`${source}\nthis.render = render;`, context);
+        context.render(sessions);
 
         const assert = (value, message) => { if (!value) throw new Error(message); };
         assert(sessionList.children.length === 2, 'both session cards must remain visible');

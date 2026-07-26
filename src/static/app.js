@@ -3,6 +3,7 @@ import { restartApplication } from './android-bridge.js';
 import * as DebugDrawer from './debug-drawer.js';
 import * as Onboarding from './onboarding.js';
 import * as OpeningPicker from './opening-picker.js';
+import * as SessionsModal from './sessions-modal.js';
 import * as Transcript from './transcript.js';
 import {
     addMessage,
@@ -75,7 +76,6 @@ const inputSpeech   = document.getElementById('input-speech');
 const inputThought  = document.getElementById('input-thought');
 const inputAction   = document.getElementById('input-action');
 const sendBtn       = document.getElementById('send-btn');
-const sessionsBtn   = document.getElementById('sessions-btn');
 const settingsBtn   = document.getElementById('settings-btn');
 const emptyConfigBtn= document.getElementById('empty-config-btn');
 const spinner       = document.getElementById('spinner');
@@ -105,10 +105,6 @@ const whisperBtn = document.getElementById('action-whisper-btn');
 const whisperPopup = document.getElementById('whisper-popup');
 const actionPopup   = document.getElementById('action-popup');
 const stopBtn       = document.getElementById('stop-btn');
-const sessionsOverlay = document.getElementById('sessions-overlay');
-const sessionList   = document.getElementById('session-list');
-const sessionsCloseBtn = document.getElementById('sessions-close-btn');
-const sessionsNewBtn  = document.getElementById('sessions-new-btn');
 const interfaceLanguage = document.getElementById('interface-language');
 
 const hintOverlay   = document.getElementById('hint-overlay');
@@ -117,7 +113,6 @@ const hintSendBtn   = document.getElementById('hint-send-btn');
 const hintCloseBtn  = document.getElementById('hint-close-btn');
 
 
-let lastSessionList = null;
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 function toast(message, type = 'info', ms = 4000) {
@@ -290,186 +285,6 @@ async function skipTurn() {
 }
 
 /* ── Session manager ──────────────────────────────────────────────────── */
-function timeAgo(iso) {
-    if (!iso) return '';
-    const diff = Date.now() - new Date(iso).getTime();
-    const sec = Math.floor(diff / 1000);
-    if (sec < 60) return t('sessions.now');
-    const min = Math.floor(sec / 60);
-    if (min < 60) return t('sessions.minutesAgo', { count: min });
-    const hrs = Math.floor(min / 60);
-    if (hrs < 24) return t('sessions.hoursAgo', { count: hrs });
-    const days = Math.floor(hrs / 24);
-    if (days < 30) return t('sessions.daysAgo', { count: days });
-    return iso.slice(0, 10);
-}
-
-async function openSessionsModal() {
-    sessionsOverlay.classList.add('active');
-    try {
-        const list = await api.listSessions();
-        renderSessionList(list);
-    } catch (err) {
-        toast(t('sessions.listError', { error: err.message }), 'error');
-    }
-}
-
-function closeSessionsModal() {
-    sessionsOverlay.classList.remove('active');
-}
-
-function renderSessionList(sessions) {
-    lastSessionList = sessions;
-    sessionList.innerHTML = '';
-    if (!sessions || sessions.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'session-empty';
-        bindTranslation(empty, 'sessions.emptyCreate');
-        sessionList.appendChild(empty);
-        return;
-    }
-    sessions.forEach((s) => {
-        const card = document.createElement('div');
-        card.className = 'session-card';
-        const incompatible = s.compatible === false;
-        if (incompatible) card.classList.add('incompatible');
-        if (s.session_id === state.sessionId) card.classList.add('active');
-
-        const sceneText = s.scene_location || '';
-        const turnText = t('sessions.turns', { count: s.turn_count || 0 });
-        const dateText = timeAgo(s.created_at);
-        const extra = [turnText, dateText].filter(Boolean).join(' · ');
-
-        // Built via createElement/textContent (not innerHTML) so untrusted
-        // fields (character names, scene text) can never be interpreted as
-        // markup — no manual escaping to remember at each interpolation.
-        const info = document.createElement('div');
-        info.className = 'session-info';
-
-        const tagsWrap = document.createElement('div');
-        tagsWrap.className = 'session-char-tags';
-        (s.characters || []).filter((c) => c.name).forEach((c) => {
-            const tag = document.createElement('span');
-            tag.className = 'session-char-tag';
-            tag.textContent = c.name;
-            tagsWrap.appendChild(tag);
-        });
-        info.appendChild(tagsWrap);
-
-        const meta = document.createElement('div');
-        meta.className = 'session-meta';
-        const sceneMetaItem = document.createElement('span');
-        sceneMetaItem.className = 'session-meta-item';
-        sceneMetaItem.textContent = sceneText;
-        meta.appendChild(sceneMetaItem);
-        if (extra) {
-            const extraItem = document.createElement('span');
-            extraItem.className = 'session-meta-item';
-            extraItem.textContent = extra;
-            meta.appendChild(extraItem);
-        }
-        if (incompatible) {
-            const lock = document.createElement('div');
-            lock.className = 'session-incompatible-badge';
-            const symbol = document.createElement('span');
-            symbol.textContent = '⛔';
-            symbol.setAttribute('aria-hidden', 'true');
-            const label = document.createElement('span');
-            bindTranslation(label, 'sessions.incompatible');
-            bindTranslation(card, 'sessions.incompatible', {}, 'title');
-            lock.append(symbol, label);
-            meta.appendChild(lock);
-        }
-        info.appendChild(meta);
-        card.appendChild(info);
-
-        const sceneDiv = document.createElement('div');
-        sceneDiv.className = 'session-scene';
-        sceneDiv.textContent = sceneText;
-        card.appendChild(sceneDiv);
-
-        const actions = document.createElement('div');
-        actions.className = 'session-actions';
-        if (!incompatible) {
-            const forkBtn = document.createElement('button');
-            forkBtn.className = 'session-action-btn';
-            forkBtn.dataset.action = 'fork';
-            bindTranslation(forkBtn, 'sessions.fork', {}, 'title');
-            bindTranslation(forkBtn, 'sessions.fork', {}, 'ariaLabel');
-            forkBtn.textContent = '🔀';
-            actions.append(forkBtn);
-            forkBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                card.classList.remove('show-actions');
-                try {
-                    const result = await api.forkSession(s.session_id);
-                    toast(t('sessions.forked', { id: result.session_id }), 'success', 3000);
-                    // Refresh list
-                    const list = await api.listSessions();
-                    renderSessionList(list);
-                } catch (err) {
-                    toast(t('sessions.forkError', { error: err.message }), 'error');
-                }
-            });
-        }
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'session-action-btn danger';
-        deleteBtn.dataset.action = 'delete';
-        bindTranslation(deleteBtn, 'common.delete', {}, 'title');
-        bindTranslation(deleteBtn, 'common.delete', {}, 'ariaLabel');
-        deleteBtn.textContent = '🗑️';
-        actions.append(deleteBtn);
-        card.appendChild(actions);
-
-        // Click to load; incompatible sessions can never be opened again.
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('.session-actions')) return;
-            if (incompatible) {
-                toast(t('sessions.incompatibleToast', { found: s.schema_version }), 'error');
-                return;
-            }
-            loadSession(s.session_id);
-        });
-
-        // Long-press for mobile actions
-        let longTimer = null;
-        card.addEventListener('pointerdown', () => {
-            longTimer = setTimeout(() => card.classList.add('show-actions'), 600);
-        });
-        const clearLongTimer = () => { clearTimeout(longTimer); longTimer = null; };
-        card.addEventListener('pointerup', clearLongTimer);
-        card.addEventListener('pointerleave', clearLongTimer);
-        card.addEventListener('pointercancel', clearLongTimer);
-        card.addEventListener('contextmenu', (e) => { e.preventDefault(); card.classList.toggle('show-actions'); });
-
-        // Action buttons
-        deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            card.classList.remove('show-actions');
-            if (!confirm(t('sessions.deleteConfirm', { id: s.session_id }))) return;
-            try {
-                await api.deleteSession(s.session_id);
-                card.remove();
-                toast(t('sessions.deleted'), 'info', 2500);
-                if (s.session_id === state.sessionId) {
-                    // Current session was deleted — reset UI
-                    state.sessionId = null;
-                    state.compactionDepth = 0;
-                    chatLog.innerHTML = '';
-                    chatLog.appendChild(emptyState);
-                    showEmptyState(false);
-                    clearSuggestions();
-                    renderScene({});
-                }
-            } catch (err) {
-                toast(t('sessions.deleteError', { error: err.message }), 'error');
-            }
-        });
-
-        sessionList.appendChild(card);
-    });
-}
-
 async function loadSession(sessionId) {
     try {
         state.compactionAbortController?.abort();
@@ -502,7 +317,7 @@ async function loadSession(sessionId) {
             chatLog.scrollTop = chatLog.scrollHeight - chatLog.clientHeight - 15;
         }
 
-        closeSessionsModal();
+        SessionsModal.close();
         toast(t('sessions.loaded', { id: sessionId }), 'success', 2500);
         Onboarding.showTipBanner();
     } catch (err) {
@@ -886,7 +701,7 @@ function registerBuiltinSlashEntries() {
     builtinAction('sessions', '▤', 'global', localized('Sessions', 'Sessões'),
         localized('Open, fork, or delete adventures.', 'Abra, bifurque ou apague aventuras.'),
         terms([], ['sessoes']), terms(['adventures', 'history'], ['aventuras', 'historico']),
-        openSessionsModal);
+        SessionsModal.open);
     builtinAction('new', '＋', 'global', localized('New adventure', 'Nova aventura'),
         localized('Prepare a new adventure.', 'Prepare uma nova aventura.'),
         terms([], ['novo']), terms(['start', 'create'], ['iniciar', 'criar']),
@@ -1521,21 +1336,12 @@ chatLog.addEventListener('scroll', () => {
 });
 
 // Sessions button — open sessions modal
-if (sessionsBtn) sessionsBtn.addEventListener('click', openSessionsModal);
-if (sessionsCloseBtn) sessionsCloseBtn.addEventListener('click', closeSessionsModal);
-if (sessionsNewBtn) sessionsNewBtn.addEventListener('click', () => {
-    closeSessionsModal();
-    Setup.open();
-});
-sessionsOverlay.addEventListener('click', (e) => {
-    if (e.target === sessionsOverlay) closeSessionsModal();
-});
 settingsBtn.addEventListener('click', () => {
     Setup.open();
 });
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
     if (state.sessionId) expandMobileInput();
-    else openSessionsModal();
+    else SessionsModal.open();
 });
 
 if (interfaceLanguage) {
@@ -1543,7 +1349,7 @@ if (interfaceLanguage) {
     interfaceLanguage.addEventListener('change', () => setLocale(interfaceLanguage.value));
     onLocaleChange((locale) => {
         interfaceLanguage.value = locale;
-        if (lastSessionList) renderSessionList(lastSessionList);
+        SessionsModal.retranslate();
         DebugDrawer.retranslate();
         OpeningPicker.render();
         updateSpeechPlaceholder();
@@ -1626,6 +1432,21 @@ async function initializeApplication() {
         },
     });
     PluginCenter.init({ notify: toast, restartApplication });
+    SessionsModal.init({
+        state,
+        loadSession,
+        onNewSession: () => Setup.open(),
+        onCurrentSessionDeleted: () => {
+            state.sessionId = null;
+            state.compactionDepth = 0;
+            chatLog.innerHTML = '';
+            chatLog.appendChild(emptyState);
+            showEmptyState(false);
+            clearSuggestions();
+            renderScene({});
+        },
+        notify: toast,
+    });
     OpeningPicker.init({
         state,
         setLoading,
