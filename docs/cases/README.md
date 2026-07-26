@@ -36,6 +36,7 @@ part of the variant.
 | 16 | [Disposition after measurement: two axes survive, the public prior does not](./16-disposition-substrate-measured-verdict-2026-07-21.md) | Trust/Warmth survive; Composure and the public-prior reuse fail their gates and are removed. |
 | 17 | [A healthy server that could not publish](./17-android-runtime-plugin-integrity-2026-07-25.md) | Android exposed three ownership defects: bridge mutation, metadata-preserving copies, and browser reload mistaken for process restart. |
 | 18 | [From embedded WebView to named application](./18-android-native-shell-mobile-evidence-2026-07-25.md) | Native identity, file selection and immersive mode shipped; measured tag geometry fixed the shared PWA without retaining failed flicker hacks. |
+| 19 | [Measuring instead of guessing](./19-pre-1.0-measurement-log-2026-07-26.md) | **Open, append-only.** Pre-1.0 measurement log: a gate failed on measurement noise, a correct fix nearly discarded by the wrong metric, and two bugs only using the product found. |
 
 ## Reading paths
 
