@@ -1,4 +1,4 @@
-"""FastAPI server para o sistema de roleplay multi-agente."""
+"""FastAPI server for the multi-agent roleplay system."""
 
 from __future__ import annotations
 

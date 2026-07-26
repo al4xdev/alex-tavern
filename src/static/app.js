@@ -21,7 +21,8 @@ import {
 } from './i18n.js';
 
 /* ══════════════════════════════════════════════════════════════════════
-   app.js — game view: dynamic rendering, turns, debug drawer, toasts.
+   app.js — the game view: session state, the turn flow, and the wiring that
+   hands the other modules what they need.
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ── State ────────────────────────────────────────────────────────────── */
@@ -1285,7 +1286,7 @@ function registerBuiltinSlashEntries() {
     });
 }
 
-/* ── Debug drawer ─────────────────────────────────────────────────────── */
+/* ── Routing and whisper controls ─────────────────────────────────────── */
 function populateForceSpeakerOptions() {
     if (!forceSpeakerSelect) return;
     const current = forceSpeakerSelect.value;

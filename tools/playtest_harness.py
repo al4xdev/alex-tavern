@@ -893,22 +893,6 @@ def aggregate_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return aggregates
 
 
-def _atomic_write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        if temporary.exists():
-            temporary.unlink()
-        raise
-
-
 def build_markdown_report(manifest: dict[str, Any]) -> str:
     """Render a compact human-readable comparison next to the full JSON artifact."""
     lines = [
@@ -1073,8 +1057,8 @@ async def _async_main(args: argparse.Namespace) -> int:
     }
     results_path = run_dir / "playtest-results.json"
     report_path = run_dir / "playtest-report.md"
-    _atomic_write_text(results_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
-    _atomic_write_text(report_path, build_markdown_report(manifest))
+    write_text(results_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    write_text(report_path, build_markdown_report(manifest))
     print(
         json.dumps(
             {
@@ -1098,3 +1082,15 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def write_text(path: Path, content: str) -> None:
+    """Publish a report atomically, reusing the store's durability contract.
+
+    Imported here like every other src use in this module: the harness points
+    ROLEPLAY_DATA_DIR at a scratch directory before anything under src resolves
+    its paths.
+    """
+    from src.store.jsonfile import write_bytes
+
+    write_bytes(path, content.encode("utf-8"))
