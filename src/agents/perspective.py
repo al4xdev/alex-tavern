@@ -356,7 +356,8 @@ def project_text_for_viewer(
     text: str,
     characters: dict[str, Character],
     perspective: CharacterPerspective | None,
-    viewer_id: str = "",
+    *,
+    viewer_id: str,
 ) -> str:
     """Strip identities the viewer never learned from free prose (e.g. narrator
     context): unknown canonical names and raw internal IDs become the viewer's
@@ -366,6 +367,10 @@ def project_text_for_viewer(
     of themselves, so their OWN id was the one token the loop below could never
     replace. Real sessions showed exactly that - Lyra's prompt reading "a sound
     near C2's feet", her own internal id handed to her as if it were a name.
+
+    It is keyword-only and required on purpose. With a default, a caller that
+    forgot it would turn the viewer's own id into "an unfamiliar person" - the
+    viewer described to themselves as a stranger - and nothing would say so.
     """
     if not text:
         return text
@@ -519,7 +524,9 @@ def capture_memory(
         return
     for record in new_records:
         label = viewer_speaker_label(record.speaker, characters, controlled_id, perspective)
-        content = project_text_for_viewer(record.content, characters, perspective, viewer_id)
+        content = project_text_for_viewer(
+            record.content, characters, perspective, viewer_id=viewer_id
+        )
         verb = "disse" if record.content_type == "speech" else "fez"
         perspective.recent_memory.append(f"T{record.turn_number} {label} {verb}: {content}")
     perspective.memory_through_turn = max(

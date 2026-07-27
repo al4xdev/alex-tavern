@@ -103,7 +103,7 @@ class TestProjection:
             C1=PersonView(known_name=None, reference="o homem de camisa aberta", source_turn=1)
         )
         text = "Você ouviu Alex falar algo. C1 parece esperar uma resposta."
-        projected = project_text_for_viewer(text, CHARACTERS, perspective)
+        projected = project_text_for_viewer(text, CHARACTERS, perspective, viewer_id="C1")
         assert "Alex" not in projected and "C1" not in projected
         assert projected.count("o homem de camisa aberta") == 2
 
@@ -111,11 +111,14 @@ class TestProjection:
         perspective = _perspective(
             C3=PersonView(known_name="Fernanda", reference="a ruiva", source_turn=1)
         )
-        projected = project_text_for_viewer("C3 sorri. Fernanda acena.", CHARACTERS, perspective)
+        projected = project_text_for_viewer(
+            "C3 sorri. Fernanda acena.", CHARACTERS, perspective, viewer_id="C1"
+        )
         assert projected == "Fernanda sorri. Fernanda acena."
 
     def test_no_ledger_is_a_no_op(self) -> None:
-        assert project_text_for_viewer("Alex fala.", CHARACTERS, None) == "Alex fala."
+        projected = project_text_for_viewer("Alex fala.", CHARACTERS, None, viewer_id="C1")
+        assert projected == "Alex fala."
 
 
 class TestValidatedPeople:
