@@ -134,9 +134,14 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "  of zones now audible from it. This is where separation is declared:\n"
         '  {"city streets": []} seals a zone that nothing should reach; a partition\n'
         "  opening remaps each side to include the other. Takes effect next beat.\n"
+        # Reworded blind 2026-07-27. The old text said "the protagonist of the
+        # last input", and "input" has no referent inside the story - it names
+        # something arriving from outside the fiction, which is the one thing
+        # this prompt may not imply. The dramatic question is unchanged: does
+        # this beat land on someone in particular, or can the world continue?
         '- "return_control": true ONLY when this beat ends on a decision, danger,\n'
-        "  or direct question that the protagonist of the last input must answer\n"
-        "  personally; false while the world can keep moving on its own.\n"
+        "  or direct question aimed at ONE named person, which that person alone\n"
+        "  can answer; false while the scene can keep moving on its own.\n"
         "\n"
         "RULES:\n"
         # Measured 2026-07-26 (task 53). Without this rule the Director dropped a
@@ -512,9 +517,14 @@ def _build_user_prompt(
 
     if forced_speaker is None and exclude_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
+        # The justification used to be "they just spoke or passed", which is TRUE
+        # on the first beat and FALSE on the second beat of a burst - the same id
+        # is excluded twice while the stated reason no longer holds, and a reader
+        # resolving that contradiction can only conclude the id is special.
+        # The rule now states the dramatic reason, which is true on every beat.
         lines.append(
-            f"  Do not include {exclude_speaker} in next_speakers this turn; "
-            "they just spoke or passed."
+            f"  Let someone other than {exclude_speaker} carry this beat; the "
+            "scene is more interesting when attention moves."
         )
         lines.append("")
     if forced_speaker is not None:
