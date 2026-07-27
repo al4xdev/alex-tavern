@@ -73,7 +73,10 @@ class TestEmptyBeat:
         monkeypatch.setattr(runner_mod, "character_act", fake_character)
 
         client = httpx.AsyncClient()
-        runner = Runner(client, {"autonomous_burst_max_beats": 3})
+        # auto_event_enabled defaults to True and fires an LLM call on a probability
+        # roll, which made an earlier version of this file pass alone and fail in
+        # the full suite. The burst is what is under test, not the dice.
+        runner = Runner(client, {"autonomous_burst_max_beats": 3, "auto_event_enabled": False})
         cast = make_cast("Thorn", "Lyra")
         sid = await runner.start_session(
             {
