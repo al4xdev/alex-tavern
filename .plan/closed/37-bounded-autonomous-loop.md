@@ -36,12 +36,16 @@ Nina/silent-character findings from the blind critics.
 
 ## Acceptance Criteria (headline)
 
-- [ ] A skip turn can trigger an autonomous burst that advances the scene ≥2
-  beats and stops on a listed condition (logged which one).
-- [ ] Hard cap enforced; player interrupt honored between beats.
-- [ ] Undo behavior implemented per the decision above, with tests.
-- [ ] Real-run: a stalled-scene scenario visibly advances without player
-  input; blind critic confirms the beats read as intentional storytelling.
+- [x] A skip turn can trigger an autonomous burst that advances the scene ≥2
+  beats and stops on a listed condition (logged which one). — ver CLOSED abaixo;
+  testes em `tests/test_autonomous_burst.py`
+- [x] Hard cap enforced; player interrupt honored between beats. — ver CLOSED abaixo
+- [x] Undo behavior implemented per the decision above, with tests. —
+  `test_undo_pops_exactly_one_beat`; a metade "crash deixa só beats completos"
+  só ganhou teste em 2026-07-27, ver nota no fim
+- [x] Real-run: a stalled-scene scenario visibly advances without player
+  input; blind critic confirms the beats read as intentional storytelling. —
+  crítico cego ×2 (run-1 C-, run-2 limpo), ver CLOSED abaixo
 
 ## CLOSED 2026-07-17 (autonomous session)
 
@@ -77,3 +81,31 @@ All headline acceptance criteria delivered and measured:
   progressive per-beat streaming (SSE) deliberately deferred as a UI-lane
   follow-up — the per-beat commit architecture already supports it.
 Suite: 503 passed. Artifacts: `plans/artifacts/burst-live{,2,3}/`.
+
+
+---
+
+# Nota de 2026-07-27: metade do critério de undo estava sem rede
+
+As quatro caixas do cabeçalho ficaram em branco enquanto a própria seção CLOSED
+logo abaixo marcava as mesmas quatro entregas. Espelhei, e no caminho apareceu
+uma assimetria real dentro do terceiro critério.
+
+A decisão de undo tem duas metades e elas foram tratadas de forma desigual:
+
+- **"undo estoura um beat"** — `test_undo_pops_exactly_one_beat`, desde a entrega.
+- **"crash no meio da rajada deixa só beats completos"** — fechada com o
+  argumento "transacionalidade = commits por beat, nenhum estado parcial é
+  possível". O argumento está certo e não era executado por nada.
+
+Está agora:
+`test_autonomous_burst.py::TestACrashLeavesOnlyCompleteBeats::test_beats_before_the_error_survive_and_are_not_replayed`.
+O loop da rajada não tem `except` nenhum, então a propriedade inteira depende de
+`_commit_beat` chamar `save_game` antes do beat seguinte começar. Mover esse
+`save_game` para o fim de `player_turn` — uma escrita em vez de N, otimização
+plausível — deixava toda a suíte verde e fazia a rajada se repetir do começo no
+próximo erro.
+
+Vale como padrão: um critério com duas metades unidas por "e" merece duas provas.
+A metade justificada por argumento estrutural é justamente a que ninguém volta
+para testar.
