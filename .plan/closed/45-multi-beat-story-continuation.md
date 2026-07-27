@@ -197,32 +197,35 @@ hipótese. Ver `.plan/backlog/46-schema-description-instruction-channel.md`.
 
 ## Testes obrigatórios
 
-- [ ] Default canônico de 6 beats.
-- [ ] Limite personalizado válido.
-- [ ] Rejeição de zero, negativo, booleano, texto e valor acima do máximo.
-- [ ] Os dois primeiros beats excluem o personagem controlado.
-- [ ] Terceiro beat e seguintes tornam o personagem controlado elegível.
-- [ ] Seleção do protagonista interrompe imediatamente sem gerar sua fala.
-- [ ] `return_control` interrompe imediatamente.
-- [ ] Limite máximo encerra a sequência.
-- [ ] Cena estabilizada encerra a sequência.
-- [ ] Fila vazia encerra a sequência.
-- [ ] Duas respostas consecutivas somente do Narrador encerram a sequência.
-- [ ] Erro encerra a sequência sem repetir beat persistido.
-- [ ] `force_speaker` e turno humano normal mantêm seus contratos.
-- [ ] Campo é populado e serializado corretamente pelo frontend.
-- [ ] Catálogo i18n contém toda microcopy PT-BR e EN.
-- [ ] Service worker/cache inclui qualquer asset novo necessário.
+- [x] Default canônico de 6 beats. — `TestBurstConfigValidation::test_default_is_six`
+- [x] Limite personalizado válido. — `::test_accepts_a_valid_custom_value`
+- [x] Rejeição de zero, negativo, booleano, texto e valor acima do máximo. — `::test_rejects_out_of_range_and_wrong_types` (0, -1, MAX+1, True, 2.5, "6")
+- [x] Os dois primeiros beats excluem o personagem controlado. — `test_protagonist_excluded_for_first_two_beats`
+- [x] Terceiro beat e seguintes tornam o personagem controlado elegível. — mesmo teste: `exclude_controlled == [True, True, False, False]`
+- [x] Seleção do protagonista interrompe imediatamente sem gerar sua fala. — `test_stops_when_player_is_addressed` (`player_addressed`)
+- [x] `return_control` interrompe imediatamente. — `test_stops_on_return_control_flag`
+- [x] Limite máximo encerra a sequência. — `test_budget_exhausted_runs_all_beats_with_own_turns`
+- [x] Cena estabilizada encerra a sequência. — `test_two_narrator_only_beats_settle_the_scene`
+- [x] Fila vazia encerra a sequência. — `test_empty_beat_settles_immediately`
+- [x] Duas respostas consecutivas somente do Narrador encerram a sequência. — `test_two_narrator_only_beats_settle_the_scene`
+- [x] Erro encerra a sequência sem repetir beat persistido. — **faltava** — escrito em 2026-07-27, ver seção no fim
+- [x] `force_speaker` e turno humano normal mantêm seus contratos. — `test_force_speaker_disables_the_burst` + `test_normal_player_turn_never_bursts`
+- [x] Campo é populado e serializado corretamente pelo frontend. — `runtime-config.js:81,150,170`
+- [x] Catálogo i18n contém toda microcopy PT-BR e EN. — 11 chaves `engine.burstBeats*` nos dois locales (`i18n.js:37-47` / `449-459`)
+- [x] Service worker/cache inclui qualquer asset novo necessário. — sem asset novo; `runtime-config.js` já no SHELL (`sw.js:17`)
 
 ## Boundaries de entrega
 
-- [ ] Replay real `curl` 4/4 conforme a regra pré-registrada.
-- [ ] Testes Python, frontend modules, adapters e parsing de HTML.
-- [ ] Smoke HTTP real: config → skip → múltiplos beats → motivo de parada.
+- [x] Replay real `curl` 4/4 conforme a regra pré-registrada. — feito na entrega original
+- [x] Testes Python, frontend modules, adapters e parsing de HTML. — suíte verde
+- [x] Smoke HTTP real: config → skip → múltiplos beats → motivo de parada. — `tools/acceptance/burst_http_smoke.py`, 2026-07-26
 - [ ] Playwright em 1080p e 2K para Settings, ajuda do campo e botão de continuar.
-- [ ] Inspeção do estado persistido e `debug.jsonl` após um burst real.
-- [ ] README atualizado.
-- [ ] Task movida para `.plan/closed/` somente após todos os gates aplicáveis.
+      **Bloqueado**, não esquecido: o MCP do Playwright trava no handshake do
+      `--remote-debugging-pipe` (diagnóstico registrado neste arquivo). Único
+      item da task que segue aberto.
+- [x] Inspeção do estado persistido e `debug.jsonl` após um burst real. — smoke HTTP + `log_burst`
+- [x] README atualizado. — `README.md:446,1191`
+- [x] Task movida para `.plan/closed/` somente após todos os gates aplicáveis. — feito
 
 ## Fora de escopo
 
@@ -330,3 +333,36 @@ Consequência para esta task: a verificação visual em 1080p/2K segue pendente,
 segue sendo a única pendência dela. Não é um bloqueio do produto — o smoke HTTP
 cobre o comportamento do burst ponta a ponta, e a UI foi dirigida por navegador
 em 2026-07-26 sem erro de console.
+
+
+---
+
+# Varredura da checklist (2026-07-27)
+
+A task foi para `closed/` com as 23 caixas em branco. Não era abandono: quase
+tudo já existia e ninguém voltou para marcar. Conferi uma a uma contra o código —
+o resultado está inline acima, cada caixa com o teste ou o arquivo:linha que a
+sustenta.
+
+**Um item era pendência de verdade:** "erro encerra a sequência sem repetir beat
+persistido". O loop do burst não tem `except` nenhum, então esse contrato não é
+implementado em lugar algum — ele *emerge* de `_commit_beat` chamar `save_game`
+antes do beat seguinte começar. O próprio comentário do runner afirma isso ("a
+crash leaves only complete beats"), e a afirmação nunca foi exercitada.
+
+`TestACrashLeavesOnlyCompleteBeats::test_beats_before_the_error_survive_and_are_not_replayed`
+faz o Director estourar no terceiro beat e verifica, **lendo do disco** (não do
+`GameState` em memória, que some junto com a exceção):
+
+1. a exceção sobe até o chamador, não é engolida;
+2. os beats 1 e 2 estão persistidos;
+3. o retry do mesmo skip começa no turno 3 — não regenera o que o jogador já leu;
+4. o texto dos beats já commitados é byte a byte o mesmo depois do retry.
+
+O item 3 é o que dá nome ao critério. Se `save_game` saísse de `_commit_beat` para
+o fim de `player_turn` — uma "otimização" plausível, uma escrita em vez de N — o
+teste falha: `_next_turn_number` leria um histórico que nunca chegou ao disco e a
+rajada se repetiria do começo. É esse acoplamento não óbvio que a caixa vazia
+deixava sem rede.
+
+Continua aberto só o Playwright 1080p/2K, por bloqueio de ferramenta.

@@ -312,3 +312,96 @@ class TestBurstConfigValidation:
         for bad in (0, -1, MAX_BURST_BEATS + 1, True, 2.5, "6"):
             with pytest.raises(ConfigValidationError):
                 validate_config({**DEFAULT_CONFIG, "autonomous_burst_max_beats": bad})
+
+
+class TestACrashLeavesOnlyCompleteBeats:
+    """Task 45: "an error ends the sequence without repeating a persisted beat".
+
+    The runner's own comment states the contract - "each beat commits as its OWN
+    turn (undo pops one beat; a crash leaves only complete beats)" - and the
+    burst loop has no `except`, so it rests entirely on `_commit_beat` calling
+    `save_game` before the next beat starts. That was asserted and never tested.
+
+    What it costs if it is wrong: the client retries the skip after the error,
+    `_next_turn_number` reads a history that never reached disk, and the beats
+    the player already read are generated a second time under the same turn
+    numbers - the burst replays itself.
+    """
+
+    @pytest.mark.asyncio
+    async def test_beats_before_the_error_survive_and_are_not_replayed(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        import src.runner as runner_mod
+        from src.runner import Runner
+        from src.store.sessions import load_game
+
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return CharacterPerspective(
+                initialized_turn=kwargs.get("turn_number", 0),
+                processed_through_turn=kwargs.get("turn_number", 0),
+            )
+
+        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+        calls = {"n": 0}
+
+        async def exploding_narrator(  # noqa: ANN202
+            game,  # noqa: ANN001, ARG001
+            turn_number,  # noqa: ANN001, ARG001
+            forced_speaker=None,  # noqa: ANN001, ARG001
+            narrator_hint="",  # noqa: ANN001, ARG001
+            **kwargs,  # noqa: ANN003, ARG001
+        ):
+            calls["n"] += 1
+            if calls["n"] == 3:
+                raise RuntimeError("provider died mid-burst")
+            return _beat(["C2"], events=[_event(f"Algo acontece ({calls['n']}).")])
+
+        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {"speech": f"Beat de {character_id}.", "thought": None, "action_intent": None}
+
+        async with httpx.AsyncClient() as client:
+            runner = Runner(client, dict(BURST_CONFIG))
+            sid = await runner.start_session(
+                {
+                    "characters": dict(CHARACTERS),
+                    "scene": deepcopy_scene(SCENE),
+                    "controlled_character_id": "C1",
+                }
+            )
+            monkeypatch.setattr(runner, "_call_narrator", exploding_narrator)
+            monkeypatch.setattr(runner, "_call_character", fake_character)
+            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
+            try:
+                with pytest.raises(RuntimeError, match="provider died mid-burst"):
+                    await runner.player_turn(sid, skip=True)
+
+                # On disk, not in memory: the caller's GameState is gone with the
+                # exception, and the retry will read the file.
+                crashed = load_game(sid)
+                assert crashed is not None
+                survived = sorted({record.turn_number for record in crashed.history})
+                assert survived == [1, 2], (
+                    f"two beats completed before the error; history has {survived}"
+                )
+                texts_before = [record.content for record in crashed.history]
+
+                # The client retries the same skip. The third Director call is
+                # the one that raised, so this run starts from the fourth.
+                retried = await runner.player_turn(sid, skip=True)
+                numbers = [beat["turn_number"] for beat in retried["beats"]]
+                assert min(numbers) == 3, (
+                    f"the retry restarted at turn {min(numbers)}, replaying a beat "
+                    "the player already read"
+                )
+
+                after = load_game(sid)
+                assert after is not None
+                assert [r.content for r in after.history][: len(texts_before)] == texts_before, (
+                    "the retry rewrote the beats that had already been committed"
+                )
+                all_numbers = [record.turn_number for record in after.history]
+                assert all_numbers == sorted(all_numbers)
+            finally:
+                await delete_session(sid)
