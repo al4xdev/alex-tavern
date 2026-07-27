@@ -19,3 +19,6 @@ z_image_universal.log
 .ci-cd/android/app/build/
 .ci-cd/android/app/src/main/assets/
 src/version.txt
+
+# Claude Code Playwright plugin scratch output
+.playwright-mcp/

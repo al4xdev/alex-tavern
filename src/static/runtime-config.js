@@ -1,33 +1,32 @@
 /* Server-owned LLM settings, rendered and serialized by provider adapters. */
 
+import { el } from './dom.js';
 import { api } from './api.js';
 import { providerAdapterMap, providerAdapters } from './adapters/index.js';
 import { bindTranslation, getLlmLanguage, onLocaleChange, t } from './i18n.js';
 
 export const RuntimeConfig = (() => {
-    const switchEl = document.getElementById('provider-switch');
-    const panelsEl = document.getElementById('provider-panels');
-    const statusEl = document.getElementById('engine-status');
-    const errorEl = document.getElementById('runtime-config-error');
-    const saveBtn = document.getElementById('runtime-config-save-btn');
-    const autoCompactEl = document.getElementById('runtime-auto-compact');
-    const autoCompactThresholdEl = document.getElementById('runtime-auto-compact-threshold');
-    const autoCompactStateEl = document.getElementById('auto-compact-state');
-    const autoCompactThresholdValueEl = document.getElementById('auto-compact-threshold-value');
-    const autoCompactThresholdExplanationEl = document.getElementById(
-        'auto-compact-threshold-explanation'
-    );
-    const compactionThresholdEl = document.getElementById('compaction-threshold');
-    const compactionHelpBtn = document.getElementById('compaction-help-btn');
-    const burstMaxBeatsEl = document.getElementById('runtime-burst-max-beats');
-    const burstBeatsValueEl = document.getElementById('burst-beats-value');
-    const burstBeatsExplanationEl = document.getElementById('burst-beats-explanation');
-    const roteiroEnabledEl = document.getElementById('runtime-roteiro-enabled');
-    const roteiroStateEl = document.getElementById('roteiro-state');
-    const characterAlignmentControlEl = document.getElementById('character-alignment-control');
-    const characterAlignmentEl = document.getElementById('runtime-character-alignment-enabled');
-    const characterAlignmentStateEl = document.getElementById('character-alignment-state');
-    const characterAlignmentHintEl = document.getElementById('character-alignment-hint');
+    const switchEl = el('provider-switch');
+    const panelsEl = el('provider-panels');
+    const statusEl = el('engine-status');
+    const errorEl = el('runtime-config-error');
+    const saveBtn = el('runtime-config-save-btn');
+    const autoCompactEl = el('runtime-auto-compact');
+    const autoCompactThresholdEl = el('runtime-auto-compact-threshold');
+    const autoCompactStateEl = el('auto-compact-state');
+    const autoCompactThresholdValueEl = el('auto-compact-threshold-value');
+    const autoCompactThresholdExplanationEl = el('auto-compact-threshold-explanation');
+    const compactionThresholdEl = el('compaction-threshold');
+    const compactionHelpBtn = el('compaction-help-btn');
+    const burstMaxBeatsEl = el('runtime-burst-max-beats');
+    const burstBeatsValueEl = el('burst-beats-value');
+    const burstBeatsExplanationEl = el('burst-beats-explanation');
+    const roteiroEnabledEl = el('runtime-roteiro-enabled');
+    const roteiroStateEl = el('roteiro-state');
+    const characterAlignmentControlEl = el('character-alignment-control');
+    const characterAlignmentEl = el('runtime-character-alignment-enabled');
+    const characterAlignmentStateEl = el('character-alignment-state');
+    const characterAlignmentHintEl = el('character-alignment-hint');
 
     let selectedProvider = '';
     let compactionKeepRecentTurns = 8;

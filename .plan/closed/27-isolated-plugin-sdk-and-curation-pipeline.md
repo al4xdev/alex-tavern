@@ -448,27 +448,27 @@ This task is complete as exploration only after producing evidence-backed artifa
 
 ## 14. Exploration acceptance criteria
 
-- [ ] The number `27` is documented as an identifier, while execution is explicitly ordered before
+- [x] The number `27` is documented as an identifier, while execution is explicitly ordered before
   Task 06 RAG.
-- [ ] Plugin authorship no longer conceptually requires writing source inside
+- [x] Plugin authorship no longer conceptually requires writing source inside
   `alex-tavern-plugins`.
-- [ ] Core, SDK, template, hub, and individual plugin repositories each have one clear authority.
-- [ ] No public contract or SDK implementation has two manually synchronized sources.
-- [ ] A developer can start from `alex-tavern-plugin-template` without cloning the curated hub.
-- [ ] The template contains a complete `AGENTS.md` that directs coding agents to the isolated SDK.
-- [ ] The recommended `dev` to `prod` promotion flow and branch protections are specified.
-- [ ] Ordinary `dev` CI never publishes or submits a curated release.
-- [ ] Production submission requires a versioned, immutable source commit and deterministic hash.
-- [ ] The cross-repository PR mechanism is technically real and uses least-privilege credentials.
-- [ ] Authors never need a curator token or direct hub write permission.
-- [ ] Hub CI never exposes secrets to or executes unreviewed source in a privileged context.
-- [ ] Human source review remains mandatory before curation.
-- [ ] Author artifacts are independently reproducible or rebuilt by the curator.
-- [ ] Main, hub, SDK, template, and plugin agent instructions have a forward-only migration map.
-- [ ] Existing curated plugins each have a single-source migration decision.
-- [ ] RAG can be developed as the first major plugin on the new workflow without an exception.
-- [ ] Celestial and its future satellite dependencies fit the same release/submission contracts.
-- [ ] No repository, workflow, package, token, PR, release, or source move is created by this
+- [x] Core, SDK, template, hub, and individual plugin repositories each have one clear authority.
+- [x] No public contract or SDK implementation has two manually synchronized sources.
+- [x] A developer can start from `alex-tavern-plugin-template` without cloning the curated hub.
+- [x] The template contains a complete `AGENTS.md` that directs coding agents to the isolated SDK.
+- [x] The recommended `dev` to `prod` promotion flow and branch protections are specified.
+- [x] Ordinary `dev` CI never publishes or submits a curated release.
+- [x] Production submission requires a versioned, immutable source commit and deterministic hash.
+- [x] The cross-repository PR mechanism is technically real and uses least-privilege credentials.
+- [x] Authors never need a curator token or direct hub write permission.
+- [x] Hub CI never exposes secrets to or executes unreviewed source in a privileged context.
+- [x] Human source review remains mandatory before curation.
+- [x] Author artifacts are independently reproducible or rebuilt by the curator.
+- [x] Main, hub, SDK, template, and plugin agent instructions have a forward-only migration map.
+- [x] Existing curated plugins each have a single-source migration decision.
+- [x] RAG can be developed as the first major plugin on the new workflow without an exception.
+- [x] Celestial and its future satellite dependencies fit the same release/submission contracts.
+- [x] No repository, workflow, package, token, PR, release, or source move is created by this
   exploration task.
 
 ## 15. Non-goals
@@ -545,3 +545,9 @@ Aceite registrado ("27. aceito"). A topologia proposta em
 de arquitetura; a implementação (SDK isolado + pipeline de curadoria) vira
 trabalho novo quando o dono priorizar — a verificação com checkout real do
 hub acontece nesse momento, como primeiro passo da implementação.
+
+> **Caixas espelhadas em 2026-07-27.** As 19 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.

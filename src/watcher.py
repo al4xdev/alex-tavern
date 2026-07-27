@@ -27,9 +27,9 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import GameState, speaker_label
+from src.prompting import stalled_scene_context
 
 # The material-delta taxonomy (design freeze, 2026-07-19). ``none`` is the
 # explicit immobility verdict — kept in the enum so the model can assert "I
@@ -173,18 +173,15 @@ async def audit_delta(
     turn_number: int,
 ) -> DeltaAudit:
     """Classify the material delta of the most recent narrating turn."""
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_delta_audit_messages(game),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=256,
-        timeout=resolve_llm_timeout(config),
+        agent="watcher:delta_audit",
         json_schema=build_delta_audit_schema(),
+        max_tokens=256,
         session_id=game.session_id,
         turn_number=turn_number,
-        agent="watcher:delta_audit",
-        **llm_request_options(config),
     )
     return DeltaAudit(
         categories=_normalize_categories(result.get("categories")),
@@ -324,23 +321,7 @@ class CausalIntervention:
 
 
 def build_causal_intervention_messages(game: GameState) -> list[dict]:
-    recent = [
-        record
-        for record in game.history[-12:]
-        if record.content_type in ("speech", "action", "narration")
-    ]
-    lines = [
-        f"LOCATION: {game.scene.location} | TIME: {game.scene.time_of_day}",
-        f"PHYSICAL FACTS: {game.scene.physical_facts}",
-        "RECENT EVENTS (oldest to newest):",
-        *(
-            f"  {speaker_label(r.speaker, game.characters, game.player.controlled_character_id)}:"
-            f" {r.content[:160]}"
-            for r in recent
-        ),
-    ]
-    if game.story_summary:
-        lines.insert(0, f"STORY SO FAR: {game.story_summary[:600]}")
+    lines = stalled_scene_context(game)
     system = (
         "The scene has stalled: nothing has materially changed for several\n"
         "turns and gentler recoveries are exhausted. Intervene, as a json\n"
@@ -401,18 +382,15 @@ async def generate_causal_intervention(
     turn_number: int,
 ) -> CausalIntervention:
     """Grow a disruptive WORLD event from a cited open thread (last rung)."""
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_causal_intervention_messages(game),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=384,
-        timeout=resolve_llm_timeout(config),
+        agent="watcher:causal_intervention",
         json_schema=build_causal_intervention_schema(),
+        max_tokens=384,
         session_id=game.session_id,
         turn_number=turn_number,
-        agent="watcher:causal_intervention",
-        **llm_request_options(config),
     )
     refractory = WATCHER_DEFAULTS["watcher_refractory_turns"]
     with contextlib.suppress(TypeError, ValueError):

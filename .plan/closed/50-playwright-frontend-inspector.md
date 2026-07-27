@@ -1,3 +1,8 @@
+> ⛔ **Aposentado em 2026-07-26** (branch `refactor/pre-1.0-cleanup`): `tools/frontend_inspector.py`,
+> seu teste, os tools de MCP `inspect_frontend`/`mutate_frontend_flow` e a dependência de dev
+> `playwright` saíram do repositório. O plugin oficial de Playwright do Claude Code faz o
+> mesmo com mais alcance e sem código nosso para manter. Fica como história.
+
 # Task 50 — Shared Playwright frontend inspector
 
 **Status:** CLOSED (2026-07-21)

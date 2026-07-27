@@ -7,7 +7,7 @@
         "python",
         "tools/mcp_server.py"
       ],
-      "cwd": "/home/alex/git/my/roleplay"
+      "cwd": "/home/alex/git/my/alex-tavern"
     },
     "alex-tavern-plugin-author": {
       "command": "uv",
@@ -16,7 +16,7 @@
         "python",
         "mcp_server.py",
         "--core-root",
-        "/home/alex/git/my/roleplay"
+        "/home/alex/git/my/alex-tavern"
       ],
       "cwd": "/home/alex/git/my/alex-tavern-plugins"
     }

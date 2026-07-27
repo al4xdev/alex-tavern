@@ -250,8 +250,9 @@ def test_catalog_endpoint_synchronizes_before_reading(
     calls: list[bool] = []
     catalog = {"schema_version": 1, "plugins": [{"id": "synced"}], "experiences": []}
 
-    monkeypatch.setattr(hub, "ensure_hub_synced", lambda *, force=False: calls.append(force))
-    monkeypatch.setattr(store, "curated_catalog", lambda: catalog)
+    # Patch where the route USES them: main imports both names at module level.
+    monkeypatch.setattr(main, "ensure_hub_synced", lambda *, force=False: calls.append(force))
+    monkeypatch.setattr(main, "curated_catalog", lambda: catalog)
 
     assert main.get_plugin_catalog(refresh=True) == catalog
     assert calls == [True]
@@ -263,7 +264,7 @@ def test_catalog_endpoint_reports_first_sync_failure(
     def fail(*, force: bool = False) -> None:  # noqa: ARG001
         raise hub.HubSyncError("offline")
 
-    monkeypatch.setattr(hub, "ensure_hub_synced", fail)
+    monkeypatch.setattr(main, "ensure_hub_synced", fail)
     with pytest.raises(HTTPException) as captured:
         main.get_plugin_catalog()
 

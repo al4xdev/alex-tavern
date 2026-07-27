@@ -17,28 +17,20 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     Scene,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
 from src.watcher import CausalIntervention, DeltaAudit
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta")}
+CHARACTERS = make_cast("Rui", "Marta")
 SCENE = Scene(
     location="Estalagem",
     time_of_day="Noite",
@@ -70,13 +62,7 @@ async def test_stall_accumulates_then_ladder_disrupts_then_refractory(monkeypatc
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
         hints.append(narrator_hint)
-        return {
-            "narration": "Segue.",
-            "next_speakers": ["Narrator"],
-            "perception_events": [],
-            "scene_update": None,
-            "mood_updates": None,
-        }
+        return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
     monkeypatch.setattr(runner_mod, "audit_delta", fake_audit)
     monkeypatch.setattr(runner_mod, "generate_causal_intervention", fake_intervention)
@@ -89,7 +75,7 @@ async def test_stall_accumulates_then_ladder_disrupts_then_refractory(monkeypatc
     }
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -134,20 +120,14 @@ async def test_disabled_watcher_never_audits_or_intervenes(monkeypatch) -> None:
         return CausalIntervention("t", "s", "e", "d", 3)
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-        return {
-            "narration": "Segue.",
-            "next_speakers": ["Narrator"],
-            "perception_events": [],
-            "scene_update": None,
-            "mood_updates": None,
-        }
+        return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
     monkeypatch.setattr(runner_mod, "audit_delta", fake_audit)
     monkeypatch.setattr(runner_mod, "generate_causal_intervention", fake_intervention)
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})  # watcher_enabled absent -> OFF
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

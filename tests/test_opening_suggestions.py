@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
-from fastapi import HTTPException
 
 from src.agents.narrator import (
     build_opening_suggestions_messages,
@@ -16,7 +17,9 @@ from src.agents.narrator import (
 )
 from src.llm.schema import JSONSchemaValidationError, validate_json_schema
 from src.models import Scene, game_state_to_dict
-from src.store.sessions import _get_lock, delete_session
+from src.runner import ConversationAlreadyStartedError
+from src.store.locks import session_lock
+from src.store.sessions import SessionNotFoundError, delete_session
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "static"
@@ -84,11 +87,11 @@ class TestOpeningContract:
 
         captured: dict = {}
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             captured.update({"messages": messages, **kwargs})
             return {"suggestions": RAW_OPENINGS}
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         async with httpx.AsyncClient() as client:
             result = await narrator_mod.suggest_openings(
                 client,
@@ -122,13 +125,13 @@ class TestOpeningRunnerAndRoute:
         monkeypatch.setattr(runner_mod, "narrator_suggest_openings", fake_openings)
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session()
+            sid = await runner.start_session()
             try:
                 before = await runner.get_state(sid)
                 assert before is not None
                 before_dict = game_state_to_dict(before)
 
-                lock = _get_lock(sid)
+                lock = session_lock(sid)
                 await lock.acquire()
                 task = asyncio.create_task(runner.suggest_openings(sid))
                 await asyncio.sleep(0)
@@ -162,48 +165,55 @@ class TestOpeningRunnerAndRoute:
         monkeypatch.setattr(runner_mod, "narrator_suggest_openings", forbidden)
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session()
+            sid = await runner.start_session()
             try:
                 game = load_game(sid)
                 assert game is not None
                 runner._append_history(game, "Narrator", "A cena começou.", "narration", 1)
                 save_game(game)
-                started = await runner.suggest_openings(sid)
-                missing = await runner.suggest_openings("does-not-exist")
+                with pytest.raises(ConversationAlreadyStartedError):
+                    await runner.suggest_openings(sid)
+                with pytest.raises(SessionNotFoundError):
+                    await runner.suggest_openings("does-not-exist")
             finally:
                 await delete_session(sid)
 
-        assert started["code"] == "conversation_started"
-        assert missing["code"] == "session_not_found"
-
     @pytest.mark.asyncio
     async def test_http_handler_maps_not_found_conflict_and_success(self, monkeypatch) -> None:  # noqa: ANN001
+        """The route passes results through; the app handlers map the two errors."""
         from src import main as main_mod
 
         class FakeRunner:
-            result: dict = {"suggestions": OPENINGS}
+            outcome: object = {"suggestions": OPENINGS}
 
             async def suggest_openings(self, session_id):  # noqa: ANN001, ANN202
-                return self.result
+                if isinstance(self.outcome, BaseException):
+                    raise self.outcome
+                return self.outcome
 
         fake_runner = FakeRunner()
         monkeypatch.setattr(main_mod, "_runtime", lambda: SimpleNamespace(runner=fake_runner))
 
         assert await main_mod.suggest_openings("sid") == {"suggestions": OPENINGS}
-        fake_runner.result = {"error": "gone", "code": "session_not_found"}
-        with pytest.raises(HTTPException) as missing:
+
+        fake_runner.outcome = SessionNotFoundError("sid")
+        response = await main_mod.session_not_found_handler(None, fake_runner.outcome)
+        assert response.status_code == 404
+        with pytest.raises(SessionNotFoundError):
             await main_mod.suggest_openings("sid")
-        assert missing.value.status_code == 404
-        fake_runner.result = {"error": "started", "code": "conversation_started"}
-        with pytest.raises(HTTPException) as conflict:
+
+        fake_runner.outcome = ConversationAlreadyStartedError("started")
+        response = await main_mod.conversation_started_handler(None, fake_runner.outcome)
+        assert response.status_code == 409
+        assert json.loads(response.body)["code"] == "conversation_started"
+        with pytest.raises(ConversationAlreadyStartedError):
             await main_mod.suggest_openings("sid")
-        assert conflict.value.status_code == 409
 
 
 class TestOpeningFrontend:
     def test_empty_state_carousel_composes_existing_hint_and_skip(self) -> None:
         html = (STATIC / "index.html").read_text(encoding="utf-8")
-        source = (STATIC / "app.js").read_text(encoding="utf-8")
+        source = (STATIC / "opening-picker.js").read_text(encoding="utf-8")
         api = (STATIC / "api.js").read_text(encoding="utf-8")
         styles = (STATIC / "style.css").read_text(encoding="utf-8")
 
@@ -218,14 +228,16 @@ class TestOpeningFrontend:
         ):
             assert f'id="{element_id}"' in html
         assert "/opening-suggestions" in api
-        assert "state.narratorHint = opening;\n    await skipTurn();" in source
-        assert "openingSuggestions" in source and "resetOpeningSuggestions()" in source
-        opening_state = source[source.index("let openingSuggestions") : source.index("/* ── Toast")]
-        assert "localStorage" not in opening_state
+        assert "state.narratorHint = opening;\n    await deps.skipTurn();" in source
+        # The carousel is ephemeral: it lives in module state and is never persisted.
+        assert "localStorage" not in source
         assert "pointerdown" in source and "ArrowLeft" in source and "ArrowRight" in source
         assert ".opening-card.from-right" in styles and ".opening-dot.active" in styles
         assert "touch-action: pan-y" in styles
 
-    def test_service_worker_cache_moves_with_the_new_shell(self) -> None:
+    def test_service_worker_cache_is_versioned(self) -> None:
+        """Pinning the exact version made every shell change fail here for nothing;
+        tests/test_frontend_architecture.py checks the shell actually lists every
+        module, which is the property that matters."""
         sw = (STATIC / "sw.js").read_text(encoding="utf-8")
-        assert "rpt-shell-v21" in sw
+        assert re.search(r"const CACHE = 'rpt-shell-v\d+';", sw)

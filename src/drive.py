@@ -15,9 +15,9 @@ from dataclasses import dataclass
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
-from src.models import GameState, speaker_label
+from src.llm.client import call_agent
+from src.models import GameState
+from src.prompting import stalled_scene_context
 
 AUTO_EVENT_DEFAULTS = {
     "auto_event_enabled": True,
@@ -58,23 +58,7 @@ def evaluate_event_hazard(game: GameState, config: dict) -> DriveDecision:
 
 
 def build_event_seed_messages(game: GameState) -> list[dict]:
-    recent = [
-        record
-        for record in game.history[-12:]
-        if record.content_type in ("speech", "action", "narration")
-    ]
-    lines = [
-        f"LOCATION: {game.scene.location} | TIME: {game.scene.time_of_day}",
-        f"PHYSICAL FACTS: {game.scene.physical_facts}",
-        "RECENT EVENTS (oldest to newest):",
-        *(
-            f"  {speaker_label(r.speaker, game.characters, game.player.controlled_character_id)}:"
-            f" {r.content[:160]}"
-            for r in recent
-        ),
-    ]
-    if game.story_summary:
-        lines.insert(0, f"STORY SO FAR: {game.story_summary[:600]}")
+    lines = stalled_scene_context(game)
     system = (
         "You inject narrative momentum into a stalled roleplay scene.\n"
         "First identify ONE open thread ALREADY present in the recent events or\n"
@@ -123,17 +107,14 @@ async def generate_event_seed(
     config: dict,
     turn_number: int,
 ) -> str:
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_event_seed_messages(game),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=256,
-        timeout=resolve_llm_timeout(config),
+        agent="drive:event_seed",
         json_schema=build_event_seed_schema(),
+        max_tokens=256,
         session_id=game.session_id,
         turn_number=turn_number,
-        agent="drive:event_seed",
-        **llm_request_options(config),
     )
     return str(result.get("event", "")).strip()

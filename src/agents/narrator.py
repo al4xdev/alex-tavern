@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from typing import Any
 
 import httpx
@@ -12,8 +13,7 @@ from src.confidentiality import (
     hidden_whisper_tokens,
     redact_tokens,
 )
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import call_agent, normalize_generated_text
 from src.models import (
     Character,
     Scene,
@@ -24,6 +24,47 @@ from src.models import (
 from src.perception import describe_zones_for_narrator, validate_perception_events
 
 MAX_SPEAKERS_PER_TURN = 3
+
+# A manual event the human queued is the one thing in the prompt that the world
+# did not decide. Measured (task 53): the Director dropped it 3 times out of 4
+# when its content clashed with the scene's coherence, while a plausible event
+# landed 4/4 under the same prompt. The rule in _build_system_prompt fixed most
+# of it; this is the deterministic half, in the shape the codebase already uses
+# for prose repetition and character whisper leaks - one correction retry, then
+# accept.
+HINT_CORRECTION = (
+    "\nCORRECTION: your perception_events did not contain the UPCOMING EVENT "
+    "you were given. It is not optional and it does not wait for a better "
+    "moment. Return the decision again with that event as the FIRST entry of "
+    "perception_events, described as a witness would perceive it, and resolve "
+    "the final HISTORY action in the events that follow it.\n"
+)
+_HINT_WORD_MIN_CHARS = 4
+
+
+def _fold(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in normalized if not unicodedata.combining(c)).lower()
+
+
+def _hint_materialized(result: dict[str, Any], narrator_hint: str) -> bool:
+    """True when some perception event carries a distinctive word of the hint.
+
+    Lexical on purpose. A full paraphrase that avoids every content word reads
+    as a miss and costs one retry - measured at 1 run in 4, which is cheaper
+    than letting a queued event vanish silently.
+    """
+    words = {w for w in _fold(narrator_hint).split() if len(w) >= _HINT_WORD_MIN_CHARS}
+    if not words:
+        return True
+    events = result.get("perception_events")
+    if not isinstance(events, list):
+        return False
+    return any(
+        words & set(_fold(str(event.get("content", ""))).split())
+        for event in events
+        if isinstance(event, dict)
+    )
 
 
 def _build_system_prompt(character_ids: list[str], narrator_directives: str = "") -> str:
@@ -84,18 +125,37 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         '- "zone_moves": null OR an object mapping character_id to the zone they\n'
         "  physically moved to THIS beat (an attempted movement succeeds). You may\n"
         "  CREATE a new zone by naming it here (e.g. a character who is elsewhere:\n"
-        '  {"C1": "city streets"}); a new zone starts acoustically isolated and the\n'
-        "  rest of the cast stays on the current stage. Witness computation takes\n"
-        "  effect next beat.\n"
+        '  {"C1": "city streets"}). A new zone starts AUDIBLE from the zone its\n'
+        "  mover came from: crossing a room does not make anyone deaf. When the\n"
+        "  move genuinely seals them off (another building, a closed door, a street\n"
+        "  away), say so in the same beat with zone_link_updates. Witness\n"
+        "  computation takes effect next beat.\n"
         '- "zone_link_updates": null OR an object remapping a zone to the FULL list\n'
-        "  of zones now audible from it, when a physical change connects or seals\n"
-        "  spaces (a partition opens: each side starts hearing the other; a door\n"
-        "  closes: remap back to []). Takes effect next beat.\n"
+        "  of zones now audible from it. This is where separation is declared:\n"
+        '  {"city streets": []} seals a zone that nothing should reach; a partition\n'
+        "  opening remaps each side to include the other. Takes effect next beat.\n"
+        # Reworded blind 2026-07-27. The old text said "the protagonist of the
+        # last input", and "input" has no referent inside the story - it names
+        # something arriving from outside the fiction, which is the one thing
+        # this prompt may not imply. The dramatic question is unchanged: does
+        # this beat land on someone in particular, or can the world continue?
         '- "return_control": true ONLY when this beat ends on a decision, danger,\n'
-        "  or direct question that the protagonist of the last input must answer\n"
-        "  personally; false while the world can keep moving on its own.\n"
+        "  or direct question aimed at ONE named person, which that person alone\n"
+        "  can answer; false while the scene can keep moving on its own.\n"
         "\n"
         "RULES:\n"
+        # Measured 2026-07-26 (task 53). Without this rule the Director dropped a
+        # manual event it had been given: 1/4 materialized on two real payloads.
+        # With it, 3/4 (4/4 counting a paraphrase that avoided the noun). A
+        # plausible event materialized 4/4 under the OLD prompt, which is how we
+        # know the omission was the model's coherence prior refusing the content,
+        # not a missing instruction.
+        "- UPCOMING EVENT IS MANDATORY. When an UPCOMING EVENT block is present,\n"
+        "  the FIRST entry of perception_events IS that event, written\n"
+        "  as a witness would perceive it, with witness_ids covering everyone who\n"
+        "  could sense it. It happens: it is not a suggestion, it does not wait for\n"
+        "  a better moment, and no coherence concern overrides it. Resolve the final\n"
+        "  HISTORY action in the events that follow it.\n"
         "- Resolve the immediate consequence of the final HISTORY event before adding\n"
         "  atmosphere, introducing a new thread, or moving the scene forward.\n"
         "- Never assert a character's unspoken thoughts, intentions, or emotions as\n"
@@ -146,9 +206,11 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "   present character, identify the exact place their latest self-declared\n"
         "   action puts them. A character running through the city is in the city, not\n"
         "   arriving at a hall where the others are. When canon and self-location\n"
-        "   differ, create or use a separate isolated zone with zone_moves first.\n"
+        "   differ, create or use a separate zone with zone_moves first.\n"
         "2. MEASURE THE GAP. Decide what separates each zone: distance, walls, doors,\n"
-        "   noise, and travel time. Meaningful travel takes multiple beats when the\n"
+        "   noise, and travel time. A zone you created this beat can still be heard\n"
+        "   from where its mover came; seal it with zone_link_updates when the gap is\n"
+        "   real. Meaningful travel takes multiple beats when the\n"
         "   fiction requires it and ends only after a later explicit arrival. Never\n"
         "   teleport someone, invent a convenient connection, or skip the journey just\n"
         "   to bring characters together.\n"
@@ -158,15 +220,19 @@ def _build_system_prompt(character_ids: list[str], narrator_directives: str = ""
         "4. DRAW SIGHT AND SOUND. For every event, compute who can actually see or hear\n"
         "   it from that blocked scene. Remote characters receive no hint that it\n"
         "   happened: exclude them from witness_ids and never let them react to it.\n"
+        # Reworded 2026-07-26 (task 57) to name the final HISTORY entry instead of
+        # the operator: the Director must not learn a human exists. Replayed 4x per
+        # variant on a recorded turn-1 call — both kept 4/4 non-empty queues and
+        # neither routed to the controlled character. See .plan/tasks/57.
         "5. ROUTE FROM PERCEPTION. Choose next_speakers only among characters with a\n"
-        "   concrete event they personally witnessed. The player's own speech or action\n"
-        "   in the final HISTORY entry IS such an event for everyone sharing their zone:\n"
+        "   concrete event they personally witnessed. The speech or action in the final\n"
+        "   HISTORY entry IS such an event for everyone sharing that speaker's zone:\n"
         "   when they addressed characters who can hear them, at least one of those\n"
         "   characters answers this turn. Leaving next_speakers empty there is the world\n"
-        "   ignoring the player, never a valid routing. An empty queue is only correct\n"
-        "   when nobody present could perceive them. Order multiple speakers when an\n"
-        "   actual conversational chain can follow; do not move or inform anyone merely\n"
-        "   to manufacture dialogue.\n"
+        "   ignoring what just happened in front of it, never a valid routing. An empty\n"
+        "   queue is only correct when nobody present could perceive it. Order multiple\n"
+        "   speakers when an actual conversational chain can follow; do not move or\n"
+        "   inform anyone merely to manufacture dialogue.\n"
         "6. EMIT ONLY THE DECISION. Return the required JSON. Do not include this map,\n"
         "   analysis, inferred dialogue, or unobservable reasoning in event content.\n"
         "\nATTENTION AND STATUS (apply after scene blocking):\n"
@@ -451,9 +517,14 @@ def _build_user_prompt(
 
     if forced_speaker is None and exclude_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
+        # The justification used to be "they just spoke or passed", which is TRUE
+        # on the first beat and FALSE on the second beat of a burst - the same id
+        # is excluded twice while the stated reason no longer holds, and a reader
+        # resolving that contradiction can only conclude the id is special.
+        # The rule now states the dramatic reason, which is true on every beat.
         lines.append(
-            f"  Do not include {exclude_speaker} in next_speakers this turn; "
-            "they just spoke or passed."
+            f"  Let someone other than {exclude_speaker} carry this beat; the "
+            "scene is more interesting when attention moves."
         )
         lines.append("")
     if forced_speaker is not None:
@@ -598,33 +669,37 @@ async def narrate(
         roteiro_lines=roteiro_lines,
     )
 
-    result = await chat_completion_json(
-        client,
-        messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens_narrator,
-        timeout=resolve_llm_timeout(config),
-        json_schema=build_narrator_json_schema(
+    request_kwargs: dict[str, Any] = {
+        "agent": "director",
+        "json_schema": build_narrator_json_schema(
             present_ids,
             forced_speaker=forced_speaker,
             exclude_speaker=exclude_speaker,
             extra_properties=extra_schema_properties,
             extra_required=extra_schema_required,
         ),
-        session_id=session_id,
-        turn_number=turn_number,
-        agent="director",
-        **llm_request_options(config),
-    )
+        "max_tokens": max_tokens_narrator,
+        "session_id": session_id,
+        "turn_number": turn_number,
+    }
+    result = await call_agent(client, config, messages, **request_kwargs)
+
+    if narrator_hint.strip() and not _hint_materialized(result, narrator_hint):
+        result = await call_agent(
+            client,
+            config,
+            messages + [{"role": "user", "content": HINT_CORRECTION}],
+            guard_retry="hint_omitted",
+            **request_kwargs,
+        )
 
     # Validate required fields
     required = ["next_speakers", "perception_events"]
     missing = [k for k in required if k not in result]
     if missing:
         raise ValueError(
-            f"Resposta do Narrador sem campos obrigatórios: {missing}. "
-            f"Recebido: {json.dumps(result, ensure_ascii=False)[:300]}"
+            f"Director response is missing required fields: {missing}. "
+            f"Received: {json.dumps(result, ensure_ascii=False)[:300]}"
         )
 
     # Normalize next_speakers — only present characters (plus Narrator) are valid;
@@ -656,8 +731,9 @@ async def narrate(
     if isinstance(raw_moves, dict):
         for cid, zone in raw_moves.items():
             # A move may target a NEW zone (Task 41 canon reconciliation): the
-            # Director names it and the runner materializes it isolated. Only
-            # the character clamps stay hard; the zone name is sanitized.
+            # Director names it and the runner materializes it audible from the
+            # zone its mover left (task 54, finding 1). Only the character clamps
+            # stay hard; the zone name is sanitized.
             if (
                 isinstance(zone, str)
                 and zone.strip()
@@ -850,18 +926,15 @@ async def suggest_openings(
 ) -> list[str]:
     """Generate ephemeral scenario-only openings for an empty session."""
     max_tokens = min(int(config.get("max_tokens_narrator", 2048)), 512)
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_opening_suggestions_messages(scene, narrator_directives),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
+        agent="opening_suggest",
         json_schema=build_opening_suggestions_schema(),
+        max_tokens=max_tokens,
         session_id=session_id,
         turn_number=0,
-        agent="opening_suggest",
-        **llm_request_options(config),
     )
     suggestions: list[str] = []
     for item in result["suggestions"]:
@@ -912,18 +985,15 @@ async def suggest(
         },
     ]
 
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens_narrator,
-        timeout=resolve_llm_timeout(config),
+        agent="narrator_suggest",
         json_schema=build_suggest_json_schema(),
+        max_tokens=max_tokens_narrator,
         session_id=session_id,
         turn_number=turn_number,
-        agent="narrator_suggest",
-        **llm_request_options(config),
     )
 
     suggestions: list[dict] = result.get("suggestions", [])

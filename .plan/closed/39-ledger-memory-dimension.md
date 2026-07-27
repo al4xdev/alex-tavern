@@ -37,12 +37,22 @@ authority, no parallel memories).
 
 ## Acceptance (headline)
 
-- [ ] No `character_notes` field or private summarizer call remains anywhere.
-- [ ] Rapport accumulates within a session without compaction (the ef6b5b90
+- [x] No `character_notes` field or private summarizer call remains anywhere.
+      **Verificado 2026-07-27:** a única ocorrência em `src/` é o comentário
+      histórico do schema v9 em `models.py:24`; `tests/test_integration.py:2031`
+      trava a assinatura de `summarize` contra o campo.
+- [x] Rapport accumulates within a session without compaction (the ef6b5b90
   complaint), shown in a real run.
-- [ ] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
+      **Verificado 2026-07-27:** sessão real sem nenhuma compactação +
+      `TestRapportAccumulatesWithoutCompaction`, ver seção no fim.
+- [x] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
   both compactions; secret family stays 0.
-- [ ] Undo/fork/restore preserve ledger memory exactly.
+      **Verificado 2026-07-27:** campanha full tier 24/24 turnos com provider
+      real, sessão `8484d749`, ver seção no fim.
+- [x] Undo/fork/restore preserve ledger memory exactly.
+      **Verificado 2026-07-27:** undo já tinha teste; fork e restore não
+      tinham. Três testes novos em `tests/test_ledger_memory.py`, ver
+      "Fork e restore" no fim do arquivo.
 
 ## Design frozen (2026-07-17) — staged increments
 
@@ -95,3 +105,131 @@ linha do relógio no ROADMAP.
 > (esse funciona: retém o que recebe); é o record que nunca chegou. Fix é de
 > código (persistir audible_speech), não do prompt de memória. Ver ROADMAP e
 > `tests/test_audible_speech_persistence.py`.
+
+
+---
+
+# Fork e restore verificados (2026-07-27)
+
+O critério dizia "undo/fork/restore preservam a memória do ledger exatamente".
+**Só o undo tinha teste** (`test_undo_rolls_ledger_memory_back`). Fork e restore
+estavam afirmados e não verificados — e o undo tinha acabado de mudar no bump
+para o schema 14, o que tornava a lacuna mais relevante, não menos.
+
+Três testes novos, todos verdes na primeira execução (o comportamento estava
+certo; o que faltava era a prova):
+
+1. **`test_fork_carries_the_ledger_memory_to_the_copy`** — para cada personagem,
+   a cópia mantém `recent_memory`, `memory_through_turn`, `memory_summary` e os
+   nomes conhecidos em `people`. Um fork que perdesse o ledger reiniciaria a
+   memória privada de todo mundo em silêncio: a cópia simplesmente começaria
+   amnésica, sem nada acusando.
+2. **`test_a_fork_is_a_copy_not_a_shared_reference`** — jogar na cópia não
+   escreve no original.
+3. **`test_restoring_a_compaction_keeps_the_ledger_memory`** — a compactação
+   evicta histórico, e o ledger não é histórico: a memória é idêntica antes da
+   compactação, depois dela e depois do restore.
+
+Detalhe de método no terceiro: a primeira versão usava `pytest.skip` quando a
+compactação não disparava, o que deixaria o teste passar sem testar nada. Trocado
+por asserção dura de que a compactação aconteceu e evictou registros.
+
+
+---
+
+# Rapport sem compactação (2026-07-27)
+
+O critério pedia "mostrado em run real". Está mostrado, e ganhou rede.
+
+**Run real.** Das 15 sessões da medição da task 55, uma fechou sem nenhuma
+compactação — `B_noalign/d9bdae22`, 10 turnos, `compaction_stack` vazio. O ledger
+de C2 tem **8 linhas** e o cursor `memory_through_turn=10`. É exatamente a
+reclamação do ef6b5b90 respondida: a memória privada andou até o último turno
+sem que nenhuma eviction tivesse acontecido. Nas outras 14 (20 turnos, 1
+compactação cada) o cursor também chega a 20, ou seja, continua andando depois
+da compactação em vez de só nela.
+
+**Por que isso precisava de teste mesmo com o run real.** A correção do ef6b5b90
+é *uma linha de fiação*: `capture_memory` roda dentro de `_ensure_perspective`
+(`runner.py:2263`), que o runner chama uma vez por falante por turno. Toda a
+classe `TestCaptureMemory` chama a função diretamente — prova a função, não a
+fiação. Mover a chamada de volta para o caminho da compactação deixa **todos**
+aqueles testes verdes e ressuscita o bug inteiro.
+
+`TestRapportAccumulatesWithoutCompaction::test_the_ledger_grows_every_turn_with_no_compaction`
+percorre 6 turnos numa sessão real (sem provider) e verifica três coisas
+distintas: o ledger cresce monotonicamente, o cursor avança junto, e o conteúdo
+do **último** turno está lá — a terceira separa "acumula continuamente" de
+"despejou um backlog de uma vez", que os dois primeiros sozinhos confundiriam.
+
+Nota de método: o helper de sessão estava preso como método de
+`TestUndoPreservesMemory`. Herdar a classe para reusá-lo fazia os 4 testes do pai
+rodarem duas vezes; virou `_scripted_session` no nível do módulo.
+
+
+---
+
+# Campanha xfailed3 completa (2026-07-27, sessão `8484d749`)
+
+O critério exigia rodar a coisa, não argumentar sobre ela. Rodei: tier full, 24
+turnos, provider real, 477s, revisão `9da02da` (schema 14, depois de todo o
+refactor pré-1.0 desta branch).
+
+**As duas sondas de retenção passaram.** Não por ausência de evidência — confirmei
+que as regras existem e foram avaliadas:
+
+| sonda | turno | o que exige | resultado |
+|---|---|---|---|
+| `WT-12-ribbon-retention` | 13 | a promessa do turno 2 (fita azul, pulso esquerdo) sobrevive à compactação 1 | **passou** |
+| `WT-02-origin-retention` | 14 | a origem de Dorothy (Oz) sobrevive à compactação 1 | **passou** |
+
+**Família secret: 0.** Nem `GLOBAL-whisper-leak` nem
+`GLOBAL-secret-in-unauthorized-prompt` apareceram. As duas compactações e as duas
+restaurações LIFO completaram (`compaction.c000001.json`, `c000002.json`).
+
+## As 3 violações, e por que uma delas importa
+
+`WT-09-epilogue-alias` (turno 24) é a recorrente já diagnosticada em
+`docs/cases/14-...`: o Diretor anuncia a revelação e às vezes não torna o nome
+audível. Distribucional, conhecida, fora do escopo desta task.
+
+As outras duas são **o mesmo defeito** contado por duas regras
+(`SOC-01a-delegate-never-learns-signatory-name` e `GLOBAL-anonymous-pair-prompt`,
+ambas no turno 8): o prompt do delegado carrega `Alice`, um nome que ele nunca
+deveria ter aprendido. Fui atrás porque `unearned_identity_familiarity` é
+exatamente a classe que uma regressão minha produziu mais cedo hoje.
+
+**Não é regressão, e não é vazamento de montagem de prompt.** O rótulo do falante
+está corretamente anonimizado — o prompt de Victor diz
+`SPEAKER=jovem adulta de expressão franca e passo firme`, nunca "Dorothy". O nome
+entrou **dentro da fala pública de outro personagem**, em posição vocativa:
+
+> Turn 7 | TYPE=SPEECH | SPEAKER=jovem adulta de expressão franca e passo firme:
+> *"A estrada amarela não leva à Cidade das Esmeraldas, **Alice**. Ela sempre
+> leva para longe."*
+
+`_format_history_for_character` projeta o **rótulo** (`viewer_speaker_label`) e
+insere `rec.content` verbatim. Isso está certo: o que alguém disse em voz alta é
+o que disse. Reescrever fala pública falsificaria a transcrição — e, pior,
+apagaria o mecanismo pelo qual nomes são de fato aprendidos numa conversa.
+
+O que a regra do oráculo pede ("nenhuma apresentação acontece, logo o prompt não
+pode conter Alice") é insatisfazível enquanto personagens puderem usar vocativos.
+Dorothy conhece Alice; chamá-la pelo nome é natural; Victor ouvir é natural. É a
+mesma família do falso positivo `WT-06` que a 29.3 já tinha documentado.
+
+**A corroboração vale mais que o achado.** Horas antes, na task 54, um instrumento
+completamente diferente — contagem de menções em prosa — me deu um falso positivo
+que só se dissolveu quando passei a medir **posição vocativa**. Aqui, o oráculo
+do xfailed3 tropeçou no mesmo mecanismo por conta própria, num cenário, idioma e
+elenco distintos. Duas medições independentes chegando ao mesmo lugar é o mais
+perto de confirmação que este projeto consegue.
+
+> **Ressalva de reprodutibilidade (2026-07-27).** As sessões citadas nesta seção
+> foram geradas em diretório temporário e **não estão no repositório**: os números
+> não são auditáveis por terceiros nem por uma sessão futura. Foram conferidos por
+> mim no momento da execução e o método está descrito acima com detalhe suficiente
+> para ser refeito, mas quem reler deve tratá-los como *relato*, não como
+> evidência verificável. Medições que precisem valer como prova têm de escrever
+> seus artefatos em `docs/` ou `.plan/`, ou o critério deve exigir um script de
+> aceitação em `tools/acceptance/` que qualquer um rode.

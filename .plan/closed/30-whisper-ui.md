@@ -35,18 +35,23 @@ mechanics are invisible in the product.
 
 ## Acceptance Criteria
 
-- [ ] Frontend boundary test: selecting two present characters and sending
+- [x] Frontend boundary test: selecting two present characters and sending
   speech produces a turn payload with exactly that `audience` list; sending
-  without a selection omits the field.
-- [ ] Frontend boundary test: a rejected audience (backend 422) shows the error
-  toast and does not clear the composer.
-- [ ] Whispered records are visually distinct in the session view and show the
-  audience names in both languages.
-- [ ] Mobile action-menu interactions remain functional while a whisper is
-  selected.
-- [ ] One real-LLM session through the UI: whisper a fact to one character with
+  without a selection omits the field. — `test_whisper_ui.py::test_turn_payload_carries_audience_only_when_selected`
+- [x] Frontend boundary test: a rejected audience (backend 422) shows the error
+  toast and does not clear the composer. — **faltava**, escrito em 2026-07-27:
+  `TestTheRejectedTurnKeepsWhatTheUserTyped` (5 casos)
+- [x] Whispered records are visually distinct in the session view and show the
+  audience names in both languages. — `TestWhisperedRendering` + `test_styles_exist`
+  + `test_i18n_keys_exist_in_both_languages`
+- [x] Mobile action-menu interactions remain functional while a whisper is
+  selected. — **faltava**, escrito em 2026-07-27:
+  `TestTheActionMenuIsNeverLeftStale` (3 casos)
+- [~] One real-LLM session through the UI: whisper a fact to one character with
   an outsider present, verify the outsider's later replies contain no secret
   token (existing guards), and the transcript renders the whisper markers.
+  **Metade cumprida por instrumento mais forte, metade bloqueada** — ver nota
+  de 2026-07-27 no fim.
 
 > **CLOSED 2026-07-16.** Composer gained the whisper control (🤫 button +
 > checklist popup of present non-controlled characters, populated with the
@@ -61,3 +66,53 @@ mechanics are invisible in the product.
 > validated by the partition/perspective live runs. Residual: a human
 > click-through in a real browser (cannot be automated here) — the payload the
 > UI emits is byte-identical to the harness-validated shape.
+
+> **Superseded rendering detail (2026-07-26, Task 56):** after
+> `audience_origin` began distinguishing explicit whispers from zone-computed
+> perception, zone-scoped records stopped receiving the `🤫` badge. Only
+> `audience_origin="whisper"` is now labeled as whispered.
+
+
+---
+
+# Nota de 2026-07-27
+
+## Dois critérios estavam implementados e sem teste
+
+O caminho de erro do compositor sempre fez a coisa certa: preserva os campos
+("Keep inputs in fields so user can edit and retry"), dispara
+`notify(t('turn.failed'), 'error')` e **não** chama `clearWhisperSelection()`.
+Nada impedia uma edição futura de mover essas limpezas para um `finally` — o que
+destruiria em silêncio um sussurro que o usuário teria de redigitar, com a
+audiência perdida junto. `TestTheRejectedTurnKeepsWhatTheUserTyped` trava isso
+partindo o corpo do submit no `catch` e exigindo que as limpezas fiquem só antes.
+
+O quarto critério tem a mesma forma. O menu de ação é onde sussurro, desfazer,
+repetir e pular vivem no celular; um turno que termine sem `updateActionPopup()`
+deixa o botão de repetir escondido justamente depois de um sussurro falhar — o
+estado em que o menu é mais necessário. Os dois caminhos refrescam o menu, e
+agora há teste dizendo isso.
+
+## O critério de sessão real: metade feita, metade bloqueada
+
+A **substância** — sussurrar um fato a um personagem com um estranho presente e
+o estranho jamais repetir o segredo — foi verificada hoje por um instrumento
+mais forte que uma sessão manual: a campanha xfailed3 de 24 turnos com provider
+real inclui o sussurro `LÚMEN-17` e pontua a família *secret* explicitamente.
+**Deu 0**, tanto em `GLOBAL-whisper-leak` quanto em
+`GLOBAL-secret-in-unauthorized-prompt`.
+
+O que continua bloqueado é só a parte de **UI**: confirmar pelo navegador que a
+transcrição desenha os marcadores. O plugin do Playwright não sobe. Diagnóstico
+de hoje, com log:
+
+```
+TimeoutError: async initializeServer: Timeout 180000ms exceeded.
+  - <launching> /opt/google/chrome/chrome ... --remote-debugging-pipe about:blank
+  - <launched> pid=24342
+```
+
+O Chrome **inicia** (o processo nasce e reporta versão); o que nunca completa é o
+handshake do `--remote-debugging-pipe`. Não é o repositório, não é a página, e
+não é algo que eu resolva daqui — o mesmo bloqueio segura o item de 1080p/2K da
+task 45.

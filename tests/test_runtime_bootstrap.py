@@ -1,4 +1,4 @@
-"""Config v2 boot migration and mandatory default Experience tests."""
+"""First-boot Experience installation and its retry contract."""
 
 from __future__ import annotations
 
@@ -10,6 +10,19 @@ import pytest
 
 from src import runtime_bootstrap
 from src.config import CONFIG_SCHEMA_VERSION, DEFAULT_CONFIG
+
+APPLIED = [
+    ("sync", {"force": True}),
+    ("activate", "before_the_war"),
+    ("rebuild", None),
+]
+
+
+@pytest.fixture(autouse=True)
+def _isolated_marker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the boot marker inside the test's own directory."""
+    marker = tmp_path / "plugins" / "bootstrap.json"
+    monkeypatch.setattr(runtime_bootstrap, "bootstrap_marker_path", lambda: marker)
 
 
 def _record_boot_operations(
@@ -34,7 +47,7 @@ def _record_boot_operations(
     return operations
 
 
-def test_fresh_boot_applies_default_experience_before_writing_v2(
+def test_fresh_boot_applies_the_default_experience_and_writes_the_config(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = tmp_path / "config.json"
@@ -42,59 +55,46 @@ def test_fresh_boot_applies_default_experience_before_writing_v2(
 
     loaded = runtime_bootstrap.prepare_runtime_config(path)
 
-    assert operations == [
-        ("sync", {"force": True}),
-        ("activate", "before_the_war"),
-        ("rebuild", None),
-    ]
+    assert operations == APPLIED
     assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
     assert json.loads(path.read_text(encoding="utf-8")) == loaded
+    marker = json.loads(runtime_bootstrap.bootstrap_marker_path().read_text(encoding="utf-8"))
+    assert marker["experience_id"] == "before_the_war"
 
 
-def test_v1_boot_applies_default_experience_and_preserves_config(
+def test_second_boot_does_not_reapply_the_default_experience(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     path = tmp_path / "config.json"
-    legacy = deepcopy(DEFAULT_CONFIG)
-    legacy.pop("schema_version")
-    legacy["language"] = "English"
-    path.write_text(json.dumps(legacy), encoding="utf-8")
+    _record_boot_operations(monkeypatch)
+    runtime_bootstrap.prepare_runtime_config(path)
+
     operations = _record_boot_operations(monkeypatch)
-
-    loaded = runtime_bootstrap.prepare_runtime_config(path)
-
-    assert operations == [
-        ("sync", {"force": True}),
-        ("activate", "before_the_war"),
-        ("rebuild", None),
-    ]
-    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
-    assert loaded["language"] == "English"
-
-
-def test_v2_boot_does_not_reapply_default_experience(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    path = tmp_path / "config.json"
-    path.write_text(json.dumps(DEFAULT_CONFIG), encoding="utf-8")
-    operations = _record_boot_operations(monkeypatch)
-
     loaded = runtime_bootstrap.prepare_runtime_config(path)
 
     assert operations == []
-    assert loaded == DEFAULT_CONFIG
+    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
 
 
-def test_failed_default_experience_keeps_config_at_v1(
+def test_existing_settings_survive_the_first_boot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The server still boots, and the untouched v1 file makes it retry later."""
+    """A config written before the Experience landed is never rewritten."""
     path = tmp_path / "config.json"
-    legacy = deepcopy(DEFAULT_CONFIG)
-    legacy.pop("schema_version")
-    legacy["language"] = "English"
-    original = json.dumps(legacy)
-    path.write_text(original, encoding="utf-8")
+    existing = deepcopy(DEFAULT_CONFIG)
+    existing["language"] = "English"
+    path.write_text(json.dumps(existing), encoding="utf-8")
+    _record_boot_operations(monkeypatch)
+
+    loaded = runtime_bootstrap.prepare_runtime_config(path)
+
+    assert loaded["language"] == "English"
+
+
+def test_a_failed_activation_still_boots_and_retries_later(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "config.json"
     monkeypatch.setattr(runtime_bootstrap, "ensure_hub_synced", lambda **kwargs: None)
 
     def fail_activation(experience_id: str) -> None:
@@ -104,11 +104,13 @@ def test_failed_default_experience_keeps_config_at_v1(
 
     loaded = runtime_bootstrap.prepare_runtime_config(path)
 
-    assert loaded["language"] == "English"
-    assert path.read_text(encoding="utf-8") == original
+    # The server came up with a usable config...
+    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
+    # ...and nothing claims the Experience was installed.
+    assert not runtime_bootstrap.bootstrap_marker_path().exists()
 
 
-def test_offline_hub_failure_does_not_take_the_server_down(
+def test_offline_hub_does_not_take_the_server_down(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A phone with no connectivity must still reach a usable config."""
@@ -122,33 +124,23 @@ def test_offline_hub_failure_does_not_take_the_server_down(
     loaded = runtime_bootstrap.prepare_runtime_config(path)
 
     assert loaded["active_provider"] == DEFAULT_CONFIG["active_provider"]
-    # Nothing was committed, so the next boot takes the migration path again.
-    assert not path.exists()
+    assert not runtime_bootstrap.bootstrap_marker_path().exists()
 
 
-def test_retry_after_a_failed_boot_completes_the_migration(
+def test_retry_after_a_failed_boot_completes_the_installation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The v1 file left behind by a failed boot is migrated once the hub works."""
+    """The Experience lands on the first boot where the hub answers."""
     path = tmp_path / "config.json"
-    legacy = deepcopy(DEFAULT_CONFIG)
-    legacy.pop("schema_version")
-    path.write_text(json.dumps(legacy), encoding="utf-8")
 
     def fail_sync(**kwargs: object) -> None:
         raise OSError("no route to host")
 
     monkeypatch.setattr(runtime_bootstrap, "ensure_hub_synced", fail_sync)
     runtime_bootstrap.prepare_runtime_config(path)
-    assert "schema_version" not in json.loads(path.read_text(encoding="utf-8"))
 
     operations = _record_boot_operations(monkeypatch)
-    loaded = runtime_bootstrap.prepare_runtime_config(path)
+    runtime_bootstrap.prepare_runtime_config(path)
 
-    assert operations == [
-        ("sync", {"force": True}),
-        ("activate", "before_the_war"),
-        ("rebuild", None),
-    ]
-    assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
-    assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == CONFIG_SCHEMA_VERSION
+    assert operations == APPLIED
+    assert runtime_bootstrap.bootstrap_marker_path().exists()

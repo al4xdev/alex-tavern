@@ -31,34 +31,34 @@ working.
 
 ### Isolated automated coverage
 
-- [ ] A frontend boundary test selects `Narrator`, performs an ordinary send, and
+- [x] A frontend boundary test selects `Narrator`, performs an ordinary send, and
   proves that the HTTP turn payload contains `force_speaker: "Narrator"`.
-- [ ] A separate frontend boundary test selects `Narrator`, activates **Skip turn**,
+- [x] A separate frontend boundary test selects `Narrator`, activates **Skip turn**,
   and proves that the same request contains both `skip: true` and
   `force_speaker: "Narrator"`.
-- [ ] A Runner/API test makes the Narrator model return an NPC as `next_speaker`
+- [x] A Runner/API test makes the Narrator model return an NPC as `next_speaker`
   while `Narrator` is forced, then proves that `next_speaker` remains `Narrator`,
   `character_response` is absent, and no Character model call occurs.
-- [ ] Tests cover invalid/absent character IDs and the controlled character without
-  weakening the current presence and human-agency guards.
-- [ ] A mobile interaction test exercises the long-press/gesture action menu and
+- [x] Tests cover invalid/absent character IDs and the controlled character without
+  weakening the current presence and human-agency guards. — `test_forced_controlled_character_never_generates_speech`, `test_force_speaker_on_an_absent_character_falls_back_to_narrator_choice`
+- [x] A mobile interaction test exercises the long-press/gesture action menu and
   proves that Force Speaker remains selectable and the **Suggest** action still
   calls the suggestion flow. Test Force Speaker from this menu with ordinary send
   and keep the skip-turn case isolated from it.
 
 ### Final real-LLM acceptance run
 
-- [ ] Run a real LLM conversation with **more than four characters present** (at
-  least five total, including the human-controlled character).
-- [ ] Execute at least four consecutive rounds with `force_speaker` set only to
-  `Narrator`; do not force an NPC during this acceptance run.
-- [ ] Every round produces Narrator output only, even when the raw model response
+- [x] Run a real LLM conversation with **more than four characters present** (at
+  least five total, including the human-controlled character). — elenco de 9
+- [x] Execute at least four consecutive rounds with `force_speaker` set only to
+  `Narrator`; do not force an NPC during this acceptance run. — 4 rodadas + 1 skip
+- [x] Every round produces Narrator output only, even when the raw model response
   chooses an NPC. No Character call or Character response may occur.
-- [ ] For every round, `debug.jsonl` shows `force_speaker: "Narrator"` in
+- [x] For every round, `debug.jsonl` shows `force_speaker: "Narrator"` in
   `turn_input`, `effective_force_speaker: "Narrator"` in
   `turn_input_effective`, and the expected Narrator request/response with matching
   `session_id`, `turn_number`, and `agent`.
-- [ ] Run the skip-turn acceptance separately with `skip: true` and forced
+- [x] Run the skip-turn acceptance separately with `skip: true` and forced
   `Narrator`, proving the same routing outcome without player speech, thought, or
   action.
 
@@ -98,3 +98,71 @@ plugin's `turn.input` hook interferes with `force_speaker`, and compare
   6 turns.
 - Mobile menu/Suggest reachability unchanged (no layout changes were needed;
   the fix is payload-only).
+
+
+---
+
+# Protocolo de aceitação executado (2026-07-27)
+
+A task fechou com **todo** o protocolo de LLM real em branco. Executei-o inteiro
+como `tools/acceptance/forced_narrator_rounds.py`, contra o servidor de verdade,
+com o elenco de 9 personagens do fixture do xfailed3 — os cenários padrão de 2
+personagens não conseguem exercitar uma regra sobre o Diretor preferir um NPC.
+
+Resultado (sessão `b4955d03`): **8/8 verificações**. 4 rodadas consecutivas
+forçando `Narrator` mais a variante de skip; toda rodada roteou para o Narrador,
+nenhuma resposta de personagem, nenhuma chamada de personagem, narração real em
+todas (795–1999 chars), e o `debug.jsonl` mostrando `force_speaker` e
+`effective_force_speaker` iguais a `Narrator` nas 5.
+
+## Duas correções que o próprio run me impôs
+
+**`effective_force_speaker` é campo de topo, não de `input`.** Faz sentido depois
+de visto: `input` é o que o cliente pediu, e o efetivo é o que o runner
+**decidiu** — são coisas diferentes e o log as separa. Meu check procurava no
+lugar errado e reportou 0 de 5 num sistema que estava certo.
+
+**O primeiro run acusou "fala de NPC persistida em rodada forçada" (C3, C6, C7)
+enquanto o check de chamadas de personagem passava.** As duas coisas juntas só
+fazem sentido de um jeito: eram `audible_speech` encenadas pelo Diretor,
+`audience_origin: "zone"`, no formato *"Watson diz: '…'"*. Não é violação — é a
+persistência de fala audível de que o WT-09 depende.
+
+O erro era meu, e de um tipo específico: escrevi um check **mais estrito que o
+critério**. A task diz "No Character call or Character response may occur", e
+nenhum ocorreu. Forçar o Narrador força **quem age**, não silêncio na ficção.
+Um check acidentalmente mais rígido que a especificação teria "encontrado" um
+bug inexistente e custado uma rodada de investigação — como custou.
+
+## O que só o run real informa
+
+Nas 5 rodadas, o Diretor propôs um NPC mesmo forçado em **0** delas. Os testes
+unitários provam que o runner ignora um NPC quando recebe um; nenhum deles
+consegue dizer com que frequência um Diretor real tenta.
+
+**Correção de 2026-07-27 (revisão crítica): a primeira versão desse contador não
+media nada.** `record["response"]` é guardado como *string* JSON, então
+`json.dumps()` escapava as aspas e o predicado `'"C2"' in raw` procurava `"C2"`
+dentro de `\"C2\"` — nunca casava, travado em 0 para sempre. E, corrigido o
+escape, ele passaria a casar em toda rodada independentemente do roteamento,
+porque varria a resposta inteira e `scene_blocking.character_zones` lista todos
+os personagens todo turno.
+
+Agora o script parseia a resposta e lê `next_speakers` — o único campo que
+significa "o Diretor quer que este personagem aja" — e **verifica que conseguiu
+parsear**, para que uma mudança futura de serialização falhe alto em vez de
+devolver um zero confortável. Rerodado: **0/5 de novo, agora merecido**.
+
+Uma segunda checagem tinha o mesmo vício: marcava falas de NPC "não encenadas"
+por `not record.get("audience_origin")`, mas esse campo tem default `"whisper"` e
+é sempre serializado — a condição nunca podia ser verdadeira. O discriminador que
+funciona é o log: personagem só fala quando é chamado.
+
+Os dois scripts também deixavam a config do servidor alterada ao sair. Corrigido:
+salvam e restauram.
+
+> **Caixas espelhadas em 2026-07-27.** As 6 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.

@@ -117,7 +117,11 @@ def render_events_for_viewer(
     for event in events:
         if viewer_id not in event["witness_ids"] and event["subject_id"] != viewer_id:
             continue
-        lines.append(project_text_for_viewer(event["content"], characters, perspective))
+        lines.append(
+            project_text_for_viewer(
+                event["content"], characters, perspective, viewer_id=viewer_id
+            )
+        )
     return "\n".join(lines)
 
 

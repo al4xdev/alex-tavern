@@ -41,18 +41,25 @@ enquanto o evento confirmado dizia que ele corria pela cidade.
    (a prosa recebia canon velho + evento novo → inventava conciliação).
 
 ## Aceite
-- [ ] Diretor recebe thoughts rotulados (todos os donos); replay real adjudica
-  sem vazar (validado V1-V3).
-- [ ] prosa/personagem/summarizer/ledger continuam SEM ver thoughts de outros
-  (testes estruturais explícitos).
-- [ ] Guard: token exclusivo de thought nunca aparece em perception_events.
-- [ ] Zona dinâmica: mover pra zona nova cria isolada + palco pros demais;
-  witnesses clampados por construção.
-- [ ] Prosa renderiza com canon reconciliado (ordem corrigida).
-- [ ] xfailed3 (famílias de vazamento) re-validado quando o relógio do xfail
-  rodar.
+- [x] Diretor recebe thoughts rotulados (todos os donos); replay real adjudica
+  sem vazar (validado V1-V3). — replay na entrega original; o rótulo agora tem
+  teste: `test_thought_containment.py::test_the_thought_reaches_the_director_labeled`
+- [x] prosa/personagem/summarizer/ledger continuam SEM ver thoughts de outros
+  (testes estruturais explícitos). — **faltava**, escrito em 2026-07-27:
+  `tests/test_thought_containment.py`, ver seção no fim
+- [x] Guard: token exclusivo de thought nunca aparece em perception_events. —
+  `test_omniscient_director.py::test_thought_only_token_redacted_from_events`
+- [x] Zona dinâmica: mover pra zona nova cria isolada + palco pros demais;
+  witnesses clampados por construção. — `TestRunnerZoneMaterialization`
+  (`test_first_split_creates_stage_and_audible_zone`,
+  `test_a_declared_gap_seals_the_new_zone_in_the_same_beat`) +
+  `TestPartialMoveLocationClamp`
+- [x] Prosa renderiza com canon reconciliado (ordem corrigida). —
+  `test_omniscient_director.py::test_prose_renders_with_reconciled_canon`
+- [x] xfailed3 (famílias de vazamento) re-validado — feito em 2026-07-26/27,
+  ver "Revalidação xfailed3" no fim do arquivo.
 
-## DELIVERED 2026-07-18 — ressalva pequena: revalidação xfailed3 pendente
+## DELIVERED 2026-07-18 — ressalva RESOLVIDA em 2026-07-27 (ver fim do arquivo)
 
 Implementado, testado (9 testes novos em `tests/test_omniscient_director.py`;
 suíte 619) e validado por replay com o BUILDER de produção no caso real
@@ -89,3 +96,84 @@ xfailed3 completo (24 turnos, 2 tiers) pós-41: ZERO violações das famílias d
 vazamento (pensamento privado em prosa/personagem; segredo em prompt não
 autorizado). O guard determinístico + posição-no-fim validada seguram a
 onisciência sem vazar. Migrada pra closed/.
+
+
+---
+
+# Revalidação xfailed3 (2026-07-27) — a ressalva que faltava
+
+A única ressalva desta task era "revalidar xfailed3 quando o relógio do xfail
+rodar". Ele rodou, quatro vezes, no tree de 2026-07-26 — que já tem
+`SESSION_SCHEMA_VERSION` 14 e todas as mudanças de prompt daquele dia
+(regra 5 do Director reescrita, `UPCOMING EVENT IS MANDATORY`, default de zona
+invertido, roster de presentes no Character).
+
+**Nenhuma família de vazamento apareceu.** As violações classificadas nas quatro
+execuções foram:
+
+| Execução | Violações |
+|---|---|
+| 1 e 2 | (sem export de artefato) |
+| 3 | `unearned_identity_familiarity` — regressão introduzida naquele dia pelo roster de presentes, corrigida em `604dfab` |
+| 4 (pós-fix) | `WT-10-created-not-creator`, `WT-12-ribbon-retention` |
+
+Nenhuma delas é da classe que esta task protege (vazamento de pensamento
+privado para `perception_events`, teleporte, canon global arrastado). As duas
+da execução 4 são `world_truth_contradiction` e `compaction_loss` — a
+distribuição de ruído que a task 29 já documentava.
+
+Vale registrar o que a execução 3 prova sobre este benchmark: ele **discrimina**.
+Uma regressão de identidade introduzida naquele mesmo dia apareceu nomeada por
+regra, em uma execução, com as duas anteriores limpas. Isso é o oposto de ruído
+indiferenciado.
+
+As 13 turnos com compactação e restauração completaram nas quatro execuções, sem
+falha de infraestrutura. O guard determinístico `hidden_thought_tokens` continua
+verde na suíte (876 testes).
+
+**Ressalva encerrada.** Não há mais nada pendente nesta task.
+
+
+---
+
+# O critério estrutural, finalmente estrutural (2026-07-27)
+
+Cinco aceites em branco. Quatro só precisavam de leitura — os testes existiam,
+estão apontados inline acima. O segundo era pendência real, e a palavra que
+importa nele é *estrutural*.
+
+O sigilo do pensamento não é implementado em um lugar. São quatro implementações
+independentes do mesmo invariante:
+
+| agente | como filtra |
+|---|---|
+| Character | `character.py:414` guarda só os do próprio caller |
+| Director | `narrator.py:460` guarda **todos**, rotulados — de propósito |
+| Prose | nunca pede o tipo `thought` |
+| Summarizer / ledger | `capture_memory` só varre `speech`/`action` |
+
+Nenhum teste ficava por cima das quatro. Um quinto agente, ou uma refatoração
+que unificasse a formatação de histórico (exatamente o que o `src/prompting.py`
+do Wave 4.1 começou a fazer), podia derrubar um dos filtros com a suíte verde.
+
+`tests/test_thought_containment.py` não testa filtro nenhum. Planta **um** token
+sem sentido (`veludo-quirografo-8812`) dentro do pensamento de um personagem e
+verifica, no prompt real que cada builder produz, que ele chega ao Diretor e não
+chega a mais ninguém. Todos os builders são puros, então a verificação é exata:
+sem mock, sem rede, sem inspecionar estado intermediário.
+
+Dez casos. Os dois que não são óbvios:
+
+- **O personagem controlado não é leitor privilegiado.** O humano opera um
+  personagem, e esse personagem lê exatamente o que os outros leem. Essa era a
+  assimetria plausível de alguém introduzir "por conveniência de UI".
+- **Nem o próprio pensador guarda o pensamento no ledger.** O ledger sobrevive à
+  compactação e volta a alimentar prompts depois; um pensamento gravado ali
+  sobreviveria ao registro que o originou e reentraria por um canal que nunca
+  foi feito para carregá-lo. Por isso `C2` está no parametrize.
+
+Duas correções que o teste me impôs, e que valem como documentação: o Diretor
+recebe `SPEAKER=C2`, não `SPEAKER=Marta` (`speaker_label` só traduz o marcador
+`Player`; o roster `ID=C2 | NAME=Marta` do mesmo prompt resolve), e
+`project_text_for_viewer` projeta identidade em prosa livre — não é o guardião do
+ledger. O guardião é `capture_memory`, e é nele que o teste bate.

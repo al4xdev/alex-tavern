@@ -13,7 +13,6 @@ from src.config import (
     CONFIG_SCHEMA_VERSION,
     DEFAULT_CONFIG,
     ConfigValidationError,
-    config_schema_version,
     load_config,
     merge_config_update,
     public_config,
@@ -51,29 +50,20 @@ def test_config_round_trip_resolution_and_key_redaction(tmp_path: Path) -> None:
     assert safe["automatic_compaction_threshold_percent"] == 80
 
 
-@pytest.mark.parametrize("explicit_version", [False, True])
-def test_load_config_migrates_v1_to_v2(tmp_path: Path, explicit_version: bool) -> None:
+def test_missing_config_is_written_with_the_defaults(tmp_path: Path) -> None:
     path = tmp_path / "config.json"
-    legacy = deepcopy(DEFAULT_CONFIG)
-    legacy.pop("schema_version")
-    legacy["language"] = "English"
-    if explicit_version:
-        legacy["schema_version"] = 1
-    path.write_text(json.dumps(legacy), encoding="utf-8")
 
-    assert config_schema_version(path) == 1
     loaded = load_config(path)
-    persisted = json.loads(path.read_text(encoding="utf-8"))
 
     assert loaded["schema_version"] == CONFIG_SCHEMA_VERSION
-    assert loaded["language"] == "English"
-    assert persisted == loaded
+    assert json.loads(path.read_text(encoding="utf-8")) == loaded
 
 
-@pytest.mark.parametrize("version", [True, "2", 0, 3])
-def test_config_schema_version_rejects_invalid_or_unknown_versions(
+@pytest.mark.parametrize("version", [None, 1, True, "2", 0, 3])
+def test_config_from_another_schema_version_is_refused_not_converted(
     tmp_path: Path, version: object
 ) -> None:
+    """Forward-only: no migration path exists, and none should be added."""
     path = tmp_path / "config.json"
     value = deepcopy(DEFAULT_CONFIG)
     value["schema_version"] = version

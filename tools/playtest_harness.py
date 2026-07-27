@@ -600,10 +600,59 @@ def _exact_sentence_duplicates(texts: list[str]) -> int:
     return duplicates
 
 
+def _cast_rotation(calls: list[dict[str, Any]]) -> float | None:
+    """Mean share of each beat's speakers that did not speak in the beat before.
+
+    None when the scene never had more than one actor: a solo scene scores a
+    perfect zero for a reason that has nothing to do with stagnation, and a
+    number that means two different things is worse than no number.
+
+    That guard has a consequence worth stating plainly, found by running this
+    against a two-character scenario: with one controlled character and one NPC
+    there is never a second possible actor, so EVERY run reports None. This
+    metric only measures scenes with three or more characters. `None` means "not
+    measurable here", never "no stagnation".
+    """
+    queues: list[set[str]] = []
+    for record in calls:
+        if record.get("agent") != "director":
+            continue
+        response = record.get("response")
+        if isinstance(response, str):
+            try:
+                response = json.loads(response)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(response, dict):
+            continue
+        speakers = {
+            entry
+            for entry in response.get("next_speakers") or []
+            if isinstance(entry, str) and entry != "Narrator"
+        }
+        if speakers:
+            queues.append(speakers)
+    if len(queues) < 2 or len(set().union(*queues)) < 2:
+        return None
+    # Over the current beat, not over the union: both forms were validated on
+    # the real sessions and ordered them identically, and this one separates
+    # them wider (0.138 stagnant to 0.383 advancing, against 0.133 to 0.293).
+    shares = [
+        len(later - earlier) / len(later)
+        for earlier, later in zip(queues, queues[1:], strict=False)
+        if later
+    ]
+    return round(statistics.mean(shares), 4) if shares else None
+
+
 def analyze_debug_records(
-    records: list[dict[str, Any]], event_results: list[dict[str, Any]]
+    records: list[dict[str, Any]],
+    event_results: list[dict[str, Any]],
+    characters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Calculate deterministic signals without asking another model to judge prose."""
+    from src.prompt_contract import operator_ontology_hits, singled_out_speakers
+
     calls = [record for record in records if isinstance(record.get("request"), dict)]
     prompts = "\n".join(
         str(message.get("content", ""))
@@ -611,6 +660,46 @@ def analyze_debug_records(
         for message in record["request"].get("messages", [])
         if isinstance(message, dict)
     )
+    ontology_hits = operator_ontology_hits(prompts)
+    # AGENTS.md section 3 covers structural markers too, so the run has to sweep
+    # for them the way it sweeps for the lexical ones. Two differences matter.
+    #
+    # It runs PER CALL, never on the joined string: the lexical guard compares a
+    # phrase against a pattern, so concatenating every prompt is harmless, but
+    # this one compares label forms WITHIN a block. Joining the Director (ids,
+    # legitimate, with a roster) to prose (names) would manufacture a mix that no
+    # single prompt contains.
+    #
+    # And it needs the cast, because "is this label a name or an id" is not
+    # answerable from the text alone.
+    # `None` when the sweep did not run, never 0. A run whose artifacts report
+    # zero findings for a check that never executed is the same lie as a skipped
+    # test that reports success, and it is the exact failure this session spent
+    # its time cataloguing. A reader must be able to tell "looked, found nothing"
+    # from "did not look".
+    # An EMPTY cast counts as not swept, not as swept-and-clean: with no
+    # characters there is no label to compare, so "found nothing" would be true
+    # and meaningless. Same silence, stated on purpose rather than inherited from
+    # a falsy check.
+    cast = characters or None
+    singled_out: list[dict[str, Any]] = []
+    swept = cast is not None
+    if cast is not None:
+        for record in calls:
+            text = "\n".join(
+                str(message.get("content", ""))
+                for message in record["request"].get("messages", [])
+                if isinstance(message, dict)
+            )
+            marked = singled_out_speakers(text, cast)
+            if marked:
+                singled_out.append(
+                    {
+                        "agent": record.get("agent"),
+                        "turn_number": record.get("turn_number"),
+                        "singled_out": marked,
+                    }
+                )
     successful = [
         record
         for record in calls
@@ -740,14 +829,40 @@ def analyze_debug_records(
         "recall_reply_failures": sum(not recall["reply_passed"] for recall in recall_results),
         "llm_calls": len(calls),
         "llm_errors": sum(record.get("error") is not None for record in calls),
+        # Transport retry: the same request resent after a provider/schema failure.
         "retry_attempts": sum(
             isinstance(record.get("attempt_number"), int) and record["attempt_number"] > 1
             for record in calls
         ),
+        # Guard retry: a second structured call the agent chose to make after
+        # reading the first answer. It carries attempt_number 1, so counting only
+        # the field above reports "zero retries" for a turn that called the model
+        # twice (task 54, finding 7).
+        "guard_retries": sum(bool(record.get("guard_retry")) for record in calls),
+        "guard_retry_reasons": sorted(
+            {str(record["guard_retry"]) for record in calls if record.get("guard_retry")}
+        ),
         "max_prompt_chars": max(prompt_sizes, default=0),
         "max_duration_ms": round(max(durations, default=0.0), 3),
         "mean_duration_ms": round(statistics.mean(durations), 3) if durations else 0.0,
-        "player_prompt_occurrences": prompts.count("Player"),
+        # How much the acting cast changes from beat to beat, read off the
+        # Director's own next_speakers. Task 54 finding 5 describes stagnation the
+        # lexical guards cannot see: the same people restaging the same moment in
+        # fresh words. Two other candidates were built and REJECTED against real
+        # sessions first - rolling lexical novelty scored an advancing session the
+        # same as the stagnant one (consistent atmosphere drags it down), and
+        # scene-fact churn scored the advancing one LOWER. Cast rotation was the
+        # only candidate that ordered them correctly. It is reported, not gated:
+        # task 26 asks for event-level evidence before any material-delta gate,
+        # and this is that evidence being collected.
+        "scene_cast_rotation": _cast_rotation(calls),
+        # AGENTS.md §3: a run that scores anything but zero here has told some
+        # agent that a human drives one of the characters (see src/prompt_contract.py).
+        "operator_ontology_hits": len(ontology_hits),
+        "operator_ontology_phrases": sorted(set(ontology_hits)),
+        "structurally_singled_out": len(singled_out) if swept else None,
+        "structurally_singled_out_calls": singled_out[:10],
+        "structural_sweep": "ran" if swept else "skipped: no cast supplied",
         "nested_physical_facts_outputs": nested_physical_facts,
         "second_person_narrations": second_person_narrations,
         "narrator_outputs": len(narrator_outputs),
@@ -770,7 +885,7 @@ async def run_scenario(
     sessions_dir: Path,
 ) -> dict[str, Any]:
     """Execute one scenario sequentially inside its own real session."""
-    session_id = runner.start_session(build_session_config(scenario))
+    session_id = await runner.start_session(build_session_config(scenario))
     debug_path = sessions_dir / session_id / "debug.jsonl"
     event_results: list[dict[str, Any]] = []
     recall_failures: list[str] = []
@@ -826,6 +941,11 @@ async def run_scenario(
         event_results.append(event_result)
 
     records = _load_debug_records(debug_path) if debug_path.exists() else []
+    # The cast comes from the live state, not from the scenario file: a scenario
+    # may omit `session_config` entirely and run on the defaults, and the
+    # structural sweep needs the cast that was actually played.
+    played = await runner.get_state(session_id)
+    cast = played.characters if played is not None else None
     run_result = {
         "scenario": scenario.name,
         "description": scenario.description,
@@ -834,7 +954,7 @@ async def run_scenario(
         "session_id": session_id,
         "events": event_results,
         "final_state": await _snapshot(runner, session_id),
-        "analysis": analyze_debug_records(records, event_results),
+        "analysis": analyze_debug_records(records, event_results, cast),
     }
     has_recall_checks = any(
         event["type"] in ("recall_check", "routing_check") for event in scenario.events
@@ -891,22 +1011,6 @@ def aggregate_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         }
         aggregates.append({"scenario": scenario, "runs": len(analyses), "metrics": metrics})
     return aggregates
-
-
-def _atomic_write_text(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(content)
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        if temporary.exists():
-            temporary.unlink()
-        raise
 
 
 def build_markdown_report(manifest: dict[str, Any]) -> str:
@@ -1073,8 +1177,8 @@ async def _async_main(args: argparse.Namespace) -> int:
     }
     results_path = run_dir / "playtest-results.json"
     report_path = run_dir / "playtest-report.md"
-    _atomic_write_text(results_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
-    _atomic_write_text(report_path, build_markdown_report(manifest))
+    write_text(results_path, json.dumps(manifest, indent=2, ensure_ascii=False) + "\n")
+    write_text(report_path, build_markdown_report(manifest))
     print(
         json.dumps(
             {
@@ -1090,6 +1194,18 @@ async def _async_main(args: argparse.Namespace) -> int:
     return 1 if any("error" in run for run in runs) else 0
 
 
+def write_text(path: Path, content: str) -> None:
+    """Publish a report atomically, reusing the store's durability contract.
+
+    Imported here like every other src use in this module: the harness points
+    ROLEPLAY_DATA_DIR at a scratch directory before anything under src resolves
+    its paths.
+    """
+    from src.store.jsonfile import write_bytes
+
+    write_bytes(path, content.encode("utf-8"))
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """CLI entrypoint."""
     args = _parse_args(argv)
@@ -1098,3 +1214,4 @@ def main(argv: Sequence[str] | None = None) -> None:
 
 if __name__ == "__main__":
     main()
+

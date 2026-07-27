@@ -20,6 +20,7 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat
 
 
 async def _fake_prose() -> str:
@@ -48,13 +49,7 @@ SCENE = Scene(
 
 
 async def _fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-    return {
-        "narration": "Segue.",
-        "next_speakers": ["Narrator"],
-        "perception_events": [],
-        "scene_update": None,
-        "mood_updates": None,
-    }
+    return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
 
 @pytest.mark.asyncio
@@ -70,7 +65,7 @@ async def test_enabled_feedback_moves_dyad_and_flips_band(monkeypatch) -> None: 
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"disposition_feedback_enabled": True, "auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -109,7 +104,7 @@ async def test_disabled_feedback_never_appraises_and_stays_seeded(monkeypatch) -
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})  # feedback flag absent -> OFF
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -145,7 +140,7 @@ async def test_undo_restores_pre_turn_dispositions(monkeypatch) -> None:  # noqa
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"disposition_feedback_enabled": True, "auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

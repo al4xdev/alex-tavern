@@ -23,6 +23,7 @@ from src.paths import EXPERIENCES_DIR, PLUGIN_HUB_DIR, PLUGINS_DIR
 from src.plugins.experiences import parse_experience, save_experience
 from src.plugins.filesystem import copy_tree_contents
 from src.plugins.store import PluginInstallError, curated_catalog, inspect_zip
+from src.store.jsonfile import write_bytes
 
 DEFAULT_REPOSITORY = "https://github.com/al4xdev/alex-tavern-plugins.git"
 DEFAULT_BRANCH = "master"
@@ -184,23 +185,8 @@ def _validated_snapshot(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]
     return catalog, prepared_experiences
 
 
-def _atomic_bytes(value: bytes, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=destination.parent, prefix=f".{destination.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "wb") as target:
-            target.write(value)
-            target.flush()
-            os.fsync(target.fileno())
-        temporary.replace(destination)
-    except BaseException:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
 def _atomic_copy(source: Path, destination: Path) -> None:
-    _atomic_bytes(source.read_bytes(), destination)
+    write_bytes(destination, source.read_bytes())
 
 
 def _experience_targets(prepared_experiences: list[dict[str, Any]]) -> list[Path]:
@@ -220,7 +206,7 @@ def _restore_files(backups: dict[Path, bytes | None]) -> None:
         if content is None:
             path.unlink(missing_ok=True)
         else:
-            _atomic_bytes(content, path)
+            write_bytes(path, content)
 
 
 def _publish_snapshot(root: Path, prepared_experiences: list[dict[str, Any]]) -> list[str]:

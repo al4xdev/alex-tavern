@@ -102,7 +102,7 @@ class TestUnifiedRetryPolicy:
         post, calls = _sequenced_post([(400, "bad request")])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
-            with pytest.raises(ValueError, match="após 1 tentativas"):
+            with pytest.raises(ValueError, match="after 1 attempts"):
                 await chat_completion_json(client, [{"role": "user", "content": "JSON."}])
         assert len(calls) == 1
 
@@ -126,7 +126,7 @@ class TestUnifiedRetryPolicy:
         post, calls = _sequenced_post([(200, "not-json")])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
-            with pytest.raises(ValueError, match="após 3 tentativas"):
+            with pytest.raises(ValueError, match="after 3 attempts"):
                 await _act(client)
         assert len(calls) == 3
 
@@ -134,10 +134,98 @@ class TestUnifiedRetryPolicy:
     async def test_correction_loop_does_not_multiply_format_retries(
         self, monkeypatch, no_backoff
     ) -> None:  # noqa: ANN001
-        """Semantic corrections are act()-level: 2 attempts, 1 provider call each."""
+        """Semantic corrections are act()-level: 2 attempts, 1 provider call each.
+
+        A model that keeps putting body movement in the wrong field no longer
+        fails the turn - the movement is moved into action_intent after the one
+        correction retry, the way the whisper and repetition guards also degrade
+        instead of raising. What this test protects is unchanged: the correction
+        loop must not multiply provider calls.
+        """
         post, calls = _sequenced_post([(200, PHYSICAL_ACTION_CONTENT)])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
-            with pytest.raises(ValueError):
-                await _act(client)
+            output = await _act(client)
         assert len(calls) == 2
+        assert output["thought"] is None, "the movement left the thought field"
+        assert output["action_intent"] == "Arrumo um tufo de cabelo atrás da orelha."
+
+
+class TestAgentCallContract:
+    """``call_agent`` must resolve transport from config, nothing more."""
+
+    @pytest.mark.asyncio
+    async def test_forwards_exactly_the_transport_the_manual_form_did(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.llm import client as client_mod
+
+        captured: dict = {}
+
+        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            captured.update({"messages": messages, **kwargs})
+            return {"ok": True}
+
+        monkeypatch.setattr(client_mod, "chat_completion_json", fake_chat_completion_json)
+        config = {
+            "model": "deepseek-chat",
+            "language": "Portuguese",
+            "llm_timeout_seconds": 12.5,
+            "provider": "deepseek",
+            "api_base": "https://api.deepseek.com/v1",
+            "api_key": "secret",
+            "thinking_enabled": True,
+        }
+        schema = {"name": "x", "schema": {"type": "object"}}
+
+        result = await client_mod.call_agent(
+            None,
+            config,
+            [{"role": "user", "content": "hi"}],
+            agent="director",
+            json_schema=schema,
+            max_tokens=321,
+            session_id="abc123",
+            turn_number=7,
+        )
+
+        assert result == {"ok": True}
+        assert captured == {
+            "messages": [{"role": "user", "content": "hi"}],
+            "model": "deepseek-chat",
+            "language": "Portuguese",
+            "max_tokens": 321,
+            "timeout": 12.5,
+            "json_schema": schema,
+            "retries": 2,
+            "session_id": "abc123",
+            "turn_number": 7,
+            "agent": "director",
+            # Empty unless an agent chose a second structured call after reading
+            # the first answer (task 54, finding 7).
+            "guard_retry": "",
+            "provider": "deepseek",
+            "api_base": "https://api.deepseek.com/v1",
+            "api_key": "secret",
+            "thinking_enabled": True,
+        }
+
+    @pytest.mark.asyncio
+    async def test_plugin_calls_may_opt_out_of_the_configured_language(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.llm import client as client_mod
+
+        captured: dict = {}
+
+        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+            captured.update(kwargs)
+            return {}
+
+        monkeypatch.setattr(client_mod, "chat_completion_json", fake_chat_completion_json)
+        await client_mod.call_agent(
+            None,
+            {"language": "Portuguese"},
+            [{"role": "user", "content": "hi"}],
+            agent="plugin:x",
+            json_schema={"name": "x", "schema": {}},
+            max_tokens=8,
+            use_configured_language=False,
+        )
+        assert captured["language"] == ""

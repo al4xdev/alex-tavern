@@ -7,25 +7,15 @@ import pytest
 
 from src.confidentiality import hidden_thought_tokens
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     Scene,
     TurnRecord,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat, make_cast
 
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
-
-
-CHARACTERS = {"C1": _char("Link"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Link", "Marta", "Bento")
 SCENE = Scene(
     location="Salao dos Quatro Arcos",
     time_of_day="Manha",
@@ -66,10 +56,10 @@ class TestNarrateThoughtGuardAndZones:
     async def _narrate(self, monkeypatch, fake_response, history):  # noqa: ANN001, ANN202
         import src.agents.narrator as narrator_mod
 
-        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return fake_response
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_chat)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_chat)
         return await narrator_mod.narrate(
             client=None,
             scene=SCENE,
@@ -125,7 +115,7 @@ class TestRunnerZoneMaterialization:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -144,7 +134,7 @@ class TestRunnerZoneMaterialization:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {"auto_event_enabled": False})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -161,27 +151,35 @@ class TestRunnerZoneMaterialization:
         return game, prose_scenes
 
     @pytest.mark.asyncio
-    async def test_first_split_creates_stage_and_isolated_zone(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_first_split_creates_stage_and_audible_zone(self, monkeypatch) -> None:  # noqa: ANN001
         game, _ = await self._turn(
             monkeypatch,
-            {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": {"C1": "ruas da cidade"},
-                "return_control": False,
-            },
+            director_beat(next_speakers=["Narrator"], zone_moves={"C1": "ruas da cidade"}),
         )
         assert game is not None
-        # New zone materialized isolated; everyone else got the stage zone, so
-        # the mover is genuinely imperceptible to them (unplaced would see all).
-        assert game.scene.zones["ruas da cidade"] == []
         stage = "Salao dos Quatro Arcos"
-        assert game.scene.zones[stage] == []
+        # A new zone is born audible from where its mover came (task 54, finding
+        # 1): crossing a room must not make anyone deaf. Sealing it off is what
+        # zone_link_updates declares, exercised by the next test.
+        assert game.scene.zones["ruas da cidade"] == [stage]
+        assert game.scene.zones[stage] == ["ruas da cidade"]
         assert game.scene.positions["C1"] == "ruas da cidade"
         assert game.scene.positions["C2"] == stage
         assert game.scene.positions["C3"] == stage
+
+    @pytest.mark.asyncio
+    async def test_a_declared_gap_seals_the_new_zone_in_the_same_beat(self, monkeypatch) -> None:  # noqa: ANN001
+        """The Director separates by saying so, not by the runtime assuming it."""
+        game, _ = await self._turn(
+            monkeypatch,
+            director_beat(
+                next_speakers=["Narrator"],
+                zone_moves={"C1": "ruas da cidade"},
+                zone_link_updates={"ruas da cidade": []},
+            ),
+        )
+        assert game is not None
+        assert game.scene.zones["ruas da cidade"] == []
 
     @pytest.mark.asyncio
     async def test_prose_renders_with_reconciled_canon(self, monkeypatch) -> None:  # noqa: ANN001
@@ -216,18 +214,15 @@ class TestPartialMoveLocationClamp:
         # movement keeps the stage location; zones express the split.
         game, _ = await TestRunnerZoneMaterialization()._turn(
             monkeypatch,
-            {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": {"location": "Ruas da Cidade Alta", "time_of_day": "manha"},
-                "mood_updates": None,
-                "zone_moves": {"C1": "Ruas da Cidade Alta"},
-                "return_control": False,
-            },
+            director_beat(
+                next_speakers=["Narrator"],
+                scene_update={"location": "Ruas da Cidade Alta", "time_of_day": "manha"},
+                zone_moves={"C1": "Ruas da Cidade Alta"},
+            ),
         )
         assert game is not None
         assert game.scene.location == "Salao dos Quatro Arcos"  # stage unchanged
         assert game.scene.time_of_day == "manha"  # non-location updates still apply
         assert game.scene.positions["C1"] == "Ruas da Cidade Alta"
-        assert game.scene.zones["Ruas da Cidade Alta"] == []
+        assert game.scene.zones["Ruas da Cidade Alta"] == ["Salao dos Quatro Arcos"]
         assert game.scene.positions["C2"] == "Salao dos Quatro Arcos"

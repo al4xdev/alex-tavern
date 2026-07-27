@@ -5,7 +5,7 @@ old per-character note fan-out is gone.
 
 Runs "outside" the normal turn flow, triggered manually by
 compaction (see ``runner.compact_session``). It is blind like the Narrator: it never
-knows a human exists, only sees character names (via ``speaker_label``).
+knows a human exists, only sees character names (via ``display_name``).
 """
 
 from __future__ import annotations
@@ -14,9 +14,8 @@ from collections.abc import Callable
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
-from src.models import Character, TurnRecord, speaker_label
+from src.llm.client import call_agent, normalize_generated_text
+from src.models import Character, TurnRecord, display_name
 
 
 def _build_system_prompt(narrator_directives: str = "") -> str:
@@ -79,7 +78,7 @@ def _build_user_prompt(
     for rec in evicted_turns:
         if rec.content_type == "thought":
             continue
-        label = speaker_label(rec.speaker, characters, controlled_id)
+        label = display_name(rec.speaker, characters, controlled_id)
         lines.append(
             f"  Turn {rec.turn_number} | TYPE={rec.content_type} | SPEAKER={label}: {rec.content}"
         )
@@ -137,18 +136,15 @@ async def summarize(
         narrator_directives=narrator_directives,
     )
     agent = "summarizer:world"
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         messages,
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
+        agent=agent,
         json_schema=build_summarizer_json_schema(),
+        max_tokens=max_tokens,
         session_id=session_id,
         turn_number=turn_number,
-        agent=agent,
-        **llm_request_options(config),
     )
     new_summary = normalize_generated_text(str(result.get("story_summary", story_summary)))
     if on_model_completed is not None:

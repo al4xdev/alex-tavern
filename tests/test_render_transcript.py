@@ -11,20 +11,14 @@ from src.models import (
     Scene,
     TurnRecord,
 )
+from tests.factories import make_character
 from tools.render_transcript import render_session
-
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
 
 def _game(history: list[TurnRecord]) -> GameState:
     return GameState(
         session_id="s1",
-        characters={"C1": _char("Alice"), "C2": _char("Bruno")},
+        characters={"C1": make_character("Alice"), "C2": make_character("Bruno")},
         player=Player(controlled_character_id="C1"),
         scene=Scene(
             location="Sala",
@@ -67,9 +61,6 @@ class TestAudienceMarkers:
 
 def test_zone_scoped_speech_renders_without_whisper_wording() -> None:
     from src.models import (
-        Character,
-        CharacterBody,
-        CharacterMind,
         GameState,
         Player,
         Scene,

@@ -1,0 +1,18 @@
+{
+  "name": "idle-scene-drive",
+  "description": "Task 33's missing acceptance scenario: a scene that goes quiet on purpose. Six consecutive skip turns give the drive scheduler its escalating window (the probability grows per quiet turn), so an injected event either shows up and moves the scene or it does not. Run it twice against the SAME config except auto_event_enabled, and the difference is the scheduler's contribution. Design note: no speech at all after the opening, because any player line resets the quiet counter and destroys the measurement.",
+  "narrator_directives": "Uma taverna comum, fim de noite, movimento fraco. Nao introduza perigo nem misterio por conta propria; deixe a cena respirar. Se nada acontecer, narre o pouco que ha.",
+  "events": [
+    {
+      "type": "turn",
+      "speech": "Vou ficar por aqui um tempo, so olhando o movimento.",
+      "action": ""
+    },
+    { "type": "turn", "speech": "", "action": "", "skip": true },
+    { "type": "turn", "speech": "", "action": "", "skip": true },
+    { "type": "turn", "speech": "", "action": "", "skip": true },
+    { "type": "turn", "speech": "", "action": "", "skip": true },
+    { "type": "turn", "speech": "", "action": "", "skip": true },
+    { "type": "turn", "speech": "", "action": "", "skip": true }
+  ]
+}

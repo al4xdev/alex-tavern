@@ -1,20 +1,21 @@
+import { el } from './dom.js';
 import { api } from './api.js';
 import { getLocale, onLocaleChange, t } from './i18n.js';
 import { matchingCommands, resolveCommand, tokenizeSlash } from './slash-command-parser.js';
 import { commandResultRenderer, slashActions } from './slash-registry.js';
 
-const input = document.getElementById('input-speech');
-const trigger = document.getElementById('slash-trigger');
-const list = document.getElementById('slash-suggestions');
-const panel = document.getElementById('command-panel');
-const panelTitle = document.getElementById('command-panel-title');
-const panelOrigin = document.getElementById('command-panel-origin');
-const panelSummary = document.getElementById('command-panel-summary');
-const fieldsRoot = document.getElementById('command-fields');
-const errorRoot = document.getElementById('command-error');
-const closeButton = document.getElementById('command-panel-close');
-const executeButton = document.getElementById('command-execute');
-const inputArea = document.getElementById('input-area');
+const input = el('input-speech');
+const trigger = el('slash-trigger');
+const list = el('slash-suggestions');
+const panel = el('command-panel');
+const panelTitle = el('command-panel-title');
+const panelOrigin = el('command-panel-origin');
+const panelSummary = el('command-panel-summary');
+const fieldsRoot = el('command-fields');
+const errorRoot = el('command-error');
+const closeButton = el('command-panel-close');
+const executeButton = el('command-execute');
+const inputArea = el('input-area');
 
 let backendCommands = [];
 let catalogAvailable = true;

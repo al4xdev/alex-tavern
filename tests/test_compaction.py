@@ -30,6 +30,7 @@ from src.store.sessions import (
     session_debug_path,
     session_state_path,
 )
+from tests.factories import director_beat
 
 
 @pytest.fixture(autouse=True)
@@ -95,13 +96,7 @@ def _runner_config(**overrides: Any) -> dict[str, Any]:
 
 
 def _narrator_result() -> dict[str, Any]:
-    return {
-        "narration": "The road answers.",
-        "next_speakers": ["C1"],
-        "perception_events": [],
-        "scene_update": None,
-        "mood_updates": None,
-    }
+    return director_beat(narration="The road answers.", next_speakers=["C1"])
 
 
 async def _successful_summary(**kwargs: Any) -> str:
@@ -415,7 +410,7 @@ async def test_summarize_is_world_only(monkeypatch) -> None:  # noqa: ANN001
         agents.append(kwargs["agent"])
         return {"story_summary": "World."}
 
-    monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+    monkeypatch.setattr(summarizer_mod, "call_agent", fake_json)
     completed: list[str] = []
     async with httpx.AsyncClient() as client:
         summary = await summarizer_mod.summarize(

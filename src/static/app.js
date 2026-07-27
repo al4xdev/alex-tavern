@@ -1,4 +1,36 @@
+import { el } from './dom.js';
 import { api } from './api.js';
+import { restartApplication } from './android-bridge.js';
+import * as DebugDrawer from './debug-drawer.js';
+import * as Onboarding from './onboarding.js';
+import * as OpeningPicker from './opening-picker.js';
+import * as SessionsModal from './sessions-modal.js';
+import * as Compaction from './compaction-ui.js';
+import * as Composer from './composer.js';
+import {
+    clearSuggestions,
+    expandMobileInput,
+    hideActionPopup,
+    openHintPopup,
+    populateForceSpeakerOptions,
+    renderSuggestions,
+    setSuggestionsLoading,
+    skipTurn,
+    suggestForMe,
+    undoLastTurn,
+    updateActionPopup,
+    updateSpeechPlaceholder,
+    whisperNamesFor,
+} from './composer.js';
+import * as Transcript from './transcript.js';
+import {
+    addMessage,
+    buildPlayerEcho,
+    controlledName,
+    renderHistory,
+    scrollToBottom,
+    updatePlayerEcho,
+} from './transcript.js';
 import { RuntimeConfig } from './runtime-config.js';
 import { PluginRuntime } from './plugin-runtime.js';
 import { PluginCenter } from './plugin-center.js';
@@ -18,7 +50,8 @@ import {
 } from './i18n.js';
 
 /* ══════════════════════════════════════════════════════════════════════
-   app.js — game view: dynamic rendering, turns, debug drawer, toasts.
+   app.js — the game view: session state, the turn flow, and the wiring that
+   hands the other modules what they need.
    ══════════════════════════════════════════════════════════════════════ */
 
 /* ── State ────────────────────────────────────────────────────────────── */
@@ -42,7 +75,6 @@ const state = {
     avatarUrls: {},        // cid -> revisioned native preset avatar URL
 };
 
-const CHAR_COLORS = ['#6c9cff', '#b07cff', '#40e0a0', '#ffb454', '#ff7ca8', '#4fd6e0'];
 const COMPACT_LAYOUT_QUERY = '(max-width: 760px), (pointer: coarse) and (hover: none)';
 const compactLayoutMedia = window.matchMedia(COMPACT_LAYOUT_QUERY);
 
@@ -51,92 +83,50 @@ function isCompactLayout() {
 }
 
 /* ── DOM refs ─────────────────────────────────────────────────────────── */
-const chatLog       = document.getElementById('chat-log');
-const sceneLocation = document.getElementById('scene-location');
-const sceneTags     = document.getElementById('scene-tags');
-const scenePanel    = document.getElementById('scene-panel');
-const optionsPanel  = document.getElementById('options-panel');
-const inputArea     = document.getElementById('input-area');
-const inputExpandBtn= document.getElementById('input-expand-btn');
-const inputSpeech   = document.getElementById('input-speech');
-const inputThought  = document.getElementById('input-thought');
-const inputAction   = document.getElementById('input-action');
-const sendBtn       = document.getElementById('send-btn');
-const sessionsBtn   = document.getElementById('sessions-btn');
-const settingsBtn   = document.getElementById('settings-btn');
-const emptyConfigBtn= document.getElementById('empty-config-btn');
-const spinner       = document.getElementById('spinner');
-const spinnerLabel  = document.getElementById('spinner-label');
-const retryBanner   = document.getElementById('retry-banner');
-const retryBannerBtn = document.getElementById('retry-banner-btn');
-const roteiroEnabledInput = document.getElementById('runtime-roteiro-enabled');
-const emptyState    = document.getElementById('empty-state');
-const emptyKicker   = document.getElementById('empty-kicker');
-const emptyPrompt   = document.getElementById('empty-prompt');
-const emptyScrollCue= document.getElementById('empty-scroll-cue');
-const openingStart  = document.getElementById('opening-start');
-const openingGenerateBtn = document.getElementById('opening-generate-btn');
-const openingCarousel = document.getElementById('opening-carousel');
-const openingCard   = document.getElementById('opening-card');
-const openingCardText = document.getElementById('opening-card-text');
-const openingPrevBtn = document.getElementById('opening-prev-btn');
-const openingNextBtn = document.getElementById('opening-next-btn');
-const openingDots   = document.getElementById('opening-dots');
-const openingCounter = document.getElementById('opening-counter');
-const openingStartBtn = document.getElementById('opening-start-btn');
-const openingRegenerateBtn = document.getElementById('opening-regenerate-btn');
-const debugToggle   = document.getElementById('debug-toggle');
-const debugDrawer   = document.getElementById('debug-drawer');
-const debugContent  = document.getElementById('debug-content');
-const previewBtn    = document.getElementById('preview-prompt-btn');
-const toastWrap     = document.getElementById('toast-wrap');
-const installBtn    = document.getElementById('install-btn');
-const debugCloseBtn = document.getElementById('debug-close-btn');
-const debugRefreshBtn = document.getElementById('debug-refresh-btn');
-const actionUndoBtn = document.getElementById('action-undo-btn');
-const actionRetryBtn = document.getElementById('action-retry-btn');
-const actionSkipBtn = document.getElementById('action-skip-btn');
-const actionExpandMoreBtn = document.getElementById('action-expand-more-btn');
-const actionPopupSecondary = document.getElementById('action-popup-secondary');
-const actionSuggestBtn = document.getElementById('action-suggest-btn');
-const actionHintBtn = document.getElementById('action-hint-btn');
-const actionCompactBtn = document.getElementById('action-compact-btn');
-const compactProgress = document.getElementById('compact-progress');
-const compactProgressStatus = document.getElementById('compact-progress-status');
-const actionRestoreCompactionBtn = document.getElementById('action-restore-compaction-btn');
-const forceSpeakerSelect = document.getElementById('force-speaker-select');
-const whisperBtn = document.getElementById('action-whisper-btn');
-const whisperPopup = document.getElementById('whisper-popup');
-const actionPopup   = document.getElementById('action-popup');
-const stopBtn       = document.getElementById('stop-btn');
-const sessionsOverlay = document.getElementById('sessions-overlay');
-const sessionList   = document.getElementById('session-list');
-const sessionsCloseBtn = document.getElementById('sessions-close-btn');
-const sessionsNewBtn  = document.getElementById('sessions-new-btn');
-const interfaceLanguage = document.getElementById('interface-language');
+const chatLog       = el('chat-log');
+const sceneLocation = el('scene-location');
+const sceneTags     = el('scene-tags');
+const scenePanel    = el('scene-panel');
+const optionsPanel  = el('options-panel');
+const inputArea     = el('input-area');
+const inputExpandBtn= el('input-expand-btn');
+const inputSpeech   = el('input-speech');
+const inputThought  = el('input-thought');
+const inputAction   = el('input-action');
+const sendBtn       = el('send-btn');
+const settingsBtn   = el('settings-btn');
+const emptyConfigBtn= el('empty-config-btn');
+const spinner       = el('spinner');
+const spinnerLabel  = el('spinner-label');
+const retryBanner   = el('retry-banner');
+const retryBannerBtn = el('retry-banner-btn');
+const roteiroEnabledInput = el('runtime-roteiro-enabled');
+const emptyState    = el('empty-state');
+const emptyKicker   = el('empty-kicker');
+const emptyPrompt   = el('empty-prompt');
+const emptyScrollCue= el('empty-scroll-cue');
+const toastWrap     = el('toast-wrap');
+const installBtn    = el('install-btn');
+const actionUndoBtn = el('action-undo-btn');
+const actionRetryBtn = el('action-retry-btn');
+const actionSkipBtn = el('action-skip-btn');
+const actionExpandMoreBtn = el('action-expand-more-btn');
+const actionPopupSecondary = el('action-popup-secondary');
+const actionSuggestBtn = el('action-suggest-btn');
+const actionHintBtn = el('action-hint-btn');
+const forceSpeakerSelect = el('force-speaker-select');
+const whisperBtn = el('action-whisper-btn');
+const whisperPopup = el('whisper-popup');
+const actionPopup   = el('action-popup');
+const stopBtn       = el('stop-btn');
+const interfaceLanguage = el('interface-language');
 
-const hintOverlay   = document.getElementById('hint-overlay');
-const hintTextarea  = document.getElementById('hint-textarea');
-const hintSendBtn   = document.getElementById('hint-send-btn');
-const hintCloseBtn  = document.getElementById('hint-close-btn');
+const hintOverlay   = el('hint-overlay');
+const hintTextarea  = el('hint-textarea');
+const hintSendBtn   = el('hint-send-btn');
+const hintCloseBtn  = el('hint-close-btn');
 
-const brandHeader   = document.getElementById('brand-header');
-const tipBanner     = document.getElementById('tip-banner');
-const tipText       = document.getElementById('tip-text');
-const tipCloseBtn   = document.getElementById('tip-close-btn');
-const helpDrawer    = document.getElementById('help-drawer');
-const helpCloseBtn  = document.getElementById('help-close-btn');
-const helpMenuView  = document.getElementById('help-menu-view');
-const helpArticleView = document.getElementById('help-article-view');
-const helpBackBtn   = document.getElementById('help-back-btn');
-const helpArticleContent = document.getElementById('help-article-content');
 
-let lastSessionList = null;
-let lastDebugEntries = null;
-let openingSuggestions = [];
-let openingIndex = 0;
-let openingBusy = false;
-let openingPointerStartX = null;
 
 /* ── Toast ────────────────────────────────────────────────────────────── */
 function toast(message, type = 'info', ms = 4000) {
@@ -182,478 +172,26 @@ function setLoading(on, { multiStep = false } = {}) {
     }
 }
 
-function scrollToBottom(forceBottom = false) {
-    if (!forceBottom && isCompactLayout() && inputArea.classList.contains('collapsed')) {
-        chatLog.scrollTo({ top: chatLog.scrollHeight - chatLog.clientHeight - 15, behavior: 'auto' });
-    } else {
-        chatLog.scrollTo({ top: chatLog.scrollHeight, behavior: 'smooth' });
-    }
-}
-
-function renderOpeningPicker(direction = 0) {
-    const hasSuggestions = openingSuggestions.length === 3;
-    openingGenerateBtn.hidden = hasSuggestions;
-    openingGenerateBtn.disabled = openingBusy;
-    openingCarousel.hidden = !hasSuggestions;
-    if (!hasSuggestions) return;
-
-    openingCardText.textContent = openingSuggestions[openingIndex];
-    openingCounter.textContent = t('opening.counter', {
-        current: openingIndex + 1,
-        total: openingSuggestions.length,
-    });
-    openingPrevBtn.disabled = openingBusy || openingIndex === 0;
-    openingNextBtn.disabled = openingBusy || openingIndex === openingSuggestions.length - 1;
-    openingStartBtn.disabled = openingBusy;
-    openingRegenerateBtn.disabled = openingBusy;
-
-    openingDots.replaceChildren(...openingSuggestions.map((_, index) => {
-        const dot = document.createElement('button');
-        dot.type = 'button';
-        dot.className = `opening-dot${index === openingIndex ? ' active' : ''}`;
-        dot.disabled = openingBusy;
-        dot.setAttribute('aria-label', t('opening.option', { number: index + 1 }));
-        dot.setAttribute('aria-current', index === openingIndex ? 'true' : 'false');
-        dot.addEventListener('click', () => showOpening(index));
-        return dot;
-    }));
-
-    openingCard.classList.remove('from-left', 'from-right');
-    if (direction) {
-        void openingCard.offsetWidth;
-        openingCard.classList.add(direction > 0 ? 'from-right' : 'from-left');
-    }
-}
-
-function resetOpeningSuggestions() {
-    openingSuggestions = [];
-    openingIndex = 0;
-    openingBusy = false;
-    openingPointerStartX = null;
-    renderOpeningPicker();
-}
-
-function showOpening(index) {
-    if (openingBusy || index < 0 || index >= openingSuggestions.length || index === openingIndex) {
-        return;
-    }
-    const direction = index > openingIndex ? 1 : -1;
-    openingIndex = index;
-    renderOpeningPicker(direction);
-}
-
-async function generateOpeningSuggestions() {
-    if (!state.sessionId || openingBusy) return;
-    openingBusy = true;
-    renderOpeningPicker();
-    setLoading(true);
-    try {
-        const data = await api.suggestOpenings(state.sessionId);
-        if (!Array.isArray(data.suggestions) || data.suggestions.length !== 3) {
-            throw new Error('Opening suggestions response is invalid');
-        }
-        openingSuggestions = data.suggestions.map((item) => String(item));
-        openingIndex = 0;
-        toast(t('opening.ready'), 'success', 2500);
-    } catch (err) {
-        toast(t('opening.error', { error: err.message }), 'error');
-    } finally {
-        openingBusy = false;
-        setLoading(false);
-        renderOpeningPicker(1);
-    }
-}
-
-async function startWithOpening() {
-    const opening = openingSuggestions[openingIndex];
-    if (!opening || openingBusy || !state.sessionId) return;
-    openingBusy = true;
-    renderOpeningPicker();
-    state.narratorHint = opening;
-    await skipTurn();
-    if (state.lastTurnFailed) {
-        openingBusy = false;
-        renderOpeningPicker();
-    } else {
-        resetOpeningSuggestions();
-    }
-}
-
 function showEmptyState(sessionReady = false) {
     emptyState.classList.toggle('session-ready', sessionReady);
     bindTranslation(emptyKicker, sessionReady ? 'empty.sessionKicker' : 'empty.kicker');
     bindTranslation(emptyPrompt, sessionReady ? 'empty.sessionPrompt' : 'empty.prompt');
     emptyConfigBtn.hidden = sessionReady;
     if (!sessionReady) bindTranslation(emptyConfigBtn, 'sessions.manage');
-    openingStart.hidden = !sessionReady;
-    if (!sessionReady) resetOpeningSuggestions();
-    else renderOpeningPicker();
+    OpeningPicker.setVisible(sessionReady);
     emptyScrollCue.hidden = !sessionReady;
     emptyState.style.display = 'flex';
 }
 
-function expandMobileInput({ focus = true } = {}) {
-    if (!state.sessionId) return;
-    inputArea.classList.remove('collapsed');
-    scrollToBottom(true);
-    // Opening the bar while a suggestion load is still in flight: tell the
-    // player the suggestions are on their way, not lost.
-    if (state.suggestionsLoading) toast(t('suggestion.stillLoading'), 'info', 2500);
-    if (focus && isCompactLayout()) {
-        requestAnimationFrame(() => inputSpeech.focus({ preventScroll: true }));
-    }
-}
-
-/* ── Action popup (undo / retry / force-speaker / suggest) ────────────── */
-function updateActionPopup() {
-    if (actionUndoBtn) actionUndoBtn.style.display = state.canUndo ? '' : 'none';
-    if (actionRetryBtn) actionRetryBtn.style.display = state.lastTurnFailed ? '' : 'none';
-    const hasSession = !!state.sessionId;
-    if (actionSkipBtn) actionSkipBtn.style.display = hasSession ? '' : 'none';
-    if (forceSpeakerSelect) forceSpeakerSelect.style.display = hasSession ? '' : 'none';
-    if (whisperBtn) whisperBtn.style.display = hasSession ? '' : 'none';
-    if (actionSuggestBtn) actionSuggestBtn.style.display = hasSession ? '' : 'none';
-    if (actionHintBtn) actionHintBtn.style.display = hasSession ? '' : 'none';
-    if (actionCompactBtn) actionCompactBtn.style.display = hasSession ? '' : 'none';
-    if (actionRestoreCompactionBtn) {
-        actionRestoreCompactionBtn.style.display = hasSession && state.compactionDepth > 0 ? '' : 'none';
-    }
-    // Hide the popup entirely when there's nothing to show — prevents
-    // an empty bordered box (tiny black dot) from appearing on hover/long-press.
-    if (actionPopup) {
-        actionPopup.style.display = (state.canUndo || state.lastTurnFailed || hasSession) ? '' : 'none';
-    }
-    // Persistent, visible retry affordance mirrors the same failure flag as
-    // the hidden popup entry, so it appears and clears together with it.
-    if (retryBanner) retryBanner.hidden = !state.lastTurnFailed;
-    updateExpandPill();
-}
-
-function hideActionPopup() {
-    if (actionPopup) actionPopup.classList.remove('visible');
-    if (actionPopupSecondary) actionPopupSecondary.classList.remove('open');
-    if (actionExpandMoreBtn) actionExpandMoreBtn.classList.remove('active');
-}
-
-async function skipTurn() {
-    if (!state.sessionId) return;
-    hideActionPopup();
-    setLoading(true, { multiStep: true });  // only a continuation runs several beats
-    clearSuggestions();
-    state.lastTurnFailed = false;
-    updateActionPopup();
-
-    if (isCompactLayout()) {
-        inputArea.classList.add('collapsed');
-        const activeEl = document.activeElement;
-        if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
-            activeEl.blur();
-        }
-    }
-
-    const ac = new AbortController();
-    state.abortController = ac;
-
-    try {
-        let payload = {
-            speech: '',
-            thought: '',
-            action: '',
-            skip: true,
-            narrator_hint: state.narratorHint || undefined,
-            // Single source of truth is the select control; a dead
-            // state.forceSpeaker read here silently dropped the force on
-            // every skip turn (Task 28 regression).
-            force_speaker: (forceSpeakerSelect ? forceSpeakerSelect.value : '') || undefined,
-        };
-        payload = await PluginRuntime.runHook('turn.input', payload, { state });
-        let data = await api.turn(state.sessionId, payload, ac.signal);
-        data = await PluginRuntime.runHook('turn.output', data, { state });
-
-        const historyWasReconciled = await reconcileAutomaticCompaction(data);
-        if (state.debug) refreshDebugLog();
-        if (!historyWasReconciled) {
-            const beats = data.beats || [data];
-            for (const beat of beats) {
-                if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
-                for (const entry of (beat.character_responses || [])) {
-                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
-                }
-            }
-        }
-        if (data.scene_update) {
-            try {
-                const gameState = await api.getState(state.sessionId);
-                renderScene(gameState.scene, Object.keys(data.scene_update));
-            } catch { /* non-critical */ }
-        }
-
-        state.narratorHint = '';
-        state.lastTurnFailed = false;
-        state.canUndo = true;
-        updateActionPopup();
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            toast(t('turn.stopped'), 'info', 2500);
-            state.lastTurnFailed = false;
-        } else {
-            state.lastTurnFailed = true;
-            toast(t('turn.failed', { error: err.message }), 'error', 6000);
-        }
-        updateActionPopup();
-    } finally {
-        state.abortController = null;
-        setLoading(false);
-    }
-}
-
 /* ── Session manager ──────────────────────────────────────────────────── */
-function timeAgo(iso) {
-    if (!iso) return '';
-    const diff = Date.now() - new Date(iso).getTime();
-    const sec = Math.floor(diff / 1000);
-    if (sec < 60) return t('sessions.now');
-    const min = Math.floor(sec / 60);
-    if (min < 60) return t('sessions.minutesAgo', { count: min });
-    const hrs = Math.floor(min / 60);
-    if (hrs < 24) return t('sessions.hoursAgo', { count: hrs });
-    const days = Math.floor(hrs / 24);
-    if (days < 30) return t('sessions.daysAgo', { count: days });
-    return iso.slice(0, 10);
-}
-
-async function openSessionsModal() {
-    sessionsOverlay.classList.add('active');
-    try {
-        const list = await api.listSessions();
-        renderSessionList(list);
-    } catch (err) {
-        toast(t('sessions.listError', { error: err.message }), 'error');
-    }
-}
-
-function closeSessionsModal() {
-    sessionsOverlay.classList.remove('active');
-}
-
-function renderSessionList(sessions) {
-    lastSessionList = sessions;
-    sessionList.innerHTML = '';
-    if (!sessions || sessions.length === 0) {
-        const empty = document.createElement('p');
-        empty.className = 'session-empty';
-        bindTranslation(empty, 'sessions.emptyCreate');
-        sessionList.appendChild(empty);
-        return;
-    }
-    sessions.forEach((s) => {
-        const card = document.createElement('div');
-        card.className = 'session-card';
-        const incompatible = s.compatible === false;
-        if (incompatible) card.classList.add('incompatible');
-        if (s.session_id === state.sessionId) card.classList.add('active');
-
-        const sceneText = s.scene_location || '';
-        const turnText = t('sessions.turns', { count: s.turn_count || 0 });
-        const dateText = timeAgo(s.created_at);
-        const extra = [turnText, dateText].filter(Boolean).join(' · ');
-
-        // Built via createElement/textContent (not innerHTML) so untrusted
-        // fields (character names, scene text) can never be interpreted as
-        // markup — no manual escaping to remember at each interpolation.
-        const info = document.createElement('div');
-        info.className = 'session-info';
-
-        const tagsWrap = document.createElement('div');
-        tagsWrap.className = 'session-char-tags';
-        (s.characters || []).filter((c) => c.name).forEach((c) => {
-            const tag = document.createElement('span');
-            tag.className = 'session-char-tag';
-            tag.textContent = c.name;
-            tagsWrap.appendChild(tag);
-        });
-        info.appendChild(tagsWrap);
-
-        const meta = document.createElement('div');
-        meta.className = 'session-meta';
-        const sceneMetaItem = document.createElement('span');
-        sceneMetaItem.className = 'session-meta-item';
-        sceneMetaItem.textContent = sceneText;
-        meta.appendChild(sceneMetaItem);
-        if (extra) {
-            const extraItem = document.createElement('span');
-            extraItem.className = 'session-meta-item';
-            extraItem.textContent = extra;
-            meta.appendChild(extraItem);
-        }
-        if (incompatible) {
-            const lock = document.createElement('div');
-            lock.className = 'session-incompatible-badge';
-            const symbol = document.createElement('span');
-            symbol.textContent = '⛔';
-            symbol.setAttribute('aria-hidden', 'true');
-            const label = document.createElement('span');
-            bindTranslation(label, 'sessions.incompatible');
-            bindTranslation(card, 'sessions.incompatible', {}, 'title');
-            lock.append(symbol, label);
-            meta.appendChild(lock);
-        }
-        info.appendChild(meta);
-        card.appendChild(info);
-
-        const sceneDiv = document.createElement('div');
-        sceneDiv.className = 'session-scene';
-        sceneDiv.textContent = sceneText;
-        card.appendChild(sceneDiv);
-
-        const actions = document.createElement('div');
-        actions.className = 'session-actions';
-        if (!incompatible) {
-            const forkBtn = document.createElement('button');
-            forkBtn.className = 'session-action-btn';
-            forkBtn.dataset.action = 'fork';
-            bindTranslation(forkBtn, 'sessions.fork', {}, 'title');
-            bindTranslation(forkBtn, 'sessions.fork', {}, 'ariaLabel');
-            forkBtn.textContent = '🔀';
-            actions.append(forkBtn);
-            forkBtn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                card.classList.remove('show-actions');
-                try {
-                    const result = await api.forkSession(s.session_id);
-                    toast(t('sessions.forked', { id: result.session_id }), 'success', 3000);
-                    // Refresh list
-                    const list = await api.listSessions();
-                    renderSessionList(list);
-                } catch (err) {
-                    toast(t('sessions.forkError', { error: err.message }), 'error');
-                }
-            });
-        }
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'session-action-btn danger';
-        deleteBtn.dataset.action = 'delete';
-        bindTranslation(deleteBtn, 'common.delete', {}, 'title');
-        bindTranslation(deleteBtn, 'common.delete', {}, 'ariaLabel');
-        deleteBtn.textContent = '🗑️';
-        actions.append(deleteBtn);
-        card.appendChild(actions);
-
-        // Click to load; incompatible sessions can never be opened again.
-        card.addEventListener('click', (e) => {
-            if (e.target.closest('.session-actions')) return;
-            if (incompatible) {
-                toast(t('sessions.incompatibleToast', { found: s.schema_version }), 'error');
-                return;
-            }
-            loadSession(s.session_id);
-        });
-
-        // Long-press for mobile actions
-        let longTimer = null;
-        card.addEventListener('pointerdown', () => {
-            longTimer = setTimeout(() => card.classList.add('show-actions'), 600);
-        });
-        const clearLongTimer = () => { clearTimeout(longTimer); longTimer = null; };
-        card.addEventListener('pointerup', clearLongTimer);
-        card.addEventListener('pointerleave', clearLongTimer);
-        card.addEventListener('pointercancel', clearLongTimer);
-        card.addEventListener('contextmenu', (e) => { e.preventDefault(); card.classList.toggle('show-actions'); });
-
-        // Action buttons
-        deleteBtn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            card.classList.remove('show-actions');
-            if (!confirm(t('sessions.deleteConfirm', { id: s.session_id }))) return;
-            try {
-                await api.deleteSession(s.session_id);
-                card.remove();
-                toast(t('sessions.deleted'), 'info', 2500);
-                if (s.session_id === state.sessionId) {
-                    // Current session was deleted — reset UI
-                    state.sessionId = null;
-                    state.compactionDepth = 0;
-                    chatLog.innerHTML = '';
-                    chatLog.appendChild(emptyState);
-                    showEmptyState(false);
-                    clearSuggestions();
-                    renderScene({});
-                }
-            } catch (err) {
-                toast(t('sessions.deleteError', { error: err.message }), 'error');
-            }
-        });
-
-        sessionList.appendChild(card);
-    });
-}
-
-/* Clears the chat log and re-renders it from the authoritative backend
-   history — merges the Player's speech, thought, and action of a turn into one bubble
-   (same as the live echo in sendTurn). Used on session load AND after undo,
-   so the DOM never has to guess how many bubbles a turn produced. */
-function renderHistory(history) {
-    resetOpeningSuggestions();
-    chatLog.innerHTML = '';
-    chatLog.appendChild(emptyState);
-    const records = history || [];
-    state.playerHasSpoken = records.some((record) =>
-        record.speaker === 'Player' &&
-        record.content_type === 'speech' &&
-        String(record.content || '').trim()
-    );
-    updateSpeechPlaceholder();
-    if (records.length) emptyState.style.display = 'none';
-    else showEmptyState(true);
-
-    let responseBuffer = null;
-    const flushResponseBuffer = () => {
-        if (!responseBuffer) return;
-        addMessage(responseBuffer.speaker, responseBuffer, 'response', {
-            transformed: responseBuffer.transformed,
-            whisperNames: responseBuffer.audience
-                ? whisperNamesFor(responseBuffer.audience) : '',
-        });
-        responseBuffer = null;
-    };
-    for (const record of records) {
-        const combinable = ['speech', 'thought', 'action'].includes(record.content_type) &&
-            record.speaker !== 'Narrator';
-        if (combinable) {
-            if (!responseBuffer || responseBuffer.turnNumber !== record.turn_number ||
-                responseBuffer.speaker !== record.speaker) {
-                flushResponseBuffer();
-                responseBuffer = {
-                    turnNumber: record.turn_number,
-                    speaker: record.speaker,
-                    speech: null,
-                    thought: null,
-                    action: null,
-                    transformed: false,
-                    audience: null,
-                };
-            }
-            responseBuffer[record.content_type] = record.content;
-            responseBuffer.transformed ||= record.input_transformed === true;
-            if (record.audience != null) responseBuffer.audience = record.audience;
-            continue;
-        }
-        flushResponseBuffer();
-        addMessage(record.speaker, record.content, record.content_type);
-    }
-    flushResponseBuffer();
-}
-
 async function loadSession(sessionId) {
     try {
         state.compactionAbortController?.abort();
-        resetOpeningSuggestions();
+        OpeningPicker.reset();
         let gameState = await api.getState(sessionId);
         gameState = await PluginRuntime.runHook('session.state', gameState, { state });
         clearSuggestions();
-        lastDebugEntries = null;
-        debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
-        translateDocument(debugContent);
+        DebugDrawer.reset();
 
         state.sessionId = sessionId;
         state.lastInputs = null;
@@ -678,109 +216,12 @@ async function loadSession(sessionId) {
             chatLog.scrollTop = chatLog.scrollHeight - chatLog.clientHeight - 15;
         }
 
-        closeSessionsModal();
+        SessionsModal.close();
         toast(t('sessions.loaded', { id: sessionId }), 'success', 2500);
-        showTipBanner();
+        Onboarding.showTipBanner();
     } catch (err) {
         toast(t('sessions.loadError', { error: err.message }), 'error');
     }
-}
-
-async function undoLastTurn() {
-    if (!state.sessionId || !state.canUndo) return;
-    hideActionPopup();
-    setLoading(true);
-    try {
-        const data = await api.undo(state.sessionId);
-        if (!data.undone) { toast(t('turn.noneToUndo'), 'info', 2500); setLoading(false); return; }
-
-        // Re-render from the authoritative history returned by the backend,
-        // instead of guessing how many DOM bubbles the undone step had — a
-        // step can produce fewer than 3 (e.g. no character response), and
-        // removing a fixed count desyncs the DOM from the real state.
-        if (data.state) {
-            const gameState = await PluginRuntime.runHook('session.state', data.state, { state });
-            renderHistory(gameState.history);
-            ingestState(gameState);
-        }
-        state.lastTurnFailed = false;
-        state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
-        updateActionPopup();
-
-        // Restore last player inputs so they can edit and resend
-        if (state.lastInputs) {
-            inputSpeech.value = state.lastInputs.speech || '';
-            inputThought.value = state.lastInputs.thought || '';
-            inputAction.value = state.lastInputs.action || '';
-            if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
-            state.narratorHint = state.lastInputs.narratorHint || '';
-            if (!isCompactLayout()) inputSpeech.focus();
-        }
-
-        toast(t('turn.undone'), 'success', 2000);
-    } catch (err) {
-        toast(t('turn.undoError', { error: err.message }), 'error');
-    } finally {
-        setLoading(false);
-    }
-}
-
-function retryTurn() {
-    if (!state.lastInputs) return;
-    hideActionPopup();
-    // Restore inputs (they may have been cleared on error)
-    inputSpeech.value = state.lastInputs.speech || '';
-    inputThought.value = state.lastInputs.thought || '';
-    inputAction.value = state.lastInputs.action || '';
-    if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
-    state.narratorHint = state.lastInputs.narratorHint || '';
-    sendTurn(true);
-}
-
-function controlledName() {
-    const c = state.characters[state.controlledId];
-    return (c && c.mind && c.mind.name) || t('input.you');
-}
-
-function updateSpeechPlaceholder() {
-    inputSpeech.placeholder = t(
-        state.sessionId && !state.playerHasSpoken
-            ? 'input.speechObserver'
-            : 'input.speech'
-    );
-}
-
-function colorFor(cid) {
-    const idx = state.order.indexOf(cid);
-    return CHAR_COLORS[(idx < 0 ? 0 : idx) % CHAR_COLORS.length];
-}
-
-/* Resolve display info for any speaker id — fully dynamic, no hardcoding. */
-function speakerInfo(speaker) {
-    if (speaker === 'Narrator') {
-        return { label: t('input.narrator'), color: null, initial: '🎭', cls: 'msg-narrator' };
-    }
-    if (speaker === 'Player') {
-        const cid = state.controlledId;
-        return {
-            label: controlledName(),
-            color: colorFor(cid),
-            initial: controlledName().charAt(0).toUpperCase(),
-            cls: 'msg-player',
-            avatar: state.avatarUrls[cid] || '',
-        };
-    }
-    const ch = state.characters[speaker];
-    if (ch) {
-        return {
-            label: ch.mind.name,
-            color: colorFor(speaker),
-            initial: ch.mind.name.charAt(0).toUpperCase(),
-            cls: 'msg-npc',
-            avatar: state.avatarUrls[speaker] || '',
-        };
-    }
-    return { label: speaker, color: null, initial: '💬', cls: 'msg-npc' };
 }
 
 /* ── Render scene ─────────────────────────────────────────────────────── */
@@ -813,427 +254,7 @@ function renderScene(scene, changedKeys = []) {
     });
 }
 
-/* ── Render message ───────────────────────────────────────────────────── */
-/* ── Typewriter reveal (Narrator/Character messages only) ─────────────── */
-const TYPE_MS_PER_CHAR = 6;
-const TYPE_MIN_MS = 220;
-const TYPE_MAX_MS = 1400;
-
-function prefersReducedMotion() {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-/* Reveals `units` (an array of {node, text}, nodes already in the DOM but
-   empty) progressively over a duration proportional to the total text
-   length. Clicking `msg` while revealing skips straight to the full text. */
-function revealTypewriter(msg, units) {
-    const totalLen = units.reduce((sum, u) => sum + u.text.length, 0);
-    if (totalLen === 0) return;
-    const durationMs = Math.min(TYPE_MAX_MS, Math.max(TYPE_MIN_MS, totalLen * TYPE_MS_PER_CHAR));
-
-    let done = false;
-    const start = performance.now();
-
-    function showChars(count) {
-        let remaining = count;
-        for (const u of units) {
-            if (remaining <= 0) { u.node.textContent = ''; continue; }
-            u.node.textContent = u.text.slice(0, remaining);
-            remaining -= u.text.length;
-        }
-    }
-
-    function finish() {
-        if (done) return;
-        done = true;
-        showChars(totalLen);
-        msg.removeEventListener('click', onSkip);
-        scrollToBottom();
-    }
-
-    function onSkip() { finish(); }
-    msg.addEventListener('click', onSkip);
-
-    function tick(now) {
-        if (done) return;
-        const elapsed = now - start;
-        const shown = Math.floor((elapsed / durationMs) * totalLen);
-        if (shown >= totalLen) { finish(); return; }
-        showChars(shown);
-        scrollToBottom();
-        requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-}
-
-function messageSegments(content, contentType) {
-    if (content && typeof content === 'object') {
-        return [
-            content.thought ? { type: 'thought', text: content.thought } : null,
-            content.speech ? { type: 'speech', text: content.speech } : null,
-            content.action ? { type: 'action', text: `🎬 ${content.action}` } : null,
-        ].filter(Boolean);
-    }
-    if (contentType === 'thought') return [{ type: 'thought', text: content }];
-
-    return [{ type: contentType, text: content }];
-}
-
-function addMessage(
-    speaker, content, contentType,
-    { animate = false, transformed = false, whisperNames = '' } = {}
-) {
-    const info = speakerInfo(speaker);
-
-    const msg = document.createElement('div');
-    msg.className = `msg ${info.cls}`;
-
-    const header = document.createElement('div');
-    header.className = 'msg-header';
-    if (info.color) header.style.color = info.color;
-
-    if (info.cls !== 'msg-narrator') {
-        const avatar = document.createElement('span');
-        avatar.className = 'msg-avatar';
-        if (info.avatar) {
-            const image = document.createElement('img');
-            image.src = info.avatar;
-            image.alt = '';
-            avatar.appendChild(image);
-        } else {
-            avatar.textContent = info.initial;
-        }
-        avatar.style.background = info.color
-            ? `${info.color}33` : 'var(--surface-hi)';
-        if (info.color) avatar.style.color = info.color;
-        header.appendChild(avatar);
-    }
-    if (speaker === 'Narrator') {
-        header.appendChild(bindTranslation(document.createElement('span'), 'input.narrator'));
-    } else {
-        header.appendChild(document.createTextNode(info.label));
-    }
-    msg.appendChild(header);
-
-    if (transformed) {
-        const badge = bindTranslation(document.createElement('span'), 'input.adjusted');
-        badge.className = 'msg-transform-badge';
-        header.appendChild(badge);
-        msg.classList.add('msg-transformed');
-    }
-
-    if (whisperNames) {
-        const badge = document.createElement('span');
-        badge.className = 'msg-whisper-badge';
-        badge.textContent = `🤫 ${t('msg.whisperTo')} ${whisperNames}`;
-        header.appendChild(badge);
-        msg.classList.add('msg-whispered');
-    }
-
-    const body = document.createElement('div');
-    body.className = 'msg-content';
-    const shouldType = animate && !prefersReducedMotion();
-
-    const units = [];
-    const segments = messageSegments(content, contentType);
-    segments.forEach((segment, index) => {
-        const isThought = segment.type === 'thought';
-        const text = `${index ? '\n' : ''}${segment.text}`;
-        let node;
-        if (isThought) {
-            node = document.createElement('span');
-            node.className = 'thought';
-        } else {
-            node = document.createTextNode('');
-        }
-        node.textContent = shouldType ? '' : text;
-        body.appendChild(node);
-        units.push({ node, text });
-    });
-    msg.appendChild(body);
-    chatLog.appendChild(msg);
-    resetOpeningSuggestions();
-    emptyState.style.display = 'none';
-    scrollToBottom();
-
-    if (shouldType) revealTypewriter(msg, units);
-    return msg;
-}
-
-function updatePlayerEcho(message, effectiveInput, transformed) {
-    if (!message || !effectiveInput) return;
-    const replacement = addMessage(
-        'Player',
-        buildPlayerEcho(effectiveInput.speech, effectiveInput.thought, effectiveInput.action),
-        'response',
-        { transformed },
-    );
-    message.replaceWith(replacement);
-    state.lastEchoMessage = replacement;
-}
-
-/* Combines the player's speech, thought, and action into the single echo bubble text
-   (used both for the live echo in sendTurn and for replaying history). */
-function buildPlayerEcho(speech, thought, action) {
-    return { speech: speech || null, thought: thought || null, action: action || null };
-}
-
-/* ── Move suggestions ─────────────────────────────────────────────────── */
-/* The pill doubles as a status line for everything folded inside the
-   collapsed bar, by priority: a failed turn, ready suggestions, a suggestion
-   load still in flight, or the plain write invitation. */
-function updateExpandPill() {
-    const label = inputExpandBtn && inputExpandBtn.querySelector('.input-expand-label');
-    if (!label) return;
-    let key = 'input.expand';
-    if (retryBanner && !retryBanner.hidden) key = 'input.expandRetry';
-    else if (optionsPanel.classList.contains('active')) key = 'input.expandSuggestions';
-    else if (state.suggestionsLoading) key = 'input.expandSuggestionsLoading';
-    bindTranslation(label, key);
-}
-
-function setSuggestionsLoading(on) {
-    state.suggestionsLoading = !!on;
-    updateExpandPill();
-}
-
-function clearSuggestions() {
-    optionsPanel.innerHTML = '';
-    optionsPanel.classList.remove('active');
-    updateExpandPill();
-}
-
-function renderSuggestions(suggestions) {
-    optionsPanel.innerHTML = '';
-    if (!suggestions || suggestions.length === 0) {
-        optionsPanel.classList.remove('active');
-        updateExpandPill();
-        return;
-    }
-    optionsPanel.classList.add('active');
-    updateExpandPill();
-
-    suggestions.forEach((s, i) => {
-        const btn = document.createElement('button');
-        btn.className = 'option-btn';
-        btn.style.animationDelay = `${i * 0.06}s`;
-
-        const label = document.createElement('span');
-        label.className = 'opt-label';
-        if (s.speech) label.textContent = s.speech;
-        else bindTranslation(label, 'suggestion.fallback', { number: i + 1 });
-        btn.appendChild(label);
-
-        if (s.action) {
-            const desc = document.createElement('span');
-            desc.className = 'opt-desc';
-            desc.textContent = `🎬 ${s.action}`;
-            btn.appendChild(desc);
-        }
-        // Fills both boxes — does not send on its own, the player confirms on Send.
-        btn.addEventListener('click', () => {
-            inputSpeech.value = s.speech || '';
-            inputThought.value = '';
-            inputAction.value = s.action || '';
-            clearSuggestions();
-            if (!isCompactLayout()) inputSpeech.focus();
-            else expandMobileInput({ focus: false }); // the filled fields must be visible
-        });
-        optionsPanel.appendChild(btn);
-    });
-}
-
-async function suggestForMe() {
-    if (!state.sessionId) return;
-    hideActionPopup();
-    setLoading(true);
-    setSuggestionsLoading(true);
-    try {
-        const data = await api.suggest(state.sessionId);
-        setSuggestionsLoading(false);
-        renderSuggestions(data.suggestions);
-        toast(t('suggestion.ready'), 'success', 2500);
-        // The player asked for these — make sure the bar shows them.
-        if (isCompactLayout()) expandMobileInput({ focus: false });
-    } catch (err) {
-        toast(t('suggestion.error', { error: err.message }), 'error');
-    } finally {
-        setSuggestionsLoading(false);
-        setLoading(false);
-    }
-}
-
-/* ── Narrator hint popup ──────────────────────────────────────────────── */
-function openHintPopup() {
-    hideActionPopup();
-    hintOverlay.classList.add('active');
-    hintTextarea.value = state.narratorHint || '';
-    hintTextarea.focus();
-    refreshHintSendLabel();
-}
-
-let autoSkipOnHintClose = false;
-
-// Opened by the swipe gesture, this button also runs a continuation — several
-// beats of story, not just a queued event. It has to say so, or the gesture
-// silently starts a burst the player never asked for.
-function refreshHintSendLabel() {
-    if (!hintSendBtn) return;
-    bindTranslation(hintSendBtn, autoSkipOnHintClose ? 'hint.sendAndContinue' : 'hint.send');
-}
-
-function closeHintPopup() {
-    hintOverlay.classList.remove('active');
-    autoSkipOnHintClose = false; // Reset if closed via X or click outside
-    refreshHintSendLabel();
-}
-
-function sendHint() {
-    const text = hintTextarea.value.trim();
-    state.narratorHint = text;
-    
-    const shouldSkip = autoSkipOnHintClose;
-    closeHintPopup(); // This resets the flag, so we checked it first
-
-    if (text) {
-        toast(t('hint.queued'), 'info', 2500);
-    }
-    
-    if (shouldSkip && state.sessionId) {
-        skipTurn();
-    }
-}
-
 /* ── Session compaction ───────────────────────────────────────────────── */
-function compactionProgressPercent(event) {
-    const fixed = {
-        checking: 3,
-        before_commit: 88,
-        checkpointing: 93,
-        committing: 97,
-        completed: 100,
-        skipped: 3,
-    };
-    if (event.stage === 'failed') {
-        return Number.parseFloat(compactProgress.style.width) || 0;
-    }
-    if (!['summarizing', 'model_completed'].includes(event.stage)) {
-        return fixed[event.stage] ?? 0;
-    }
-    if (!event.total_units) return 8;
-    return 8 + (event.completed_units / event.total_units) * 76;
-}
-
-function renderCompactionProgress(event) {
-    const percent = Math.max(0, Math.min(100, compactionProgressPercent(event)));
-    compactProgress.style.width = `${percent}%`;
-    if (compactProgressStatus) {
-        compactProgressStatus.textContent = t(`compaction.stage.${event.stage}`, {
-            completed: event.completed_units ?? 0,
-            total: event.total_units ?? 0,
-        });
-    }
-}
-
-function setCompactionBusy(on) {
-    actionCompactBtn.classList.toggle('busy', on);
-    for (const control of [
-        sendBtn,
-        actionUndoBtn,
-        actionRetryBtn,
-        actionSkipBtn,
-        actionSuggestBtn,
-        actionHintBtn,
-        actionRestoreCompactionBtn,
-    ]) {
-        if (control) control.disabled = on;
-    }
-}
-
-async function compactSession() {
-    if (!state.sessionId || !actionCompactBtn || !compactProgress) return;
-    hideActionPopup();
-
-    setCompactionBusy(true);
-    compactProgress.style.width = '0%';
-    const ac = new AbortController();
-    state.compactionAbortController = ac;
-
-    try {
-        const data = await api.compact(
-            state.sessionId,
-            renderCompactionProgress,
-            ac.signal,
-        );
-        if (data.compacted) {
-            toast(
-                t('compaction.done', {
-                    evicted: data.evicted_records,
-                    kept: data.kept_records,
-                }),
-                'success',
-                3500
-            );
-            let gameState = await api.getState(state.sessionId);
-            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-            ingestState(gameState);
-            renderHistory(gameState.history);
-            state.canUndo = !!(gameState.history && gameState.history.length > 0);
-            updateActionPopup();
-        } else {
-            toast(data.reason || t('compaction.none'), 'info', 2500);
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            toast(t('compaction.error', { error: err.message }), 'error');
-        }
-    } finally {
-        state.compactionAbortController = null;
-        setTimeout(() => {
-            setCompactionBusy(false);
-            compactProgress.style.width = '0%';
-            if (compactProgressStatus) compactProgressStatus.textContent = '';
-        }, 400);
-    }
-}
-
-/* ── Undo last compaction ─────────────────────────────────────────────────── */
-// Checkpoints are undone in LIFO order. Turns played after the checkpoint are
-// preserved, while divergent plugin-owned state requires an explicit resolver.
-async function restoreCompaction() {
-    if (!state.sessionId) return;
-    hideActionPopup();
-    const confirmed = confirm(t('compaction.restoreConfirm'));
-    if (!confirmed) return;
-
-    setLoading(true);
-    try {
-        const data = await api.restoreCompaction(state.sessionId);
-        if (data.restored) {
-            toast(
-                t('compaction.restored', {
-                    count: data.restored_records,
-                    depth: data.remaining_compaction_depth,
-                }),
-                'success',
-                3500
-            );
-            let gameState = await api.getState(state.sessionId);
-            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-            ingestState(gameState);
-            renderHistory(gameState.history);
-            state.canUndo = !!(gameState.history && gameState.history.length > 0);
-            updateActionPopup();
-        } else {
-            toast(data.reason || t('compaction.restoreUnavailable'), 'info', 3500);
-        }
-    } catch (err) {
-        toast(t('compaction.restoreError', { error: err.message }), 'error');
-    } finally {
-        setLoading(false);
-    }
-}
-
 function builtinAction(name, icon, scope, title, summary, aliases, keywords, handler, availability = null) {
     registerCoreAction({
         name,
@@ -1253,7 +274,7 @@ function registerBuiltinSlashEntries() {
     builtinAction('help', '◇', 'global', localized('Help', 'Ajuda'),
         localized('Open the Alex Tavern guides.', 'Abra os guias do Alex Tavern.'),
         terms([], ['ajuda']), terms(['guide', 'shortcuts'], ['guia', 'atalhos']),
-        () => setHelp(true));
+        () => Onboarding.setHelp(true));
     builtinAction('plugins', '✦', 'global', localized('Plugins', 'Plugins'),
         localized('Open Experiences and active plugins.', 'Abra Experiences e plugins ativos.'),
         terms(), terms(['extensions', 'experiences'], ['extensoes', 'experiencias']),
@@ -1265,7 +286,7 @@ function registerBuiltinSlashEntries() {
     builtinAction('sessions', '▤', 'global', localized('Sessions', 'Sessões'),
         localized('Open, fork, or delete adventures.', 'Abra, bifurque ou apague aventuras.'),
         terms([], ['sessoes']), terms(['adventures', 'history'], ['aventuras', 'historico']),
-        openSessionsModal);
+        SessionsModal.open);
     builtinAction('new', '＋', 'global', localized('New adventure', 'Nova aventura'),
         localized('Prepare a new adventure.', 'Prepare uma nova aventura.'),
         terms([], ['novo']), terms(['start', 'create'], ['iniciar', 'criar']),
@@ -1286,11 +307,11 @@ function registerBuiltinSlashEntries() {
         terms([], ['pular']), terms(['pass', 'continue'], ['passar', 'continuar']), skipTurn);
     builtinAction('compact', '🗜', 'session', localized('Compact history', 'Compactar histórico'),
         localized('Summarize older events into memory.', 'Resuma eventos antigos na memória.'),
-        terms([], ['compactar']), terms(['summarize', 'memory'], ['resumir', 'memoria']), compactSession);
+        terms([], ['compactar']), terms(['summarize', 'memory'], ['resumir', 'memoria']), Compaction.compactSession);
     builtinAction('restore', '🧯', 'session', localized('Restore compaction', 'Restaurar compactação'),
         localized('Undo the latest compaction checkpoint.', 'Desfaça o checkpoint de compactação mais recente.'),
         terms([], ['restaurar']), terms(['checkpoint', 'uncompact'], ['checkpoint', 'descompactar']),
-        restoreCompaction, (context) => context.compactionDepth > 0 || t('commands.noCheckpoint'));
+        Compaction.restoreCompaction, (context) => context.compactionDepth > 0 || t('commands.noCheckpoint'));
 
     registerCoreCommandResultRenderer('core/completion', async () => {});
     registerCoreCommandResultRenderer('core/character-preset-draft', async (result, context) => {
@@ -1301,234 +322,6 @@ function registerBuiltinSlashEntries() {
     });
 }
 
-/* ── Debug drawer ─────────────────────────────────────────────────────── */
-function messagesToText(messages) {
-    return (messages || [])
-        .map((m) => `[${m.role.toUpperCase()}]\n${m.content}`)
-        .join('\n\n');
-}
-
-function makeCopyBtn(getText) {
-    const btn = document.createElement('button');
-    btn.className = 'copy-btn';
-    bindTranslation(btn, 'debug.copy');
-    btn.addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(getText());
-            btn.textContent = `✓ ${t('debug.copied')}`;
-            btn.classList.add('copied');
-            setTimeout(() => { bindTranslation(btn, 'debug.copy'); btn.classList.remove('copied'); }, 1500);
-        } catch {
-            toast(t('debug.copyError'), 'error');
-        }
-    });
-    return btn;
-}
-
-function renderDebugBlock(title, messages, raw) {
-    const block = document.createElement('div');
-    block.className = 'debug-block';
-
-    const head = document.createElement('div');
-    head.className = 'debug-block-head';
-    head.appendChild(document.createTextNode(title));
-    const allText = () =>
-        `${messagesToText(messages)}${raw != null ? `\n\n[RAW RESPONSE]\n${raw}` : ''}`;
-    head.appendChild(makeCopyBtn(allText));
-    block.appendChild(head);
-
-    const pre = document.createElement('div');
-    pre.className = 'debug-pre';
-    (messages || []).forEach((m) => {
-        const role = document.createElement('div');
-        role.className = 'debug-role';
-        role.textContent = m.role;
-        pre.appendChild(role);
-        pre.appendChild(document.createTextNode(m.content));
-    });
-    if (raw != null) {
-        const role = document.createElement('div');
-        role.className = 'debug-role';
-        role.textContent = 'raw response';
-        pre.appendChild(role);
-        pre.appendChild(document.createTextNode(raw));
-    }
-    block.appendChild(pre);
-    return block;
-}
-
-/* Raw sequential log of all LLM calls for the session. */
-function renderRawLog(entries) {
-    lastDebugEntries = entries;
-    debugContent.innerHTML = '';
-    if (!entries || entries.length === 0) {
-        debugContent.innerHTML =
-            '<p class="debug-placeholder" data-i18n="debug.noCalls"></p>';
-        translateDocument(debugContent);
-        return;
-    }
-    entries.forEach((e) => {
-        try {
-            const metrics = e.duration_ms != null
-                ? t('debug.logMetrics', { attempt: e.attempt_number || 1, duration: e.duration_ms })
-                : '';
-            const title = t('debug.logTitle', {
-                turn: e.turn_number,
-                agent: e.agent,
-                error: e.error ? t('debug.logErrorSuffix') : '',
-                metrics,
-            });
-            const messages = (e.request && e.request.messages) || [];
-            let raw;
-            if (e.agent === 'turn_input') {
-                raw = `[TURN INPUT]\n${JSON.stringify({
-                    input: e.input,
-                }, null, 2)}`;
-            } else if (e.agent === 'turn_input_effective') {
-                raw = `[EFFECTIVE TURN INPUT]\n${JSON.stringify({
-                    input: e.input,
-                    effective_force_speaker: e.effective_force_speaker,
-                    transformed_fields: e.transformed_fields,
-                }, null, 2)}`;
-            } else if (e.error) {
-                raw = `[${e.error_type || 'ERROR'}] ${e.error}\n${e.error_repr || ''}`.trim();
-            } else if (e.agent === 'compact' || e.agent === 'restore' || e.agent === 'undo') {
-                raw = `[${e.agent.toUpperCase()}]\n${JSON.stringify(e.details || {}, null, 2)}`;
-            } else {
-                raw = typeof e.response === 'string' ? e.response : JSON.stringify(e.response, null, 2);
-            }
-            debugContent.appendChild(renderDebugBlock(title, messages, raw));
-        } catch (err) {
-            debugContent.appendChild(renderDebugBlock('Error rendering entry', [], String(err.stack || err)));
-        }
-    });
-}
-
-async function refreshDebugLog() {
-    if (!state.sessionId) return;
-    try {
-        const entries = await api.getDebugLog(state.sessionId);
-        renderRawLog(entries);
-    } catch (err) {
-        toast(t('debug.logError', { error: err.message }), 'error');
-    }
-}
-
-async function previewPrompt() {
-    if (!state.sessionId) { toast(t('debug.startFirst'), 'error'); return; }
-    try {
-        const entries = await api.getDebugLog(state.sessionId);
-        debugContent.innerHTML = '';
-        lastDebugEntries = entries;
-        // Find the last narrator call from the JSONL log
-        const lastNarrator = [...(entries || [])].reverse().find(
-            (e) => e.agent === 'narrator' && e.request && e.request.messages
-        );
-        if (lastNarrator) {
-            const messages = lastNarrator.request.messages;
-            const raw = lastNarrator.response;
-            const title = t('debug.logTitle', {
-                turn: lastNarrator.turn_number,
-                agent: 'narrator',
-                error: '',
-                metrics: lastNarrator.duration_ms != null
-                    ? t('debug.logMetrics', { attempt: lastNarrator.attempt_number || 1, duration: lastNarrator.duration_ms })
-                    : '',
-            });
-            debugContent.appendChild(renderDebugBlock(title, messages, raw));
-            toast(t('debug.previewReady'), 'success', 2500);
-        } else {
-            debugContent.innerHTML = '<p class="debug-placeholder" data-i18n="debug.noCalls"></p>';
-            translateDocument(debugContent);
-            toast(t('debug.previewError', { error: 'No narrator call found' }), 'info', 2500);
-        }
-    } catch (err) {
-        toast(t('debug.previewError', { error: err.message }), 'error');
-    }
-}
-
-function populateForceSpeakerOptions() {
-    if (!forceSpeakerSelect) return;
-    const current = forceSpeakerSelect.value;
-    forceSpeakerSelect.innerHTML = '<option value="" data-i18n="action.automatic"></option>';
-    translateDocument(forceSpeakerSelect);
-    for (const cid of state.order) {
-        const ch = state.characters[cid];
-        if (!ch) continue;
-        const opt = document.createElement('option');
-        opt.value = cid;
-        opt.textContent = ch.mind.name;
-        forceSpeakerSelect.appendChild(opt);
-    }
-    const narratorOpt = document.createElement('option');
-    narratorOpt.value = 'Narrator';
-    narratorOpt.textContent = `🎭 ${t('input.narrator')}`;
-    forceSpeakerSelect.appendChild(narratorOpt);
-    if ([...forceSpeakerSelect.options].some((o) => o.value === current)) {
-        forceSpeakerSelect.value = current;
-    }
-    populateWhisperOptions();
-}
-
-/* ── Whisper (audience) control — Task 30 ─────────────────────────────── */
-
-function populateWhisperOptions() {
-    if (!whisperPopup) return;
-    const previous = new Set(getWhisperAudience());
-    whisperPopup.innerHTML = '';
-    const title = bindTranslation(document.createElement('div'), 'action.whisperHeading');
-    title.className = 'whisper-popup-title';
-    whisperPopup.appendChild(title);
-    for (const cid of state.order) {
-        if (cid === state.controlledId) continue;
-        const ch = state.characters[cid];
-        if (!ch) continue;
-        const label = document.createElement('label');
-        label.className = 'whisper-option';
-        const box = document.createElement('input');
-        box.type = 'checkbox';
-        box.value = cid;
-        box.checked = previous.has(cid);
-        box.addEventListener('change', updateWhisperButton);
-        label.appendChild(box);
-        label.appendChild(document.createTextNode(` ${ch.mind.name}`));
-        whisperPopup.appendChild(label);
-    }
-    updateWhisperButton();
-}
-
-function getWhisperAudience() {
-    if (!whisperPopup) return [];
-    return [...whisperPopup.querySelectorAll('input:checked')].map((box) => box.value);
-}
-
-function clearWhisperSelection() {
-    if (!whisperPopup) return;
-    for (const box of whisperPopup.querySelectorAll('input:checked')) box.checked = false;
-    whisperPopup.hidden = true;
-    updateWhisperButton();
-}
-
-function updateWhisperButton() {
-    if (!whisperBtn) return;
-    const count = getWhisperAudience().length;
-    whisperBtn.classList.toggle('whisper-active', count > 0);
-    whisperBtn.textContent = count > 0 ? `🤫${count}` : '🤫';
-}
-
-function whisperNamesFor(ids) {
-    return (ids || [])
-        .map((cid) => state.characters[cid]?.mind?.name || cid)
-        .join(', ');
-}
-
-if (whisperBtn) {
-    whisperBtn.addEventListener('click', () => {
-        whisperPopup.hidden = !whisperPopup.hidden;
-    });
-}
-
-/* ── Session lifecycle ────────────────────────────────────────────────── */
 function ingestState(gameState) {
     if (!gameState) return;
     state.characters = gameState.characters || {};
@@ -1540,6 +333,29 @@ function ingestState(gameState) {
     if (gameState.scene) renderScene(gameState.scene);
     populateForceSpeakerOptions();
     updateActionPopup();
+}
+
+/* Re-read the session from the backend and redraw everything that depends on
+   it. The backend is authoritative after any operation that rewrites history —
+   compaction, checkpoint restore, undo — so the view never patches its own
+   guess of what changed. */
+async function reloadView() {
+    let gameState = await api.getState(state.sessionId);
+    gameState = await PluginRuntime.runHook('session.state', gameState, { state });
+    ingestState(gameState);
+    renderHistory(gameState.history);
+    state.canUndo = !!(gameState.history && gameState.history.length > 0);
+    updateActionPopup();
+}
+
+/* Everything that submits or alters a turn, disabled as one group while a
+   long backend operation owns the session. */
+function setTurnControlsDisabled(on) {
+    for (const control of [
+        sendBtn, actionUndoBtn, actionRetryBtn, actionSkipBtn, actionSuggestBtn, actionHintBtn,
+    ]) {
+        control.disabled = on;
+    }
 }
 
 async function hydrateAvatarUrls(gameState) {
@@ -1556,18 +372,15 @@ async function hydrateAvatarUrls(gameState) {
 
 async function startSession(cfg) {
     state.compactionAbortController?.abort();
-    resetOpeningSuggestions();
+    OpeningPicker.reset();
     // reset the view
     chatLog.innerHTML = '';
     chatLog.appendChild(emptyState);
     showEmptyState(false);
     clearSuggestions();
-    lastDebugEntries = null;
+    DebugDrawer.reset();
     sceneTags.innerHTML = '';
     sceneLocation.textContent = '';
-    debugContent.innerHTML =
-        '<p class="debug-placeholder" data-i18n="debug.shortInstructions"></p>';
-    translateDocument(debugContent);
 
     setLoading(true);
     try {
@@ -1589,7 +402,7 @@ async function startSession(cfg) {
         bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
         if (!isCompactLayout()) inputSpeech.focus();
         toast(t('turn.started', { name: controlledName() }), 'success', 2500);
-        showTipBanner();
+        Onboarding.showTipBanner();
     } catch (err) {
         toast(t('turn.startError', { error: err.message }), 'error');
         showEmptyState(Boolean(state.sessionId));
@@ -1597,449 +410,6 @@ async function startSession(cfg) {
         setLoading(false);
     }
 }
-
-async function reconcileAutomaticCompaction(data) {
-    const result = data?.automatic_compaction;
-    if (!result) return false;
-    if (result.compacted) {
-        let gameState = await api.getState(state.sessionId);
-        gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-        ingestState(gameState);
-        renderHistory(gameState.history);
-        toast(
-            t('compaction.automaticDone', { count: result.evicted_records }),
-            'info',
-            3500,
-        );
-        return true;
-    }
-    if (result.status === 'blocked_by_retention_window') {
-        toast(t('compaction.automaticBlocked'), 'info', 3000);
-    } else if (result.status === 'failed') {
-        toast(t('compaction.automaticFailed'), 'error', 4500);
-    }
-    return false;
-}
-
-async function sendTurn(isRetry = false) {
-    if (!state.sessionId) return;
-    if (!isRetry && await SlashCommands.interceptSend()) return;
-    const speech = inputSpeech.value.trim();
-    const thought = inputThought.value.trim();
-    const action = inputAction.value.trim();
-    const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
-    const whisperAudience = getWhisperAudience();
-    if (!speech && !thought && !action && !state.narratorHint) {
-        toast(t('action.inputRequired'), 'info', 2500);
-        return;
-    }
-    if (whisperAudience.length && !speech && !action) {
-        toast(t('action.whisperNeedsContent'), 'info', 3000);
-        return;
-    }
-
-    // Save inputs for potential retry
-    state.lastInputs = { speech, thought, action, forceSpeaker, narratorHint: state.narratorHint };
-
-    if (isCompactLayout()) {
-        inputArea.classList.add('collapsed');
-        // Blur inputs to close the mobile keyboard
-        const activeEl = document.activeElement;
-        if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
-            activeEl.blur();
-        }
-    }
-
-    // Echo the player's own input as a bubble (skip on retry to avoid duplicates)
-    if (!isRetry) {
-        state.lastEchoMessage = addMessage(
-            'Player', buildPlayerEcho(speech, thought, action), 'response',
-            { whisperNames: whisperAudience.length ? whisperNamesFor(whisperAudience) : '' }
-        );
-    }
-
-    setLoading(true);
-    clearSuggestions();
-    state.lastTurnFailed = false;
-    updateActionPopup();
-
-    // Create AbortController for stop button
-    const ac = new AbortController();
-    state.abortController = ac;
-
-    try {
-        let payload = {
-            speech: speech || '',
-            thought: thought || '',
-            action: action || '',
-            force_speaker: forceSpeaker || undefined,
-            narrator_hint: state.narratorHint || undefined,
-            audience: whisperAudience.length ? whisperAudience : undefined,
-        };
-        payload = await PluginRuntime.runHook('turn.input', payload, { state });
-        let data = await api.turn(state.sessionId, payload, ac.signal);
-        data = await PluginRuntime.runHook('turn.output', data, { state });
-
-        const historyWasReconciled = await reconcileAutomaticCompaction(data);
-        if (!historyWasReconciled) {
-            updatePlayerEcho(
-                state.lastEchoMessage,
-                data.effective_input,
-                Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
-            );
-        } else {
-            state.lastEchoMessage = null;
-        }
-
-        if (String(data.effective_input?.speech || '').trim()) {
-            state.playerHasSpoken = true;
-            updateSpeechPlaceholder();
-        }
-
-        if (state.debug) refreshDebugLog();
-
-        if (!historyWasReconciled) {
-            const beats = data.beats || [data];
-            for (const beat of beats) {
-                if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
-                for (const entry of (beat.character_responses || [])) {
-                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
-                }
-            }
-        }
-
-        if (data.scene_update) {
-            try {
-                const gameState = await api.getState(state.sessionId);
-                renderScene(gameState.scene, Object.keys(data.scene_update));
-            } catch { /* scene refresh is non-critical */ }
-        }
-
-        inputSpeech.value = '';
-        inputThought.value = '';
-        inputAction.value = '';
-        state.narratorHint = '';
-        if (!isCompactLayout()) inputSpeech.focus();
-        state.lastTurnFailed = false;
-        state.canUndo = true;
-        clearWhisperSelection();
-        updateActionPopup();
-    } catch (err) {
-        try {
-            let gameState = await api.getState(state.sessionId);
-            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-            ingestState(gameState);
-            renderHistory(gameState.history);
-        } catch { /* best-effort reconciliation after an ambiguous turn failure */ }
-        if (err.name === 'AbortError') {
-            // User pressed stop — don't treat as failure, keep inputs
-            toast(t('turn.stopped'), 'info', 2500);
-            state.lastTurnFailed = false;
-        } else {
-            state.lastTurnFailed = true;
-            // Keep inputs in fields so user can edit and retry
-            toast(t('turn.failed', { error: err.message }), 'error', 6000);
-        }
-        updateActionPopup();
-    } finally {
-        state.abortController = null;
-        setLoading(false);
-    }
-}
-
-/* ── Event wiring ─────────────────────────────────────────────────────── */
-sendBtn.addEventListener('click', (e) => {
-    // If popup was opened via long-press, close it instead of sending
-    if (actionPopup && actionPopup.classList.contains('visible')) {
-        hideActionPopup();
-        return;
-    }
-    sendTurn();
-});
-
-// Long-press / hover for action popup
-let longPressTimer = null;
-const LONG_PRESS_MS = 600;
-
-function showActionPopup() {
-    if (!state.canUndo && !state.lastTurnFailed && !state.sessionId) return;
-    if (actionPopup) actionPopup.classList.add('visible');
-}
-function cancelLongPress() {
-    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-}
-
-sendBtn.addEventListener('pointerdown', () => {
-    cancelLongPress();
-    longPressTimer = setTimeout(() => showActionPopup(), LONG_PRESS_MS);
-});
-sendBtn.addEventListener('pointerup', cancelLongPress);
-sendBtn.addEventListener('pointerleave', cancelLongPress);
-sendBtn.addEventListener('pointercancel', cancelLongPress);
-// Prevent text selection context menu on long-press for ALL icon/action buttons
-document.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('button')) e.preventDefault();
-});
-
-// Hide popup when clicking outside
-document.addEventListener('click', (e) => {
-    if (actionPopup && !actionPopup.contains(e.target) && e.target !== sendBtn) {
-        hideActionPopup();
-    }
-});
-
-// Undo / retry button clicks
-if (actionUndoBtn) actionUndoBtn.addEventListener('click', undoLastTurn);
-if (actionRetryBtn) actionRetryBtn.addEventListener('click', retryTurn);
-if (retryBannerBtn) retryBannerBtn.addEventListener('click', retryTurn);
-if (actionSkipBtn) actionSkipBtn.addEventListener('click', skipTurn);
-if (actionExpandMoreBtn && actionPopupSecondary) {
-    actionExpandMoreBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        actionPopupSecondary.classList.toggle('open');
-        actionExpandMoreBtn.classList.toggle('active');
-    });
-}
-if (actionSuggestBtn) actionSuggestBtn.addEventListener('click', suggestForMe);
-if (actionHintBtn) actionHintBtn.addEventListener('click', openHintPopup);
-if (actionCompactBtn) actionCompactBtn.addEventListener('click', compactSession);
-if (actionRestoreCompactionBtn) actionRestoreCompactionBtn.addEventListener('click', restoreCompaction);
-
-// Hint popup events
-if (hintCloseBtn) hintCloseBtn.addEventListener('click', closeHintPopup);
-if (hintSendBtn) hintSendBtn.addEventListener('click', sendHint);
-if (hintOverlay) hintOverlay.addEventListener('click', (e) => {
-    if (e.target === hintOverlay) closeHintPopup();
-});
-
-// Empty-session opening picker. Generation is ephemeral; confirmation reuses
-// the existing hint + skip path without a second turn implementation.
-if (openingGenerateBtn) openingGenerateBtn.addEventListener('click', generateOpeningSuggestions);
-if (openingRegenerateBtn) openingRegenerateBtn.addEventListener('click', generateOpeningSuggestions);
-if (openingStartBtn) openingStartBtn.addEventListener('click', startWithOpening);
-if (openingPrevBtn) openingPrevBtn.addEventListener('click', () => showOpening(openingIndex - 1));
-if (openingNextBtn) openingNextBtn.addEventListener('click', () => showOpening(openingIndex + 1));
-if (openingCarousel) openingCarousel.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        showOpening(openingIndex - 1);
-    } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        showOpening(openingIndex + 1);
-    }
-});
-if (openingCard) {
-    openingCard.addEventListener('pointerdown', (e) => {
-        openingPointerStartX = e.clientX;
-    });
-    openingCard.addEventListener('pointerup', (e) => {
-        if (openingPointerStartX == null) return;
-        const distance = e.clientX - openingPointerStartX;
-        openingPointerStartX = null;
-        if (Math.abs(distance) < 45) return;
-        showOpening(openingIndex + (distance < 0 ? 1 : -1));
-    });
-    openingCard.addEventListener('pointercancel', () => {
-        openingPointerStartX = null;
-    });
-}
-
-// Stop button — abort current turn
-if (stopBtn) stopBtn.addEventListener('click', () => {
-    if (state.abortController) state.abortController.abort();
-});
-
-inputAction.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTurn(); }
-});
-inputSpeech.addEventListener('keydown', (e) => {
-    if (SlashCommands.handleKeydown(e)) return;
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputThought.focus(); }
-});
-inputThought.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); inputAction.focus(); }
-});
-
-if (inputExpandBtn) {
-    inputExpandBtn.addEventListener('click', () => {
-        expandMobileInput();
-    });
-}
-
-let touchStartX = 0;
-let touchStartY = 0;
-let isSwipingX = false;
-let isSwipingY = false;
-const inputFieldsContainer = document.getElementById('input-fields-container');
-
-inputArea.addEventListener('touchstart', (e) => {
-    if (!isCompactLayout()) return;
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-    isSwipingX = false;
-    isSwipingY = false;
-    inputFieldsContainer.style.transition = 'none';
-    // Suggestions and the retry banner live inside the bar — drag them along.
-    optionsPanel.style.transition = 'none';
-    if (retryBanner) retryBanner.style.transition = 'none';
-    if (inputExpandBtn) {
-        inputExpandBtn.style.transition = 'none';
-        const labelEl = inputExpandBtn.querySelector('.input-expand-label');
-        const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
-        const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
-        if (labelEl) labelEl.style.transition = 'none';
-        if (actionLeftEl) actionLeftEl.style.transition = 'none';
-        if (actionRightEl) actionRightEl.style.transition = 'none';
-    }
-}, { passive: true });
-
-inputArea.addEventListener('touchmove', (e) => {
-    if (!isCompactLayout() || !touchStartX || !touchStartY) return;
-    const diffX = e.touches[0].clientX - touchStartX;
-    const diffY = e.touches[0].clientY - touchStartY;
-
-    if (!isSwipingX && !isSwipingY) {
-        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
-            isSwipingX = true;
-        } else if (Math.abs(diffY) > 10) {
-            isSwipingY = true;
-        }
-    }
-
-    if (isSwipingX) {
-        e.preventDefault();
-        const threshold = window.innerWidth * 0.5;
-        const dampen = 0.4;
-        const moveX = diffX * dampen;
-        
-        inputFieldsContainer.style.transform = `translateX(${moveX}px)`;
-        optionsPanel.style.transform = `translateX(${moveX}px)`;
-        if (retryBanner) retryBanner.style.transform = `translateX(${moveX}px)`;
-        if (inputExpandBtn) {
-            inputExpandBtn.style.transform = `translateX(${moveX}px)`;
-            
-            // Crossfade label and action based on swipe distance
-            const progress = Math.min(1, Math.abs(diffX) / (threshold * 0.6));
-            const labelEl = inputExpandBtn.querySelector('.input-expand-label');
-            const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
-            const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
-            
-            if (labelEl) {
-                labelEl.style.opacity = 1 - progress;
-            }
-            if (diffX > 0) {
-                // Swiping Right -> Undo
-                if (actionRightEl) {
-                    actionRightEl.style.opacity = progress;
-                    actionRightEl.style.transform = `translateY(-50%) translateX(${15 * (1 - progress)}px)`;
-                }
-                if (actionLeftEl) {
-                    actionLeftEl.style.opacity = 0;
-                }
-            } else {
-                // Swiping Left -> Suggestion/Hint
-                if (actionLeftEl) {
-                    actionLeftEl.style.opacity = progress;
-                    actionLeftEl.style.transform = `translateY(-50%) translateX(${-15 * (1 - progress)}px)`;
-                }
-                if (actionRightEl) {
-                    actionRightEl.style.opacity = 0;
-                }
-            }
-        }
-
-        // Liquid gradient effect on the stationary parent
-        const percent = Math.min(100, (Math.abs(diffX) / threshold) * 100);
-        if (diffX > 0) {
-            // Swiping Right -> Undo (Blue)
-            inputArea.style.background = `linear-gradient(to right, rgba(0, 150, 255, 0.4) ${percent}%, transparent ${percent + 20}%)`;
-        } else {
-            // Swiping Left -> Suggestion (Orange)
-            inputArea.style.background = `linear-gradient(to left, rgba(255, 150, 0, 0.4) ${percent}%, transparent ${percent + 20}%)`;
-        }
-    }
-}, { passive: false });
-
-inputArea.addEventListener('touchend', (e) => {
-    if (!isCompactLayout() || !touchStartX || !touchStartY) return;
-    const diffX = e.changedTouches[0].clientX - touchStartX;
-    const diffY = e.changedTouches[0].clientY - touchStartY;
-
-    inputFieldsContainer.style.transition = 'transform 0.3s ease';
-    optionsPanel.style.transition = 'transform 0.3s ease';
-    if (retryBanner) retryBanner.style.transition = 'transform 0.3s ease';
-    if (inputExpandBtn) {
-        inputExpandBtn.style.transition = 'transform 0.3s ease';
-        const labelEl = inputExpandBtn.querySelector('.input-expand-label');
-        const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
-        const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
-        if (labelEl) {
-            labelEl.style.transition = 'opacity 0.3s ease';
-            labelEl.style.opacity = '';
-        }
-        if (actionLeftEl) {
-            actionLeftEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            actionLeftEl.style.opacity = '';
-            actionLeftEl.style.transform = '';
-        }
-        if (actionRightEl) {
-            actionRightEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            actionRightEl.style.opacity = '';
-            actionRightEl.style.transform = '';
-        }
-    }
-    inputArea.style.transition = 'background 0.3s ease';
-    
-    inputFieldsContainer.style.transform = '';
-    optionsPanel.style.transform = '';
-    if (retryBanner) retryBanner.style.transform = '';
-    if (inputExpandBtn) inputExpandBtn.style.transform = '';
-    inputArea.style.background = '';
-
-    setTimeout(() => {
-        inputFieldsContainer.style.transition = '';
-        optionsPanel.style.transition = '';
-        if (retryBanner) retryBanner.style.transition = '';
-        if (inputExpandBtn) {
-            inputExpandBtn.style.transition = '';
-            const labelEl = inputExpandBtn.querySelector('.input-expand-label');
-            const actionLeftEl = inputExpandBtn.querySelector('.input-expand-action-left');
-            const actionRightEl = inputExpandBtn.querySelector('.input-expand-action-right');
-            if (labelEl) labelEl.style.transition = '';
-            if (actionLeftEl) actionLeftEl.style.transition = '';
-            if (actionRightEl) actionRightEl.style.transition = '';
-        }
-        inputArea.style.transition = '';
-    }, 300);
-
-    if (isSwipingX) {
-        const threshold = window.innerWidth * 0.5;
-        if (diffX > threshold) {
-            if (state.canUndo) undoLastTurn();
-            else toast('Nothing to undo', 'info', 2000);
-        } else if (diffX < -threshold) {
-            if (state.sessionId) {
-                autoSkipOnHintClose = true;
-                openHintPopup();  // labels its button as a continuation
-            }
-        }
-    } else if (isSwipingY || (!isSwipingX && Math.abs(diffY) > 30)) {
-        if (diffY > 30) {
-            const activeEl = document.activeElement;
-            if (activeEl === inputSpeech || activeEl === inputThought || activeEl === inputAction) {
-                activeEl.blur();
-            }
-            inputArea.classList.add('collapsed');
-        } else if (diffY < -30) {
-            expandMobileInput({ focus: false });
-        }
-    }
-    
-    touchStartX = 0;
-    touchStartY = 0;
-    isSwipingX = false;
-    isSwipingY = false;
-});
 
 // Push messages up when the input area expands (chatLog shrinks)
 let prevChatLogHeight = chatLog.clientHeight;
@@ -2080,21 +450,12 @@ chatLog.addEventListener('scroll', () => {
 });
 
 // Sessions button — open sessions modal
-if (sessionsBtn) sessionsBtn.addEventListener('click', openSessionsModal);
-if (sessionsCloseBtn) sessionsCloseBtn.addEventListener('click', closeSessionsModal);
-if (sessionsNewBtn) sessionsNewBtn.addEventListener('click', () => {
-    closeSessionsModal();
-    Setup.open();
-});
-sessionsOverlay.addEventListener('click', (e) => {
-    if (e.target === sessionsOverlay) closeSessionsModal();
-});
 settingsBtn.addEventListener('click', () => {
     Setup.open();
 });
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
     if (state.sessionId) expandMobileInput();
-    else openSessionsModal();
+    else SessionsModal.open();
 });
 
 if (interfaceLanguage) {
@@ -2102,171 +463,14 @@ if (interfaceLanguage) {
     interfaceLanguage.addEventListener('change', () => setLocale(interfaceLanguage.value));
     onLocaleChange((locale) => {
         interfaceLanguage.value = locale;
-        if (lastSessionList) renderSessionList(lastSessionList);
-        if (lastDebugEntries) renderRawLog(lastDebugEntries);
-        renderOpeningPicker();
+        SessionsModal.retranslate();
+        DebugDrawer.retranslate();
+        OpeningPicker.render();
         updateSpeechPlaceholder();
         if (state.sessionId) {
             bindTranslation(inputAction, 'input.actionAs', { name: controlledName() }, 'placeholder');
             populateForceSpeakerOptions();
         }
-    });
-}
-
-function setDebug(on) {
-    state.debug = on;
-    debugToggle.checked = on;
-    debugDrawer.classList.toggle('active', on);
-    if (on) refreshDebugLog();
-}
-debugToggle.addEventListener('change', () => setDebug(debugToggle.checked));
-if (debugCloseBtn) debugCloseBtn.addEventListener('click', () => setDebug(false));
-if (debugRefreshBtn) debugRefreshBtn.addEventListener('click', refreshDebugLog);
-
-previewBtn.addEventListener('click', previewPrompt);
-
-/* ── Help & Guides ────────────────────────────────────────────────────── */
-function setHelp(on) {
-    helpDrawer.classList.toggle('active', on);
-    if (on) {
-        setDebug(false);
-        showHelpMenu();
-    }
-}
-
-function showHelpMenu() {
-    helpMenuView.classList.add('active');
-    helpMenuView.classList.remove('active-left');
-    helpArticleView.classList.remove('active');
-}
-
-async function showHelpArticle(topic) {
-    helpMenuView.classList.add('active-left');
-    helpArticleView.classList.add('active');
-    helpArticleContent.innerHTML = '<p class="debug-placeholder">Loading guide...</p>';
-    
-    const locale = getLocale() || 'en';
-    try {
-        let res = await fetch(`help/${locale}/${topic}.md`);
-        if (!res.ok) {
-            // Fallback to English if the localized version fails
-            res = await fetch(`help/en/${topic}.md`);
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const mdText = await res.text();
-        helpArticleContent.innerHTML = parseMarkdown(mdText);
-    } catch (err) {
-        helpArticleContent.innerHTML = `<p class="debug-placeholder" style="color: var(--accent);">Failed to load guide: ${err.message}</p>`;
-    }
-}
-
-function parseMarkdown(text) {
-    const lines = text.split('\n');
-    let inList = false;
-    const result = [];
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const trimmed = line.trim();
-        
-        if (trimmed.startsWith('- ')) {
-            if (!inList) {
-                result.push('<ul>');
-                inList = true;
-            }
-            const content = parseInlineMarkdown(trimmed.substring(2));
-            result.push(`<li>${content}</li>`);
-        } else {
-            if (inList) {
-                result.push('</ul>');
-                inList = false;
-            }
-            
-            if (trimmed.startsWith('### ')) {
-                result.push(`<h3>${parseInlineMarkdown(trimmed.substring(4))}</h3>`);
-            } else if (trimmed.startsWith('## ')) {
-                result.push(`<h2>${parseInlineMarkdown(trimmed.substring(3))}</h2>`);
-            } else if (trimmed.startsWith('# ')) {
-                result.push(`<h1>${parseInlineMarkdown(trimmed.substring(2))}</h1>`);
-            } else if (trimmed.length > 0) {
-                result.push(`<p>${parseInlineMarkdown(line)}</p>`);
-            }
-        }
-    }
-    
-    if (inList) {
-        result.push('</ul>');
-    }
-    
-    return result.join('\n');
-}
-
-function parseInlineMarkdown(text) {
-    return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
-}
-
-async function showTipBanner() {
-    try {
-        const res = await fetch('help/warning.json');
-        if (!res.ok) throw new Error();
-        const warnings = await res.json();
-        if (!warnings || warnings.length === 0) return;
-        const tip = warnings[Math.floor(Math.random() * warnings.length)];
-        
-        tipText.setAttribute('data-i18n', tip.text_key);
-        tipText.textContent = t(tip.text_key);
-        
-        tipBanner.dataset.helpPath = tip.help_path;
-        tipBanner.style.display = 'flex';
-    } catch {
-        tipBanner.style.display = 'none';
-    }
-}
-
-// Brand toggle listeners
-if (brandHeader) {
-    brandHeader.addEventListener('click', () => setHelp(!helpDrawer.classList.contains('active')));
-    brandHeader.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setHelp(!helpDrawer.classList.contains('active'));
-        }
-    });
-}
-
-if (helpCloseBtn) {
-    helpCloseBtn.addEventListener('click', () => setHelp(false));
-}
-
-document.querySelectorAll('.help-menu-list li').forEach(li => {
-    li.addEventListener('click', () => {
-        const topic = li.dataset.helpTopic;
-        showHelpArticle(topic);
-    });
-});
-
-if (helpBackBtn) {
-    helpBackBtn.addEventListener('click', showHelpMenu);
-}
-
-// Tip banner events
-if (tipBanner) {
-    tipBanner.addEventListener('click', (e) => {
-        if (e.target.closest('#tip-close-btn')) return;
-        const path = tipBanner.dataset.helpPath;
-        if (path) {
-            setHelp(true);
-            showHelpArticle(path);
-        }
-    });
-}
-
-if (tipCloseBtn) {
-    tipCloseBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        tipBanner.style.display = 'none';
     });
 }
 
@@ -2337,19 +541,62 @@ async function initializeApplication() {
     RuntimeConfig.init({
         notify: toast,
         onCompactionHelp: () => {
-            setHelp(true);
-            showHelpArticle('compaction');
+            Onboarding.setHelp(true);
+            Onboarding.showHelpArticle('compaction');
         },
     });
-    PluginCenter.init({
+    PluginCenter.init({ notify: toast, restartApplication });
+    Composer.init({
+        state,
+        isCompactLayout,
         notify: toast,
-        restartApplication: () => {
-            const bridge = window.AlexTavernAndroid;
-            if (!bridge || typeof bridge.restartApplication !== 'function') return false;
-            bridge.restartApplication();
-            return true;
-        },
+        setLoading,
+        ingestState,
+        renderScene,
     });
+    Compaction.init({
+        state,
+        reloadView,
+        setTurnControlsDisabled,
+        setLoading,
+        hideActionPopup,
+        notify: toast,
+    });
+    SessionsModal.init({
+        state,
+        loadSession,
+        onNewSession: () => Setup.open(),
+        onCurrentSessionDeleted: () => {
+            state.sessionId = null;
+            state.compactionDepth = 0;
+            chatLog.innerHTML = '';
+            chatLog.appendChild(emptyState);
+            showEmptyState(false);
+            clearSuggestions();
+            renderScene({});
+        },
+        notify: toast,
+    });
+    OpeningPicker.init({
+        state,
+        setLoading,
+        notify: toast,
+        skipTurn,
+    });
+    Transcript.init({
+        state,
+        isScrollAnchored: () => isCompactLayout() && inputArea.classList.contains('collapsed'),
+        resetOpeningSuggestions: OpeningPicker.reset,
+        showEmptyState,
+        updateSpeechPlaceholder,
+        whisperNamesFor,
+    });
+    DebugDrawer.init({
+        getSessionId: () => state.sessionId,
+        onToggle: (on) => { state.debug = on; },
+        notify: toast,
+    });
+    Onboarding.init({ setDebug: DebugDrawer.setDebug, notify: toast });
     Setup.init({
         onStart: (cfg) => startSession(cfg),
         onOpen: () => RuntimeConfig.refresh(),
@@ -2366,59 +613,8 @@ async function initializeApplication() {
         notify: toast,
     });
     await PluginRuntime.runHook('app.ready', null, { state, toast });
+    Onboarding.checkVersionSync();
 }
 
 registerBuiltinSlashEntries();
 initializeApplication();
-// openSessionsModal(); // show the sessions list on first load
-
-/* ── Version Check ────────────────────────────────────────────────────── */
-async function checkVersionSync() {
-    try {
-        const localData = await api.getVersion();
-        const localCommit = localData?.commit;
-        if (localData?.debug || !localCommit || localCommit === 'unknown') return;
-
-        const remoteRes = await fetch('https://api.github.com/repos/al4xdev/alex-tavern/commits/master');
-        if (!remoteRes.ok) return;
-
-        const remoteData = await remoteRes.json();
-        const remoteCommit = remoteData?.sha;
-
-        if (remoteCommit && localCommit !== remoteCommit) {
-            showVersionWarningToast();
-        }
-    } catch (e) {
-        console.warn('Failed to perform version check:', e);
-    }
-}
-
-function showVersionWarningToast() {
-    const wrap = document.getElementById('toast-wrap');
-    if (!wrap) return;
-
-    const el = document.createElement('div');
-    el.className = 'toast version-warning-toast';
-
-    const textSpan = document.createElement('span');
-    const isPt = (localStorage.getItem('language') || 'en') === 'pt-BR';
-    if (isPt) {
-        textSpan.innerHTML = `⚠️ <strong>Nova versão disponível!</strong> O código local está desalinhado com o <a href="https://github.com/al4xdev/alex-tavern" target="_blank">GitHub</a>.`;
-    } else {
-        textSpan.innerHTML = `⚠️ <strong>Update available!</strong> Your local code is out of sync with <a href="https://github.com/al4xdev/alex-tavern" target="_blank">GitHub</a>.`;
-    }
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.className = 'toast-close-btn';
-    closeBtn.addEventListener('click', () => {
-        el.classList.add('leaving');
-        el.addEventListener('animationend', () => el.remove());
-    });
-
-    el.appendChild(textSpan);
-    el.appendChild(closeBtn);
-    wrap.appendChild(el);
-}
-
-checkVersionSync();

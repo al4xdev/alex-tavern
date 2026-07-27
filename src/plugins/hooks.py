@@ -131,36 +131,6 @@ class HookRegistry:
         if self._on_error is not None:
             await _await(self._on_error(registration.plugin_id, registration.hook, error))
 
-    def _failed_sync(self, registration: Registration, error: BaseException) -> None:
-        if self._on_error is None:
-            return
-        result = self._on_error(registration.plugin_id, registration.hook, error)
-        if inspect.isawaitable(result):
-            raise TypeError("Async plugin error handlers cannot run from synchronous hooks")
-
-    def action_sync(self, hook: str, context: Any) -> None:
-        for registration in self.ordered(hook, "action"):
-            try:
-                result = registration.handler(context)
-                if inspect.isawaitable(result):
-                    raise TypeError(f"{hook} is synchronous but returned an awaitable")
-            except BaseException as error:
-                self._failed_sync(registration, error)
-
-    def filter_sync(self, hook: str, value: Any, context: Any) -> Any:
-        current = value
-        for registration in self.ordered(hook, "filter"):
-            draft = deepcopy(current)
-            try:
-                candidate = registration.handler(draft, context)
-                if inspect.isawaitable(candidate):
-                    raise TypeError(f"{hook} is synchronous but returned an awaitable")
-            except BaseException as error:
-                self._failed_sync(registration, error)
-                continue
-            current = draft if candidate is None else candidate
-        return current
-
     async def action(self, hook: str, context: Any) -> None:
         for registration in self.ordered(hook, "action"):
             try:

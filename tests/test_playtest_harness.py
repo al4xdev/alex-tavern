@@ -174,11 +174,14 @@ def test_analysis_detects_observable_signals() -> None:
 
     assert analysis["llm_calls"] == 2
     assert analysis["retry_attempts"] == 1
+    assert analysis["guard_retries"] == 0
+    assert analysis["guard_retry_reasons"] == []
     assert analysis["nested_physical_facts_outputs"] == 1
     assert analysis["second_person_narrations"] == 1
     assert analysis["character_action_heuristic_hits"] == 1
     assert analysis["redundant_mood_updates"] == 1
-    assert analysis["player_prompt_occurrences"] == 0
+    assert analysis["operator_ontology_hits"] == 0
+    assert analysis["operator_ontology_phrases"] == []
 
 
 def _character_payload(name: str) -> dict:
@@ -594,3 +597,114 @@ def test_aggregation_and_markdown_are_repeatable() -> None:
     report = build_markdown_report(manifest)
     assert "same" in report
     assert "model" in report
+
+
+def test_every_name_the_entrypoint_uses_is_defined_before_it_runs() -> None:
+    """`python -m tools.playtest_harness` executes main() at import time.
+
+    A helper defined BELOW `if __name__ == "__main__"` is still unbound when
+    main() reaches it, so the run dies with a NameError only after doing all the
+    work. That happened to `write_text` and cost six real sessions: no test
+    noticed because every test imports the analysis functions directly instead
+    of running the module.
+    """
+    import ast
+
+    source = (Path(__file__).resolve().parents[1] / "tools" / "playtest_harness.py").read_text()
+    tree = ast.parse(source)
+    guard_line = next(
+        (
+            node.lineno
+            for node in tree.body
+            if isinstance(node, ast.If)
+            and ast.dump(node.test).find("__main__") >= 0
+        ),
+        None,
+    )
+    assert guard_line is not None, "the module lost its __main__ guard"
+    late = [
+        node.name
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef)
+        and node.lineno > guard_line
+    ]
+    assert late == [], f"defined after the entrypoint runs: {late}"
+
+
+class TestStructuralSweep:
+    """The harness sweeps every real prompt for structural singling, not just
+    for the lexical patterns.
+
+    Added 2026-07-27 after a review pointed at the enforcement asymmetry:
+    `AGENTS.md` §3 now calls a structural marker a leak, but only the lexical
+    guard was swept over real runs. A new agent could reintroduce the defect and
+    no run would catch it the way a lexical leak would be caught.
+    """
+
+    def _cast(self):  # noqa: ANN202
+        from tests.factories import make_cast
+
+        return make_cast("Rui", "Marta", "Bento")
+
+    def _record(self, agent: str, text: str) -> dict:
+        return {
+            "agent": agent,
+            "turn_number": 1,
+            "request": {"messages": [{"role": "user", "content": text}]},
+            "response": "{}",
+            "error": None,
+        }
+
+    def test_a_mixed_block_is_reported_with_its_agent(self) -> None:
+        from tools.playtest_harness import analyze_debug_records
+
+        records = [self._record("drive:event_seed", "  Rui: oi\n  C2: ola\n  C3: eita")]
+        analysis = analyze_debug_records(records, [], self._cast())
+        assert analysis["structurally_singled_out"] == 1
+        assert analysis["structurally_singled_out_calls"][0]["agent"] == "drive:event_seed"
+        assert analysis["structurally_singled_out_calls"][0]["singled_out"] == ["Rui"]
+
+    def test_the_director_style_all_id_prompt_is_not_reported(self) -> None:
+        """The Director speaks ids and ships a roster; that is its contract."""
+        from tools.playtest_harness import analyze_debug_records
+
+        records = [self._record("director", "  C1: oi\n  C2: ola\n  C3: eita")]
+        assert analyze_debug_records(records, [], self._cast())["structurally_singled_out"] == 0
+
+    def test_two_clean_prompts_are_not_mixed_with_each_other(self) -> None:
+        """The reason this runs per call instead of on the joined string.
+
+        An all-name prose prompt and an all-id Director prompt are each fine.
+        Concatenating them produces a mix that neither one contains, and a sweep
+        over the join would report a leak that does not exist.
+        """
+        from tools.playtest_harness import analyze_debug_records
+
+        records = [
+            self._record("prose", "  Rui: oi\n  Marta: ola"),
+            self._record("director", "  C1: oi\n  C2: ola"),
+        ]
+        assert analyze_debug_records(records, [], self._cast())["structurally_singled_out"] == 0
+
+    def test_a_skipped_sweep_reports_none_and_says_so(self) -> None:
+        """Not zero. Zero would mean "looked and found nothing".
+
+        Whether a label is a name or an id is not answerable from the text, so
+        with no cast the guard must not guess - but reporting 0 findings for a
+        check that never ran is the same lie as a skipped test reporting success.
+        """
+        from tools.playtest_harness import analyze_debug_records
+
+        records = [self._record("drive:event_seed", "  Rui: oi\n  C2: ola")]
+        analysis = analyze_debug_records(records, [], None)
+        assert analysis["structurally_singled_out"] is None
+        assert analysis["structural_sweep"] == "skipped: no cast supplied"
+
+    def test_a_clean_sweep_reports_zero_and_says_it_ran(self) -> None:
+        """The other half: 0 has to remain distinguishable from None."""
+        from tools.playtest_harness import analyze_debug_records
+
+        records = [self._record("prose", "  Rui: oi\n  Marta: ola")]
+        analysis = analyze_debug_records(records, [], self._cast())
+        assert analysis["structurally_singled_out"] == 0
+        assert analysis["structural_sweep"] == "ran"

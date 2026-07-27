@@ -20,27 +20,19 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     Scene,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import make_cast
 
 
 async def _fake_prose() -> str:
     return "Alguem leu um documento em voz alta."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Dorothy"), "C3": _char("Holmes")}
+CHARACTERS = make_cast("Alice", "Dorothy", "Holmes")
 SCENE = Scene(
     location="Salao do Prisma",
     time_of_day="Manha",
@@ -75,7 +67,7 @@ async def test_audible_speech_event_reaches_history(monkeypatch) -> None:  # noq
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -132,7 +124,7 @@ async def test_whisper_narration_audible_speech_is_not_persisted(monkeypatch) ->
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

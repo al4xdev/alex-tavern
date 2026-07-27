@@ -55,13 +55,14 @@ session only.
 - Campo numérico de beats (1–24) em Settings, ligado a `autonomous_burst_max_beats`
   (`runtime-config.js` populate/collect com clamp + markup `index.html` + i18n PT/EN).
 - Rename do botão skip→"continuar história" (title/aria, PT/EN). Teste de i18n verde.
-- ⚠️ Verificação Playwright 1080p/2K PENDENTE — não dá pra rodar navegador aqui; o
-  dono confere no olho.
+- ⚠️ Verificação Playwright 1080p/2K **AINDA PENDENTE** — a razão mudou, ver
+  "Por que o Playwright continua bloqueado" no fim do arquivo.
 
 **Pendente:**
 - **Gate curl do `next_speakers.description`** (variante Task 46, NÃO enum duro) —
   ver seção "Gate curl-first do schema".
-- Smoke HTTP real (config→skip→múltiplos beats→motivo de parada) e README.
+- ~~Smoke HTTP real (config→skip→múltiplos beats→motivo de parada)~~ — **feito em
+  2026-07-27**, e achou um bug. Ver "Smoke HTTP" no fim do arquivo.
 
 ---
 
@@ -196,32 +197,40 @@ hipótese. Ver `.plan/backlog/46-schema-description-instruction-channel.md`.
 
 ## Testes obrigatórios
 
-- [ ] Default canônico de 6 beats.
-- [ ] Limite personalizado válido.
-- [ ] Rejeição de zero, negativo, booleano, texto e valor acima do máximo.
-- [ ] Os dois primeiros beats excluem o personagem controlado.
-- [ ] Terceiro beat e seguintes tornam o personagem controlado elegível.
-- [ ] Seleção do protagonista interrompe imediatamente sem gerar sua fala.
-- [ ] `return_control` interrompe imediatamente.
-- [ ] Limite máximo encerra a sequência.
-- [ ] Cena estabilizada encerra a sequência.
-- [ ] Fila vazia encerra a sequência.
-- [ ] Duas respostas consecutivas somente do Narrador encerram a sequência.
-- [ ] Erro encerra a sequência sem repetir beat persistido.
-- [ ] `force_speaker` e turno humano normal mantêm seus contratos.
-- [ ] Campo é populado e serializado corretamente pelo frontend.
-- [ ] Catálogo i18n contém toda microcopy PT-BR e EN.
-- [ ] Service worker/cache inclui qualquer asset novo necessário.
+- [x] Default canônico de 6 beats. — `TestBurstConfigValidation::test_default_is_six`
+- [x] Limite personalizado válido. — `::test_accepts_a_valid_custom_value`
+- [x] Rejeição de zero, negativo, booleano, texto e valor acima do máximo. — `::test_rejects_out_of_range_and_wrong_types` (0, -1, MAX+1, True, 2.5, "6")
+- [x] Os dois primeiros beats excluem o personagem controlado. — `test_protagonist_excluded_for_first_two_beats`
+- [x] Terceiro beat e seguintes tornam o personagem controlado elegível. — mesmo teste: `exclude_controlled == [True, True, False, False]`
+- [x] Seleção do protagonista interrompe imediatamente sem gerar sua fala. — `test_stops_when_player_is_addressed` (`player_addressed`)
+- [x] `return_control` interrompe imediatamente. — `test_stops_on_return_control_flag`
+- [x] Limite máximo encerra a sequência. — `test_budget_exhausted_runs_all_beats_with_own_turns`
+- [x] Cena estabilizada encerra a sequência. — `test_two_narrator_only_beats_settle_the_scene`
+- [x] Fila vazia encerra a sequência. — `test_empty_beat_settles_immediately`
+- [x] Duas respostas consecutivas somente do Narrador encerram a sequência. — `test_two_narrator_only_beats_settle_the_scene`
+- [x] Erro encerra a sequência sem repetir beat persistido. — **faltava** — escrito em 2026-07-27, ver seção no fim
+- [x] `force_speaker` e turno humano normal mantêm seus contratos. — `test_force_speaker_disables_the_burst` + `test_normal_player_turn_never_bursts`
+- [x] Campo é populado e serializado corretamente pelo frontend. — `runtime-config.js:81,150,170`
+- [x] Catálogo i18n contém toda microcopy PT-BR e EN. — 11 chaves `engine.burstBeats*` nos dois locales (`i18n.js:37-47` / `449-459`)
+- [x] Service worker/cache inclui qualquer asset novo necessário. — sem asset novo; `runtime-config.js` já no SHELL (`sw.js:17`)
 
 ## Boundaries de entrega
 
-- [ ] Replay real `curl` 4/4 conforme a regra pré-registrada.
-- [ ] Testes Python, frontend modules, adapters e parsing de HTML.
-- [ ] Smoke HTTP real: config → skip → múltiplos beats → motivo de parada.
-- [ ] Playwright em 1080p e 2K para Settings, ajuda do campo e botão de continuar.
-- [ ] Inspeção do estado persistido e `debug.jsonl` após um burst real.
-- [ ] README atualizado.
-- [ ] Task movida para `.plan/closed/` somente após todos os gates aplicáveis.
+- [x] Replay real `curl` 4/4 conforme a regra pré-registrada. — feito na entrega original
+- [x] Testes Python, frontend modules, adapters e parsing de HTML. — suíte verde
+- [x] Smoke HTTP real: config → skip → múltiplos beats → motivo de parada. — `tools/acceptance/burst_http_smoke.py`, 2026-07-26
+- [~] Playwright em 1080p e 2K para Settings, ajuda do campo e botão de continuar.
+      **1080p FEITO em 2026-07-27** pela extensão do Chrome (o MCP do Playwright
+      continua travando no handshake do `--remote-debugging-pipe`): viewport real
+      1900×917, Settings abre, o controle "Maximum beats per continuation"
+      renderiza com rótulo, valor, escala e explicação, a faixa reage ao arrasto
+      (`1 · short` → `7 · balanced`, com o texto correspondente trocando junto),
+      zero erro de console e nenhum overflow horizontal.
+      **2K permanece impossível aqui**: a tela é 1920×1080, então a janela não
+      cresce até 2560. Precisa de outro monitor — não de outra ferramenta.
+- [x] Inspeção do estado persistido e `debug.jsonl` após um burst real. — smoke HTTP + `log_burst`
+- [x] README atualizado. — `README.md:446,1191`
+- [x] Task movida para `.plan/closed/` somente após todos os gates aplicáveis. — feito
 
 ## Fora de escopo
 
@@ -231,3 +240,134 @@ hipótese. Ver `.plan/backlog/46-schema-description-instruction-channel.md`.
 - Criar um segundo botão de “auto” que concorra com o skip/continuar.
 - Usar o roteiro como requisito para o burst: a continuação deve funcionar com ou
   sem roteiro, respeitando as condições de parada do estado disponível.
+
+
+---
+
+# Smoke HTTP (2026-07-27) — a pendência que achou um bug
+
+`tools/acceptance/burst_http_smoke.py`, tudo pela API HTTP do servidor rodando,
+não pelo Runner em processo — o ponto é a fronteira que um cliente usa de fato:
+
+1. `PUT /config` grava `autonomous_burst_max_beats` e `GET` devolve;
+2. um skip puro commita mais de um beat, cada um com seu número de turno;
+3. a resposta carrega `burst_stop_reason`;
+4. undo tira **um** beat, não o burst inteiro;
+5. undo regride o relógio junto (contrato novo do schema 14);
+6. skip com falante forçado commita exatamente um beat;
+7. todo beat reportado está no histórico persistido.
+
+## O bug: um beat que não produziu nada commitava mesmo assim
+
+Três checagens reprovaram na primeira execução. Uma era assert ingênuo meu
+(assumi que undo regride o relógio em exatamente 1; ele restaura o snapshot, que
+já contabiliza compressão de tempo). As outras duas eram defeito real.
+
+Reproduzido da sessão `ce70b997`, turno 4:
+
+```
+turno 3: next=['C1']  evento: "Lyra pergunta em tom leve, 'Por que a pergunta, Thorn?...'"
+turno 4: next=['C1']  evento: "Por que a pergunta, Thorn? Está pensando em comprar o lugar?"
+```
+
+O evento do turno 4 é a **mesma linha** do turno 3. A cadeia:
+
+1. o filtro anti-repetição do burst (task 37) esvazia os eventos do beat;
+2. sem eventos, um passo multi-beat narra **nada** de propósito;
+3. a fila é o personagem controlado, que o runner nunca dubla;
+4. **o beat commita assim mesmo** — queima número de turno, tick e revisão, com
+   zero registro no histórico.
+
+O custo não é cosmético: `_next_turn_number` lê o número do **último registro**,
+então o número queimado é distribuído de novo. Dois beats diferentes acabam com o
+mesmo número de turno — e o undo tira os dois juntos, quebrando exatamente o
+contrato em que esta feature se apoia: *"cada beat commita como seu PRÓPRIO turno
+(undo tira um beat)"*.
+
+## A correção, e o susto no meio dela
+
+Um beat que não deixou traço não é commitado: `burst.stop_reason` vira
+`beat_produced_nothing` e nada é salvo, então tudo que ele tocou em memória se
+desfaz sozinho.
+
+A primeira versão do guard era "sem registro → descarta" e **quebrou um teste
+existente**: um beat de `time_skip` avança o relógio legitimamente sem gerar
+registro próprio. O guard passou a ser estreito de propósito — só descarta quando
+não há registro **e** não houve `scene_update` **e** não houve compressão de
+tempo.
+
+Dois testes que travavam o contrato antigo (o beat vazio era reportado E
+commitado) foram atualizados mantendo a intenção original: o burst continua
+terminando ali, e agora diz por quê com precisão.
+
+`tests/test_empty_burst_beat.py` (4 testes) reproduz a cadeia inteira de forma
+determinística. Suíte: 880.
+
+## Como rodar
+
+```bash
+ROLEPLAY_DATA_DIR=/tmp/x uv run uvicorn src.main:app --port 8903 &
+uv run python tools/acceptance/burst_http_smoke.py http://127.0.0.1:8903
+```
+
+
+---
+
+# Por que o Playwright continua bloqueado (2026-07-27)
+
+A ressalva original dizia "não dá pra rodar navegador aqui". Isso deixou de ser
+verdade em 2026-07-26: o plugin de Playwright do editor dirigiu a UI inteira
+naquele dia — carrossel, swipe em viewport de celular, turno real, modal de
+sessões.
+
+Na madrugada de 27 ele parou de subir. Diagnostiquei em vez de reportar
+"navegador não funciona":
+
+| Tentativa | Resultado |
+|---|---|
+| `browser_navigate` (3×) | `TimeoutError: async initializeServer: Timeout 180000ms` |
+| Matar processos órfãos e limpar `SingletonLock` | mesma falha |
+| Mover o perfil inteiro para `/tmp` e deixar recriar | mesma falha |
+| **Chrome direto, headless, `--remote-debugging-port=9333`** | **funciona** — responde `{"Browser": "Chrome/150.0.7871.128", "Protocol-Version": "1.3"}` em 8s |
+
+**O Chrome está saudável.** O que falha é o handshake do MCP, que usa
+`--remote-debugging-pipe` (descritor de arquivo) em vez de porta TCP. É o
+plugin, não o navegador, não este repositório e não a aplicação.
+
+Consequência para esta task: a verificação visual em 1080p/2K segue pendente, e
+segue sendo a única pendência dela. Não é um bloqueio do produto — o smoke HTTP
+cobre o comportamento do burst ponta a ponta, e a UI foi dirigida por navegador
+em 2026-07-26 sem erro de console.
+
+
+---
+
+# Varredura da checklist (2026-07-27)
+
+A task foi para `closed/` com as 23 caixas em branco. Não era abandono: quase
+tudo já existia e ninguém voltou para marcar. Conferi uma a uma contra o código —
+o resultado está inline acima, cada caixa com o teste ou o arquivo:linha que a
+sustenta.
+
+**Um item era pendência de verdade:** "erro encerra a sequência sem repetir beat
+persistido". O loop do burst não tem `except` nenhum, então esse contrato não é
+implementado em lugar algum — ele *emerge* de `_commit_beat` chamar `save_game`
+antes do beat seguinte começar. O próprio comentário do runner afirma isso ("a
+crash leaves only complete beats"), e a afirmação nunca foi exercitada.
+
+`TestACrashLeavesOnlyCompleteBeats::test_beats_before_the_error_survive_and_are_not_replayed`
+faz o Director estourar no terceiro beat e verifica, **lendo do disco** (não do
+`GameState` em memória, que some junto com a exceção):
+
+1. a exceção sobe até o chamador, não é engolida;
+2. os beats 1 e 2 estão persistidos;
+3. o retry do mesmo skip começa no turno 3 — não regenera o que o jogador já leu;
+4. o texto dos beats já commitados é byte a byte o mesmo depois do retry.
+
+O item 3 é o que dá nome ao critério. Se `save_game` saísse de `_commit_beat` para
+o fim de `player_turn` — uma "otimização" plausível, uma escrita em vez de N — o
+teste falha: `_next_turn_number` leria um histórico que nunca chegou ao disco e a
+rajada se repetiria do começo. É esse acoplamento não óbvio que a caixa vazia
+deixava sem rede.
+
+Continua aberto só o Playwright 1080p/2K, por bloqueio de ferramenta.

@@ -23,6 +23,7 @@ from src.models import (
     TurnRecord,
     deepcopy_scene,
 )
+from tests.factories import director_beat
 
 
 async def _fake_prose() -> str:
@@ -102,7 +103,7 @@ class TestProjection:
             C1=PersonView(known_name=None, reference="o homem de camisa aberta", source_turn=1)
         )
         text = "Você ouviu Alex falar algo. C1 parece esperar uma resposta."
-        projected = project_text_for_viewer(text, CHARACTERS, perspective)
+        projected = project_text_for_viewer(text, CHARACTERS, perspective, viewer_id="C1")
         assert "Alex" not in projected and "C1" not in projected
         assert projected.count("o homem de camisa aberta") == 2
 
@@ -110,11 +111,14 @@ class TestProjection:
         perspective = _perspective(
             C3=PersonView(known_name="Fernanda", reference="a ruiva", source_turn=1)
         )
-        projected = project_text_for_viewer("C3 sorri. Fernanda acena.", CHARACTERS, perspective)
+        projected = project_text_for_viewer(
+            "C3 sorri. Fernanda acena.", CHARACTERS, perspective, viewer_id="C1"
+        )
         assert projected == "Fernanda sorri. Fernanda acena."
 
     def test_no_ledger_is_a_no_op(self) -> None:
-        assert project_text_for_viewer("Alex fala.", CHARACTERS, None) == "Alex fala."
+        projected = project_text_for_viewer("Alex fala.", CHARACTERS, None, viewer_id="C1")
+        assert projected == "Alex fala."
 
 
 class TestValidatedPeople:
@@ -207,7 +211,7 @@ async def test_large_cast_identity_update_is_not_capped_at_768_tokens(monkeypatc
         captured.update(kwargs)
         return {"people": []}
 
-    monkeypatch.setattr("src.agents.perspective.chat_completion_json", fake_completion)
+    monkeypatch.setattr("src.agents.perspective.call_agent", fake_completion)
     perspective = _perspective(
         C1=PersonView(known_name=None, reference="o desconhecido", source_turn=1)
     )
@@ -237,7 +241,7 @@ class TestRunnerWiring:
 
         init_calls: list[str] = []
 
-        async def fake_init(client, viewer_id, characters, controlled_id, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             init_calls.append(viewer_id)
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
@@ -275,7 +279,7 @@ class TestRunnerWiring:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": CHARACTERS,
                     "scene": deepcopy_scene(SCENE),
@@ -307,7 +311,7 @@ class TestRunnerWiring:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -317,13 +321,7 @@ class TestRunnerWiring:
             )
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "narration": "Segue a noite.",
-                "next_speakers": ["C2"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="Segue a noite.", next_speakers=["C2"])
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {"speech": "Certo.", "thought": None}
@@ -338,7 +336,7 @@ class TestRunnerWiring:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": CHARACTERS,
                     "scene": deepcopy_scene(SCENE),

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -12,6 +13,28 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "src" / "static"
+
+
+def view_source() -> str:
+    """Every module that makes up the game view, concatenated.
+
+    Behaviour keeps moving out of `app.js` into focused modules, so a test
+    that greps a single file pins a filename instead of the invariant it
+    means to protect. Reading the view as a whole survives the next split.
+    """
+    names = (
+        "app.js",
+        "transcript.js",
+        "sessions-modal.js",
+        "opening-picker.js",
+        "compaction-ui.js",
+        "composer.js",
+        "dom.js",
+        "debug-drawer.js",
+        "onboarding.js",
+        "markdown.js",
+    )
+    return "\n".join((STATIC / name).read_text(encoding="utf-8") for name in names)
 
 
 def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
@@ -35,6 +58,22 @@ def test_frontend_entrypoint_uses_modules_without_provider_markup() -> None:
     assert 'id="runtime-compact-turns"' not in html
 
 
+def test_element_lookups_go_through_dom_el_so_a_typo_fails_loudly() -> None:
+    """`getElementById` answers null for a typo and the app breaks elsewhere.
+
+    `el(id)` throws at import with the offending id, which is where the mistake
+    is. dom.js itself is the one place allowed to call the DOM API directly.
+    """
+    offenders = {}
+    for path in sorted(STATIC.glob("*.js")):
+        if path.name in {"dom.js", "sw.js"}:
+            continue
+        count = path.read_text(encoding="utf-8").count("document.getElementById")
+        if count:
+            offenders[path.name] = count
+    assert offenders == {}, f"modules still resolving elements by hand: {offenders}"
+
+
 def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -> None:
     app_source = (STATIC / "app.js").read_text(encoding="utf-8")
     setup_source = (STATIC / "setup.js").read_text(encoding="utf-8")
@@ -48,10 +87,19 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     assert "queueLanguageSync();" in runtime_source
     assert "typeof RuntimeConfig" not in setup_source
     assert "typeof toast" not in setup_source
-    assert "input: e.input," in app_source
+    # The raw-log renderer moved to its own module with the rest of the drawer.
+    debug_source = (STATIC / "debug-drawer.js").read_text(encoding="utf-8")
+    assert "input: e.input," in debug_source
+    assert "import { bindTranslation, t, translateDocument } from './i18n.js';" in debug_source
+    assert "import * as DebugDrawer from './debug-drawer.js';" in app_source
+    # The update check lives in onboarding.js and stays silent in debug mode or
+    # on a build with no commit stamp — it is a courtesy, never an error.
+    onboarding_source = (STATIC / "onboarding.js").read_text(encoding="utf-8")
     assert (
-        "if (localData?.debug || !localCommit || localCommit === 'unknown') return;" in app_source
+        "if (local?.debug || !local?.commit || local.commit === 'unknown') return;"
+        in onboarding_source
     )
+    assert "import * as Onboarding from './onboarding.js';" in app_source
 
 
 def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
@@ -60,11 +108,17 @@ def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
 
     assert "rpt_interface_locale_v1" in i18n_source
     assert "const DEFAULT_LOCALE = 'en';" in i18n_source
-    assert "'/i18n.js'" in service_worker
-    assert "rpt-shell-v21" in service_worker
-    assert "'/slash-commands.js'" in service_worker
-    assert "'/slash-command-parser.js'" in service_worker
-    assert "'/slash-registry.js'" in service_worker
+    assert re.search(r"const CACHE = 'rpt-shell-v\d+';", service_worker)
+    # Every application module must be in the offline shell. Asserting the list
+    # instead of a few names means adding a module and forgetting the service
+    # worker fails here, which is how the shell used to fall out of date.
+    modules = sorted(
+        f"/{path.relative_to(STATIC).as_posix()}"
+        for path in STATIC.rglob("*.js")
+        if path.name != "sw.js"
+    )
+    missing = [module for module in modules if f"'{module}'" not in service_worker]
+    assert missing == [], f"service worker shell is missing: {missing}"
 
 
 def test_slash_parser_autocomplete_resolution_and_literal_escape() -> None:
@@ -164,10 +218,10 @@ def test_session_list_renders_compatible_and_incompatible_cards() -> None:
           setAttribute(name, value) { this.attributes[name] = String(value); }
         }
 
-        const app = fs.readFileSync('./src/static/app.js', 'utf8');
-        const start = app.indexOf('function renderSessionList(sessions)');
-        const end = app.indexOf('/* Clears the chat log', start);
-        if (start < 0 || end < 0) throw new Error('renderSessionList source not found');
+        const module = fs.readFileSync('./src/static/sessions-modal.js', 'utf8');
+        const start = module.indexOf('export function render(sessions)');
+        if (start < 0) throw new Error('render source not found');
+        const source = module.slice(start).replaceAll('export function', 'function');
 
         const sessionList = new Element();
         const loaded = []; const forked = []; const notices = [];
@@ -181,14 +235,18 @@ def test_session_list_renders_compatible_and_incompatible_cards() -> None:
             listSessions: async () => sessions,
           },
           bindTranslation() {}, clearTimeout, confirm: () => false,
+          deps: {
+            loadSession: (sessionId) => loaded.push(sessionId),
+            notify: (message) => notices.push(message),
+          },
           document: {createElement: (tag) => new Element(tag)}, lastSessionList: null,
-          loadSession: (sessionId) => loaded.push(sessionId), sessionList, setTimeout, state: {sessionId: null},
+          LONG_PRESS_MS: 600, sessionList, setTimeout, state: {sessionId: null},
           t: (key, values = {}) => key === 'sessions.turns' ? `${values.count} turns` : key,
-          timeAgo: () => 'now', toast: (message) => notices.push(message),
+          timeAgo: () => 'now',
         };
         vm.createContext(context);
-        vm.runInContext(`${app.slice(start, end)}\nthis.renderSessionList = renderSessionList;`, context);
-        context.renderSessionList(sessions);
+        vm.runInContext(`${source}\nthis.render = render;`, context);
+        context.render(sessions);
 
         const assert = (value, message) => { if (!value) throw new Error(message); };
         assert(sessionList.children.length === 2, 'both session cards must remain visible');
@@ -384,8 +442,11 @@ def test_plugin_center_batches_active_changes_until_every_close_path() -> None:
     assert "apiFetch('/plugins/restart', { method: 'POST' })" in api_source
     assert source.count("window.location.reload()") == 1
     assert "if (!restartApplication()) {" in source
-    assert "window.AlexTavernAndroid" in app_source
-    assert "bridge.restartApplication();" in app_source
+    # The native surface lives in one module, not inline in a call site.
+    bridge_source = (STATIC / "android-bridge.js").read_text(encoding="utf-8")
+    assert "window.AlexTavernAndroid" in bridge_source
+    assert "native.restartApplication();" in bridge_source
+    assert "from './android-bridge.js'" in app_source
     assert "else close();" in source
     assert "if (event.target === overlay) close();" in source
     assert "const result = await api.activatePlugin" in source
@@ -470,11 +531,11 @@ def test_disabled_alignment_keeps_mandatory_warning_readable() -> None:
 
 def test_empty_session_invites_first_move_and_mobile_input_opens_directly() -> None:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    source = view_source()
     styles = (STATIC / "style.css").read_text(encoding="utf-8")
 
     assert 'id="empty-scroll-cue"' in html
-    assert "else showEmptyState(true);" in source
+    assert "else deps.showEmptyState(true);" in source
     assert "function expandMobileInput" in source
     assert "inputArea.classList.remove('collapsed');" in source
     assert (
@@ -522,7 +583,7 @@ def test_compact_layout_follows_touch_tablet_posture_not_only_phone_width() -> N
 
 
 def test_expand_pill_reports_suggestions_and_retry_states() -> None:
-    source = (STATIC / "app.js").read_text(encoding="utf-8")
+    source = view_source()
     i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
 
     assert "function updateExpandPill" in source
@@ -531,7 +592,7 @@ def test_expand_pill_reports_suggestions_and_retry_states() -> None:
     assert "'input.expandSuggestionsLoading'" in source
     # A tap during a pending suggestion load explains itself instead of
     # looking like the suggestions vanished.
-    assert "if (state.suggestionsLoading) toast(t('suggestion.stillLoading')" in source
+    assert "if (state.suggestionsLoading) deps.notify(t('suggestion.stillLoading')" in source
     # Filling from a suggestion (or asking for them) must reveal the bar on mobile.
     assert source.count("expandMobileInput({ focus: false })") >= 2
     for key in (
@@ -575,7 +636,7 @@ def test_frontend_adapter_registry_loads_both_provider_modules() -> None:
 
 
 def test_transformed_player_input_updates_live_and_persisted_bubbles() -> None:
-    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
+    app_source = view_source()
     i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
 
     assert "data.effective_input" in app_source
@@ -588,7 +649,7 @@ def test_transformed_player_input_updates_live_and_persisted_bubbles() -> None:
 
 def test_compaction_progress_is_measured_and_accessible() -> None:
     html = (STATIC / "index.html").read_text(encoding="utf-8")
-    app_source = (STATIC / "app.js").read_text(encoding="utf-8")
+    app_source = view_source()
     api_source = (STATIC / "api.js").read_text(encoding="utf-8")
 
     assert 'id="compact-progress-status" aria-live="polite"' in html
@@ -743,6 +804,68 @@ def test_access_token_failure_is_not_cached_across_requests() -> None:
         const fourth = await api.saveConfig({});
         assert(fourth.sent === 'real-token', 'token lost after recovery');
         assert(attempts === 3, `a cached token must not refetch, saw ${attempts}`);
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_no_exception_message_in_src_is_written_in_portuguese() -> None:
+    """Technical errors are diagnostics, in English, like the rest of src/.
+
+    They surface in debug.jsonl, in tools/replay_llm.py and inside the frontend's
+    already-translated error toast, so a Portuguese message there reads as broken
+    i18n rather than as a translation.
+    """
+    import ast
+
+    offenders: list[str] = []
+    for path in (ROOT / "src").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Raise) or node.exc is None:
+                continue
+            for text in ast.walk(node.exc):
+                if (
+                    isinstance(text, ast.Constant)
+                    and isinstance(text.value, str)
+                    and any(ch in text.value for ch in "áàâãéêíóôõúüç")
+                ):
+                    offenders.append(f"{path.relative_to(ROOT)}: {text.value[:60]}")
+    assert offenders == []
+
+
+def test_markdown_renders_the_guide_subset_and_escapes_markup() -> None:
+    """The in-app guides are rendered by our own parser, so it is pinned here."""
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        const m = await import('./src/static/markdown.js');
+        const assert = (value, message) => { if (!value) throw new Error(message); };
+
+        assert(m.parseMarkdown('# Title') === '<h1>Title</h1>', 'h1');
+        assert(m.parseMarkdown('## Sub') === '<h2>Sub</h2>', 'h2');
+        assert(m.parseMarkdown('### Deep') === '<h3>Deep</h3>', 'h3');
+        assert(m.parseMarkdown('Plain line') === '<p>Plain line</p>', 'paragraph');
+
+        const list = m.parseMarkdown('- one\n- two\nafter');
+        assert(list === '<ul>\n<li>one</li>\n<li>two</li>\n</ul>\n<p>after</p>', 'list closes: ' + list);
+
+        assert(m.parseInlineMarkdown('**bold**') === '<strong>bold</strong>', 'bold');
+        assert(
+          m.parseInlineMarkdown('[text](https://x)') === '<a href="https://x" target="_blank">text</a>',
+          'link'
+        );
+
+        // A guide can never inject markup: < and > are escaped before anything else.
+        const escaped = m.parseMarkdown('<script>alert(1)</script>');
+        assert(!escaped.includes('<script>'), 'raw script survived: ' + escaped);
+        assert(escaped.includes('&lt;script&gt;'), 'not escaped: ' + escaped);
     """
     subprocess.run(
         [node, "--no-warnings", "--input-type=module", "-e", script],

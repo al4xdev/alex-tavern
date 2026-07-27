@@ -8,14 +8,12 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     Scene,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat, make_cast
 
 APP_JS = Path(__file__).resolve().parents[1] / "src" / "static" / "app.js"
 
@@ -24,14 +22,8 @@ async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Rui", "Marta", "Bento")
 SCENE = Scene(
     location="Estalagem",
     time_of_day="Noite",
@@ -47,7 +39,7 @@ class TestFrontendBoundary:
         Regression: a dead `state.forceSpeaker` read silently dropped the force
         on every skip turn ("forced Narrator, a character still answered").
         """
-        source = APP_JS.read_text(encoding="utf-8")
+        source = (APP_JS.parent / "composer.js").read_text(encoding="utf-8")
         skip_block = source[source.index("skip: true") - 400 : source.index("skip: true") + 400]
         assert "forceSpeakerSelect ? forceSpeakerSelect.value : ''" in skip_block
         # The dead-state read must never come back as the payload source.
@@ -59,7 +51,7 @@ class TestBackendForceHonored:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -72,12 +64,7 @@ class TestBackendForceHonored:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             # Simulate a model that IGNORES the constraint: the runner must
             # still enforce the manual force downstream.
-            return {
-                "next_speakers": list(queue_from_director),
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=list(queue_from_director))
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             calls.append(character_id)
@@ -90,7 +77,7 @@ class TestBackendForceHonored:
         runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2", "C3"])
         async with httpx.AsyncClient() as client:
             runner = runner_cls(client, {"auto_event_enabled": False})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -113,7 +100,7 @@ class TestBackendForceHonored:
         runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C3"])
         async with httpx.AsyncClient() as client:
             runner = runner_cls(client, {"auto_event_enabled": False})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -135,7 +122,7 @@ class TestBackendForceHonored:
         runner_cls, fake_narrator, fake_character, calls = self._runner(monkeypatch, ["C2"])
         async with httpx.AsyncClient() as client:
             runner = runner_cls(client, {"auto_event_enabled": False})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),

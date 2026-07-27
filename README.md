@@ -495,12 +495,6 @@ The action menu next to Send provides two explicit routing controls:
   thought field, while the human still
   has to press send, so it enters the world through the completely normal path.
 
-<p align="center">
-  <img src="docs/images/readme/move-suggestions.png"
-       alt="Three model-generated move suggestions in the mobile composer, each pairing speech with a physical action"
-       width="393">
-</p>
-
 An entirely empty turn is rejected. A force-speaker override is meaningful only with observable
 speech or action; a thought-only submission remains private, is persisted as its own undoable
 step, and does not cause another character to react to information they cannot know.
@@ -796,12 +790,6 @@ The interface is dependency-free and built from native ES modules. Current behav
 - instant rendering for player echoes and history replay;
 - a session-list landing screen with load, fork, delete, and new-session controls;
 - a responsive debug drawer that becomes a full-screen sheet on narrow displays.
-
-<p align="center">
-  <img src="docs/images/readme/session-list-mobile.png"
-       alt="Mobile session manager with character tags, scene metadata, turn count, and New session action"
-       width="393">
-</p>
 
 ---
 
@@ -1370,12 +1358,12 @@ For a containerized installation, run `./start_docker.sh` on Linux or use the Do
 command from [Docker](#-docker).
 
 Once `./start.sh` has brought up the backend, the same responsive client opens directly into its
-mobile landing screen. The session manager keeps load, fork, delete, and new-session entry points
-inside the phone-sized interface:
+mobile landing screen. In a fresh session, the opening picker can generate three scenario-grounded
+beginnings; choosing one starts the first narrated beat through the normal turn flow:
 
 <p align="center">
   <img src="docs/images/readme/session-flow-mobile.gif"
-       alt="Opening the Alex Tavern mobile session manager and loading an English adventure"
+       alt="Generating three beginnings in an empty mobile session, choosing one, and starting the first narrated beat"
        width="393">
 </p>
 
@@ -1403,12 +1391,10 @@ External MCP client
         v
 tools/mcp_server.py
         |
-        | ordinary HTTP / fresh Playwright context
+        | ordinary HTTP
         +-----------------------> Roleplay API :8889
         |                           Runner, sessions, frontend,
         |                           undo, suggestions, compaction
-        +-----------------------> Headless browser
-        |                           PNG + console/page errors in /tmp
         |
         +-----------------------> Replay API :8888
                                     recorded output tape,
@@ -1423,7 +1409,7 @@ The three processes have separate responsibilities:
 
 | Component | Responsibility | Persistent state |
 |---|---|---|
-| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay/replay HTTP requests or bounded Playwright captures | None |
+| `tools/mcp_server.py` | Translate typed MCP tools into Roleplay/replay HTTP requests | None |
 | `src.main:app` | Run the real application, persistence, prompts, and frontend | Session data under `ROLEPLAY_DATA_DIR` |
 | `tools/replay_llm.py` | Serve recorded successful LLM responses in strict sequence | Immutable fixture loaded once plus an in-memory cursor |
 
@@ -1440,7 +1426,6 @@ separate from mutation.
 | `inspect_session_history` | Read a bounded recent history window |
 | `inspect_debug_log` | Read bounded raw LLM/debug records |
 | `inspect_replay_status` | Inspect tape size, cursor, remaining entries, and next response metadata |
-| `inspect_frontend` | Passively capture a fresh headless viewport, visible text and browser errors under `/tmp` |
 | `replay_extract_call` | Locate one recorded LLM call in a session's debug log by agent, turn, and occurrence |
 
 | Mutating tool | Purpose |
@@ -1449,7 +1434,6 @@ separate from mutation.
 | `mutate_fork_session` | Create a non-destructive copy |
 | `mutate_submit_turn` | Submit speech/thought/action and optionally force a speaker |
 | `mutate_request_suggestions` | Consume a model/replay call to generate three suggestions |
-| `mutate_frontend_flow` | Run bounded click/fill/press/select/wait steps, then capture the resulting UI |
 | `mutate_undo_turn` | Undo the latest complete turn |
 | `mutate_compact_session` | Summarize older history and retain the configured recent window |
 | `mutate_restore_compaction` | Undo the newest incremental compaction checkpoint while preserving later turns |
@@ -1473,13 +1457,6 @@ Start the Roleplay application first:
 
 ```bash
 ./start.sh
-```
-
-For frontend tools, synchronize the dev group and install Playwright's managed Chromium once:
-
-```bash
-uv sync --group dev
-uv run playwright install chromium
 ```
 
 Then register this repository-local process in an MCP client:

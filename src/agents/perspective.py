@@ -22,8 +22,7 @@ from typing import Any
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import (
     Character,
     CharacterPerspective,
@@ -97,17 +96,21 @@ Rules:
 
 
 def _roster_lines(
-    characters: dict[str, Character], viewer_id: str, controlled_id: str
+    characters: dict[str, Character], viewer_id: str
 ) -> tuple[list[str], list[str]]:
+    """Everyone the viewer can hold an opinion about, with no role attached.
+
+    The roster deliberately says nothing about which character is driven from
+    outside the fiction: the agency lock lives in the Runner (AGENTS.md §3),
+    and a label here would let the model infer a protected identity it has no
+    business knowing.
+    """
     subject_ids = [cid for cid in characters if cid != viewer_id]
-    lines = []
-    for cid in subject_ids:
-        character = characters[cid]
-        role = " (controlled by the player)" if cid == controlled_id else ""
-        lines.append(
-            f'  {cid}: canonical name "{character.mind.name}"{role} | '
-            f"visible appearance: {character.body.physical_description[:160]}"
-        )
+    lines = [
+        f'  {cid}: canonical name "{characters[cid].mind.name}" | '
+        f"visible appearance: {characters[cid].body.physical_description[:160]}"
+        for cid in subject_ids
+    ]
     return subject_ids, lines
 
 
@@ -185,14 +188,13 @@ async def initialize_perspective(
     client: httpx.AsyncClient,
     viewer_id: str,
     characters: dict[str, Character],
-    controlled_id: str,
     config: dict,
     session_id: str = "",
     turn_number: int = 0,
 ) -> CharacterPerspective:
     """Compile the viewer's priors into their version-1 identity ledger."""
     viewer = characters[viewer_id]
-    subject_ids, roster = _roster_lines(characters, viewer_id, controlled_id)
+    subject_ids, roster = _roster_lines(characters, viewer_id)
     if not subject_ids:
         return CharacterPerspective(
             initialized_turn=turn_number, processed_through_turn=turn_number
@@ -206,22 +208,15 @@ async def initialize_perspective(
         + "\n".join(roster)
         + "\n\nReport the viewer's current identity knowledge for every roster person."
     )
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         [{"role": "system", "content": _INIT_SYSTEM}, {"role": "user", "content": user}],
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        # A large cast produces one identity entry per other character. The
-        # previous fixed 1024-token cap routinely cut the JSON mid-string,
-        # making all three retries fail identically. This is a ceiling, not a
-        # requested output size: the model stops as soon as the ledger closes.
-        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
-        timeout=resolve_llm_timeout(config),
+        agent=f"perspective:init:{viewer_id}",
         json_schema=build_perspective_json_schema(subject_ids),
+        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
         session_id=session_id,
         turn_number=turn_number,
-        agent=f"perspective:init:{viewer_id}",
-        **llm_request_options(config),
     )
     sheet_text = viewer.mind.personality + "\n" + "\n".join(viewer.mind.knowledge)
     people = _validated_people(
@@ -305,22 +300,15 @@ async def update_identity(
         + "\n".join(event_lines)
         + "\n\nReport the viewer's updated identity knowledge for the unknown people only."
     )
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         [{"role": "system", "content": _UPDATE_SYSTEM}, {"role": "user", "content": user}],
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        # Updates can still contain nearly the whole cast while many identities
-        # remain unknown. A fixed 768-token cap truncated those ledgers at the
-        # same byte on every retry, so retries could never produce valid JSON.
-        # Keep this aligned with initialization's large-cast ceiling.
-        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
-        timeout=resolve_llm_timeout(config),
+        agent=f"perspective:update:{viewer_id}",
         json_schema=build_perspective_json_schema(sorted(unknown)),
+        max_tokens=max(4096, int(config.get("max_tokens_character", 4096))),
         session_id=session_id,
         turn_number=turn_number,
-        agent=f"perspective:update:{viewer_id}",
-        **llm_request_options(config),
     )
     events_text = "\n".join(record.content for record in new_records)
     for subject_id, view in _validated_people(
@@ -368,14 +356,26 @@ def project_text_for_viewer(
     text: str,
     characters: dict[str, Character],
     perspective: CharacterPerspective | None,
+    *,
+    viewer_id: str,
 ) -> str:
     """Strip identities the viewer never learned from free prose (e.g. narrator
     context): unknown canonical names and raw internal IDs become the viewer's
-    reference for that person."""
-    if not text or perspective is None:
+    reference for that person.
+
+    ``viewer_id`` closes the gap the ledger cannot: a viewer holds no `PersonView`
+    of themselves, so their OWN id was the one token the loop below could never
+    replace. Real sessions showed exactly that - Lyra's prompt reading "a sound
+    near C2's feet", her own internal id handed to her as if it were a name.
+
+    It is keyword-only and required on purpose. With a default, a caller that
+    forgot it would turn the viewer's own id into "an unfamiliar person" - the
+    viewer described to themselves as a stranger - and nothing would say so.
+    """
+    if not text:
         return text
     projected = text
-    for subject_id, view in perspective.people.items():
+    for subject_id, view in (perspective.people if perspective is not None else {}).items():
         if subject_id not in characters:
             continue
         replacement = view.known_name or view.reference
@@ -385,6 +385,14 @@ def project_text_for_viewer(
             projected = re.sub(
                 rf"\b{re.escape(canonical)}\b", view.reference, projected, flags=re.IGNORECASE
             )
+    # Whatever the ledger did not cover: the viewer's own id resolves to their own
+    # name (they know who they are); anyone else's id resolves to the anonymous
+    # reference, never the canonical name - an id is not evidence of acquaintance.
+    for subject_id, character in characters.items():
+        if not re.search(rf"\b{re.escape(subject_id)}\b", projected):
+            continue
+        replacement = character.mind.name if subject_id == viewer_id else FALLBACK_REFERENCE
+        projected = re.sub(rf"\b{re.escape(subject_id)}\b", replacement, projected)
     return projected
 
 
@@ -472,18 +480,15 @@ async def revise_memory(
     viewer_name = characters[viewer_id].mind.name if viewer_id in characters else viewer_id
     messages = build_memory_revision_messages(viewer_name, perspective.memory_summary, older)
     try:
-        result = await chat_completion_json(
+        result = await call_agent(
             client,
+            config,
             messages,
-            model=config.get("model", ""),
-            language=config.get("language", ""),
-            max_tokens=config.get("summarizer_max_tokens", 1024),
-            timeout=resolve_llm_timeout(config),
+            agent=f"perspective:memory:{viewer_id}",
             json_schema=build_memory_revision_schema(),
+            max_tokens=config.get("summarizer_max_tokens", 1024),
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"perspective:memory:{viewer_id}",
-            **llm_request_options(config),
         )
         revised = str(result.get("memory_summary", "")).strip()
     except Exception:  # noqa: BLE001 - maintenance must never fail the turn
@@ -519,7 +524,9 @@ def capture_memory(
         return
     for record in new_records:
         label = viewer_speaker_label(record.speaker, characters, controlled_id, perspective)
-        content = project_text_for_viewer(record.content, characters, perspective)
+        content = project_text_for_viewer(
+            record.content, characters, perspective, viewer_id=viewer_id
+        )
         verb = "disse" if record.content_type == "speech" else "fez"
         perspective.recent_memory.append(f"T{record.turn_number} {label} {verb}: {content}")
     perspective.memory_through_turn = max(

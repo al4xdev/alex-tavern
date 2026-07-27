@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import tempfile
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -13,12 +12,12 @@ from typing import Any
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.paths import PLUGIN_CONFIG_DIR, PLUGIN_STORAGE_DIR
 from src.plugins.hooks import Handler, HookKind, HookRegistry
 from src.plugins.journal import emit
 from src.plugins.manifest import PluginManifest
+from src.store.jsonfile import write_json
 
 _config_lock = threading.RLock()
 
@@ -112,22 +111,6 @@ class PluginStorage:
         return self.mkdir("sessions", session_id)
 
 
-def _atomic_json(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(value, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        temporary.unlink(missing_ok=True)
-        raise
-
-
 class PluginConfig:
     def __init__(self, plugin_id: str) -> None:
         self.plugin_id = plugin_id
@@ -146,7 +129,7 @@ class PluginConfig:
     def write(self, value: dict[str, Any]) -> None:
         emit("permission_access", self.plugin_id, permission="config.write")
         with _config_lock:
-            _atomic_json(self.path, value)
+            write_json(self.path, value)
 
 
 class PluginHttp:
@@ -203,18 +186,16 @@ class PluginModel:
             max_tokens=max_tokens,
             schema=json_schema.get("name", ""),
         )
-        return await chat_completion_json(
-            client=runner.client,
-            messages=messages,
-            model=config.get("model", ""),
-            language=config.get("language", "") if use_configured_language else "",
-            max_tokens=max_tokens,
+        return await call_agent(
+            runner.client,
+            config,
+            messages,
+            agent=f"plugin:{self.plugin_id}",
             json_schema=json_schema,
-            timeout=resolve_llm_timeout(config),
+            max_tokens=max_tokens,
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"plugin:{self.plugin_id}",
-            **llm_request_options(config),
+            use_configured_language=use_configured_language,
         )
 
 
@@ -243,6 +224,7 @@ class PluginContext:
         hooks: HookRegistry,
         runtime: Any,
         default_before: tuple[str, ...] = (),
+        commands: Any = None,
     ) -> None:
         self.manifest = manifest
         self.plugin_id = manifest.plugin_id
@@ -253,6 +235,7 @@ class PluginContext:
         self.unsafe = UnsafeAccess(self.plugin_id, runtime)
         self._hooks = hooks
         self._default_before = default_before
+        self._commands = commands if commands is not None else runtime.commands
 
     def register(
         self,
@@ -287,8 +270,13 @@ class PluginContext:
         self._hooks.contribute(self.plugin_id, slot, value)
 
     def command(self, descriptor: dict[str, Any], handler: Callable[..., Any]) -> None:
-        """Register one executable utility command in the global slash namespace."""
-        self.unsafe.runtime.commands.register(
+        """Register one executable utility command in the global slash namespace.
+
+        A first-class SDK surface, so it goes straight to the registry: routing
+        it through ``unsafe`` made every plugin with a command journal a
+        ``permission: "unsafe"`` access and read as dangerous under review.
+        """
+        self._commands.register(
             self.plugin_id, self.manifest.name, self.manifest.version, descriptor, handler
         )
 

@@ -18,8 +18,7 @@ from __future__ import annotations
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, resolve_llm_timeout
+from src.llm.client import call_agent
 from src.models import Character
 
 # The closed impulse vocabulary. Each key renders to a fixed first-person feeling —
@@ -122,18 +121,15 @@ async def derive_alignment_impulse(
     """
     if not beat_intent.strip():
         return ""
-    result = await chat_completion_json(
+    result = await call_agent(
         client,
+        config,
         build_alignment_messages(beat_intent, character),
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=64,
+        agent="alignment:impulse",
         json_schema=build_alignment_schema(),
-        timeout=resolve_llm_timeout(config),
+        max_tokens=64,
         session_id=session_id,
         turn_number=turn_number,
-        agent="alignment:impulse",
-        **llm_request_options(config),
     )
     key = str(result.get("impulse", "none")).strip()
     return render_impulse(key)

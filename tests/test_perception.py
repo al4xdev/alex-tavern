@@ -6,9 +6,6 @@ import pytest
 
 from src.agents.character import _leaked_secret_tokens
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     PersonView,
     Scene,
@@ -22,20 +19,15 @@ from src.perception import (
     render_events_for_viewer,
     validate_perception_events,
 )
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Bruno"), "C3": _char("Vitor")}
+CHARACTERS = make_cast("Alice", "Bruno", "Vitor")
 
 # salao hears varanda; varanda hears salao; compartimento is acoustically isolated.
 ZONED_SCENE = Scene(
@@ -283,20 +275,14 @@ class TestZoneScopedRecords:
         from src.models import CharacterPerspective
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
             )
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "narration": "O salao vibra.",
-                "next_speakers": ["C2"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="O salao vibra.", next_speakers=["C2"])
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {"speech": "Ouvi voce.", "thought": None}
@@ -315,7 +301,7 @@ class TestZoneScopedRecords:
                 zones={"salao": [], "compartimento": []},
                 positions={"C1": "salao", "C2": "salao", "C3": "compartimento"},
             )
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {"characters": dict(CHARACTERS), "scene": scene, "controlled_character_id": "C1"}
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
@@ -352,7 +338,7 @@ class TestEmptyPerceptionVoid:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -394,7 +380,7 @@ class TestEmptyPerceptionVoid:
                 zones={"salao": [], "compartimento": []},
                 positions={"C1": "salao", "C2": "salao", "C3": "compartimento"},
             )
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {"characters": dict(CHARACTERS), "scene": scene, "controlled_character_id": "C1"}
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)

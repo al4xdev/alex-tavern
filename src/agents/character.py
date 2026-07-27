@@ -10,11 +10,11 @@ import httpx
 
 from src.agents.perspective import viewer_speaker_label
 from src.confidentiality import redact_tokens, secret_tokens_exposed_to, tokens
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
+from src.llm.client import call_agent, normalize_generated_text
 from src.llm.debug_log import log_whisper_output_guard
 from src.models import (
     Character,
+    CharacterPerspective,
     Scene,
     TurnRecord,
     record_visible_to,
@@ -57,6 +57,45 @@ def build_character_json_schema() -> dict:
             "additionalProperties": False,
         },
     }
+
+
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+
+def _promote_physical_sentences(result: dict) -> dict:
+    """Move body movement out of speech/thought and into action_intent.
+
+    The deterministic last resort for the physical-action guard, in the shape
+    its two siblings already use: retry once with a correction, then FIX the
+    output rather than fail. Before this, a character that put movement in the
+    wrong field twice raised and killed the whole turn - a lost session for a
+    stylistic slip, while the whisper guard redacts and the repetition guard
+    drops a field, both promising "never a failed turn".
+
+    Only whole sentences move, so "I lean closer. 'What do you mean?'" keeps its
+    dialogue and gains an intent. A field whose every sentence is movement is
+    emptied, which the caller's own contract already allows as long as something
+    survives.
+    """
+    fixed = dict(result)
+    moved: list[str] = []
+    for field in ("speech", "thought"):
+        value = fixed.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        sentences = _SENTENCE_SPLIT.split(value.strip())
+        keep = [s for s in sentences if not _PHYSICAL_ACTION_RE.search(s)]
+        move = [s for s in sentences if _PHYSICAL_ACTION_RE.search(s)]
+        if not move:
+            continue
+        moved.extend(move)
+        fixed[field] = " ".join(keep).strip() or None
+    if not moved:
+        return fixed
+    existing = fixed.get("action_intent")
+    existing = existing.strip() if isinstance(existing, str) else ""
+    fixed["action_intent"] = " ".join([existing, *moved]).strip()
+    return fixed
 
 
 def _normalize_output(result: dict) -> CharacterOutput:
@@ -152,12 +191,72 @@ def _ledger_memory_text(viewer_perspective) -> str:  # noqa: ANN001
     if viewer_perspective is None:
         return ""
     parts: list[str] = []
-    summary = getattr(viewer_perspective, "memory_summary", "").strip()
+    summary = viewer_perspective.memory_summary.strip()
     if summary:
         parts.append(summary)
-    recent = getattr(viewer_perspective, "recent_memory", [])
-    parts.extend(recent)
+    parts.extend(viewer_perspective.recent_memory)
     return "\n".join(parts)
+
+
+def _roster_label(
+    subject_id: str,
+    perspective: CharacterPerspective | None = None,
+) -> str:
+    """How the viewer would name this person, never how the world names them.
+
+    NOT `viewer_speaker_label`: that one falls back to the canonical name when
+    the viewer has no ledger entry, which is right for history records (a person
+    only reaches history by acting in front of someone) and wrong here. The
+    roster names everyone present, including people the viewer has never met,
+    so the same fallback handed over a name nobody had learned - caught by the
+    task 29 benchmark as `unearned_identity_familiarity` within an hour of this
+    roster shipping.
+    """
+    from src.agents.perspective import FALLBACK_REFERENCE
+
+    if perspective is None:
+        return FALLBACK_REFERENCE
+    view = perspective.people.get(subject_id)
+    if view is None:
+        return FALLBACK_REFERENCE
+    return str(view.known_name or view.reference)
+
+
+def _build_present_roster(
+    scene: Scene | None,
+    characters: dict[str, Character],
+    character_id: str,
+    controlled_id: str,
+    viewer_perspective=None,  # noqa: ANN001
+) -> str:
+    """The people physically here, as code knows them - not as the text implies.
+
+    Task 54, finding 3: characters spoke TO someone who was not in the room.
+    In the live session that was Geralt, who is legitimately in three characters'
+    knowledge sheets (Asword's father, a canonical figure of that world) but has
+    no ID, no position and was never present. Knowing him is correct; addressing
+    him is the defect.
+
+    Measured before shipping, on the nine recorded Character calls that named
+    him, 8 runs per variant: addressing him fell 13/72 to 8/72, while mentions
+    that are NOT an address rose 3 to 6. The characters keep their world and
+    stop talking to the absent.
+
+    Names travel through the viewer's ledger, so a stranger stays a stranger.
+    """
+    if scene is None:
+        return ""
+    others = [
+        cid for cid in scene.present_characters if cid != character_id and cid in characters
+    ]
+    if not others:
+        return "WHO IS HERE WITH YOU: nobody else. You are alone in this place."
+    names = ", ".join(_roster_label(cid, viewer_perspective) for cid in others)
+    return (
+        f"WHO IS HERE WITH YOU: {names}.\n"
+        "That list is complete. Anyone else you know of is elsewhere right now: "
+        "you may think or speak ABOUT them, but you cannot speak TO them."
+    )
 
 
 def _build_user_prompt(
@@ -168,6 +267,7 @@ def _build_user_prompt(
     ledger_memory: str = "",
     disposition_note: str = "",
     alignment_impulse: str = "",
+    present_roster: str = "",
 ) -> str:
     """Put append-only history before the Character's changing state and context.
 
@@ -181,10 +281,12 @@ def _build_user_prompt(
     memory = ledger_memory.strip() or "(none yet)"
     disposition_block = f"{disposition_note}\n" if disposition_note else ""
     impulse_block = f"{alignment_impulse}\n" if alignment_impulse else ""
+    roster_block = f"{present_roster}\n" if present_roster else ""
     return (
         "RECENT EVENTS:\n"
         f"{history_text}\n"
         "\n"
+        f"{roster_block}"
         "CURRENT PRIVATE STATE:\n"
         f"Current mood: {current_mood}\n"
         f"{disposition_block}"
@@ -331,7 +433,7 @@ def _format_history_for_character(
         if (
             rec.audience is not None
             and rec.content_type in ("speech", "action")
-            and getattr(rec, "audience_origin", "whisper") == "whisper"
+            and rec.audience_origin == "whisper"
         ):
             kind = f"WHISPERED {kind} (confidential, not everyone present perceived this)"
         lines.append(f"Turn {rec.turn_number} | TYPE={kind} | SPEAKER={label}: {rec.content}")
@@ -488,6 +590,9 @@ async def act(
                 context,
                 history_text,
                 character.mind.current_mood,
+                present_roster=_build_present_roster(
+                    scene, characters, character_id, controlled_id, viewer_perspective
+                ),
                 whisper_note=_whisper_turn_note(
                     reply_audience,
                     characters,
@@ -511,29 +616,29 @@ async def act(
 
     last_error: ValueError | None = None
     correction: str | None = None
+    guard_reason = ""
     for attempt in range(2):
         attempt_messages = messages
         if correction is not None:
             attempt_messages = [dict(message) for message in messages]
             attempt_messages[-1]["content"] += correction
-        result = await chat_completion_json(
+        result = await call_agent(
             client,
+            config,
             attempt_messages,
-            model=config.get("model", ""),
-            language=config.get("language", ""),
-            max_tokens=max_tokens_character,
-            timeout=resolve_llm_timeout(config),
+            agent=f"character:{character.mind.name}",
             json_schema=build_character_json_schema(),
+            max_tokens=max_tokens_character,
             session_id=session_id,
             turn_number=turn_number,
-            agent=f"character:{character.mind.name}",
-            **llm_request_options(config),
+            guard_retry=guard_reason,
         )
         try:
             output = _normalize_output(result)
         except ValueError as exc:
             last_error = exc
             correction = _PHYSICAL_ACTION_CORRECTION
+            guard_reason = "physical_action"
             continue
 
         # Deterministic whisper guard on the OUTPUT side (mirror of the Narrator
@@ -561,6 +666,7 @@ async def act(
                         attempt_number=attempt + 1,
                     )
                 correction = _WHISPER_LEAK_CORRECTION
+                guard_reason = "whisper_leak"
                 continue
             if session_id:
                 log_whisper_output_guard(
@@ -584,9 +690,18 @@ async def act(
         if echoed:
             if attempt == 0:
                 correction = _REPETITION_CORRECTION
+                guard_reason = "repetition"
                 continue
             other = "speech" if echoed == "thought" else "thought"
             if output.get(other):
                 output = cast(CharacterOutput, {**output, echoed: None})
         return output
+
+    # The correction retry did not land. Fix the output deterministically instead
+    # of failing the turn, exactly as the whisper and repetition guards do.
+    if result is not None:
+        try:
+            return _normalize_output(_promote_physical_sentences(result))
+        except ValueError:
+            pass
     raise ValueError(f"Invalid Character response after correction: {last_error}")

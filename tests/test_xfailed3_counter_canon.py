@@ -416,7 +416,7 @@ async def _execute_events(events: list[dict[str, Any]]) -> dict[str, Any]:
     config = _real_config()
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
-        session_id = runner.start_session(build_session_config(scenario))
+        session_id = await runner.start_session(build_session_config(scenario))
         turn_numbers: list[int] = []
         for event in events:
             if event["type"] == "turn":

@@ -206,7 +206,7 @@ async def run_arm(roteiro_enabled: bool, scenario: str = "estalagem") -> str:
     )
     async with httpx.AsyncClient() as client:
         runner = Runner(client, config)
-        sid = runner.start_session(session_args)
+        sid = await runner.start_session(session_args)
         for kind, text in inputs:
             if kind == "speech":
                 await runner.player_turn(sid, speech=text)

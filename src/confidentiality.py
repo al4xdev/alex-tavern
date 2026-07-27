@@ -150,7 +150,7 @@ def hidden_whisper_tokens(
         rec
         for rec in history
         if rec.audience is not None
-        and getattr(rec, "audience_origin", "whisper") == "whisper"
+        and rec.audience_origin == "whisper"
         and rec.content_type != "thought"
         and not record_visible_to(rec, viewer_id)
     ]
@@ -228,7 +228,7 @@ def secret_tokens_exposed_to(
         rec
         for rec in history
         if rec.audience is not None
-        and getattr(rec, "audience_origin", "whisper") == "whisper"
+        and rec.audience_origin == "whisper"
         and rec.content_type != "thought"
         and record_visible_to(rec, speaker_id)
         and not exposed_ids <= cover(rec)

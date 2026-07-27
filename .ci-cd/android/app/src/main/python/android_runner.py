@@ -4,8 +4,8 @@ Everything here exists so a failure is *visible*. A bare ``uvicorn.run`` sends
 its traceback to the Chaquopy stderr bridge only, where it is easy to miss and
 often truncated; without a stacktrace nobody can tell an import error apart from
 a bind failure apart from no network. So every path also lands in
-``<filesDir>/bootstrap.log``, which MainActivity renders on screen and the
-``/bootstrap_log`` endpoint serves.
+``<filesDir>/bootstrap.log``, which MainActivity renders on screen and
+``adb shell run-as ... cat files/bootstrap.log`` reads off a connected device.
 """
 
 from __future__ import annotations
@@ -66,11 +66,12 @@ def start_server(data_dir: str) -> None:
 
         # Imported eagerly so an import-time failure is reported as one, instead
         # of surfacing as an opaque uvicorn startup error.
-        import src.main
+        import src.main  # noqa: F401
+        from src.build_info import build_commit
         from src.paths import STATIC_DIR
 
         # First thing worth knowing when a build misbehaves: which build is it.
-        log(f"build commit {src.main.get_git_commit()}")
+        log(f"build commit {build_commit()}")
 
         # Whether Chaquopy extracts the non-.py files under src/static decides
         # if the frontend can be served over HTTP; MainActivity falls back to

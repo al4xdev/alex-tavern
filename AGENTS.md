@@ -9,7 +9,8 @@ descreve a arquitetura e as decisões vigentes. História, auditorias e implemen
 ficam em `.plan/closed/`; trabalho ativo fica em `.plan/tasks/`; ideias futuras
 sem trabalho ativo em `.plan/backlog/`; docs de arquitetura vivos em
 `.plan/reference/`; itens esperando ação do dono em `.plan/para-o-dono/`.
-O mapa completo está em `.plan/README.md` e a fila em `.plan/ROADMAP.md`.
+O mapa completo está em `.plan/README.md` (o `ROADMAP.md` monolítico foi removido em
+2026-07-20: o estado vive distribuído entre essas pastas).
 
 > [!IMPORTANT]
 > **Regra Básica de Execução para Agentes:**
@@ -77,6 +78,14 @@ Consequência para agentes: **não trave uma melhoria de core por medo de quebra
 existentes.** Quebrar compatibilidade de sessão é barato e previsto; basta subir a versão.
 O custo real está em carregar shims de compatibilidade, nunca em invalidá-las.
 
+**Campo novo = versão nova. Sem exceção "aditiva".** Não existe campo "puramente aditivo
+que pode ficar sem bump": se `dict_to_game_state` (ou qualquer `dict_to_*`) precisar de
+`.get(campo, default)` para ler uma sessão, o default é uma migração disfarçada e vai
+sobreviver para sempre. Todo campo do schema atual é lido com acesso direto (`data["campo"]`)
+e um `KeyError` significa arquivo corrompido, não versão antiga — o loader já recusou
+qualquer versão diferente antes de chegar ali. Ler campo com default só é legítimo quando
+o valor é opcional *no schema atual* (o `roteiro`, que é `None` com a feature desligada).
+
 ## 3. Invariantes de domínio
 
 ### Agência e imersão
@@ -90,7 +99,23 @@ usuário ou operador externo.
 - quando o Narrador escolhe o personagem controlado como próximo falante, o Runner devolve o
   controle ao humano e não gera sua fala;
 - não existe nome, persona ou prompt separado para o jogador;
-- nenhuma chamada nova pode contornar essa trava de agência.
+- nenhuma chamada nova pode contornar essa trava de agência;
+- **marcador estrutural também é vazamento.** Um prompt que formata o personagem
+  controlado de maneira diferente de todos os outros o identifica sem nomear
+  nada — e isso viola esta seção do mesmo jeito que a palavra "jogador" violaria.
+  Rótulo, ordem, campo extra, exclusão nomeada: se a regra de formatação separa
+  exatamente um personagem, ela codifica `controlled_character_id` no texto.
+  Encontrado duas vezes em 2026-07-27: a constraint de routing do Diretor
+  (corrigida em `5002f11`) e o contexto de drive/watcher, que rendia o controlado
+  por nome e o resto por ID na mesma lista (task 58).
+
+> **Por que isso não é negociável por medição.** As duas correções acima têm
+> A/B registrado, e isso é bom — mas o A/B mede *quanto custa*, nunca *se sai*.
+> Uma invariante que aceita reprovação por métrica de qualidade não é invariante.
+> A regra prática: quando um achado cai sob esta seção, o experimento decide a
+> forma da correção, não a sua existência. `src/prompt_contract.py` cobre a parte
+> lexical (`operator_ontology_hits`) e a estrutural (`singled_out_speakers`);
+> nenhuma das duas substitui ler o prompt que o servidor mandou de verdade.
 
 ### Responsabilidades dos papéis
 

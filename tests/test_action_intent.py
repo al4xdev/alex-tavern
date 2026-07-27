@@ -7,28 +7,20 @@ import pytest
 
 from src.agents.character import _normalize_output
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     Scene,
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Alice"), "C2": _char("Bruno"), "C3": _char("Vitor")}
+CHARACTERS = make_cast("Alice", "Bruno", "Vitor")
 
 ZONED_SCENE = Scene(
     location="Embaixada",
@@ -68,20 +60,14 @@ class TestRunnerIntentAndMoves:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
             )
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "next_speakers": ["C3"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": {"C3": "salao"},
-            }
+            return director_beat(next_speakers=["C3"], zone_moves={"C3": "salao"})
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {
@@ -94,7 +80,7 @@ class TestRunnerIntentAndMoves:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {"auto_event_enabled": False})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(ZONED_SCENE),

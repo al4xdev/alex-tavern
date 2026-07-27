@@ -42,6 +42,7 @@ from src.plugins.store import (
 )
 from src.runner import Runner
 from src.store.sessions import delete_session, load_game, session_debug_path
+from tests.factories import director_beat
 from tools.plugin_author import pack_plugin, scaffold_plugin
 
 EXAMPLES = Path(__file__).resolve().parents[1] / "plugins" / "examples"
@@ -219,11 +220,9 @@ def test_plugin_restart_waits_for_explicit_endpoint(
     package = _pack(EXAMPLES / "turn_counter", tmp_path / "counter.zip")
     installed = install_zip(package)
     restart_requests: list[bool] = []
-    monkeypatch.setattr(
-        "src.supervisor.request_restart",
-        lambda: restart_requests.append(True) or True,
-    )
-    monkeypatch.setattr(store_module, "rebuild_environment", lambda pointers=None: {"locked": []})
+    # Patch where the route USES them, not where they are defined.
+    monkeypatch.setattr(main, "request_restart", lambda: restart_requests.append(True) or True)
+    monkeypatch.setattr(main, "rebuild_environment", lambda pointers=None: {"locked": []})
     activated = main.activate_plugin(
         "dev.alex-tavern.turn-counter",
         main.PluginActivationRequest(
@@ -339,6 +338,8 @@ def test_failed_environment_build_keeps_previous_activation(
     def fail(pointers=None):  # noqa: ANN001, ANN202, ARG001
         raise RuntimeError("dependency installation failed")
 
+    # switch_activation is called directly here, so the store's own reference
+    # is the one that has to fail.
     monkeypatch.setattr(store_module, "rebuild_environment", fail)
     with pytest.raises(RuntimeError, match="dependency installation failed"):
         switch_activation("dev.test.release", "2.0.0", second["sha256"])
@@ -481,13 +482,7 @@ def _stub_turn_pipeline(runner) -> None:  # noqa: ANN001
     plugin tests only exercise hooks, so the LLM boundary is stubbed out."""
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-        return {
-            "next_speakers": ["Narrator"],
-            "perception_events": [],
-            "scene_update": None,
-            "mood_updates": None,
-            "return_control": False,
-        }
+        return director_beat(next_speakers=["Narrator"])
 
     async def fake_prose(game, events, turn_number):  # noqa: ANN001, ANN202
         return ""
@@ -508,7 +503,7 @@ async def test_runner_discards_crashed_precommit_plugin_draft() -> None:
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
         _stub_turn_pipeline(runner)
-        session_id = runner.start_session()
+        session_id = await runner.start_session()
         result = await runner.player_turn(session_id, thought="secret")
     assert result["turn_number"] == 1
     game = load_game(session_id)
@@ -606,7 +601,7 @@ async def test_turn_input_filter_records_raw_and_effective_values() -> None:
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
         _stub_turn_pipeline(runner)
-        session_id = runner.start_session()
+        session_id = await runner.start_session()
         result = await runner.player_turn(session_id, thought="eu esta aqui")
 
     assert result["effective_input"]["thought"] == "Eu estou aqui."

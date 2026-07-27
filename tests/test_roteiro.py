@@ -6,9 +6,6 @@ import httpx
 import pytest
 
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     GameState,
     Player,
@@ -34,16 +31,9 @@ from src.roteiro import (
     replan_roteiro,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat, make_cast
 
-
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
-
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Rui", "Marta", "Bento")
 SCENE = Scene(
     location="Estalagem",
     time_of_day="Noite",
@@ -341,7 +331,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro())
         decision = ReplanDecision(action="replan_beat", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -369,7 +359,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(beat_replans_in_act=1))
         decision = ReplanDecision(action="advance", reason="coverage_complete")
         async with httpx.AsyncClient() as client:
@@ -398,7 +388,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD))
         decision = ReplanDecision(action="replan_act", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -437,7 +427,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD))
         decision = ReplanDecision(action="replan_act", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -462,7 +452,7 @@ class TestReplanBookkeeping:
                 },
             }
 
-        monkeypatch.setattr(roteiro_mod, "chat_completion_json", fake_llm)
+        monkeypatch.setattr(roteiro_mod, "call_agent", fake_llm)
         game = _game(roteiro=_roteiro(anchors_seen=["carta lacrada"]))
         decision = ReplanDecision(action="replan_beat", reason="stalled")
         async with httpx.AsyncClient() as client:
@@ -476,10 +466,17 @@ class TestPersistence:
         restored = dict_to_game_state(game_state_to_dict(game))
         assert restored.roteiro == game.roteiro
 
-    def test_legacy_session_without_roteiro_loads_none(self) -> None:
+    def test_a_session_with_the_roteiro_disabled_loads_none(self) -> None:
+        data = game_state_to_dict(_game())
+        data["roteiro"] = None
+        assert dict_to_game_state(data).roteiro is None
+
+    def test_a_session_missing_the_roteiro_field_is_refused(self) -> None:
+        """Forward-only: absent is corruption, null is "the roteiro is off"."""
         data = game_state_to_dict(_game())
         data.pop("roteiro")
-        assert dict_to_game_state(data).roteiro is None
+        with pytest.raises(KeyError):
+            dict_to_game_state(data)
 
 
 class TestConfidentialityAndConsumption:
@@ -543,7 +540,7 @@ class TestRunnerWiring:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -570,13 +567,10 @@ class TestRunnerWiring:
             # On a continuation each beat must actually commit, so a character
             # speaks every beat and the burst runs to its budget.
             queue = [next(speaker_cycle)] if speaker_cycle is not None else ["Narrator"]
-            return {
-                "next_speakers": queue,
-                "perception_events": list(narrator_events or []),
-                "scene_update": None,
-                "mood_updates": None,
-                "return_control": False,
-            }
+            return director_beat(
+                       next_speakers=queue,
+                       perception_events=list(narrator_events or []),
+                   )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {"speech": "Falo agora.", "thought": None, "action_intent": None}
@@ -586,7 +580,7 @@ class TestRunnerWiring:
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, dict(config))
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -726,7 +720,7 @@ class TestNarrativeClock:
         import src.runner as runner_mod
         from src.runner import Runner
 
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -738,13 +732,7 @@ class TestNarrativeClock:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             hints.append(narrator_hint)
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         async def fake_replan(client, game, decision, config, turn_number, current_tick=0):  # noqa: ANN001, ANN202, ARG001
             replans.append(decision.reason)
@@ -762,7 +750,7 @@ class TestNarrativeClock:
 
         client = _httpx.AsyncClient()
         runner = Runner(client, {"auto_event_enabled": False, "roteiro_enabled": True})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),
@@ -792,7 +780,13 @@ class TestNarrativeClock:
             await client.aclose()
 
     @pytest.mark.asyncio
-    async def test_undo_does_not_regress_the_clock(self, monkeypatch) -> None:  # noqa: ANN001
+    async def test_undo_rewinds_the_clock_with_the_turn(self, monkeypatch) -> None:  # noqa: ANN001
+        """Undo means the beat did not happen - clock included (task 54, finding 6).
+
+        It used to rewind history and the scene while leaving the clock ahead, so
+        replaying the same action could cross an act deadline and drop the player
+        into a different act while the persisted scene had not moved.
+        """
         from src.store.sessions import delete_session
 
         acts = [RoteiroAct(act_id="a1", summary="s", exit_condition="e")]  # no deadline
@@ -803,12 +797,53 @@ class TestNarrativeClock:
             before = await runner.get_state(sid)
             assert before.narrative_tick == 2
             last_turn = before.history[-1].turn_number
-            # Time always moves forward: undoing a turn rewinds scene/history but
-            # NEVER the clock (an undone turn replays at a later tick).
+
             await runner.undo_turn(sid)
             game = await runner.get_state(sid)
             assert game.history[-1].turn_number < last_turn  # a turn was undone
-            assert game.narrative_tick == 2  # clock held, did not regress to 1
+            assert game.narrative_tick == 1  # and the clock came back with it
+
+            # Replaying the same action lands on the same tick it would have had.
+            await runner.player_turn(sid, speech="Dois, de novo.")
+            assert (await runner.get_state(sid)).narrative_tick == 2
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_undo_restores_the_screenplay_the_player_acted_under(self, monkeypatch) -> None:  # noqa: ANN001
+        """An act deadline crossed by the undone turn is crossed back."""
+        from src.store.sessions import delete_session
+
+        acts = [
+            RoteiroAct(
+                act_id="a1",
+                summary="s",
+                exit_condition="e",
+                duration_ticks=2,
+                world_event="O sino da torre soa.",
+            ),
+            RoteiroAct(act_id="a2", summary="s2", exit_condition="e2"),
+        ]
+        runner, sid, client, _, _ = await self._clock_session(
+            monkeypatch, _roteiro(acts=acts, act_started_tick=0)
+        )
+        try:
+            await runner.player_turn(sid, speech="Um.")  # tick 0->1
+            await runner.player_turn(sid, speech="Dois.")  # tick 1->2
+            # The third turn crosses the deadline: tick(2) - started(0) >= 2.
+            await runner.player_turn(sid, speech="Tres.")
+            crossed = await runner.get_state(sid)
+            assert crossed.roteiro is not None
+            assert crossed.roteiro.act_index == 1, "the deadline was crossed"
+            assert crossed.narrative_tick == 3
+
+            await runner.undo_turn(sid)
+            game = await runner.get_state(sid)
+            assert game.roteiro is not None
+            assert game.roteiro.act_index == 0, "and undo put the act back"
+            assert game.roteiro.act_started_tick == 0
+            assert game.narrative_tick == 2
         finally:
             await delete_session(sid)
             await client.aclose()
@@ -878,7 +913,7 @@ class TestNarrativeClock:
         from src.runner import Runner
         from src.store.sessions import delete_session
 
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return CharacterPerspective(
                 initialized_turn=kwargs.get("turn_number", 0),
                 processed_through_turn=kwargs.get("turn_number", 0),
@@ -891,7 +926,7 @@ class TestNarrativeClock:
 
         client = httpx.AsyncClient()
         runner = Runner(client, {"auto_event_enabled": False})
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": dict(CHARACTERS),
                 "scene": deepcopy_scene(SCENE),

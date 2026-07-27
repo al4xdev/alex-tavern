@@ -10,8 +10,9 @@ from typing import Any, cast
 
 import httpx
 
+from src.config import llm_request_options
 from src.llm.adapters import get_provider_adapter
-from src.llm.debug_log import log_llm_call
+from src.llm.debug_log import LlmCallOutcome, LlmCallRequest, log_llm_call
 from src.llm.schema import JSONSchemaValidationError, validate_json_schema
 
 DEFAULT_LLM_TIMEOUT_SECONDS = 60.0
@@ -49,6 +50,7 @@ async def chat_completion(
     thinking_enabled: bool = False,
     validation_schema: dict[str, Any] | None = None,
     json_schema: dict[str, Any] | None = None,
+    guard_retry: str = "",
 ) -> str:
     """Calls /v1/chat/completions and returns ``content`` as string.
 
@@ -97,14 +99,8 @@ async def chat_completion(
     else:
         messages.insert(0, {"role": "system", "content": instruction.strip()})
 
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "max_tokens": max_tokens,
-        "stream": False,
-    }
-    if response_format is not None:
-        payload["response_format"] = response_format
+    # The adapter owns capability adaptation, so the payload is assembled from
+    # what it prepared — never assembled first and patched afterwards.
     adapter = get_provider_adapter(provider)
     prepared = adapter.prepare_request(
         messages,
@@ -114,16 +110,32 @@ async def chat_completion(
     )
     messages = prepared.messages
     response_format = prepared.response_format
-    payload["messages"] = messages
-    if response_format is None:
-        payload.pop("response_format", None)
-    else:
-        payload["response_format"] = response_format
-    payload.update(prepared.extra_payload)
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+        "stream": False,
+        **({"response_format": response_format} if response_format is not None else {}),
+        **prepared.extra_payload,
+    }
     request_url = adapter.completion_url(api_base)
     headers = adapter.headers(api_key)
 
+    logged_request = LlmCallRequest(
+        agent=agent,
+        model=model,
+        messages=messages,
+        max_tokens=max_tokens,
+        response_format=response_format,
+        provider=provider,
+        api_base=api_base,
+        thinking_enabled=thinking_enabled,
+        guard_retry=guard_retry,
+    )
     started = time.perf_counter()
+    # None only while nothing has been received: the failure log needs to record
+    # "no content" distinctly from an empty string. Every path that returns has
+    # assigned the provider's string.
     content: str | None = None
     usage: dict[str, Any] | None = None
     cache_hit_tokens: int | None = None
@@ -147,47 +159,35 @@ async def chat_completion(
             parsed = json.loads(content)
             if validation_schema is not None:
                 validate_json_schema(parsed, validation_schema)
-    except Exception as e:
-        duration_ms = round((time.perf_counter() - started) * 1000, 3)
+    except Exception as error:
         log_llm_call(
             session_id,
             turn_number,
-            agent,
-            model,
-            messages,
-            max_tokens,
-            response_format,
-            content,
-            e,
-            duration_ms,
-            attempt_number,
-            provider,
-            api_base,
-            thinking_enabled,
-            usage,
-            cache_hit_tokens,
-            cache_miss_tokens,
+            logged_request,
+            LlmCallOutcome(
+                content=content,
+                error=error,
+                duration_ms=round((time.perf_counter() - started) * 1000, 3),
+                attempt_number=attempt_number,
+                usage=usage,
+                cache_hit_tokens=cache_hit_tokens,
+                cache_miss_tokens=cache_miss_tokens,
+            ),
         )
         raise
-    duration_ms = round((time.perf_counter() - started) * 1000, 3)
     log_llm_call(
         session_id,
         turn_number,
-        agent,
-        model,
-        messages,
-        max_tokens,
-        response_format,
-        content,
-        None,
-        duration_ms,
-        attempt_number,
-        provider,
-        api_base,
-        thinking_enabled,
-        usage,
-        cache_hit_tokens,
-        cache_miss_tokens,
+        logged_request,
+        LlmCallOutcome(
+            content=content,
+            error=None,
+            duration_ms=round((time.perf_counter() - started) * 1000, 3),
+            attempt_number=attempt_number,
+            usage=usage,
+            cache_hit_tokens=cache_hit_tokens,
+            cache_miss_tokens=cache_miss_tokens,
+        ),
     )
     return content
 
@@ -209,6 +209,7 @@ async def chat_completion_json(
     api_base: str = "",
     api_key: str = "",
     thinking_enabled: bool = False,
+    guard_retry: str = "",
 ) -> dict:
     """Wrapper that forces JSON output and performs ``json.loads()``.
 
@@ -270,6 +271,7 @@ async def chat_completion_json(
                 thinking_enabled=thinking_enabled,
                 validation_schema=json_schema["schema"] if json_schema is not None else None,
                 json_schema=json_schema,
+                guard_retry=guard_retry,
             )
             return cast(dict, json.loads(content))
         except (
@@ -287,7 +289,48 @@ async def chat_completion_json(
             continue
 
     raise ValueError(
-        f"Falha ao obter JSON válido após {attempts_made} tentativas. Último erro: {last_error}"
+        f"Could not obtain valid JSON after {attempts_made} attempts. Last error: {last_error}"
+    )
+
+
+async def call_agent(
+    client: httpx.AsyncClient,
+    config: dict,
+    messages: list[dict],
+    *,
+    agent: str,
+    json_schema: dict,
+    max_tokens: int,
+    session_id: str = "",
+    turn_number: int = 0,
+    retries: int = 2,
+    use_configured_language: bool = True,
+    guard_retry: str = "",
+) -> dict:
+    """One structured call from a named agent, with transport taken from config.
+
+    Model, language, timeout and provider options belong to the active
+    configuration and are resolved here, so no agent repeats them. What stays
+    explicit is what genuinely differs per agent: its name in the log, its JSON
+    contract and its token budget.
+
+    ``session_id``/``turn_number`` only feed the raw call log; there are no
+    invisible model calls (AGENTS.md section 5).
+    """
+    return await chat_completion_json(
+        client,
+        messages,
+        model=config.get("model", ""),
+        language=config.get("language", "") if use_configured_language else "",
+        max_tokens=max_tokens,
+        timeout=resolve_llm_timeout(config),
+        json_schema=json_schema,
+        retries=retries,
+        session_id=session_id,
+        turn_number=turn_number,
+        agent=agent,
+        guard_retry=guard_retry,
+        **llm_request_options(config),
     )
 
 

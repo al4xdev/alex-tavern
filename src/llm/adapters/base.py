@@ -104,9 +104,11 @@ class ProviderAdapter(Protocol):
     def validate_api_base(self, api_base: str) -> None:
         """Enforce the adapter's endpoint policy; raise on a disallowed target.
 
-        Cloud adapters restrict to HTTPS + an explicit host allowlist; local
-        adapters restrict to loopback/LAN. Config validation calls this; an
-        adapter without it falls back to a conservative http(s)+host check.
+        Required, not optional: config validation calls it for every provider,
+        and it is what keeps a stored secret from being sent to an attacker's
+        endpoint. Cloud adapters restrict to HTTPS + an explicit host allowlist;
+        local adapters restrict to loopback/LAN. ``require_https_host`` and
+        ``require_loopback_or_lan`` in this module implement both policies.
         """
 
     def headers(self, api_key: str) -> dict[str, str] | None:

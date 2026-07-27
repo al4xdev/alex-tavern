@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="boot_starting">Iniciando Alex Tavern…</string>
+    <string name="boot_starting_waiting">Iniciando Alex Tavern… (%1$ds)</string>
+    <string name="boot_failed">Não foi possível iniciar o Alex Tavern. Conecte o aparelho para diagnóstico.</string>
+</resources>

@@ -7,9 +7,6 @@ import pytest
 from src.agents.character import _build_user_prompt, _ledger_memory_text
 from src.agents.perspective import MAX_RECENT_MEMORY, capture_memory
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     CharacterPerspective,
     PersonView,
     Scene,
@@ -18,20 +15,15 @@ from src.models import (
     dict_to_perspective,
     perspective_to_dict,
 )
+from tests.factories import director_beat, make_cast
 
 SCENE = Scene(
     location="Salao", time_of_day="Noite", present_characters=["C1", "C2", "C3"], physical_facts={}
 )
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta"), "C3": _char("Bento")}
+CHARACTERS = make_cast("Rui", "Marta", "Bento")
 
 
 def _rec(turn: int, speaker: str, content: str, ctype: str = "speech") -> TurnRecord:
@@ -116,74 +108,68 @@ class TestPersistence:
         assert restored.memory_summary == "resumo"
         assert restored.memory_through_turn == 3
 
-    def test_legacy_perspective_without_memory_loads_empty(self) -> None:
+    def test_a_perspective_missing_memory_fields_is_refused(self) -> None:
+        """Forward-only: schema 13 always writes them, so a default would hide corruption."""
         data = {"initialized_turn": 0, "processed_through_turn": 2, "people": {}}
-        restored = dict_to_perspective(data)
-        assert restored.recent_memory == []
-        assert restored.memory_summary == ""
-        assert restored.memory_through_turn == 0
+        with pytest.raises(KeyError):
+            dict_to_perspective(data)
+
+
+async def _scripted_session(monkeypatch):  # noqa: ANN001, ANN202
+    import httpx
+
+    import src.runner as runner_mod
+    from src.runner import Runner
+
+    async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return CharacterPerspective(
+            initialized_turn=kwargs.get("turn_number", 0),
+            processed_through_turn=kwargs.get("turn_number", 0),
+        )
+
+    monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+    async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return director_beat(next_speakers=["C2"])
+
+    async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return {
+            "speech": f"Resposta no turno {turn_number}.",
+            "thought": None,
+            "action_intent": None,
+        }
+
+    async def fake_prose() -> str:
+        return "Narracao."
+
+    client = httpx.AsyncClient()
+    runner = Runner(client, {"auto_event_enabled": False})
+    session_scene = Scene(
+        location="Salao",
+        time_of_day="Noite",
+        present_characters=["C1", "C2", "C3", "Player"],
+        physical_facts={},
+    )
+    sid = await runner.start_session(
+        {
+            "characters": dict(CHARACTERS),
+            "scene": session_scene,
+            "controlled_character_id": "C1",
+        }
+    )
+    monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+    monkeypatch.setattr(runner, "_call_character", fake_character)
+    monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
+    return runner, sid, client
 
 
 class TestUndoPreservesMemory:
     """Undo restores the ledger memory exactly (per-record perspective snapshots)."""
 
-    async def _session(self, monkeypatch):  # noqa: ANN001, ANN202
-        import httpx
-
-        import src.runner as runner_mod
-        from src.runner import Runner
-
-        async def fake_init(client, viewer_id, characters, controlled_id, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return CharacterPerspective(
-                initialized_turn=kwargs.get("turn_number", 0),
-                processed_through_turn=kwargs.get("turn_number", 0),
-            )
-
-        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
-
-        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "next_speakers": ["C2"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "return_control": False,
-            }
-
-        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "speech": f"Resposta no turno {turn_number}.",
-                "thought": None,
-                "action_intent": None,
-            }
-
-        async def fake_prose() -> str:
-            return "Narracao."
-
-        client = httpx.AsyncClient()
-        runner = Runner(client, {"auto_event_enabled": False})
-        session_scene = Scene(
-            location="Salao",
-            time_of_day="Noite",
-            present_characters=["C1", "C2", "C3", "Player"],
-            physical_facts={},
-        )
-        sid = runner.start_session(
-            {
-                "characters": dict(CHARACTERS),
-                "scene": session_scene,
-                "controlled_character_id": "C1",
-            }
-        )
-        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(runner, "_call_character", fake_character)
-        monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
-        return runner, sid, client
-
     async def test_undo_rolls_ledger_memory_back(self, monkeypatch) -> None:  # noqa: ANN001
         from src.store.sessions import delete_session
 
-        runner, sid, client = await self._session(monkeypatch)
+        runner, sid, client = await _scripted_session(monkeypatch)
         try:
             await runner.player_turn(sid, speech="Primeira fala.")
             game1 = await runner.get_state(sid)
@@ -202,6 +188,104 @@ class TestUndoPreservesMemory:
             # be captured fresh instead of being skipped as already-seen.
             assert perspective.recent_memory == memory_after_1
             assert perspective.memory_through_turn == cursor_after_1
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+
+    async def test_fork_carries_the_ledger_memory_to_the_copy(self, monkeypatch) -> None:  # noqa: ANN001
+        """Task 39 listed "undo/fork/restore preserve ledger memory exactly".
+
+        Undo had a test; fork and restore did not. A fork that lost the ledger
+        would silently reset every character's private memory of the session,
+        and nothing would say so - the copy just starts amnesiac.
+        """
+        from src.store.sessions import delete_session, fork_session, load_game
+
+        runner, sid, client = await _scripted_session(monkeypatch)
+        forked = None
+        try:
+            await runner.player_turn(sid, speech="Primeira fala.")
+            await runner.player_turn(sid, speech="Segunda fala.")
+            original = await runner.get_state(sid)
+
+            forked = await fork_session(sid)
+            assert forked is not None
+            copy = load_game(forked)
+            assert copy is not None
+
+            for cid, source in original.character_perspectives.items():
+                target = copy.character_perspectives.get(cid)
+                assert target is not None, f"fork lost the ledger of {cid}"
+                assert target.recent_memory == source.recent_memory
+                assert target.memory_through_turn == source.memory_through_turn
+                assert target.memory_summary == source.memory_summary
+                assert {k: v.known_name for k, v in target.people.items()} == {
+                    k: v.known_name for k, v in source.people.items()
+                }
+        finally:
+            await delete_session(sid)
+            if forked:
+                await delete_session(forked)
+            await client.aclose()
+
+    async def test_a_fork_is_a_copy_not_a_shared_reference(self, monkeypatch) -> None:  # noqa: ANN001
+        """Playing the copy must not write into the original's memory."""
+        from src.store.sessions import delete_session, fork_session, load_game
+
+        runner, sid, client = await _scripted_session(monkeypatch)
+        forked = None
+        try:
+            await runner.player_turn(sid, speech="Primeira fala.")
+            before = list((await runner.get_state(sid)).character_perspectives["C2"].recent_memory)
+
+            forked = await fork_session(sid)
+            assert forked is not None
+            await runner.player_turn(forked, speech="So no fork.")
+
+            after = load_game(sid)
+            assert after is not None
+            assert after.character_perspectives["C2"].recent_memory == before
+        finally:
+            await delete_session(sid)
+            if forked:
+                await delete_session(forked)
+            await client.aclose()
+
+    async def test_restoring_a_compaction_keeps_the_ledger_memory(self, monkeypatch) -> None:  # noqa: ANN001
+        """Compaction evicts history; the private ledger is not history."""
+        from src.store.sessions import delete_session
+
+        runner, sid, client = await _scripted_session(monkeypatch)
+        try:
+            async def fake_summarize(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+                return "Resumo do mundo."
+
+            import src.runner as runner_mod
+
+            monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
+            runner.config["compaction_keep_recent_turns"] = 1
+
+            for turn in range(3):
+                await runner.player_turn(sid, speech=f"Fala {turn}.")
+            before_compaction = await runner.get_state(sid)
+            memory_before = list(before_compaction.character_perspectives["C2"].recent_memory)
+
+            compacted = await runner.compact_session(sid)
+            assert compacted.get("compacted") is True, (
+                f"the test must exercise a real compaction, not skip it: {compacted.get('reason')}"
+            )
+            assert compacted["evicted_records"] > 0
+
+            after_compaction = await runner.get_state(sid)
+            assert after_compaction.character_perspectives["C2"].recent_memory == memory_before, (
+                "compaction must not touch a private ledger"
+            )
+
+            restored = await runner.restore_last_compaction(sid)
+            assert restored["restored"] is True
+            after_restore = await runner.get_state(sid)
+            assert after_restore.character_perspectives["C2"].recent_memory == memory_before
         finally:
             await delete_session(sid)
             await client.aclose()
@@ -235,10 +319,10 @@ class TestMemoryRevision:
         import src.agents.perspective as pmod
         from src.agents.perspective import MEMORY_KEEP_RAW_TAIL, revise_memory
 
-        async def fake_chat(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"memory_summary": "Lembro do essencial."}
 
-        monkeypatch.setattr(pmod, "chat_completion_json", fake_chat)
+        monkeypatch.setattr(pmod, "call_agent", fake_chat)
         p = _perspective(recent_memory=[f"linha {i}" for i in range(22)])
         await revise_memory(None, "C2", p, CHARACTERS, {})
         assert p.memory_summary == "Lembro do essencial."
@@ -249,11 +333,56 @@ class TestMemoryRevision:
         import src.agents.perspective as pmod
         from src.agents.perspective import revise_memory
 
-        async def boom(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def boom(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             raise ValueError("provider flake")
 
-        monkeypatch.setattr(pmod, "chat_completion_json", boom)
+        monkeypatch.setattr(pmod, "call_agent", boom)
         p = _perspective(recent_memory=[f"linha {i}" for i in range(22)], memory_summary="antigo")
         await revise_memory(None, "C2", p, CHARACTERS, {})  # must not raise
         assert p.memory_summary == "antigo"
         assert len(p.recent_memory) == 22
+
+
+class TestRapportAccumulatesWithoutCompaction:
+    """Task 39, the ef6b5b90 complaint: rapport only grew at compaction time.
+
+    The fix is one line of wiring - `capture_memory` runs inside
+    `_ensure_perspective` (`runner.py:2263`), which the runner calls once per
+    speaker per turn, so the ledger advances continuously and never waits for an
+    eviction. Everything below `TestCaptureMemory` calls that function directly,
+    which proves the function and not the wiring: move the call back into the
+    This walks a real session instead, on the same scripted harness - no
+    provider, no LLM anywhere in the ledger path.
+    """
+
+    async def test_the_ledger_grows_every_turn_with_no_compaction(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.store.sessions import delete_session
+
+        runner, sid, client = await _scripted_session(monkeypatch)
+        try:
+            sizes: list[int] = []
+            cursors: list[int] = []
+            for turn in range(1, 7):
+                await runner.player_turn(sid, speech=f"Fala {turn}.")
+                game = await runner.get_state(sid)
+                perspective = game.character_perspectives["C2"]
+                sizes.append(len(perspective.recent_memory))
+                cursors.append(perspective.memory_through_turn)
+
+            assert not game.compaction_stack, (
+                "the point is that no compaction happened; this session compacted"
+            )
+            assert sizes == sorted(sizes) and sizes[-1] > sizes[0], (
+                f"the ledger did not accumulate across turns: {sizes}"
+            )
+            assert cursors == sorted(cursors) and cursors[-1] >= 6, (
+                f"the capture cursor stalled: {cursors}"
+            )
+            # Not just longer: the LAST turn's content is in there, so the growth
+            # is the ongoing scene and not a backlog flushed once.
+            assert any("Fala 6." in line for line in perspective.recent_memory), (
+                f"the most recent turn never reached the ledger: {perspective.recent_memory}"
+            )
+        finally:
+            await delete_session(sid)
+            await client.aclose()

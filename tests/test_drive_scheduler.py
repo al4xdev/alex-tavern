@@ -8,9 +8,6 @@ import pytest
 from src.config import ConfigValidationError, _unit_interval
 from src.drive import build_event_seed_messages, evaluate_event_hazard
 from src.models import (
-    Character,
-    CharacterBody,
-    CharacterMind,
     GameState,
     Player,
     Scene,
@@ -18,20 +15,15 @@ from src.models import (
     deepcopy_scene,
 )
 from src.store.sessions import delete_session
+from tests.factories import director_beat, make_cast
 
 
 async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-def _char(name: str) -> Character:
-    return Character(
-        mind=CharacterMind(name=name, personality="p", knowledge=[], current_mood="m"),
-        body=CharacterBody(name=name, physical_description="d", outfit="o"),
-    )
 
-
-CHARACTERS = {"C1": _char("Rui"), "C2": _char("Marta")}
+CHARACTERS = make_cast("Rui", "Marta")
 SCENE = Scene(
     location="Estalagem",
     time_of_day="Noite",
@@ -131,20 +123,14 @@ class TestRunnerInjection:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             captured["hint"] = narrator_hint
-            return {
-                "narration": "A porta se abre.",
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="A porta se abre.", next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "evaluate_event_hazard", fake_hazard)
         monkeypatch.setattr(runner_mod, "generate_event_seed", fake_seed)
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),
@@ -182,19 +168,13 @@ class TestRunnerInjection:
             return DriveDecision(fired=False, probability=0.1, quiet_turns=0, roll=0.9)
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "narration": "Segue.",
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "evaluate_event_hazard", fake_hazard)
 
         async with httpx.AsyncClient() as client:
             runner = Runner(client, {})
-            sid = runner.start_session(
+            sid = await runner.start_session(
                 {
                     "characters": dict(CHARACTERS),
                     "scene": deepcopy_scene(SCENE),

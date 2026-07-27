@@ -26,10 +26,12 @@ from src.models import (
     dict_to_game_state,
     game_state_to_dict,
 )
+from src.prompt_contract import leaks_operator_ontology
 from src.runner import Runner
+from src.store.locks import session_lock
 from src.store.sessions import (
     SESSIONS_DIR,
-    _get_lock,
+    SessionNotFoundError,
     fork_session,
     generate_session_id,
     list_sessions,
@@ -43,6 +45,7 @@ from src.store.sessions import (
 from src.store.sessions import (
     delete_session as delete_session_async,
 )
+from tests.factories import director_beat
 
 DEFAULT_CHARACTERS: dict[str, Character] = {
     "C1": Character(
@@ -123,7 +126,6 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
         client,
         viewer_id,
         characters,
-        controlled_id,
         config,
         **kwargs,  # noqa: ANN001, ANN003
     ) -> CharacterPerspective:
@@ -501,7 +503,7 @@ class TestSessions:
     async def test_fork_waits_for_active_session_transaction(self) -> None:
         """Fork cannot snapshot the middle of an in-flight turn transaction."""
         save_game(_make_test_game(self.sid))
-        lock = _get_lock(self.sid)
+        lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(fork_session(self.sid))
         await asyncio.sleep(0)
@@ -519,7 +521,7 @@ class TestSessions:
         backups = session_backups_dir(self.sid)
         backups.mkdir(parents=True)
         (backups / "compaction.c000001.json").write_text("{}", encoding="utf-8")
-        lock = _get_lock(self.sid)
+        lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(delete_session_async(self.sid))
         await asyncio.sleep(0)
@@ -549,7 +551,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_start_session_persists_default_state(self) -> None:
         """start_session retorna um ID e persiste o estado padrão recuperável."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         assert isinstance(sid, str)
         assert len(sid) == 8
         path = session_state_path(sid)
@@ -570,14 +572,14 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_get_history_empty(self) -> None:
         """get_history de sessão nova retorna lista vazia."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         history = await self.runner.get_history(sid)
         assert history == []
 
     @pytest.mark.asyncio
     async def test_get_history_limit(self) -> None:
         """get_history respeita parâmetro limit."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         game = load_game(sid)
         assert game is not None
         for i in range(10):
@@ -619,8 +621,8 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_restores_mood_and_full_step(self) -> None:
         """Undo restaura o humor E remove todos os registros do passo (mesmo turn_number)."""
-        sid = self.runner.start_session()
-        async with _get_lock(sid):
+        sid = await self.runner.start_session()
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             original_mood_c1 = game.characters["C1"].mind.current_mood
@@ -639,7 +641,7 @@ class TestRunnerLogic:
         result = await self.runner.undo_turn(sid)
         assert result["undone"] is True
 
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 0, "todos os 4 registros do passo devem sumir"
@@ -648,7 +650,7 @@ class TestRunnerLogic:
 
     @pytest.mark.asyncio
     async def test_undo_restores_location_and_previous_scene_facts(self) -> None:
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         game = load_game(sid)
         assert game is not None
         original_scene = copy.deepcopy(game.scene)
@@ -679,8 +681,8 @@ class TestRunnerLogic:
         directly to the same-turn draft and captured by the ordinary scene_snapshot —
         undo_turn reverts it without any presence-specific code.
         """
-        sid = self.runner.start_session()
-        async with _get_lock(sid):
+        sid = await self.runner.start_session()
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             original_present = list(game.scene.present_characters)
@@ -706,22 +708,21 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_nothing(self) -> None:
         """Undo em sessão sem histórico retorna undone=False."""
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         result = await self.runner.undo_turn(sid)
         assert result["undone"] is False
 
     @pytest.mark.asyncio
     async def test_undo_nonexistent_session(self) -> None:
-        """Undo em sessão inexistente retorna error."""
-        result = await self.runner.undo_turn("ffffffff")
-        assert result["undone"] is False
-        assert "error" in result
+        """Undo em sessão inexistente levanta o erro de domínio (HTTP 404)."""
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.undo_turn("ffffffff")
 
     @pytest.mark.asyncio
     async def test_undo_idempotent(self) -> None:
         """Undo duas vezes — segunda retorna undone=False."""
-        sid = self.runner.start_session()
-        async with _get_lock(sid):
+        sid = await self.runner.start_session()
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -736,8 +737,8 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_undo_multiple_turns(self) -> None:
         """Três turnos, desfaz um por um — cada undo remove um turno."""
-        sid = self.runner.start_session()
-        async with _get_lock(sid):
+        sid = await self.runner.start_session()
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -746,7 +747,7 @@ class TestRunnerLogic:
             save_game(game)
 
         # Turno 2
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -756,7 +757,7 @@ class TestRunnerLogic:
             save_game(game)
 
         # Turno 3
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -767,7 +768,7 @@ class TestRunnerLogic:
         # Undo turno 3
         r = await self.runner.undo_turn(sid)
         assert r["undone"] is True
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 3  # Narrador 1 + Narrador 2 + C1
@@ -776,7 +777,7 @@ class TestRunnerLogic:
         # Undo turno 2
         r = await self.runner.undo_turn(sid)
         assert r["undone"] is True
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 1  # Narrador 1
@@ -785,7 +786,7 @@ class TestRunnerLogic:
         # Undo turno 1
         r = await self.runner.undo_turn(sid)
         assert r["undone"] is True
-        async with _get_lock(sid):
+        async with session_lock(sid):
             game = load_game(sid)
             assert game is not None
             assert len(game.history) == 0
@@ -800,15 +801,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -827,15 +820,7 @@ class TestRunnerLogic:
 
         async def fake_narrate(**kwargs):  # noqa: ANN003, ANN202
             captured.update(kwargs)
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner_mod, "narrate", fake_narrate)
 
@@ -879,7 +864,7 @@ class TestRunnerLogic:
         plugins.hooks.register("dev.test.presence", "narrator.schema", "filter", extend_schema)
 
         runner = Runner(self.client, {}, plugins=plugins)
-        sid = runner.start_session()
+        sid = await runner.start_session()
         captured: dict = {}
 
         async def fake_call_narrator(
@@ -895,15 +880,7 @@ class TestRunnerLogic:
             captured["extra_context"] = extra_context
             captured["extra_schema_properties"] = extra_schema_properties
             captured["extra_schema_required"] = extra_schema_required
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(runner, "_call_narrator", fake_call_narrator)
         await runner.player_turn(sid, speech="Oi.")
@@ -931,7 +908,7 @@ class TestRunnerLogic:
         plugins.hooks.register("dev.test.presence", "narrator.result", "filter", apply_presence)
 
         runner = Runner(self.client, {}, plugins=plugins)
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -978,7 +955,7 @@ class TestRunnerLogic:
         )
 
         runner = Runner(self.client, {}, plugins=plugins)
-        sid = runner.start_session(
+        sid = await runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -1006,7 +983,7 @@ class TestRunnerLogic:
     @pytest.mark.asyncio
     async def test_absent_next_speaker_never_receives_a_character_call(self, monkeypatch) -> None:  # noqa: ANN001
         """The Narrator routing to an absent character must not trigger a Character call."""
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -1020,12 +997,7 @@ class TestRunnerLogic:
         )
 
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            return {
-                "next_speakers": ["C2"],  # hallucinated/absent — must be gated
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C2"])
 
         async def forbidden_character(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
             raise AssertionError("An absent character must never receive a Character call")
@@ -1042,7 +1014,7 @@ class TestRunnerLogic:
         self, monkeypatch
     ) -> None:  # noqa: ANN001
         """force_speaker naming an absent (but existing) character is ignored, not honored."""
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": DEFAULT_CHARACTERS.copy(),
                 "controlled_character_id": "C1",
@@ -1057,15 +1029,7 @@ class TestRunnerLogic:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN202
             assert forced_speaker is None  # C2 is absent, so the force is dropped
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-                "zone_moves": None,
-                "zone_link_updates": None,
-                "return_control": False,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         result = await self.runner.player_turn(sid, speech="Oi.", force_speaker="C2")
@@ -1076,7 +1040,7 @@ class TestRunnerLogic:
     async def test_force_speaker_is_known_before_character_context_is_built(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
         captured: dict[str, object] = {}
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
@@ -1105,10 +1069,15 @@ class TestRunnerLogic:
         )
 
         assert result["next_speakers"] == ["C2"]
+        # The context reads "Lyra", not "C2": the Director wrote the id into its
+        # event text, and the viewer projection resolves it before the character
+        # sees it. The forced speaker still reached the Director as an id - which
+        # is what this test is actually about - and the resolved name is the same
+        # character, so the routing evidence survives the projection.
         assert captured == {
             "forced_speaker": "C2",
             "character_id": "C2",
-            "context": "Context filtered for C2",
+            "context": "Context filtered for Lyra",
         }
 
         debug_path = session_debug_path(sid)
@@ -1156,7 +1125,7 @@ class TestRunnerLogic:
     async def test_private_thought_only_turn_calls_narrator_without_leaking_thought(
         self, monkeypatch
     ) -> None:  # noqa: ANN001
-        sid = self.runner.start_session()
+        sid = await self.runner.start_session()
 
         async def fake_narrator(game, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003, ANN202
             assert game.history[-1].content_type == "thought"
@@ -1201,8 +1170,8 @@ class TestRunnerLogic:
         async def fake_suggest(**kwargs):  # noqa: ANN003, ANN202
             return [{"speech": "Wait.", "action": "Listen."}]
 
-        monkeypatch.setattr(runner_mod, "narrator_suggest", fake_suggest)
-        lock = _get_lock(self.sid)
+        monkeypatch.setattr(runner_mod, "suggest_moves", fake_suggest)
+        lock = session_lock(self.sid)
         await lock.acquire()
         task = asyncio.create_task(self.runner.suggest_actions(self.sid))
         await asyncio.sleep(0)
@@ -1337,12 +1306,10 @@ class TestCompactSession:
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["summary"] = game.story_summary
-            return {
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event("The sealed gate is visible.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       next_speakers=["C2"],
+                       perception_events=[_perception_event("The sealed gate is visible.", "C2")],
+                   )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["context"] = context
@@ -1371,9 +1338,9 @@ class TestCompactSession:
 
     @pytest.mark.asyncio
     async def test_compact_missing_session(self) -> None:
-        """Compactar sessão inexistente devolve erro, sem levantar exceção."""
-        result = await self.runner.compact_session("naoexiste")
-        assert "error" in result
+        """Toda operação numa sessão inexistente levanta o mesmo erro (HTTP 404)."""
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.compact_session("naoexiste")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1488,9 +1455,9 @@ class TestRestoreCompaction:
 
     @pytest.mark.asyncio
     async def test_restore_missing_session(self) -> None:
-        """Sessão inexistente devolve erro, no mesmo formato de compact/undo."""
-        result = await self.runner.restore_last_compaction("naoexiste")
-        assert "error" in result
+        """Mesmo erro de domínio de compact/undo, não um dict com "error"."""
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.restore_last_compaction("naoexiste")
 
     @pytest.mark.asyncio
     async def test_restore_only_undoes_the_most_recent_compaction(
@@ -1643,16 +1610,14 @@ class TestPresenceAdmin:
         assert len(game_after.presence_edit_stack) == 1  # not popped
 
     @pytest.mark.asyncio
-    async def test_set_presence_missing_session_returns_error(self) -> None:
-        result = await self.runner.set_presence(
-            "nonexistent", ["C1", "Player"], expected_revision=0
-        )
-        assert "error" in result
+    async def test_set_presence_missing_session_raises(self) -> None:
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.set_presence("nonexistent", ["C1", "Player"], expected_revision=0)
 
     @pytest.mark.asyncio
-    async def test_undo_missing_session_returns_error(self) -> None:
-        result = await self.runner.undo_last_presence_edit("nonexistent")
-        assert "error" in result
+    async def test_undo_missing_session_raises(self) -> None:
+        with pytest.raises(SessionNotFoundError):
+            await self.runner.undo_last_presence_edit("nonexistent")
 
     @pytest.mark.asyncio
     async def test_set_presence_concurrent_with_turn_is_rejected_not_overwritten(
@@ -1662,12 +1627,7 @@ class TestPresenceAdmin:
         from src.runner import PresenceRevisionConflictError
 
         async def fake_narrator(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
-            return {
-                "next_speakers": ["Narrator"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["Narrator"])
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
         # Client "read" revision 0, then a turn commits concurrently (revision -> 1).
@@ -1714,7 +1674,7 @@ class TestCustomSessionAndDebug:
         for sid in self.created:
             delete_session(sid)
 
-    def _start_custom(self) -> str:
+    async def _start_custom(self) -> str:
         chars = {
             "C1": _custom_char("Aria"),
             "C2": _custom_char("Bron"),
@@ -1726,7 +1686,7 @@ class TestCustomSessionAndDebug:
             present_characters=[],  # deve ser recomputado
             physical_facts={"ar": "úmido"},
         )
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": chars,
                 "scene": scene,
@@ -1737,9 +1697,9 @@ class TestCustomSessionAndDebug:
         self.created.append(sid)
         return sid
 
-    def test_start_session_custom_round_trip(self) -> None:
+    async def test_start_session_custom_round_trip(self) -> None:
         """Personagens custom + narrator_directives fazem round-trip via load_game."""
-        sid = self._start_custom()
+        sid = await self._start_custom()
         game = load_game(sid)
         assert game is not None
         assert set(game.characters) == {"C1", "C2", "C3"}
@@ -1747,21 +1707,21 @@ class TestCustomSessionAndDebug:
         assert game.player.controlled_character_id == "C2"
         assert game.narrator_directives == "Mundo de horror gótico. Tom sombrio."
 
-    def test_start_session_recomputes_present_characters(self) -> None:
+    async def test_start_session_recomputes_present_characters(self) -> None:
         """present_characters é recomputado no servidor, ignorando o cliente."""
-        sid = self._start_custom()
+        sid = await self._start_custom()
         game = load_game(sid)
         assert game is not None
         assert game.scene.present_characters == ["C1", "C2", "C3", "Player"]
 
-    def test_start_session_no_characters_raises(self) -> None:
+    async def test_start_session_no_characters_raises(self) -> None:
         """start_session sem personagens levanta ValueError."""
         with pytest.raises(ValueError, match="at least one character"):
-            self.runner.start_session({"characters": {}})
+            await self.runner.start_session({"characters": {}})
 
-    def test_start_session_invalid_controlled_fallback(self) -> None:
+    async def test_start_session_invalid_controlled_fallback(self) -> None:
         """controlled_character_id inexistente cai no primeiro personagem."""
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": {"C1": _custom_char("Solo")},
                 "controlled_character_id": "C9",
@@ -1784,12 +1744,15 @@ class TestCustomSessionAndDebug:
         assert "SILENT SCENE BLOCKING" in prompt
         assert "1. PLACE EVERYONE." in prompt
         assert "5. ROUTE FROM PERCEPTION." in prompt
-        # The player writing to a room that can hear them is never a valid
-        # empty queue (2026-07-21: real turns answered by nobody).
+        # Speech into a room that can hear it is never a valid empty queue
+        # (2026-07-21: real turns answered by nobody).
         assert "at least one of those" in prompt
         assert "only correct" in prompt
         assert 'Use ["Narrator"]' not in prompt
-        assert "Player" not in prompt
+        # Case-sensitive "Player" accepted the lowercase leak this rule used to
+        # carry for ten days; the shared contract check is what holds now
+        # (tests/test_prompt_operator_ontology.py).
+        assert not leaks_operator_ontology(prompt)
         assert "Regras do mundo aqui." in prompt
 
     def test_build_system_prompt_no_directives(self) -> None:
@@ -1812,13 +1775,13 @@ class TestCustomSessionAndDebug:
         """valid_speakers aceita IDs custom (C3) e não faz fallback."""
         from src.agents import narrator as narrator_mod
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "next_speakers": ["C3"],
-                "perception_events": [_perception_event("ctx", "C3")],
-            }
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return director_beat(
+                       next_speakers=["C3"],
+                       perception_events=[_perception_event("ctx", "C3")],
+                   )
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         chars = {"C3": _custom_char("Caius")}
         result = await narrator_mod.narrate(
             client=self.client,
@@ -1840,13 +1803,10 @@ class TestCustomSessionAndDebug:
         """next_speaker inválido cai para Narrator (o Narrador não conhece "Player")."""
         from src.agents import narrator as narrator_mod
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "next_speakers": ["Fantasma"],
-                "perception_events": [],
-            }
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return director_beat(next_speakers=["Fantasma"])
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(
@@ -1868,15 +1828,15 @@ class TestCustomSessionAndDebug:
 
         captured: dict[str, object] = {}
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             captured["messages"] = messages
             captured["json_schema"] = kwargs["json_schema"]
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [_perception_event("Only C2 can perceive this.", "C2")],
-            }
+            return director_beat(
+                       next_speakers=["C1"],
+                       perception_events=[_perception_event("Only C2 can perceive this.", "C2")],
+                   )
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(
@@ -1908,13 +1868,10 @@ class TestCustomSessionAndDebug:
     async def test_forced_narrator_collapses_queue(self, monkeypatch) -> None:  # noqa: ANN001
         from src.agents import narrator as narrator_mod
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-            }
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+            return director_beat(next_speakers=["C1"])
 
-        monkeypatch.setattr(narrator_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
             client=self.client,
             scene=Scene(location="x", time_of_day="y", present_characters=[], physical_facts={}),
@@ -1971,7 +1928,7 @@ class TestCustomSessionAndDebug:
 
         # next_speaker="C1" precisa ser diferente do controlado, senão o
         # runner pausa (agência do jogador) em vez de chamar o Personagem.
-        sid = self.runner.start_session(
+        sid = await self.runner.start_session(
             {
                 "characters": {"C1": _custom_char("Solo"), "C2": _custom_char("Outro")},
                 "controlled_character_id": "C2",
@@ -2084,11 +2041,11 @@ class TestSummarizerAgent:
 
         agents: list[str] = []
 
-        async def fake_json(client, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
+        async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             agents.append(kwargs["agent"])
             return {"story_summary": "Resumo atualizado."}
 
-        monkeypatch.setattr(summarizer_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(summarizer_mod, "call_agent", fake_json)
         client = httpx.AsyncClient(base_url="http://localhost:8888")
         summary = await summarizer_mod.summarize(
             client=client,
@@ -2376,7 +2333,7 @@ class TestEdgeCases:
         async def fake_json(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202, ARG001
             return next(responses)
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_json)
         async with httpx.AsyncClient() as client:
             output = await character_mod.act(
                 client=client,
@@ -2500,16 +2457,11 @@ class TestEdgeCases:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        sid = runner.start_session()
+        sid = await runner.start_session()
         try:
             await runner.player_turn(
                 session_id=sid,
@@ -2533,16 +2485,11 @@ class TestEdgeCases:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        sid = runner.start_session()
+        sid = await runner.start_session()
         try:
             await runner.player_turn(
                 session_id=sid,
@@ -2571,13 +2518,6 @@ class TestEdgeCases:
         assert body.skip is True
         # não levanta — skip=true bypassa o validator
 
-    def test_pydantic_turn_request_rejects_empty(self) -> None:
-        """PlayerTurnRequest totalmente vazio ainda é rejeitado."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="needs speech, thought, action, or narrator_hint"):
-            PlayerTurnRequest()
-
     def test_pydantic_turn_request_logs_narrator_hint(self) -> None:
         """PlayerTurnRequest com narrator_hint preenche o campo no debug log input."""
         from src.main import PlayerTurnRequest
@@ -2596,26 +2536,27 @@ class TestEdgeCases:
         with pytest.raises(ValidationError, match="narrator_hnit"):
             PlayerTurnRequest(**{"speech": "Hi", "narrator_hnit": "typo"})
 
-    def test_pydantic_turn_request_rejects_skip_with_speech(self) -> None:
-        """skip=True + speech lança erro."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="skip=True cannot be combined"):
-            PlayerTurnRequest(skip=True, speech="Don't ignore me")
-
-    def test_pydantic_turn_request_rejects_skip_with_thought(self) -> None:
-        """skip=True + thought lança erro."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="skip=True cannot be combined"):
-            PlayerTurnRequest(skip=True, thought="I think")
-
-    def test_pydantic_turn_request_rejects_skip_with_action(self) -> None:
-        """skip=True + action lança erro."""
-        from src.main import PlayerTurnRequest
-
-        with pytest.raises(ValueError, match="skip=True cannot be combined"):
-            PlayerTurnRequest(skip=True, action="Move")
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({}, "needs speech, thought, action, narrator_hint, or skip"),
+            ({"skip": True, "speech": "Don't ignore me"}, "skip cannot be combined"),
+            ({"skip": True, "thought": "I think"}, "skip cannot be combined"),
+            ({"skip": True, "action": "Move"}, "skip cannot be combined"),
+        ],
+    )
+    async def test_runner_rejects_a_meaningless_submission(
+        self, kwargs: dict, message: str
+    ) -> None:
+        """The rules live in the domain, so every caller obeys them, not only HTTP."""
+        runner = Runner(httpx.AsyncClient(), {})
+        sid = await runner.start_session()
+        try:
+            with pytest.raises(ValueError, match=message):
+                await runner.player_turn(session_id=sid, **kwargs)
+        finally:
+            delete_session(sid)
+            await runner.client.aclose()
 
     def test_pydantic_turn_request_accepts_skip_with_hint(self) -> None:
         """skip=True + narrator_hint é aceito."""
@@ -2645,12 +2586,7 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2681,6 +2617,36 @@ class TestHttpBoundary:
         assert captured.get("narrator_hint") == "A storm approaches."
 
     @pytest.mark.asyncio
+    async def test_a_domain_rule_violation_still_answers_422(self) -> None:
+        """The rules moved into the Runner; the HTTP contract did not change."""
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        llm_client = httpx.AsyncClient()
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=Runner(llm_client, {}),
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
+        ) as http:
+            sid = (await http.post("/session/start", json={})).json()["session_id"]
+
+            empty = await http.post(f"/session/{sid}/turn", json={})
+            combined = await http.post(
+                f"/session/{sid}/turn", json={"skip": True, "speech": "hello"}
+            )
+            await llm_client.aclose()
+
+        delete_session(sid)
+        assert empty.status_code == 422
+        assert "needs speech" in empty.json()["detail"]
+        assert combined.status_code == 422
+        assert "skip cannot be combined" in combined.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_skip_only_reaches_runner(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
         """skip=true via HTTP chega ao Runner."""
         from src.main import RuntimeState, app
@@ -2696,12 +2662,7 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["called"] = True
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {"auto_event_enabled": False})
@@ -2744,12 +2705,7 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2883,12 +2839,7 @@ class TestHttpBoundary:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2933,12 +2884,7 @@ class TestHttpBoundary:
         ) -> dict:
             captured["narrator_hint"] = narrator_hint
             captured["called"] = True
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -2986,12 +2932,10 @@ class TestHttpBoundary:
         ) -> dict:
             captured["forced_speaker"] = forced_speaker
             captured["narrator_hint"] = narrator_hint
-            return {
-                "next_speakers": ["C1"],
-                "perception_events": [_perception_event("Lyra approaches you.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       next_speakers=["C1"],
+                       perception_events=[_perception_event("Lyra approaches you.", "C2")],
+                   )
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})

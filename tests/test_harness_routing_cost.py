@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.factories import director_beat
 from tools.playtest_harness import (
     PlaytestConfigurationError,
     analyze_debug_records,
@@ -150,7 +151,7 @@ class TestPostSplitAnalyzer:
                 "request": {"messages": []},
                 "error": None,
                 "response": json.dumps(
-                    {"next_speakers": ["C2"], "scene_update": None, "mood_updates": None}
+                    director_beat(next_speakers=["C2"])
                 ),
                 "usage": {"prompt_tokens": 10, "completion_tokens": 5},
             },

@@ -35,6 +35,7 @@ from src.models import (
 )
 from src.runner import Runner
 from src.store.sessions import generate_session_id, save_game, session_dir
+from tests.factories import director_beat
 
 MARKER = "ORQUÍDEA-741"
 PASSWORD_FACT = f"Guarda isto com a vida: a senha do meu cofre é {MARKER}."
@@ -120,7 +121,6 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
         client,
         viewer_id,
         characters,
-        controlled_id,
         config,
         **kwargs,  # noqa: ANN001, ANN003
     ) -> CharacterPerspective:
@@ -170,20 +170,20 @@ class TestFocusSwitchWithoutTrim:
         captured: list[list[dict]] = []
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
-            return {
-                "narration": "A taverna murmura ao redor da mesa.",
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event("Dario aguarda a resposta de Vela.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       narration="A taverna murmura ao redor da mesa.",
+                       next_speakers=["C2"],
+                       perception_events=[
+                           _perception_event("Dario aguarda a resposta de Vela.", "C2")
+                       ],
+                   )
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured.append(messages)
             return {"speech": "Era a senha que me confiaste no início.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         result = await self.runner.player_turn(
             self.sid,
@@ -295,19 +295,17 @@ class TestFocusSwitchWithoutTrim:
                     history=game.history,
                 )
             )
-            return {
-                "narration": "Dario se inclina e sussurra algo a Vela.",
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event("Dario sussurra para você.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       narration="Dario se inclina e sussurra algo a Vela.",
+                       next_speakers=["C2"],
+                       perception_events=[_perception_event("Dario sussurra para você.", "C2")],
+                   )
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"speech": f"Confirmo baixinho: {MARKER}.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         await self.runner.player_turn(
             self.sid,
@@ -394,20 +392,18 @@ class TestFocusSwitchWithoutTrim:
         captured: list[list[dict]] = []
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
-            return {
-                "narration": "O pergaminho brilha à luz das velas.",
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event("Dario mostra algo a Vela.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       narration="O pergaminho brilha à luz das velas.",
+                       next_speakers=["C2"],
+                       perception_events=[_perception_event("Dario mostra algo a Vela.", "C2")],
+                   )
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured.append(messages)
             return {"speech": "Entendi o que está escrito.", "thought": None}
 
         monkeypatch.setattr(self.runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         await self.runner.player_turn(
             self.sid,
@@ -630,13 +626,11 @@ class TestWhisperLeakGuardEndToEnd:
         context_in = f"Dario sussurrou para você: a senha é {MARKER}. Ele espera confirmação."
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
-            return {
-                "narration": "Vela inclina a cabeça, atenta.",
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event(context_in, "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       narration="Vela inclina a cabeça, atenta.",
+                       next_speakers=["C2"],
+                       perception_events=[_perception_event(context_in, "C2")],
+                   )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["context"] = context
@@ -830,11 +824,11 @@ class TestCharacterOutputGuard:
         calls: list[list[dict]] = []
         queue = list(responses)
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             calls.append(messages)
             return queue.pop(0)
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
         output = await character_mod.act(
             client=None,
             character=THREE_CHARACTERS["C2"],
@@ -936,11 +930,11 @@ class TestCharacterOutputGuard:
     async def test_guard_disabled_without_scene(self, monkeypatch) -> None:  # noqa: ANN001
         calls: list[list[dict]] = []
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             calls.append(messages)
             return {"speech": f"A senha era {MARKER}!", "thought": None}
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
         output = await character_mod.act(
             client=None,
             character=THREE_CHARACTERS["C2"],
@@ -969,11 +963,11 @@ class TestCharacterRepetitionGuard:
         queue = list(responses)
         calls: list[list[dict]] = []
 
-        async def fake(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             calls.append(messages)
             return queue.pop(0)
 
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake)
+        monkeypatch.setattr(character_mod, "call_agent", fake)
         output = await character_mod.act(
             client=None,
             character=THREE_CHARACTERS["C2"],
@@ -1048,11 +1042,11 @@ class TestCharacterRepetitionGuard:
                 "mood_updates": None,
             }
 
-        async def fake_chat_completion_json(client, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
+        async def fake_chat_completion_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"speech": f"Todos deviam saber: a senha é {MARKER}!", "thought": None}
 
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(character_mod, "chat_completion_json", fake_chat_completion_json)
+        monkeypatch.setattr(character_mod, "call_agent", fake_chat_completion_json)
 
         try:
             result = await runner.player_turn(
@@ -1118,13 +1112,11 @@ class TestTrimCompactionGapFinding:
             return "Resumo durável.", {"C2": f"Vela lembra que a senha é {MARKER}."}
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
-            return {
-                "narration": "A taverna murmura.",
-                "next_speakers": ["C2"],
-                "perception_events": [_perception_event("Dario aguarda.", "C2")],
-                "scene_update": None,
-                "mood_updates": None,
-            }
+            return director_beat(
+                       narration="A taverna murmura.",
+                       next_speakers=["C2"],
+                       perception_events=[_perception_event("Dario aguarda.", "C2")],
+                   )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             return {"speech": "Entendido.", "thought": None}

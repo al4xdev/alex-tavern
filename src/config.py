@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import threading
 from copy import deepcopy
 from pathlib import Path
@@ -12,12 +10,12 @@ from typing import Any
 
 from src.llm.adapters import get_provider_adapter, provider_adapters, provider_names
 from src.paths import CONFIG_PATH
+from src.store.jsonfile import write_json
 
 PROVIDER_NAMES = provider_names()
 _config_lock = threading.RLock()
 
 CONFIG_SCHEMA_VERSION = 2
-LEGACY_CONFIG_SCHEMA_VERSION = 1
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "schema_version": CONFIG_SCHEMA_VERSION,
@@ -157,18 +155,13 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(raw, dict):
             raise ConfigValidationError(f"providers.{name} must be an object")
         api_base = _required_string(raw.get("api_base"), f"providers.{name}.api_base")
-        # Endpoint policy is adapter-owned (Task 19): cloud adapters restrict to
-        # HTTPS + host allowlist so a stored secret cannot reach an attacker
-        # target; local adapters restrict to loopback/LAN. Adapters without the
-        # method fall back to a conservative http(s)+host check.
-        validate_api_base = getattr(adapter, "validate_api_base", None)
+        # Endpoint policy is adapter-owned and MANDATORY (Task 19): cloud adapters
+        # restrict to HTTPS + a host allowlist so a stored secret cannot reach an
+        # attacker target; local adapters restrict to loopback/LAN. It is part of
+        # the ProviderAdapter protocol, so a plugin-registered adapter that omits
+        # it fails loudly here instead of silently getting a weaker policy.
         try:
-            if callable(validate_api_base):
-                validate_api_base(api_base)
-            else:
-                from src.llm.adapters.base import parse_api_base
-
-                parse_api_base(api_base)
+            adapter.validate_api_base(api_base)
         except ValueError as exc:
             raise ConfigValidationError(f"providers.{name}.api_base rejected: {exc}") from exc
         provider = {
@@ -216,23 +209,6 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
     return canonical
 
 
-def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temporary_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.")
-    temporary = Path(temporary_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(value, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        temporary.replace(path)
-    except BaseException:
-        if temporary.exists():
-            temporary.unlink()
-        raise
-
-
 def _read_config_object(path: Path) -> dict[str, Any]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -243,57 +219,26 @@ def _read_config_object(path: Path) -> dict[str, Any]:
     return raw
 
 
-def config_schema_version(path: Path = CONFIG_PATH) -> int | None:
-    """Inspect config version without changing the file.
+def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
+    """Load the canonical configuration, writing the defaults on first boot.
 
-    The original unversioned application config is schema v1.
-    """
-    with _config_lock:
-        if not path.exists():
-            return None
-        raw = _read_config_object(path)
-        if "schema_version" not in raw:
-            return LEGACY_CONFIG_SCHEMA_VERSION
-        version = raw["schema_version"]
-        if isinstance(version, bool) or not isinstance(version, int):
-            raise ConfigValidationError("schema_version must be an integer")
-        if version not in {LEGACY_CONFIG_SCHEMA_VERSION, CONFIG_SCHEMA_VERSION}:
-            raise ConfigValidationError(
-                f"Unsupported config schema_version {version}; "
-                f"expected {LEGACY_CONFIG_SCHEMA_VERSION} or {CONFIG_SCHEMA_VERSION}"
-            )
-        return version
-
-
-def load_config(path: Path = CONFIG_PATH, *, persist_migration: bool = True) -> dict[str, Any]:
-    """Load canonical v2 config, migrating the original v1 representation.
-
-    ``persist_migration=False`` returns the canonical config without stamping
-    the file as v2. Callers use it when the work that has to accompany the
-    migration did not complete, so the next boot still sees a pre-v2 file and
-    retries.
+    Forward-only (AGENTS.md section 2): a file from another schema version is
+    refused with a clear error instead of being converted. Local data that no
+    longer matches the contract is disposable during development.
     """
     with _config_lock:
         if not path.exists():
             config = deepcopy(DEFAULT_CONFIG)
-            if persist_migration:
-                _atomic_write_json(path, config)
+            write_json(path, config)
             return config
-        version = config_schema_version(path)
-        raw = _read_config_object(path)
-        if version == LEGACY_CONFIG_SCHEMA_VERSION:
-            raw["schema_version"] = CONFIG_SCHEMA_VERSION
-        canonical = validate_config(raw)
-        if version == LEGACY_CONFIG_SCHEMA_VERSION and persist_migration:
-            _atomic_write_json(path, canonical)
-        return canonical
+        return validate_config(_read_config_object(path))
 
 
 def save_config(value: dict[str, Any], path: Path = CONFIG_PATH) -> dict[str, Any]:
     """Validate and atomically persist a complete configuration."""
     with _config_lock:
         canonical = validate_config(value)
-        _atomic_write_json(path, canonical)
+        write_json(path, canonical)
         return canonical
 
 

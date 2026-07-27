@@ -6,21 +6,21 @@ from typing import Any
 
 HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
     "session.start": {
-        "kind": "sync filter",
+        "kind": "filter",
         "value": "session config dict",
         "context": ["runner"],
         "commit": "before",
         "description": "Rewrite complete session creation input before defaults are resolved.",
     },
     "session.before_commit": {
-        "kind": "sync filter",
+        "kind": "filter",
         "value": "GameState",
         "context": ["kind", "runner"],
         "commit": "before",
         "description": "Mutate a new session draft immediately before its first save.",
     },
     "session.after_commit": {
-        "kind": "sync action",
+        "kind": "action",
         "value": "context only",
         "context": ["game", "kind"],
         "commit": "after",
@@ -156,6 +156,37 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
     },
 }
 
+
+class Hook:
+    """Canonical hook names, so a typo in the core is an AttributeError.
+
+    Plugins keep registering by string — this protects the side that DISPATCHES.
+    ``tests/test_plugin_contract.py`` proves these, HOOK_CONTRACTS and the actual
+    call sites stay one set.
+    """
+
+    SESSION_START = "session.start"
+    SESSION_BEFORE_COMMIT = "session.before_commit"
+    SESSION_AFTER_COMMIT = "session.after_commit"
+    NARRATOR_CALL = "narrator.call"
+    NARRATOR_CONTEXT = "narrator.context"
+    NARRATOR_SCHEMA = "narrator.schema"
+    NARRATOR_RESULT = "narrator.result"
+    CHARACTER_CALL = "character.call"
+    TURN_INPUT = "turn.input"
+    NARRATOR_OUTPUT = "narrator.output"
+    CHARACTER_OUTPUT = "character.output"
+    TURN_BEFORE_COMMIT = "turn.before_commit"
+    TURN_AFTER_COMMIT = "turn.after_commit"
+    SUGGESTIONS_OUTPUT = "suggestions.output"
+    UNDO_BEFORE_COMMIT = "undo.before_commit"
+    UNDO_AFTER_COMMIT = "undo.after_commit"
+    COMPACTION_BEFORE_COMMIT = "compaction.before_commit"
+    COMPACTION_AFTER_COMMIT = "compaction.after_commit"
+    COMPACTION_RESTORE_AFTER_COMMIT = "compaction.restore_after_commit"
+    COMPACTION_UNDO_CONFLICT = "compaction.undo_conflict"
+
+
 CONTRIBUTION_SLOTS = {
     "providers": "LLM provider descriptors backed by a registered ProviderAdapter",
     "routes": "HTTP route descriptors or unsafe host mutations",
@@ -285,8 +316,17 @@ FRONTEND_SLASH = {
 
 
 def exported_contract() -> dict[str, Any]:
+    from src.models import SESSION_SCHEMA_VERSION
+
     return {
         "schema_version": 1,
+        # Which core produced this contract, so the hub can refuse a scaffold
+        # generated against a different one instead of shipping a plugin that
+        # registers hooks this build does not fire.
+        "core_version": {
+            "session_schema": SESSION_SCHEMA_VERSION,
+            "hooks": len(HOOK_CONTRACTS),
+        },
         "hooks": HOOK_CONTRACTS,
         "contribution_slots": CONTRIBUTION_SLOTS,
         "services": SERVICES,

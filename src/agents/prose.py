@@ -18,9 +18,8 @@ from typing import Any
 
 import httpx
 
-from src.config import llm_request_options
-from src.llm.client import chat_completion_json, normalize_generated_text, resolve_llm_timeout
-from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
+from src.llm.client import call_agent, normalize_generated_text
+from src.models import Character, Scene, TurnRecord, display_name, trim_history_by_tokens
 
 PROSE_SYSTEM = (
     "You are the prose narrator of a roleplay story. You receive the CONFIRMED\n"
@@ -63,10 +62,7 @@ PROSE_SYSTEM = (
 
 def _canonical_name(cid: str, characters: dict[str, Character], controlled_id: str) -> str:
     """Reader-facing name for a character id ('Player' resolves to the controlled one)."""
-    character = characters.get(cid)
-    if character is not None:
-        return character.mind.name
-    return speaker_label(cid, characters, controlled_id)
+    return display_name(cid, characters, controlled_id)
 
 
 def _transcript_content(
@@ -252,7 +248,7 @@ def build_prose_messages(
     if context_max is not None:
         visible = trim_history_by_tokens(visible, context_max, max_tokens)
     transcript = [
-        f"  {speaker_label(r.speaker, characters, controlled_id)} "
+        f"  {display_name(r.speaker, characters, controlled_id)} "
         f"[{r.content_type}]: {_transcript_content(r, characters, controlled_id)}"
         for r in visible
     ] or ["  (story opening)"]
@@ -318,18 +314,15 @@ async def render_narration(
         context_max=config.get("context_max"),
         max_tokens=max_tokens,
     )
-    request_kwargs: dict[str, Any] = dict(
-        model=config.get("model", ""),
-        language=config.get("language", ""),
-        max_tokens=max_tokens,
-        timeout=resolve_llm_timeout(config),
-        json_schema=build_prose_schema(),
-        session_id=session_id,
-        turn_number=turn_number,
-        agent="prose",
-        **llm_request_options(config),
-    )
-    result = await chat_completion_json(client, messages, **request_kwargs)
+    # Shared by the first attempt and the anti-repetition retry below.
+    request_kwargs: dict[str, Any] = {
+        "agent": "prose",
+        "json_schema": build_prose_schema(),
+        "max_tokens": max_tokens,
+        "session_id": session_id,
+        "turn_number": turn_number,
+    }
+    result = await call_agent(client, config, messages, **request_kwargs)
     narration = str(result.get("narration", "")).strip()
     if _repeats_prior_narration(narration, history):
         # Deterministic anti-repetition guard (measured failure: the same
@@ -341,7 +334,9 @@ async def render_narration(
         # has not already read, and guarantees the lexical-variation invariant
         # by construction rather than by instruction.
         retry_messages = messages + [{"role": "user", "content": REPETITION_CORRECTION}]
-        result = await chat_completion_json(client, retry_messages, **request_kwargs)
+        result = await call_agent(
+            client, config, retry_messages, guard_retry="repetition", **request_kwargs
+        )
         narration = str(result.get("narration", "")).strip()
         if _repeats_prior_narration(narration, history):
             narration = _strip_echoed_sentences(narration, history) or narration
