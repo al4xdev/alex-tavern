@@ -285,17 +285,17 @@ código.
 
 ## Critério de fechamento
 
-- [ ] Nenhum prompt produzido pelo core ou cenário built-in identifica jogador,
+- [x] Nenhum prompt produzido pelo core ou cenário built-in identifica jogador,
       humano operador ou personagem controlado.
-- [ ] O sentinel `Player` continua sempre traduzido antes de chamadas LLM.
-- [ ] Perspective e roteiro não recebem marcação especial do ID controlado.
-- [ ] O Director continua respondendo corretamente a fala/ação audível segundo
+- [x] O sentinel `Player` continua sempre traduzido antes de chamadas LLM.
+- [x] Perspective e roteiro não recebem marcação especial do ID controlado.
+- [x] O Director continua respondendo corretamente a fala/ação audível segundo
       replay real de 3–4 runs.
-- [ ] Testes deixam de depender de capitalização exata.
-- [ ] Harness reporta ontologia operacional por uma regra explícita e testada.
-- [ ] Boundary real cobre todas as famílias listadas, inclusive Historian.
-- [ ] Requests, respostas brutas e contagens ficam registrados nesta task.
-- [ ] README permanece verdadeiro sem precisar enfraquecer a garantia.
+- [x] Testes deixam de depender de capitalização exata.
+- [x] Harness reporta ontologia operacional por uma regra explícita e testada.
+- [x] Boundary real cobre todas as famílias listadas, inclusive Historian.
+- [x] Requests, respostas brutas e contagens ficam registrados nesta task.
+- [x] README permanece verdadeiro sem precisar enfraquecer a garantia.
 
 
 
@@ -413,3 +413,9 @@ sua decisão, então não implementei.
 ## Estado da suíte
 
 815 testes passam (eram 805), `ruff` limpo, `mypy` limpo em 57 arquivos.
+
+> **Caixas espelhadas em 2026-07-27.** As 9 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.

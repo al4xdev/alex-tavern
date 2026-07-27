@@ -50,9 +50,9 @@ it" and executes the user's directive to SHRINK the Narrator and delegate.
 
 ## Acceptance Criteria (headline)
 
-- [ ] Character schema gains `action_intent`; runner never persists an intent
+- [x] Character schema gains `action_intent`; runner never persists an intent
   as an outcome.
-- [ ] Resolver adjudication is a structured call whose output passes
+- [x] Resolver adjudication is a structured call whose output passes
   deterministic validation (presence, zones, agency) before anything commits.
 - [x] Prose renderer receives only validated public facts: no thoughts, no
   sheets, no IDs, no roteiro material in its request (assertable from
@@ -60,11 +60,11 @@ it" and executes the user's directive to SHRINK the Narrator and delegate.
   **IDs 4968 → defeito real, corrigido**. Entrada 15 de
   `docs/cases/19-pre-1.0-measurement-log-2026-07-26.md`;
   `tests/test_internal_ids_in_prompts.py`.
-- [ ] Movement intents change `Scene.positions` transactionally and are
+- [x] Movement intents change `Scene.positions` transactionally and are
   undo-safe.
-- [ ] xfailed3 re-run (29.3 round 2) with the partition case now typed via
+- [x] xfailed3 re-run (29.3 round 2) with the partition case now typed via
   zones + movement; before/after delta published.
-- [ ] Blind critic ×2: dialogue-inside-narration class must drop to zero by
+- [x] Blind critic ×2: dialogue-inside-narration class must drop to zero by
   construction (the renderer never sees unspoken replies).
 
 ## Async topology note (user, 2026-07-16)
@@ -120,3 +120,9 @@ All headline acceptance criteria delivered and measured:
   either fixed-and-remeasured or routed (26).
 Deferred with owners: K-speakers core-vs-plugin boundary (revisit at 37);
 xfail exit clock (29.3, calibrated oracle).
+
+> **Caixas espelhadas em 2026-07-27.** As 5 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.

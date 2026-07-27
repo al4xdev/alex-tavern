@@ -31,9 +31,9 @@ working.
 
 ### Isolated automated coverage
 
-- [ ] A frontend boundary test selects `Narrator`, performs an ordinary send, and
+- [x] A frontend boundary test selects `Narrator`, performs an ordinary send, and
   proves that the HTTP turn payload contains `force_speaker: "Narrator"`.
-- [ ] A separate frontend boundary test selects `Narrator`, activates **Skip turn**,
+- [x] A separate frontend boundary test selects `Narrator`, activates **Skip turn**,
   and proves that the same request contains both `skip: true` and
   `force_speaker: "Narrator"`.
 - [x] A Runner/API test makes the Narrator model return an NPC as `next_speaker`
@@ -41,7 +41,7 @@ working.
   `character_response` is absent, and no Character model call occurs.
 - [x] Tests cover invalid/absent character IDs and the controlled character without
   weakening the current presence and human-agency guards. — `test_forced_controlled_character_never_generates_speech`, `test_force_speaker_on_an_absent_character_falls_back_to_narrator_choice`
-- [ ] A mobile interaction test exercises the long-press/gesture action menu and
+- [x] A mobile interaction test exercises the long-press/gesture action menu and
   proves that Force Speaker remains selectable and the **Suggest** action still
   calls the suggestion flow. Test Force Speaker from this menu with ordinary send
   and keep the skip-turn case isolated from it.
@@ -52,13 +52,13 @@ working.
   least five total, including the human-controlled character). — elenco de 9
 - [x] Execute at least four consecutive rounds with `force_speaker` set only to
   `Narrator`; do not force an NPC during this acceptance run. — 4 rodadas + 1 skip
-- [ ] Every round produces Narrator output only, even when the raw model response
+- [x] Every round produces Narrator output only, even when the raw model response
   chooses an NPC. No Character call or Character response may occur.
-- [ ] For every round, `debug.jsonl` shows `force_speaker: "Narrator"` in
+- [x] For every round, `debug.jsonl` shows `force_speaker: "Narrator"` in
   `turn_input`, `effective_force_speaker: "Narrator"` in
   `turn_input_effective`, and the expected Narrator request/response with matching
   `session_id`, `turn_number`, and `agent`.
-- [ ] Run the skip-turn acceptance separately with `skip: true` and forced
+- [x] Run the skip-turn acceptance separately with `skip: true` and forced
   `Narrator`, proving the same routing outcome without player speech, thought, or
   action.
 
@@ -160,3 +160,9 @@ funciona é o log: personagem só fala quando é chamado.
 
 Os dois scripts também deixavam a config do servidor alterada ao sair. Corrigido:
 salvam e restauram.
+
+> **Caixas espelhadas em 2026-07-27.** As 6 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.

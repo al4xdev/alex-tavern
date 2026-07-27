@@ -113,17 +113,17 @@ Seguir a regra curl-first de `AGENTS.md`:
 
 ## Critérios para encerrar a investigação
 
-- [ ] Causa reproduzida ou delimitada com payload real e contagem de 3–4 runs
+- [x] Causa reproduzida ou delimitada com payload real e contagem de 3–4 runs
       por variante.
-- [ ] Resultado separado por hint manual, hint automático e
+- [x] Resultado separado por hint manual, hint automático e
       `skip + narrator_hint`.
-- [ ] Contrato de consumo único e de visibilidade escrito sem expor o hint
+- [x] Contrato de consumo único e de visibilidade escrito sem expor o hint
       diretamente ao Prose.
-- [ ] Lacuna dos testes atuais demonstrada com um teste que falha no
+- [x] Lacuna dos testes atuais demonstrada com um teste que falha no
       comportamento observado, ainda que a implementação seja tratada depois.
-- [ ] Relação com roteiro confirmada como independente, salvo nova evidência
+- [x] Relação com roteiro confirmada como independente, salvo nova evidência
       contrária.
-- [ ] Achados registrados nesta task antes de qualquer decisão de implementação.
+- [x] Achados registrados nesta task antes de qualquer decisão de implementação.
 
 
 
@@ -241,3 +241,9 @@ zero quando o hint entra, e o caso da paráfrase que reprova de propósito.
 O `roteiro_replan` daquela sessão foi `action="act_deadline"`, `reason="clock"`,
 no turno **6** — antes dos dois hints. Os turnos 7 a 10 registraram
 `action="none"`, `reason="in_progress"`. Nada aqui mudou o roteiro.
+
+> **Caixas espelhadas em 2026-07-27.** As 6 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.

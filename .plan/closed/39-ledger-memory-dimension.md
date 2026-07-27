@@ -224,3 +224,12 @@ que só se dissolveu quando passei a medir **posição vocativa**. Aqui, o orác
 do xfailed3 tropeçou no mesmo mecanismo por conta própria, num cenário, idioma e
 elenco distintos. Duas medições independentes chegando ao mesmo lugar é o mais
 perto de confirmação que este projeto consegue.
+
+> **Ressalva de reprodutibilidade (2026-07-27).** As sessões citadas nesta seção
+> foram geradas em diretório temporário e **não estão no repositório**: os números
+> não são auditáveis por terceiros nem por uma sessão futura. Foram conferidos por
+> mim no momento da execução e o método está descrito acima com detalhe suficiente
+> para ser refeito, mas quem reler deve tratá-los como *relato*, não como
+> evidência verificável. Medições que precisem valer como prova têm de escrever
+> seus artefatos em `docs/` ou `.plan/`, ou o critério deve exigir um script de
+> aceitação em `tools/acceptance/` que qualquer um rode.

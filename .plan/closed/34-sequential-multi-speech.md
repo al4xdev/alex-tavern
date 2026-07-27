@@ -91,3 +91,12 @@ Terceira vez esta noite que a métrica de superfície discordou do mecanismo (as
 outras: menções vs. vocativo na 54, e o filtro por nome de agente na 38). O
 padrão é consistente o bastante para virar regra: quando o critério fala de um
 mecanismo, conte o mecanismo no `debug.jsonl`, nunca o efeito no estado.
+
+> **Ressalva de reprodutibilidade (2026-07-27).** As sessões citadas nesta seção
+> foram geradas em diretório temporário e **não estão no repositório**: os números
+> não são auditáveis por terceiros nem por uma sessão futura. Foram conferidos por
+> mim no momento da execução e o método está descrito acima com detalhe suficiente
+> para ser refeito, mas quem reler deve tratá-los como *relato*, não como
+> evidência verificável. Medições que precisem valer como prova têm de escrever
+> seus artefatos em `docs/` ou `.plan/`, ou o critério deve exigir um script de
+> aceitação em `tools/acceptance/` que qualquer um rode.

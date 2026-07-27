@@ -82,3 +82,12 @@ está lá.
 
 A terceira caixa era mensurável e foi medida hoje, não herdada: campanha full
 tier de 24 turnos com provider real, família secret em 0.
+
+> **Ressalva de reprodutibilidade (2026-07-27).** As sessões citadas nesta seção
+> foram geradas em diretório temporário e **não estão no repositório**: os números
+> não são auditáveis por terceiros nem por uma sessão futura. Foram conferidos por
+> mim no momento da execução e o método está descrito acima com detalhe suficiente
+> para ser refeito, mas quem reler deve tratá-los como *relato*, não como
+> evidência verificável. Medições que precisem valer como prova têm de escrever
+> seus artefatos em `docs/` ou `.plan/`, ou o critério deve exigir um script de
+> aceitação em `tools/acceptance/` que qualquer um rode.

@@ -387,20 +387,20 @@ explícita: provider/schema retry versus retry semântico do agente.
 
 ## Critérios de encerramento
 
-- [ ] Branch versus base comparadas no fluxo determinístico do turno com o
+- [x] Branch versus base comparadas no fluxo determinístico do turno com o
       mesmo double de Director.
-- [ ] Cada alteração real de prompt comparada pelo boundary curl-first quando
+- [x] Cada alteração real de prompt comparada pelo boundary curl-first quando
       puder afetar comportamento.
-- [ ] Caso da mesa central reproduzido e classificado com teste que falha.
-- [ ] Nenhuma fala diretamente endereçada na mesma sala termina com audiência
+- [x] Caso da mesa central reproduzido e classificado com teste que falha.
+- [x] Nenhuma fala diretamente endereçada na mesma sala termina com audiência
       vazia por mera subposição.
-- [ ] Eco de fala humana/Character não cria novo registro equivalente.
-- [ ] Geralt ausente não é promovido a presente sem um evento canônico.
-- [ ] Prompts de agentes não mencionam Player/humano externo.
-- [ ] Fronteiras de pensamento privado e roteiro continuam limpas.
-- [ ] Undo/deadline documentado com uma expectativa de produto explícita.
-- [ ] Métricas separam retries de transporte de retries semânticos.
-- [ ] Task 53 permanece a dona exclusiva do defeito de `narrator_hint`.
+- [x] Eco de fala humana/Character não cria novo registro equivalente.
+- [x] Geralt ausente não é promovido a presente sem um evento canônico.
+- [x] Prompts de agentes não mencionam Player/humano externo.
+- [x] Fronteiras de pensamento privado e roteiro continuam limpas.
+- [x] Undo/deadline documentado com uma expectativa de produto explícita.
+- [x] Métricas separam retries de transporte de retries semânticos.
+- [x] Task 53 permanece a dona exclusiva do defeito de `narrator_hint`.
 
 
 
@@ -752,3 +752,9 @@ volta. Commit `7e5ff53`.
 | 7 — retry semântico invisível | ✅ corrigido | `guard_retry` + métrica no harness |
 
 Suíte: 873 testes.
+
+> **Caixas espelhadas em 2026-07-27.** As 11 caixas do cabeçalho ficaram em branco enquanto a seção de fechamento deste mesmo arquivo já
+> registrava as entregas. Marcá-las é sincronizar cabeçalho e corpo, não
+> declarar trabalho novo: a evidência de cada uma está na seção de
+> fechamento abaixo. Onde a varredura de 2026-07-27 encontrou lacuna real,
+> ela está descrita em seção própria com o teste que a cobre.
