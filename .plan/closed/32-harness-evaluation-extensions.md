@@ -43,14 +43,16 @@ taxonomy, and external evaluator. This task only extends the *generic* harness
 
 ## Acceptance Criteria
 
-- [ ] Unit tests for the routing-probe event: validation, expected-speaker
+- [x] Unit tests for the routing-probe event: validation, expected-speaker
   match, mismatch localization, and the no-character-call case.
-- [ ] Unit tests for cost aggregation from synthetic debug records, including
+- [x] Unit tests for cost aggregation from synthetic debug records, including
   runs with missing `usage` fields (older providers) degrading gracefully.
-- [ ] Harness report shows per-check and per-run token/cost columns.
-- [ ] One real-LLM run of a scenario containing at least two natural-routing
-  probes, with the routing outcomes and costs recorded in the run artifacts.
-- [ ] No multi-model matrix anywhere in the deliverable.
+- [x] Harness report shows per-check and per-run token/cost columns.
+- [x] One real-LLM run of a scenario containing at least two natural-routing
+  probes, with the routing outcomes and costs recorded in the run artifacts. —
+  **feito em 2026-07-27**, ver seção no fim. O cenário faltava: agora é
+  `tools/playtests/routing_probes.json`.
+- [x] No multi-model matrix anywhere in the deliverable.
 
 > **CLOSED 2026-07-16.** Delivered: `routing_check` event (natural routing,
 > force_speaker forbidden, expected-speaker set, localization
@@ -64,3 +66,48 @@ taxonomy, and external evaluator. This task only extends the *generic* harness
 > prefix-cache warm-up (2.1k -> 6.8k -> 7.5k hit tokens) — recontextualizing
 > the WT-08 benchmark signal as scenario-specific, now rate-measurable. 9 unit
 > tests. Multi-model matrix explicitly absent (user decision).
+
+
+---
+
+# Run de aceitação e o que ele mediu (2026-07-27)
+
+O critério exigia um run real com pelo menos duas sondas de roteamento natural.
+Ele nunca foi cumprido por um motivo simples: **o cenário não existia**. Nenhum
+arquivo em `tools/playtests/` tinha um evento `routing_check`. Escrevi
+`routing_probes.json` — três sondas, cada uma interpelando um personagem pelo
+nome e pelo conteúdo, sem `force_speaker` (o harness recusa forçar numa sonda,
+justamente porque a medida é do roteamento *natural*).
+
+## Um erro meu que o próprio run expôs
+
+A primeira versão tinha uma sonda esperando `C1` — **o personagem controlado**.
+O harness marcou falha de roteamento. Não era falha: a trava de agência
+(AGENTS.md §3) impede o sistema de gerar a fala do controlado, então o turno
+roteou para outro personagem, que é o comportamento correto. Uma sonda que espera
+o controlado mede o produto contra uma regra que o produto tem obrigação de
+violar. Está anotado no `description` do cenário para ninguém repetir.
+
+## O resultado, e ele não é confortável
+
+| execução | sondas válidas | rotearam certo | sem chamada de personagem |
+|---|---|---|---|
+| 1 | 2 | 2 | 0 |
+| 2 (cenário corrigido) | 3 | 1 | 2 |
+
+**3 de 5 sondas válidas nas duas execuções.** Quando falha, o modo é
+`routing_no_character_call`: o Diretor responde com narração e não roteia para
+ninguém, mesmo com a fala nomeando a pessoa e fazendo uma pergunta direta a ela.
+
+Custos ficaram registrados no mesmo artefato, que era metade do ponto do critério
+(qualidade e custo do mesmo run, não de dois): execução 2 gastou 36.648 tokens de
+prompt e 4.536 de saída, com 25.472 servidos de cache.
+
+**Não re-rodei até o número ficar bom.** Duas execuções com resultados opostos na
+mesma sonda dizem que a variância é da ordem do efeito — exatamente o diagnóstico
+da task 55, e a razão de registrar 3/5 em vez de escolher a execução simpática.
+
+O que isso abre, e que NÃO é desta task: uma pergunta direta e nominal ficar sem
+resposta do interpelado é um defeito de experiência, não de infraestrutura de
+medição. A task 32 entrega o instrumento e o primeiro número; consertar o
+roteamento precisa de tarefa própria, com este cenário como baseline e n maior.

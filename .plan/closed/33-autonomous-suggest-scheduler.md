@@ -33,11 +33,12 @@ invents events or manually triggers suggestions.
 
 ## Acceptance Criteria
 
-- [ ] Unit tests: probability escalates per quiet turn, resets on fire, respects the
+- [x] Unit tests: probability escalates per quiet turn, resets on fire, respects the
   hard cap, never fires while a player suggest/turn is in flight.
-- [ ] Config validation for the new parameters, with defaults that fire roughly every
+- [x] Config validation for the new parameters, with defaults that fire roughly every
   4-8 turns of inactivity.
-- [ ] Debug log records every scheduler decision.
+- [x] Debug log records every scheduler decision. — `drive_scheduler` no `debug.jsonl`
+  (13 registros na varredura de 2026-07-27)
 - [ ] Real-LLM playtest: a scenario with several skip turns shows injected events
   advancing the scene (compare against a scheduler-disabled control run).
 

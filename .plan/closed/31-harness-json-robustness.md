@@ -65,12 +65,14 @@ large fraction of expensive baseline runs would be wasted on infrastructure.
 
 ## Acceptance Criteria
 
-- [ ] Unit test: a character `act()` whose fake provider returns malformed JSON
+- [x] Unit test: a character `act()` whose fake provider returns malformed JSON
   once and valid JSON on the second attempt completes the turn successfully.
-- [ ] Unit test: HTTP 4xx from the provider fails fast without retries.
-- [ ] Worst-case call count per character turn is asserted (format retries ×
+- [x] Unit test: HTTP 4xx from the provider fails fast without retries. —
+  `test_definitive_client_error_fails_fast`
+- [x] Worst-case call count per character turn is asserted (format retries ×
   correction attempts bounded, no multiplication blow-up).
 - [ ] Three consecutive repetitions of `memory_focus_xyz` against the real
   provider complete with zero runs lost to `Falha ao obter JSON válido`
   (narrative failures, if any, are out of scope here).
-- [ ] `rg 'retries='` in `src/` shows no per-agent overrides left.
+- [x] `rg 'retries='` in `src/` shows no per-agent overrides left. — **conferido
+  2026-07-27**: só o repasse do parâmetro em `client.py:328`, nenhum override.

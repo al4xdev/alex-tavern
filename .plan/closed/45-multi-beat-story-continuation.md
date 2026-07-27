@@ -219,10 +219,15 @@ hipótese. Ver `.plan/backlog/46-schema-description-instruction-channel.md`.
 - [x] Replay real `curl` 4/4 conforme a regra pré-registrada. — feito na entrega original
 - [x] Testes Python, frontend modules, adapters e parsing de HTML. — suíte verde
 - [x] Smoke HTTP real: config → skip → múltiplos beats → motivo de parada. — `tools/acceptance/burst_http_smoke.py`, 2026-07-26
-- [ ] Playwright em 1080p e 2K para Settings, ajuda do campo e botão de continuar.
-      **Bloqueado**, não esquecido: o MCP do Playwright trava no handshake do
-      `--remote-debugging-pipe` (diagnóstico registrado neste arquivo). Único
-      item da task que segue aberto.
+- [~] Playwright em 1080p e 2K para Settings, ajuda do campo e botão de continuar.
+      **1080p FEITO em 2026-07-27** pela extensão do Chrome (o MCP do Playwright
+      continua travando no handshake do `--remote-debugging-pipe`): viewport real
+      1900×917, Settings abre, o controle "Maximum beats per continuation"
+      renderiza com rótulo, valor, escala e explicação, a faixa reage ao arrasto
+      (`1 · short` → `7 · balanced`, com o texto correspondente trocando junto),
+      zero erro de console e nenhum overflow horizontal.
+      **2K permanece impossível aqui**: a tela é 1920×1080, então a janela não
+      cresce até 2560. Precisa de outro monitor — não de outra ferramenta.
 - [x] Inspeção do estado persistido e `debug.jsonl` após um burst real. — smoke HTTP + `log_burst`
 - [x] README atualizado. — `README.md:446,1191`
 - [x] Task movida para `.plan/closed/` somente após todos os gates aplicáveis. — feito

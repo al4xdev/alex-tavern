@@ -1,0 +1,44 @@
+{
+  "name": "routing-probes",
+  "description": "Task 32's missing acceptance scenario: natural routing measured, never forced. Each routing_check addresses one character by name and by content, and names who should answer; the harness localizes any turn that routes elsewhere or produces no character call at all. Costs come from the same run's debug records, so routing quality and token cost are reported from one execution instead of two. Nota de projeto: uma sonda NUNCA pode esperar o personagem controlado. A trava de agencia (AGENTS.md secao 3) impede o sistema de gerar a fala dele, entao a sonda roteia para outro e o harness marca falha de roteamento num sistema que acertou. A primeira versao deste cenario tinha esse erro e produziu 1/3 de falha que era do cenario, nao do produto.",
+  "narrator_directives": "Uma taverna comum ao anoitecer. Mantenha a cena calma e concreta: sem perigo novo, sem objetos novos, sem misterio adicionado. Deixe cada pessoa responder por si quando for diretamente interpelada.",
+  "events": [
+    {
+      "type": "turn",
+      "speech": "Boa noite. Vou me sentar aqui um instante e ouvir a sala.",
+      "action": ""
+    },
+    {
+      "type": "routing_check",
+      "speech": "Lyra, voce que entende de magia: aquele simbolo na parede significa alguma coisa?",
+      "action": "",
+      "expected_speakers": [
+        "C2"
+      ],
+      "required": true
+    },
+    {
+      "type": "turn",
+      "speech": "Entendo. Deixa eu pensar um pouco no que voce disse.",
+      "action": ""
+    },
+    {
+      "type": "routing_check",
+      "speech": "Lyra, se o simbolo for mesmo antigo, o que voce faria primeiro?",
+      "action": "",
+      "expected_speakers": [
+        "C2"
+      ],
+      "required": true
+    },
+    {
+      "type": "routing_check",
+      "speech": "Lyra, prefiro a sua leitura antes de decidir qualquer coisa. Pode terminar o raciocinio?",
+      "action": "",
+      "expected_speakers": [
+        "C2"
+      ],
+      "required": true
+    }
+  ]
+}
