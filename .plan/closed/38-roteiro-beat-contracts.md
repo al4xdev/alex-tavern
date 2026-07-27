@@ -66,12 +66,16 @@ the prose renderer (it contains future secrets). Assertable from debug.jsonl.
 
 ## Acceptance Criteria (headline)
 
-- [ ] Roteiro generator produces valid typed beats from a scenario config.
-- [ ] Deterministic replan triggers with unit-tested hysteresis; zero
-  model-self-assessment triggers.
-- [ ] Roteiro text never appears in character/prose requests (debug scan).
-- [ ] Real-run A/B: same scenario with and without roteiro; blind critic
-  compares narrative drive without knowing which is which.
+- [x] Roteiro generator produces valid typed beats from a scenario config. —
+  `TestRunnerWiring::test_enabled_compiles_once_and_persists` + `TestBeatValidation`
+- [x] Deterministic replan triggers with unit-tested hysteresis; zero
+  model-self-assessment triggers. — `TestEvaluateRoteiro` (patience, cooldown,
+  hard cap, drift window); `evaluate_roteiro` é Python puro, sem chamada de LLM
+- [x] Roteiro text never appears in character/prose requests (debug scan). —
+  **varredura real feita em 2026-07-27**, ver seção no fim
+- [x] Real-run A/B: same scenario with and without roteiro; blind critic
+  compares narrative drive without knowing which is which. — n=10 por braço,
+  entradas 8 e 10 de `docs/cases/19-pre-1.0-measurement-log-2026-07-26.md`
 
 ## CLOSED 2026-07-17 (sessão autônoma) — honest, scoped
 
@@ -254,3 +258,56 @@ Escrever esta medição achou dois defeitos que nenhum teste pegava:
 1. **O harness estava morto pela linha de comando** (`9402737`) — `write_text`
    abaixo do `__main__`, seis sessões completadas sem reportar nada.
 2. **Um deslize de estilo matava o turno** (`b62f49b`).
+
+
+---
+
+# A varredura do debug (2026-07-27)
+
+O critério 3 pedia varredura de `debug.jsonl`, não teste de builder — e a
+distinção acabou valendo o esforço.
+
+**Material:** as 10 sessões reais com `roteiro_enabled` das medições de hoje,
+20 turnos cada. Extraí do `roteiro` persistido tudo que é confidencial (`intent`,
+`title`, `summary`, `premise`, `goal`, `anchors`, `measurables`) com 25+ chars,
+50 trechos ao todo, e procurei cada um — normalizado, sem acento e sem caixa —
+em toda chamada registrada que **não** fosse do lado do Diretor.
+
+**Resultado:** 1182 chamadas não-Diretor inspecionadas, **0 vazamentos**.
+
+| agente | chamadas |
+|---|---|
+| prose | 239 |
+| character:Lyra | 167 |
+| alignment:impulse | 74 |
+| perspective (init + memory) | 29 |
+| suggest_moves / summarizer:world | 20 |
+| resto (turn_input, compaction_status, undo, compact) | 653 |
+
+## Duas coisas que a varredura corrigiu em mim
+
+**Primeira: quase publiquei outro falso negativo.** A primeira versão filtrava por
+`agent not in ("character", "prose", "narrator", ...)`. Os nomes reais no log são
+`character:Lyra`, `perspective:init:C2`, `summarizer:world`, `suggest_moves` —
+então aquele filtro pegava só `prose`, e o "0 vazamentos" cobria 239 chamadas em
+vez de 1182. O que expôs isso foi o **controle negativo**: rodei a mesma
+varredura apontada para o Diretor e exigi que ela *achasse* o texto. Achou 444
+hits em 10/10 sessões. Sem esse controle, o zero não significaria nada. A regra
+que fica: toda varredura por ausência precisa de um alvo onde a presença é
+obrigatória, na mesma execução.
+
+**Segunda: existe um consumidor do beat que a task não previu.** `alignment:impulse`
+(task 44, posterior a esta) recebe `roteiro.beat.intent` inteiro no prompt — 10
+hits. Não é vazamento, e vale registrar por quê: o beat entra, mas o schema força
+a saída a **uma chave de enum**, e `render_impulse` traduz a chave numa das 6
+linhas fixas de `IMPULSES`. Nada específico de enredo tem por onde sair.
+
+Não aceitei isso do docstring. Em produção, 75 linhas de ímpeto chegaram a
+prompts de personagem, **4 distintas**, todas idênticas ao vocabulário fixo
+(`temerário` 23x, `premido` 47x, `desafiador` 3x, `cauteloso` 2x). A construção
+se sustenta no campo, não só no papel.
+
+O que isso realmente diz: o critério original ("nunca em character/prose") estava
+escrito contra uma lista de agentes que envelheceu. A formulação que sobrevive é
+por exclusão — *o roteiro só aparece no lado do Diretor* — e um canal novo só é
+seguro se, como este, a saída for fechada por schema.
