@@ -59,6 +59,45 @@ def build_character_json_schema() -> dict:
     }
 
 
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+
+
+def _promote_physical_sentences(result: dict) -> dict:
+    """Move body movement out of speech/thought and into action_intent.
+
+    The deterministic last resort for the physical-action guard, in the shape
+    its two siblings already use: retry once with a correction, then FIX the
+    output rather than fail. Before this, a character that put movement in the
+    wrong field twice raised and killed the whole turn - a lost session for a
+    stylistic slip, while the whisper guard redacts and the repetition guard
+    drops a field, both promising "never a failed turn".
+
+    Only whole sentences move, so "I lean closer. 'What do you mean?'" keeps its
+    dialogue and gains an intent. A field whose every sentence is movement is
+    emptied, which the caller's own contract already allows as long as something
+    survives.
+    """
+    fixed = dict(result)
+    moved: list[str] = []
+    for field in ("speech", "thought"):
+        value = fixed.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        sentences = _SENTENCE_SPLIT.split(value.strip())
+        keep = [s for s in sentences if not _PHYSICAL_ACTION_RE.search(s)]
+        move = [s for s in sentences if _PHYSICAL_ACTION_RE.search(s)]
+        if not move:
+            continue
+        moved.extend(move)
+        fixed[field] = " ".join(keep).strip() or None
+    if not moved:
+        return fixed
+    existing = fixed.get("action_intent")
+    existing = existing.strip() if isinstance(existing, str) else ""
+    fixed["action_intent"] = " ".join([existing, *moved]).strip()
+    return fixed
+
+
 def _normalize_output(result: dict) -> CharacterOutput:
     """Normalize nullable fields and reject empty or action-like thoughts."""
     speech_value = result.get("speech")
@@ -657,4 +696,12 @@ async def act(
             if output.get(other):
                 output = cast(CharacterOutput, {**output, echoed: None})
         return output
+
+    # The correction retry did not land. Fix the output deterministically instead
+    # of failing the turn, exactly as the whisper and repetition guards do.
+    if result is not None:
+        try:
+            return _normalize_output(_promote_physical_sentences(result))
+        except ValueError:
+            pass
     raise ValueError(f"Invalid Character response after correction: {last_error}")

@@ -134,13 +134,21 @@ class TestUnifiedRetryPolicy:
     async def test_correction_loop_does_not_multiply_format_retries(
         self, monkeypatch, no_backoff
     ) -> None:  # noqa: ANN001
-        """Semantic corrections are act()-level: 2 attempts, 1 provider call each."""
+        """Semantic corrections are act()-level: 2 attempts, 1 provider call each.
+
+        A model that keeps putting body movement in the wrong field no longer
+        fails the turn - the movement is moved into action_intent after the one
+        correction retry, the way the whisper and repetition guards also degrade
+        instead of raising. What this test protects is unchanged: the correction
+        loop must not multiply provider calls.
+        """
         post, calls = _sequenced_post([(200, PHYSICAL_ACTION_CONTENT)])
         async with httpx.AsyncClient(base_url="http://localhost:8888") as client:
             monkeypatch.setattr(client, "post", post)
-            with pytest.raises(ValueError):
-                await _act(client)
+            output = await _act(client)
         assert len(calls) == 2
+        assert output["thought"] is None, "the movement left the thought field"
+        assert output["action_intent"] == "Arrumo um tufo de cabelo atrás da orelha."
 
 
 class TestAgentCallContract:
