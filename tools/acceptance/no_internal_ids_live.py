@@ -47,6 +47,14 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     config = client.get("/config").json()
     print(f"provider={config['active_provider']} language={config.get('language')}")
 
+    # The summarizer only runs at a compaction, and a compaction only evicts what
+    # falls outside the retained window. With the default 200 the run below plays
+    # 8 turns, nothing is evicted, and the story_summary check passes on an empty
+    # summary - which is exactly the vacuous green this script exists to avoid.
+    config["compaction_keep_recent_turns"] = 2
+    saved = client.put("/config", json=config)
+    check("retention window narrowed so a compaction can happen", saved.status_code == 200)
+
     scenario = client.get("/scenario-defaults?name=thorn-lyra").json()["scenario"]
     started = client.post(
         "/session/start",
@@ -77,7 +85,7 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     compacted = client.post(f"/session/{sid}/compact").json()
     check(
         "a real compaction ran",
-        compacted.get("compacted") is True,
+        compacted.get("compacted") is True and (compacted.get("evicted_records") or 0) > 0,
         str(compacted.get("reason") or compacted.get("evicted_records")),
     )
 
