@@ -36,11 +36,11 @@ working.
 - [ ] A separate frontend boundary test selects `Narrator`, activates **Skip turn**,
   and proves that the same request contains both `skip: true` and
   `force_speaker: "Narrator"`.
-- [ ] A Runner/API test makes the Narrator model return an NPC as `next_speaker`
+- [x] A Runner/API test makes the Narrator model return an NPC as `next_speaker`
   while `Narrator` is forced, then proves that `next_speaker` remains `Narrator`,
   `character_response` is absent, and no Character model call occurs.
-- [ ] Tests cover invalid/absent character IDs and the controlled character without
-  weakening the current presence and human-agency guards.
+- [x] Tests cover invalid/absent character IDs and the controlled character without
+  weakening the current presence and human-agency guards. — `test_forced_controlled_character_never_generates_speech`, `test_force_speaker_on_an_absent_character_falls_back_to_narrator_choice`
 - [ ] A mobile interaction test exercises the long-press/gesture action menu and
   proves that Force Speaker remains selectable and the **Suggest** action still
   calls the suggestion flow. Test Force Speaker from this menu with ordinary send
@@ -48,10 +48,10 @@ working.
 
 ### Final real-LLM acceptance run
 
-- [ ] Run a real LLM conversation with **more than four characters present** (at
-  least five total, including the human-controlled character).
-- [ ] Execute at least four consecutive rounds with `force_speaker` set only to
-  `Narrator`; do not force an NPC during this acceptance run.
+- [x] Run a real LLM conversation with **more than four characters present** (at
+  least five total, including the human-controlled character). — elenco de 9
+- [x] Execute at least four consecutive rounds with `force_speaker` set only to
+  `Narrator`; do not force an NPC during this acceptance run. — 4 rodadas + 1 skip
 - [ ] Every round produces Narrator output only, even when the raw model response
   chooses an NPC. No Character call or Character response may occur.
 - [ ] For every round, `debug.jsonl` shows `force_speaker: "Narrator"` in
@@ -98,3 +98,46 @@ plugin's `turn.input` hook interferes with `force_speaker`, and compare
   6 turns.
 - Mobile menu/Suggest reachability unchanged (no layout changes were needed;
   the fix is payload-only).
+
+
+---
+
+# Protocolo de aceitação executado (2026-07-27)
+
+A task fechou com **todo** o protocolo de LLM real em branco. Executei-o inteiro
+como `tools/acceptance/forced_narrator_rounds.py`, contra o servidor de verdade,
+com o elenco de 9 personagens do fixture do xfailed3 — os cenários padrão de 2
+personagens não conseguem exercitar uma regra sobre o Diretor preferir um NPC.
+
+Resultado (sessão `b4955d03`): **8/8 verificações**. 4 rodadas consecutivas
+forçando `Narrator` mais a variante de skip; toda rodada roteou para o Narrador,
+nenhuma resposta de personagem, nenhuma chamada de personagem, narração real em
+todas (795–1999 chars), e o `debug.jsonl` mostrando `force_speaker` e
+`effective_force_speaker` iguais a `Narrator` nas 5.
+
+## Duas correções que o próprio run me impôs
+
+**`effective_force_speaker` é campo de topo, não de `input`.** Faz sentido depois
+de visto: `input` é o que o cliente pediu, e o efetivo é o que o runner
+**decidiu** — são coisas diferentes e o log as separa. Meu check procurava no
+lugar errado e reportou 0 de 5 num sistema que estava certo.
+
+**O primeiro run acusou "fala de NPC persistida em rodada forçada" (C3, C6, C7)
+enquanto o check de chamadas de personagem passava.** As duas coisas juntas só
+fazem sentido de um jeito: eram `audible_speech` encenadas pelo Diretor,
+`audience_origin: "zone"`, no formato *"Watson diz: '…'"*. Não é violação — é a
+persistência de fala audível de que o WT-09 depende.
+
+O erro era meu, e de um tipo específico: escrevi um check **mais estrito que o
+critério**. A task diz "No Character call or Character response may occur", e
+nenhum ocorreu. Forçar o Narrador força **quem age**, não silêncio na ficção.
+Um check acidentalmente mais rígido que a especificação teria "encontrado" um
+bug inexistente e custado uma rodada de investigação — como custou.
+
+## O que só o run real informa
+
+Nas 5 rodadas, o Diretor propôs um NPC mesmo forçado em **0** delas. Os testes
+unitários provam que o runner ignora um NPC quando recebe um; nenhum deles
+consegue dizer com que frequência um Diretor real tenta. Agora o script reporta
+esse número em vez de assumi-lo — e num modelo futuro, ou num prompt alterado,
+é justamente esse contador que denuncia a regressão antes do usuário.
