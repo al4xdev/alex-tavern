@@ -677,16 +677,21 @@ def analyze_debug_records(
     # test that reports success, and it is the exact failure this session spent
     # its time cataloguing. A reader must be able to tell "looked, found nothing"
     # from "did not look".
+    # An EMPTY cast counts as not swept, not as swept-and-clean: with no
+    # characters there is no label to compare, so "found nothing" would be true
+    # and meaningless. Same silence, stated on purpose rather than inherited from
+    # a falsy check.
+    cast = characters or None
     singled_out: list[dict[str, Any]] = []
-    swept = bool(characters)
-    if swept:
+    swept = cast is not None
+    if cast is not None:
         for record in calls:
             text = "\n".join(
                 str(message.get("content", ""))
                 for message in record["request"].get("messages", [])
                 if isinstance(message, dict)
             )
-            marked = singled_out_speakers(text, characters)
+            marked = singled_out_speakers(text, cast)
             if marked:
                 singled_out.append(
                     {
