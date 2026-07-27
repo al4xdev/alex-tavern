@@ -5,9 +5,9 @@
 | **Series** | Alex Tavern Engineering Cases, No. 17 |
 | **Date** | 2026-07-25 |
 | **Kind** | Incident reconstruction + boundary redesign |
-| **Roadmap** | Task 51 (`.plan/tasks/51-android-runtime-and-plugin-integrity.md`) |
+| **Roadmap** | [Task 51](../../.plan/closed/51-android-runtime-and-plugin-integrity.md) |
 | **Commits** | `36942a9`, `f758b56`, `4865672`, `8bd5c4e` |
-| **Status** | Implementation and build delivered; exact old/new PID device capture remains open |
+| **Status** | Closed 2026-07-27; physical old/new PID and plugin-persistence gate passed |
 
 ## Abstract
 
@@ -21,7 +21,9 @@ would not permit. After those were removed, hub synchronization and all six cura
 plugin installations completed on the device. A third defect appeared only after
 activation: reloading a WebView cannot replace the in-process Chaquopy interpreter.
 The resulting design keeps the generic plugin API unchanged but delegates Android
-process replacement to a non-exported relay Activity in a separate process.
+process replacement to a non-exported relay Activity in a separate process. A
+later physical run measured two complete process replacements and plugin-state
+persistence across both boots.
 
 ## 1. Competing hypotheses
 
@@ -111,22 +113,34 @@ This design preserves three security/ownership properties:
 | Focused regression | Android packaging + frontend architecture + plugins | 62/62 passed |
 | Full regression | `pytest -x`; Ruff format/check; mypy | 785 passed, 2 deselected; clean |
 | Process replacement | Source/manifest contract and APK compilation | Passed |
-| Physical old/new PID pair | ADB unavailable in the final restricted process | **Open gate** |
+| Physical deactivation restart | PID `13801` → `14141`; health passed and Suggestion Preloader was absent from `loaded` | Passed |
+| Physical activation restart | PID `14141` → `14424`; health passed and Suggestion Preloader was active in `loaded` | Passed |
 
-## 6. Limitations and falsifiable closure gate
+## 6. Physical closure gate
 
-The relay is compiled, structurally test-pinned, and follows Android's documented
-process boundary, but implementation plausibility is not a PID measurement. Task 51
-therefore remains active until one physical run records:
+On 2026-07-27 ADB reached the physical XT2201-2 outside the restricted process.
+The installed app reported commit
+`008c27bd1c5f24988d633ba452af324fd77bf0fa`, the final evidence commit, and
+answered `/health` before the measurement.
 
-1. PID before an activation/deactivation;
-2. Plugin Center close;
-3. a different main PID after relaunch;
-4. `/plugins` showing the selected active set after the new `/health` succeeds.
+The first pass deactivated `dev.alex-tavern.suggestion-preloader` under PID
+`13801`. Closing the Plugin Center invoked the Android bridge, and the relaunched
+server answered under PID `14141`; `/health` passed and `/plugins` reported the
+plugin inactive and absent from `loaded`.
 
-This limitation is deliberately narrow. It does not reopen the data-directory,
-hub-publication or package-install findings, each of which already crossed its real
-device boundary.
+The second pass reactivated the same plugin under PID `14141`. Closing the Plugin
+Center relaunched the server under PID `14424`; `/health` passed and `/plugins`
+reported `state: current`, `active: true`, with the plugin present in `loaded`.
+This restored the device's original active set. `bootstrap.log` recorded the
+restart handoff and a fresh Chaquopy/Uvicorn boot for both replacements.
+
+The local APK still hashes to
+`c4836235b975276f0315c8872d5c8bc50e29c50db4ff633ed93fdb42fab164a0`.
+An attempted `adb install -r` was rejected because the already-installed package
+used a different signing key. It was not uninstalled, because doing so would
+erase the private plugin state being measured. The installed application
+reported the same final source commit, so the signing mismatch is a packaging
+provenance limitation, not a limitation of the measured restart boundary.
 
 ## Conclusion
 
@@ -134,4 +148,6 @@ The incident was not “Python versus Android permissions.” It was three owner
 mistakes that happened to surface on Android: implicit bridge mutation, accidental
 metadata preservation, and confusing browser lifecycle with process lifecycle.
 Replacing each with an explicit boundary kept the canonical backend and plugin runtime
-portable while making the APK diagnosable and reproducible.
+portable while making the APK diagnosable and reproducible. The measured
+`13801 → 14141 → 14424` sequence closes the last distinction between a compiled
+restart design and a restart that actually replaced the running process.
