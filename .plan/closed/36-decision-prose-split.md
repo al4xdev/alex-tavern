@@ -54,9 +54,12 @@ it" and executes the user's directive to SHRINK the Narrator and delegate.
   as an outcome.
 - [ ] Resolver adjudication is a structured call whose output passes
   deterministic validation (presence, zones, agency) before anything commits.
-- [ ] Prose renderer receives only validated public facts: no thoughts, no
+- [x] Prose renderer receives only validated public facts: no thoughts, no
   sheets, no IDs, no roteiro material in its request (assertable from
-  debug.jsonl).
+  debug.jsonl). — **varredura real 2026-07-27**: thoughts 0, fichas 0, roteiro 0;
+  **IDs 4968 → defeito real, corrigido**. Entrada 15 de
+  `docs/cases/19-pre-1.0-measurement-log-2026-07-26.md`;
+  `tests/test_internal_ids_in_prompts.py`.
 - [ ] Movement intents change `Scene.positions` transactionally and are
   undo-safe.
 - [ ] xfailed3 re-run (29.3 round 2) with the partition case now typed via
