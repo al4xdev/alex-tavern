@@ -1,3 +1,11 @@
+> ✅ **FECHADA em 2026-07-27** — os dois critérios de aceite foram finalmente
+> AVALIADOS, e o resultado é misto: o critério 1 passa, o **critério 2 reprova**.
+> Mais útil que o veredito: a revisão cega identificou uma classe dominante
+> diferente da que esta lane vinha acumulando evidência. Relatório no fim.
+>
+> Esta era a "lane acumuladora" que pedia *"new event-level evidence and a
+> pre-registered material-delta gate"*. A evidência chegou.
+
 # Task 26 — Narrator Prose Quality and Staging Continuity
 
 > **Status (2026-07-20): ABERTA — lane acumuladora, não fechável hoje.** Boa
@@ -255,3 +263,108 @@ narrated in the last K turns. Also: semantic character-line echo (Nix's
 "Senhor Veludo" line T3~T4; Mirella's "geada noturna" x6) and repeated
 `action_intent` ("observar discretamente" x3) escape the verbatim character
 guard (>=0.88) — harder, needs semantic dedup or an action_intent-aware guard.
+
+
+---
+
+# Avaliação final (2026-07-27)
+
+## Critério 1 — contadores de duplicata: **PASSA**
+
+Dados de 14 execuções reais (três braços da medição da task 38, `stress.json`):
+
+| Contador | Base histórica (2026-07-16, n=4) | Agora (n=14) |
+|---|---|---|
+| `exact_character_sentence_duplicates` (pensamento) | defeito recorrente, sessões `ff8b7dd6` T6/T7 e T21/T22 | **zero em 13/14**, máx 1 |
+| `exact_narration_sentence_duplicates` | 0, 2, 6, 15 (mediana 4) | mediana **1**, zero em 6/14, máx 10 |
+| `character_action_heuristic_hits` | — | 4,86±1,70 |
+| retries de schema | — | 1,93±1,54 |
+
+Pensamento duplicado está resolvido — o guard anti-repetição do Character
+(`5c40276`) entregou. Duplicata de narração caiu, mas com cauda pesada: a
+distribuição ordenada é `[0,0,0,0,0,0,1,1,2,2,4,5,8,10]`. A média (2,36) é
+enganosa; a mediana é 1 e o problema vive nas execuções ruins.
+
+**Ressalva honesta:** não é um A/B controlado. Cenário e n mudaram entre as duas
+medições. É o mesmo contador no mesmo harness, e só.
+
+## Critério 2 — revisão cega de continuidade: **REPROVA**
+
+Rodei uma de verdade (`blind_continuity.py`): 15 sessões, revisor sem nenhum
+contexto do projeto, sem saber de qual braço veio o transcript, sem saber o que
+esperávamos encontrar, e instruído explicitamente de que relatório vazio é
+resposta válida.
+
+| | |
+|---|---:|
+| sessões revisadas | 15 |
+| **com salto de encenação** | **13/15** (18 ocorrências) |
+| com repetição visível ao leitor | 7/15 (8 ocorrências) |
+| respostas ilegíveis | 0 |
+
+O critério pede *"nenhum salto de encenação"*. 13 em 15 não é ambíguo.
+
+## O achado que vale mais que o veredito
+
+### Todos os 36 trechos citados de encenação estão em NARRAÇÃO. Zero em fala.
+
+A camada é o renderizador de prosa, não os personagens.
+
+### A hipótese óbvia foi testada e caiu
+
+Minha primeira explicação foi: `_staging_lines` devolve vazio quando a cena não
+tem zonas, então o renderizador não sabe quem está onde. Medi:
+
+| | com salto |
+|---|---|
+| cena plana (sem bloco STAGING) | 2/3 |
+| cena com zonas (COM bloco STAGING) | **11/12** |
+
+Ter a informação **não previne**. A explicação estava errada e quase virou texto.
+
+### A classe real: transição re-encenada
+
+Lendo as 18 ocorrências, elas são uma coisa só:
+
+```
+"Thorn entra na torre pela segunda vez, tendo já entrado na linha 4"
+"a guarda chega à entrada da taverna na linha 7, e chega de novo na 19"
+"a figura encapuzada recua para a passagem na 16, e recua de novo na 19"
+"a porta da cozinha abre entreaberta na 11 e abre de novo na 13 sem ter fechado"
+"o medalhão está no chão na 13 e no bolso da Lyra na 22, sem ação que transfira"
+```
+
+12 das 18 são posição de pessoa, 6 envolvem um objeto. Mas o formato é idêntico:
+**a prosa narra uma transição que o transcript já concluiu, com palavras novas.**
+
+Por isso nenhum guard existente enxerga:
+
+- o guard de narração inteira compara texto (>0,85) — as palavras são outras;
+- o guard por sentença compara sentenças — idem;
+- a deduplicação de eventos do burst só compara **dentro de um burst**, não entre
+  turnos;
+- `exact_narration_sentence_duplicates` fica com mediana 1 justamente porque a
+  repetição não é lexical.
+
+Isto é a **evidência de nível de evento** que esta task declarava faltar. E é
+irmã do achado 5 da task 54 (estagnação semântica): mesma raiz — os guards são
+lexicais, o defeito é de evento.
+
+## Por que fecho em vez de continuar acumulando
+
+A lane existia para acumular evidência até que uma correção fosse justificável.
+A evidência agora é: classe nomeada, camada atribuída (prosa), mecanismo
+descartado por medição (o bloco STAGING não previne), 18 ocorrências
+classificadas, e o instrumento (`blind_continuity.py`) reprodutível.
+
+O que **não** vou fazer às 2h da manhã sem portão: atacar o prompt do Prose. A
+task 26 já tem um experimento de prompt arquivado como negativo completo
+(26b, 2026-07-21, todas as variantes pioraram a banda medida), e a lição da
+task 55 desta madrugada é que portão sobre instrumento não validado produz
+conclusão falsa.
+
+**O próximo passo é uma tarefa própria**, e ela tem forma: dar ao renderizador
+uma noção de transição já concluída — o mesmo tipo de estado canônico que
+resolveu zonas na task 54 — em vez de mais instrução. Com portão pré-registrado
+usando `blind_continuity.py` sobre N sessões, contando ocorrências de
+transição re-encenada.
