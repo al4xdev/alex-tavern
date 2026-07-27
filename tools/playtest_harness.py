@@ -672,8 +672,14 @@ def analyze_debug_records(
     #
     # And it needs the cast, because "is this label a name or an id" is not
     # answerable from the text alone.
+    # `None` when the sweep did not run, never 0. A run whose artifacts report
+    # zero findings for a check that never executed is the same lie as a skipped
+    # test that reports success, and it is the exact failure this session spent
+    # its time cataloguing. A reader must be able to tell "looked, found nothing"
+    # from "did not look".
     singled_out: list[dict[str, Any]] = []
-    if characters:
+    swept = bool(characters)
+    if swept:
         for record in calls:
             text = "\n".join(
                 str(message.get("content", ""))
@@ -849,8 +855,9 @@ def analyze_debug_records(
         # agent that a human drives one of the characters (see src/prompt_contract.py).
         "operator_ontology_hits": len(ontology_hits),
         "operator_ontology_phrases": sorted(set(ontology_hits)),
-        "structurally_singled_out": len(singled_out),
+        "structurally_singled_out": len(singled_out) if swept else None,
         "structurally_singled_out_calls": singled_out[:10],
+        "structural_sweep": "ran" if swept else "skipped: no cast supplied",
         "nested_physical_facts_outputs": nested_physical_facts,
         "second_person_narrations": second_person_narrations,
         "narrator_outputs": len(narrator_outputs),

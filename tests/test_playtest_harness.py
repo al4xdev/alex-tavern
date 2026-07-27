@@ -686,10 +686,25 @@ class TestStructuralSweep:
         ]
         assert analyze_debug_records(records, [], self._cast())["structurally_singled_out"] == 0
 
-    def test_without_a_cast_the_sweep_is_silent_rather_than_wrong(self) -> None:
-        """Name or id is not answerable from the text alone; guessing would
-        invent findings."""
+    def test_a_skipped_sweep_reports_none_and_says_so(self) -> None:
+        """Not zero. Zero would mean "looked and found nothing".
+
+        Whether a label is a name or an id is not answerable from the text, so
+        with no cast the guard must not guess - but reporting 0 findings for a
+        check that never ran is the same lie as a skipped test reporting success.
+        """
         from tools.playtest_harness import analyze_debug_records
 
         records = [self._record("drive:event_seed", "  Rui: oi\n  C2: ola")]
-        assert analyze_debug_records(records, [], None)["structurally_singled_out"] == 0
+        analysis = analyze_debug_records(records, [], None)
+        assert analysis["structurally_singled_out"] is None
+        assert analysis["structural_sweep"] == "skipped: no cast supplied"
+
+    def test_a_clean_sweep_reports_zero_and_says_it_ran(self) -> None:
+        """The other half: 0 has to remain distinguishable from None."""
+        from tools.playtest_harness import analyze_debug_records
+
+        records = [self._record("prose", "  Rui: oi\n  Marta: ola")]
+        analysis = analyze_debug_records(records, [], self._cast())
+        assert analysis["structurally_singled_out"] == 0
+        assert analysis["structural_sweep"] == "ran"

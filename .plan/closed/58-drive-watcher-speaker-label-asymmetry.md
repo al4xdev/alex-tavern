@@ -269,3 +269,24 @@ Also checked, because the tie-break looked fragile with a two-character cast: on
 name plus one id returns the name (the controlled character), two names or two
 ids return empty, and the three-character asymmetries resolve to the minority
 form either way. No bug.
+
+
+## The silent-skip nit, closed (2026-07-27)
+
+Review flagged that a future caller who forgets the `characters` argument loses
+the check without noticing — the same footgun that made `viewer_id` keyword-only
+and required earlier in the day.
+
+Making the argument required was the obvious move and is the wrong one here: four
+existing callers pass two arguments and legitimately do not care about the cast.
+The actual defect was not the missing argument, it was that the run's artifacts
+reported **0 findings for a check that never executed**.
+
+`structurally_singled_out` is now `None` when the sweep did not run, never 0, and
+`structural_sweep` records `"ran"` or `"skipped: no cast supplied"`. Both halves
+are pinned by tests, because 0 has to stay distinguishable from None in both
+directions.
+
+This is the session's own lesson turned on its last loose end: a green from a
+check that did not run is worse than a red, and an artifact that cannot tell
+"looked and found nothing" from "did not look" is not evidence.
