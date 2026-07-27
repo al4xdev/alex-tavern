@@ -134,17 +134,20 @@ prompts a roster the way the Director has one — has not been examined.
 
 ## Closure evidence required
 
-- [ ] a stated decision on which reading governs (A, B, or a defended third), with
-      the reasoning recorded in this file;
-- [ ] if a measurement is used, its rule written down BEFORE the run and its
-      artifacts committed under `tools/acceptance/` or `docs/`, not left in a
-      temporary directory;
-- [ ] `AGENTS.md` §3 amended or explicitly confirmed as-is on whether structural
-      markers (one character labelled unlike the others) fall under the agency
-      lock;
-- [ ] whatever ships, the pinning test updated to match the new intent rather
-      than deleted;
-- [ ] suite, Ruff and mypy green; local commits only, no push.
+*(This was the list as written when the task was opened. It is answered in
+"Closure evidence" at the end of the file — do not read the empty boxes below as
+open work.)*
+
+- a stated decision on which reading governs (A, B, or a defended third), with
+  the reasoning recorded in this file;
+- if a measurement is used, its rule written down BEFORE the run and its
+  artifacts committed under `tools/acceptance/` or `docs/`, not left in a
+  temporary directory;
+- `AGENTS.md` §3 amended or explicitly confirmed as-is on whether structural
+  markers (one character labelled unlike the others) fall under the agency lock;
+- whatever ships, the pinning test updated to match the new intent rather than
+  deleted;
+- suite, Ruff and mypy green; local commits only, no push.
 
 ## Out of scope
 
@@ -236,3 +239,33 @@ loss. That is an open measurement, not an open decision.
 - [x] the pinning test rewritten to the new intent, plus five new cases for the
       structural guard;
 - [x] suite (938), Ruff and mypy green; local commits only.
+- [x] the structural guard swept over real runs, not only unit-tested — added
+      after review, see "Enforcement parity" below.
+
+
+## Enforcement parity, added after review (2026-07-27)
+
+The first cut of this fix left the structural guard weaker than its lexical
+sibling: `operator_ontology_hits` is swept over every prompt of every real
+playtest run, while `singled_out_speakers` ran only in unit tests against one
+builder. With §3 now calling structural markers a leak, that asymmetry meant a
+new agent could reintroduce the defect and no real run would catch it the way a
+lexical leak is caught.
+
+`analyze_debug_records` now reports `structurally_singled_out` alongside
+`operator_ontology_hits`. Two things about the wiring are load-bearing:
+
+- **it runs per call, never over the joined prompt string.** The lexical guard
+  compares a phrase to a pattern, so concatenating every prompt is harmless. This
+  one compares label FORMS inside a block, so joining the Director (ids, with a
+  roster) to prose (names) fabricates a mix that no single prompt contains. A
+  test pins exactly that.
+- **it takes the cast from the live session state**, not from the scenario file,
+  because a scenario may omit `session_config` and run on defaults. Without a
+  cast the sweep reports nothing rather than guessing, since "is this label a
+  name or an id" is not answerable from text alone.
+
+Also checked, because the tie-break looked fragile with a two-character cast: one
+name plus one id returns the name (the controlled character), two names or two
+ids return empty, and the three-character asymmetries resolve to the minority
+form either way. No bug.

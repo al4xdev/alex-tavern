@@ -646,10 +646,12 @@ def _cast_rotation(calls: list[dict[str, Any]]) -> float | None:
 
 
 def analyze_debug_records(
-    records: list[dict[str, Any]], event_results: list[dict[str, Any]]
+    records: list[dict[str, Any]],
+    event_results: list[dict[str, Any]],
+    characters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Calculate deterministic signals without asking another model to judge prose."""
-    from src.prompt_contract import operator_ontology_hits
+    from src.prompt_contract import operator_ontology_hits, singled_out_speakers
 
     calls = [record for record in records if isinstance(record.get("request"), dict)]
     prompts = "\n".join(
@@ -659,6 +661,34 @@ def analyze_debug_records(
         if isinstance(message, dict)
     )
     ontology_hits = operator_ontology_hits(prompts)
+    # AGENTS.md section 3 covers structural markers too, so the run has to sweep
+    # for them the way it sweeps for the lexical ones. Two differences matter.
+    #
+    # It runs PER CALL, never on the joined string: the lexical guard compares a
+    # phrase against a pattern, so concatenating every prompt is harmless, but
+    # this one compares label forms WITHIN a block. Joining the Director (ids,
+    # legitimate, with a roster) to prose (names) would manufacture a mix that no
+    # single prompt contains.
+    #
+    # And it needs the cast, because "is this label a name or an id" is not
+    # answerable from the text alone.
+    singled_out: list[dict[str, Any]] = []
+    if characters:
+        for record in calls:
+            text = "\n".join(
+                str(message.get("content", ""))
+                for message in record["request"].get("messages", [])
+                if isinstance(message, dict)
+            )
+            marked = singled_out_speakers(text, characters)
+            if marked:
+                singled_out.append(
+                    {
+                        "agent": record.get("agent"),
+                        "turn_number": record.get("turn_number"),
+                        "singled_out": marked,
+                    }
+                )
     successful = [
         record
         for record in calls
@@ -819,6 +849,8 @@ def analyze_debug_records(
         # agent that a human drives one of the characters (see src/prompt_contract.py).
         "operator_ontology_hits": len(ontology_hits),
         "operator_ontology_phrases": sorted(set(ontology_hits)),
+        "structurally_singled_out": len(singled_out),
+        "structurally_singled_out_calls": singled_out[:10],
         "nested_physical_facts_outputs": nested_physical_facts,
         "second_person_narrations": second_person_narrations,
         "narrator_outputs": len(narrator_outputs),
@@ -897,6 +929,11 @@ async def run_scenario(
         event_results.append(event_result)
 
     records = _load_debug_records(debug_path) if debug_path.exists() else []
+    # The cast comes from the live state, not from the scenario file: a scenario
+    # may omit `session_config` entirely and run on the defaults, and the
+    # structural sweep needs the cast that was actually played.
+    played = await runner.get_state(session_id)
+    cast = played.characters if played is not None else None
     run_result = {
         "scenario": scenario.name,
         "description": scenario.description,
@@ -905,7 +942,7 @@ async def run_scenario(
         "session_id": session_id,
         "events": event_results,
         "final_state": await _snapshot(runner, session_id),
-        "analysis": analyze_debug_records(records, event_results),
+        "analysis": analyze_debug_records(records, event_results, cast),
     }
     has_recall_checks = any(
         event["type"] in ("recall_check", "routing_check") for event in scenario.events
