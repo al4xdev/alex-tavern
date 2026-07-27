@@ -115,60 +115,61 @@ class TestPersistence:
             dict_to_perspective(data)
 
 
+async def _scripted_session(monkeypatch):  # noqa: ANN001, ANN202
+    import httpx
+
+    import src.runner as runner_mod
+    from src.runner import Runner
+
+    async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return CharacterPerspective(
+            initialized_turn=kwargs.get("turn_number", 0),
+            processed_through_turn=kwargs.get("turn_number", 0),
+        )
+
+    monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+    async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return director_beat(next_speakers=["C2"])
+
+    async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return {
+            "speech": f"Resposta no turno {turn_number}.",
+            "thought": None,
+            "action_intent": None,
+        }
+
+    async def fake_prose() -> str:
+        return "Narracao."
+
+    client = httpx.AsyncClient()
+    runner = Runner(client, {"auto_event_enabled": False})
+    session_scene = Scene(
+        location="Salao",
+        time_of_day="Noite",
+        present_characters=["C1", "C2", "C3", "Player"],
+        physical_facts={},
+    )
+    sid = await runner.start_session(
+        {
+            "characters": dict(CHARACTERS),
+            "scene": session_scene,
+            "controlled_character_id": "C1",
+        }
+    )
+    monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+    monkeypatch.setattr(runner, "_call_character", fake_character)
+    monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
+    return runner, sid, client
+
+
 class TestUndoPreservesMemory:
     """Undo restores the ledger memory exactly (per-record perspective snapshots)."""
-
-    async def _session(self, monkeypatch):  # noqa: ANN001, ANN202
-        import httpx
-
-        import src.runner as runner_mod
-        from src.runner import Runner
-
-        async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return CharacterPerspective(
-                initialized_turn=kwargs.get("turn_number", 0),
-                processed_through_turn=kwargs.get("turn_number", 0),
-            )
-
-        monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
-
-        async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return director_beat(next_speakers=["C2"])
-
-        async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return {
-                "speech": f"Resposta no turno {turn_number}.",
-                "thought": None,
-                "action_intent": None,
-            }
-
-        async def fake_prose() -> str:
-            return "Narracao."
-
-        client = httpx.AsyncClient()
-        runner = Runner(client, {"auto_event_enabled": False})
-        session_scene = Scene(
-            location="Salao",
-            time_of_day="Noite",
-            present_characters=["C1", "C2", "C3", "Player"],
-            physical_facts={},
-        )
-        sid = await runner.start_session(
-            {
-                "characters": dict(CHARACTERS),
-                "scene": session_scene,
-                "controlled_character_id": "C1",
-            }
-        )
-        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-        monkeypatch.setattr(runner, "_call_character", fake_character)
-        monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
-        return runner, sid, client
 
     async def test_undo_rolls_ledger_memory_back(self, monkeypatch) -> None:  # noqa: ANN001
         from src.store.sessions import delete_session
 
-        runner, sid, client = await self._session(monkeypatch)
+        runner, sid, client = await _scripted_session(monkeypatch)
         try:
             await runner.player_turn(sid, speech="Primeira fala.")
             game1 = await runner.get_state(sid)
@@ -201,7 +202,7 @@ class TestUndoPreservesMemory:
         """
         from src.store.sessions import delete_session, fork_session, load_game
 
-        runner, sid, client = await self._session(monkeypatch)
+        runner, sid, client = await _scripted_session(monkeypatch)
         forked = None
         try:
             await runner.player_turn(sid, speech="Primeira fala.")
@@ -232,7 +233,7 @@ class TestUndoPreservesMemory:
         """Playing the copy must not write into the original's memory."""
         from src.store.sessions import delete_session, fork_session, load_game
 
-        runner, sid, client = await self._session(monkeypatch)
+        runner, sid, client = await _scripted_session(monkeypatch)
         forked = None
         try:
             await runner.player_turn(sid, speech="Primeira fala.")
@@ -255,7 +256,7 @@ class TestUndoPreservesMemory:
         """Compaction evicts history; the private ledger is not history."""
         from src.store.sessions import delete_session
 
-        runner, sid, client = await self._session(monkeypatch)
+        runner, sid, client = await _scripted_session(monkeypatch)
         try:
             async def fake_summarize(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
                 return "Resumo do mundo."
@@ -340,3 +341,48 @@ class TestMemoryRevision:
         await revise_memory(None, "C2", p, CHARACTERS, {})  # must not raise
         assert p.memory_summary == "antigo"
         assert len(p.recent_memory) == 22
+
+
+class TestRapportAccumulatesWithoutCompaction:
+    """Task 39, the ef6b5b90 complaint: rapport only grew at compaction time.
+
+    The fix is one line of wiring - `capture_memory` runs inside
+    `_ensure_perspective` (`runner.py:2263`), which the runner calls once per
+    speaker per turn, so the ledger advances continuously and never waits for an
+    eviction. Everything below `TestCaptureMemory` calls that function directly,
+    which proves the function and not the wiring: move the call back into the
+    This walks a real session instead, on the same scripted harness - no
+    provider, no LLM anywhere in the ledger path.
+    """
+
+    async def test_the_ledger_grows_every_turn_with_no_compaction(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.store.sessions import delete_session
+
+        runner, sid, client = await _scripted_session(monkeypatch)
+        try:
+            sizes: list[int] = []
+            cursors: list[int] = []
+            for turn in range(1, 7):
+                await runner.player_turn(sid, speech=f"Fala {turn}.")
+                game = await runner.get_state(sid)
+                perspective = game.character_perspectives["C2"]
+                sizes.append(len(perspective.recent_memory))
+                cursors.append(perspective.memory_through_turn)
+
+            assert not game.compaction_stack, (
+                "the point is that no compaction happened; this session compacted"
+            )
+            assert sizes == sorted(sizes) and sizes[-1] > sizes[0], (
+                f"the ledger did not accumulate across turns: {sizes}"
+            )
+            assert cursors == sorted(cursors) and cursors[-1] >= 6, (
+                f"the capture cursor stalled: {cursors}"
+            )
+            # Not just longer: the LAST turn's content is in there, so the growth
+            # is the ongoing scene and not a backlog flushed once.
+            assert any("Fala 6." in line for line in perspective.recent_memory), (
+                f"the most recent turn never reached the ledger: {perspective.recent_memory}"
+            )
+        finally:
+            await delete_session(sid)
+            await client.aclose()

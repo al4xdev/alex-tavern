@@ -41,8 +41,10 @@ authority, no parallel memories).
       **Verificado 2026-07-27:** a única ocorrência em `src/` é o comentário
       histórico do schema v9 em `models.py:24`; `tests/test_integration.py:2031`
       trava a assinatura de `summarize` contra o campo.
-- [ ] Rapport accumulates within a session without compaction (the ef6b5b90
+- [x] Rapport accumulates within a session without compaction (the ef6b5b90
   complaint), shown in a real run.
+      **Verificado 2026-07-27:** sessão real sem nenhuma compactação +
+      `TestRapportAccumulatesWithoutCompaction`, ver seção no fim.
 - [ ] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
   both compactions; secret family stays 0.
 - [x] Undo/fork/restore preserve ledger memory exactly.
@@ -129,3 +131,35 @@ certo; o que faltava era a prova):
 Detalhe de método no terceiro: a primeira versão usava `pytest.skip` quando a
 compactação não disparava, o que deixaria o teste passar sem testar nada. Trocado
 por asserção dura de que a compactação aconteceu e evictou registros.
+
+
+---
+
+# Rapport sem compactação (2026-07-27)
+
+O critério pedia "mostrado em run real". Está mostrado, e ganhou rede.
+
+**Run real.** Das 15 sessões da medição da task 55, uma fechou sem nenhuma
+compactação — `B_noalign/d9bdae22`, 10 turnos, `compaction_stack` vazio. O ledger
+de C2 tem **8 linhas** e o cursor `memory_through_turn=10`. É exatamente a
+reclamação do ef6b5b90 respondida: a memória privada andou até o último turno
+sem que nenhuma eviction tivesse acontecido. Nas outras 14 (20 turnos, 1
+compactação cada) o cursor também chega a 20, ou seja, continua andando depois
+da compactação em vez de só nela.
+
+**Por que isso precisava de teste mesmo com o run real.** A correção do ef6b5b90
+é *uma linha de fiação*: `capture_memory` roda dentro de `_ensure_perspective`
+(`runner.py:2263`), que o runner chama uma vez por falante por turno. Toda a
+classe `TestCaptureMemory` chama a função diretamente — prova a função, não a
+fiação. Mover a chamada de volta para o caminho da compactação deixa **todos**
+aqueles testes verdes e ressuscita o bug inteiro.
+
+`TestRapportAccumulatesWithoutCompaction::test_the_ledger_grows_every_turn_with_no_compaction`
+percorre 6 turnos numa sessão real (sem provider) e verifica três coisas
+distintas: o ledger cresce monotonicamente, o cursor avança junto, e o conteúdo
+do **último** turno está lá — a terceira separa "acumula continuamente" de
+"despejou um backlog de uma vez", que os dois primeiros sozinhos confundiriam.
+
+Nota de método: o helper de sessão estava preso como método de
+`TestUndoPreservesMemory`. Herdar a classe para reusá-lo fazia os 4 testes do pai
+rodarem duas vezes; virou `_scripted_session` no nível do módulo.
