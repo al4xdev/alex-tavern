@@ -45,8 +45,10 @@ authority, no parallel memories).
   complaint), shown in a real run.
       **Verificado 2026-07-27:** sessão real sem nenhuma compactação +
       `TestRapportAccumulatesWithoutCompaction`, ver seção no fim.
-- [ ] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
+- [x] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
   both compactions; secret family stays 0.
+      **Verificado 2026-07-27:** campanha full tier 24/24 turnos com provider
+      real, sessão `8484d749`, ver seção no fim.
 - [x] Undo/fork/restore preserve ledger memory exactly.
       **Verificado 2026-07-27:** undo já tinha teste; fork e restore não
       tinham. Três testes novos em `tests/test_ledger_memory.py`, ver
@@ -163,3 +165,62 @@ do **último** turno está lá — a terceira separa "acumula continuamente" de
 Nota de método: o helper de sessão estava preso como método de
 `TestUndoPreservesMemory`. Herdar a classe para reusá-lo fazia os 4 testes do pai
 rodarem duas vezes; virou `_scripted_session` no nível do módulo.
+
+
+---
+
+# Campanha xfailed3 completa (2026-07-27, sessão `8484d749`)
+
+O critério exigia rodar a coisa, não argumentar sobre ela. Rodei: tier full, 24
+turnos, provider real, 477s, revisão `9da02da` (schema 14, depois de todo o
+refactor pré-1.0 desta branch).
+
+**As duas sondas de retenção passaram.** Não por ausência de evidência — confirmei
+que as regras existem e foram avaliadas:
+
+| sonda | turno | o que exige | resultado |
+|---|---|---|---|
+| `WT-12-ribbon-retention` | 13 | a promessa do turno 2 (fita azul, pulso esquerdo) sobrevive à compactação 1 | **passou** |
+| `WT-02-origin-retention` | 14 | a origem de Dorothy (Oz) sobrevive à compactação 1 | **passou** |
+
+**Família secret: 0.** Nem `GLOBAL-whisper-leak` nem
+`GLOBAL-secret-in-unauthorized-prompt` apareceram. As duas compactações e as duas
+restaurações LIFO completaram (`compaction.c000001.json`, `c000002.json`).
+
+## As 3 violações, e por que uma delas importa
+
+`WT-09-epilogue-alias` (turno 24) é a recorrente já diagnosticada em
+`docs/cases/14-...`: o Diretor anuncia a revelação e às vezes não torna o nome
+audível. Distribucional, conhecida, fora do escopo desta task.
+
+As outras duas são **o mesmo defeito** contado por duas regras
+(`SOC-01a-delegate-never-learns-signatory-name` e `GLOBAL-anonymous-pair-prompt`,
+ambas no turno 8): o prompt do delegado carrega `Alice`, um nome que ele nunca
+deveria ter aprendido. Fui atrás porque `unearned_identity_familiarity` é
+exatamente a classe que uma regressão minha produziu mais cedo hoje.
+
+**Não é regressão, e não é vazamento de montagem de prompt.** O rótulo do falante
+está corretamente anonimizado — o prompt de Victor diz
+`SPEAKER=jovem adulta de expressão franca e passo firme`, nunca "Dorothy". O nome
+entrou **dentro da fala pública de outro personagem**, em posição vocativa:
+
+> Turn 7 | TYPE=SPEECH | SPEAKER=jovem adulta de expressão franca e passo firme:
+> *"A estrada amarela não leva à Cidade das Esmeraldas, **Alice**. Ela sempre
+> leva para longe."*
+
+`_format_history_for_character` projeta o **rótulo** (`viewer_speaker_label`) e
+insere `rec.content` verbatim. Isso está certo: o que alguém disse em voz alta é
+o que disse. Reescrever fala pública falsificaria a transcrição — e, pior,
+apagaria o mecanismo pelo qual nomes são de fato aprendidos numa conversa.
+
+O que a regra do oráculo pede ("nenhuma apresentação acontece, logo o prompt não
+pode conter Alice") é insatisfazível enquanto personagens puderem usar vocativos.
+Dorothy conhece Alice; chamá-la pelo nome é natural; Victor ouvir é natural. É a
+mesma família do falso positivo `WT-06` que a 29.3 já tinha documentado.
+
+**A corroboração vale mais que o achado.** Horas antes, na task 54, um instrumento
+completamente diferente — contagem de menções em prosa — me deu um falso positivo
+que só se dissolveu quando passei a medir **posição vocativa**. Aqui, o oráculo
+do xfailed3 tropeçou no mesmo mecanismo por conta própria, num cenário, idioma e
+elenco distintos. Duas medições independentes chegando ao mesmo lugar é o mais
+perto de confirmação que este projeto consegue.
