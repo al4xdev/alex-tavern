@@ -2,7 +2,7 @@
   <img src="docs/images/logo.jpg" alt="Alex Tavern Logo" width="450">
 </p>
 
-# 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Engine
+# 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Kernel — and the harness that proves it
 
 Alex Tavern is a **rigid multi-agent kernel** for roleplay, built around blind agents: no model
 ever knows which character is controlled by a human. A blind **Director** decides what physically
@@ -19,6 +19,25 @@ per-viewer identity) as code, not prompt promises. The kernel owns narrative phy
 mechanics and expansions belong to plugins. It supports local llama.cpp inference and the DeepSeek
 API through provider adapters.
 
+The engine and the **measurement harness for it are one system**, and that fusion is the point
+rather than a convenience. A kernel that makes structural claims about a non-deterministic process
+cannot verify them from inside a test suite alone, so the apparatus is not scaffolding pointed at
+the product from outside — it shares the product's definitions.
+
+`src/prompt_contract.py` is the clearest instance: one definition of what counts as a leak of the
+human operator, with **three readers**. The running server warns on it when a scenario violates the
+contract; the test suite asserts every shipped prompt builder against it; and the playtest harness
+counts it over every prompt of a real provider run. A guarantee cannot drift between what the code
+does, what the tests look for, and what a live run reports, because there is nothing to drift
+between.
+
+The rest of the apparatus follows the same rule: scripted scenarios with typed probes for recall
+and routing, an acceptance suite driving the real HTTP API against a real provider, deterministic
+replay of any recorded call, blind-judge tooling, and per-run token and cost accounting — all
+reading the same session journal the product writes for itself. **Every structural guarantee
+documented below was found or verified through it, and several were found only after a fully green
+test suite said otherwise.**
+
 ### Built, measured, and available now
 
 - **Structural knowledge boundaries, not prompt promises.** Whispers carry explicit audiences;
@@ -27,6 +46,14 @@ API through provider adapters.
   until they legitimately learn a name. Schema-versioned sessions refuse incompatible state rather
   than silently migrating it. The [kernel](#-a-rigid-multi-agent-kernel) and
   [role model](#-role-model) document the complete boundary.
+- **The agency lock is swept, not just written down.** No agent may learn that a human drives one
+  of the characters, or which one — and that is checked two ways over every prompt of a real run:
+  a phrase contract for the lexical form ("the player", "controlled by the human") and a structural
+  one for the shape a word search cannot see, where a prompt marks exactly one character
+  differently from the rest. Both exist because a pre-1.0 audit found real leaks of both kinds,
+  including one shipped inside a built-in scenario's character sheet. Prompts that carry no
+  id-to-name roster now carry no internal ids either: the summarizer once read `C2` as a proper
+  noun and invented a cast member into the durable story summary.
 - **Transactional context and private memory.** Manual and opt-in automatic
   [compaction](#-context-compaction) folds old public events into a world summary, retains a recent
   verbatim window, reports manual progress over SSE, and writes incremental undo checkpoints.
@@ -42,29 +69,44 @@ API through provider adapters.
   active-development package, not a production mobile release.
 
 > [!WARNING]
-> **Known behavioral limitations (measured, not hidden).** The *structural* guarantees above hold;
-> *narrative quality* over long horizons is measured honestly and has real limits — the same
-> blind-critic, curl-first method that built the engine also documents where it falls short:
+> **Known limitations (measured, not hidden).** The structural guarantees above are now *enforced
+> and swept*, not merely asserted — a pre-1.0 audit found four places where the agency lock was
+> stated in prose and broken in practice, and fixed them (see below). What remains genuinely open
+> is *narrative quality* over long horizons, measured with the same blind-critic, curl-first method
+> that built the engine:
 > - **Long-horizon canon consistency is variance-bound, not guaranteed.** A 24-turn counter-canon
 >   stress test slips on ~1 single-turn canon family per run (origin refusal, alias recall,
 >   promise-through-compaction, …); it is one-turn model noise spread across many independent
 >   families, not a single fixable bug, so "clean every run" is a distribution, not a gate. See
 >   [case No. 14](docs/cases/14-audible-speech-persistence-wt09-2026-07-20.md).
-> - **The narrative clock and opt-in roteiro are still being calibrated.** Ticks, deterministic
->   stall detection, beat replans, and act deadlines execute, but a newly generated beat can remain
->   semantically too close to the one it replaced. Short autonomous bursts make this especially
->   visible: the state machine may advance through several contracts while the prose circles the
->   same pressure. Roteiro improves drive reliably in tight action scenes but remains roughly a
->   coin-flip on large procedural/ceremony scenes. OFF by default. See
->   [case No. 11](docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md) and active
->   [Task 45](.plan/closed/45-multi-beat-story-continuation.md).
+> - **The opt-in roteiro costs more than it currently returns.** Ticks, deterministic stall
+>   detection, beat replans and act deadlines all execute, but a regenerated beat can stay
+>   semantically too close to the one it replaced, and short autonomous bursts make that visible:
+>   the state machine advances through several contracts while the prose circles the same pressure.
+>   Measured at n=10 per arm, enabling it costs **~27% more tokens per turn with no objective gain**
+>   on the metrics that were pre-registered; the action-in-speech regression that used to be blamed
+>   on it belongs to the separate alignment toggle. It stays shipped and **OFF by default** because
+>   it does help drive in tight action scenes. See
+>   [case No. 11](docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md) and entries 8 and 10
+>   of the [pre-1.0 measurement log](docs/cases/19-pre-1.0-measurement-log-2026-07-26.md).
 > - **Roteiro and multi-beat execution latency is a known tradeoff.** Enabling the opt-in screenplay, multi-beat continuation, or character alignment causes a single turn to execute multiple LLM calls (Director, alignment deriver, Narrator, Character) sequentially/parallelly behind the UI loading screen. Streaming narration earlier or releasing messages faster is planned for future work while current focus remains on architectural correctness and dramatic alignment.
 > - **Narrator prose can still paraphrase-echo below the dedup guard** (~9% of sentences in a static
->   scene are re-descriptions the exact-match guard does not catch; a purely semantic mitigation is
->   open work).
+>   scene are re-descriptions the exact-match guard does not catch). A blind continuity review of 15
+>   real sessions sharpened the class: the recurring defect is *a transition re-enacted in fresh
+>   words*, which no lexical guard can see by construction, and every prompt-level mitigation tried
+>   so far worsened the prose-length floor instead. Open work, with the negative results recorded
+>   rather than retried.
 > - **An uncurated opening can still favor assertive NPCs.** Empty sessions now offer three
 >   scenario-only opening sparks before the first turn, but generated prose after that still has
 >   model variance and an assertive character can pull later beats toward their own conflict.
+> - **Guards only cover what someone thought to look for.** The pre-1.0 audit found the agency
+>   lock broken in four places, and the detector written to protect it fired on none of them: its
+>   patterns named the operator with a *noun*, while the real leaks used verbs, negated the agents,
+>   or encoded the protected identity in *formatting* (one character labelled unlike the others).
+>   Both blind spots are closed and both guard families are now swept over every prompt of a real
+>   run, but the lesson generalises and is not a solved problem: a green check that has never been
+>   demonstrated to go red is not evidence. The full account is
+>   [entries 15-21 of the measurement log](docs/cases/19-pre-1.0-measurement-log-2026-07-26.md).
 > - **No public-vs-real persona split for the player character yet** — deliberate bluff/disguise
 >   (presenting power you lack, or hiding what you have) is not a first-class mechanic. Backlog.
 
@@ -384,16 +426,20 @@ did not change — the **scope of what counts as narrative physics did**:
   scheduled world events, time compression is clamped by code, undo never rewinds time);
   **deterministic confidentiality guards** on the Director's transient context, the Characters'
   spoken output, and the Director's thought omniscience (secrets derived from history, never
-  hardcoded — see [`src/confidentiality.py`](src/confidentiality.py)); session persistence with
-  **forward-only schema versioning** (incompatible sessions are refused, never migrated).
+  hardcoded — see [`src/confidentiality.py`](src/confidentiality.py)); the **prompt contract**
+  that defines the agency lock in exactly one place and is asserted by tests and swept over real
+  runs, in both its lexical and structural forms
+  ([`src/prompt_contract.py`](src/prompt_contract.py)); session persistence with **forward-only
+  schema versioning** (incompatible sessions are refused, never migrated).
 - **Plugin territory:** everything that shapes *a particular* roleplay — mechanics, commands,
   experiences, content, presentation. Plugins extend through hooks and contracts; they never
   patch kernel invariants.
 - **Experimental, opt-in (OFF by default):** the roteiro — a story-arc planner whose premise,
   acts and beats are confidential to the Director (they never reach character or prose prompts —
-  spoilers), whose act deadlines feed the narrative clock, and whose stall watcher
-  (material-delta audit + causal intervention) currently lives outside the canonical turn in
-  `tools/` while its battery matures.
+  spoilers; verified by scanning 1182 non-Director calls across 10 real sessions, with a negative
+  control proving the scan could see the text at all), whose act deadlines feed the narrative
+  clock, and whose stall watcher (material-delta audit + causal intervention) now runs from
+  [`src/watcher.py`](src/watcher.py) inside the canonical turn.
 
 The dividing rule stays the one stated below: kernel mechanisms must solve structural problems
 that exist regardless of model quality. Whether a model is weak or strong, someone outside a
@@ -768,7 +814,11 @@ then audible speech, then action with its clapper icon. Enter moves focus throug
 submitting from the action field sends the turn. Live responses, session reload, and undo all use
 the same typed renderer, so presentation no longer depends on parsing model-authored markdown.
 
-The interface is dependency-free and built from native ES modules. Current behavior includes:
+The interface is dependency-free and built from native ES modules, one per concern —
+`transcript.js`, `composer.js`, `sessions-modal.js`, `opening-picker.js`, `compaction-ui.js`,
+`plugin-center.js`, `debug-drawer.js` and the rest — with `app.js` left holding only state, wiring
+and startup. It used to be a single 2400-line file; the split is what made the frontend testable
+by boundary assertions at all. Current behavior includes:
 
 - an empty-session opening picker that generates three ephemeral, scenario-only sparks and starts
   the selected one through the existing Narrator-hint plus Continue path;
