@@ -1,5 +1,15 @@
 """A/B: o contexto do drive/watcher deve rotular por ID ou por nome?
 
+RESULTADO DE 2026-07-27 (n=80 por braço, provider real, 4 estados reais):
+    ids  : 5/80 seeds com id cru | ancorados 74/80 (92%)
+    names: 0/80 seeds com id cru | ancorados 70/80 (88%)
+Criterio 1 passa, criterio 2 falha -> o default NAO muda. Detalhe e ressalva
+sobre a metrica de ancoragem na entrada 18 de
+docs/cases/19-pre-1.0-measurement-log-2026-07-26.md.
+
+Uso: python -m tools.acceptance.drive_label_ab [repeticoes_por_estado]
+
+
 `recent_event_lines(resolve_names=False)` alimenta `stalled_scene_context` (drive)
 e o watcher. O mesmo elenco chega ao prompt sob DOIS sistemas de rótulo — `C2:`
 para os personagens e `Thorn:` para o controlado, porque `speaker_label` só
@@ -80,7 +90,8 @@ async def main() -> None:
     # sair relativa e toda chamada falhar.
     from src.config import resolve_active_config
 
-    config = resolve_active_config(json.loads(Path(".data/config.json").read_text(encoding="utf-8")))
+    stored = json.loads(Path(".data/config.json").read_text(encoding="utf-8"))
+    config = resolve_active_config(stored)
 
     games = []
     for path in sorted(Path(".data/sessions").glob("*/state.json")):
@@ -149,10 +160,9 @@ async def main() -> None:
             f"{arm:5}: {dirty}/{len(rows)} seeds com id cru | "
             f"ancorados {anchor}/{len(rows)} ({100 * anchor / len(rows):.0f}%)"
         )
-    Path("/tmp/claude-1000/-home-alex-git-my-alex-tavern/"
-         "72a242b2-354f-4142-86b8-0945a83e0675/scratchpad/drive_ab_result.json").write_text(
-        json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    out = Path("drive_label_ab_result.json")
+    out.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"\nlinhas gravadas em {out}")
 
 
 asyncio.run(main())

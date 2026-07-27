@@ -48,10 +48,19 @@ def recent_event_lines(
     ``resolve_names`` is a REAL difference between the current callers, not a
     style choice, so it is explicit instead of accidental. The drive scheduler
     and the watcher label other characters by ID ("C2"); the roteiro planner
-    labels them by name ("Marta"). Both prompts were validated as they are, and
-    the curl-first rule (AGENTS.md section 6) says a prompt does not change
-    without measured evidence — so unifying them is a prompt experiment, not a
-    refactor.
+    labels them by name ("Marta").
+
+    That experiment was run on 2026-07-27 (n=80 per arm, real provider, 4 real
+    game states) under a rule fixed before the run: the name arm had to leak
+    fewer raw ids AND not lose grounding. It won the first decisively (5/80 -> 0)
+    and LOST the second (74/80 -> 70/80 anchored), consistently at n=32 and n=80.
+    By the pre-registered rule the change is not justified, so the default stays.
+
+    Caveat worth knowing before anyone re-runs it: the grounding metric rewards a
+    `source_thread` that quotes the context verbatim, and the ID arm quotes more
+    literally because "C2:" reads as a record label. The metric may therefore be
+    measuring quotation rather than grounding, which would favour the ID arm by
+    construction. Settling that needs a blind judge, not this instrument.
     """
     recent: list[TurnRecord] = [
         record for record in game.history[-limit:] if record.content_type in PROGRESS_RECORD_TYPES
