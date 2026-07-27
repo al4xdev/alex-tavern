@@ -83,3 +83,37 @@ def operator_ontology_hits(text: str) -> list[str]:
 def leaks_operator_ontology(text: str) -> bool:
     """True when a prompt tells the model an outside operator exists."""
     return any(pattern.search(text) for pattern in _COMPILED)
+
+
+_SPEAKER_LABEL_RE = re.compile(r"^\s*([^:\n]{1,60}?):", re.MULTILINE)
+
+
+def singled_out_speakers(text: str, characters: dict) -> list[str]:
+    """Characters formatted unlike the rest of the cast in the same block.
+
+    The patterns above are lexical: they catch a prompt that NAMES the operator.
+    This catches a prompt that POINTS at one character without naming anything —
+    the leak found on 2026-07-27, where `recent_event_lines` rendered the
+    human-controlled character by name and every other character by internal id:
+
+        Thorn: Who runs this inn?
+        C2: Hm, that depends...
+
+    No word search can see that. The protected identity is encoded in the
+    formatting, and the set of names was exactly the controlled character.
+
+    Returns the labels that are the minority form when a block mixes canonical
+    names with internal ids. An empty list means every speaker is written the
+    same way, which is the property AGENTS.md section 3 actually needs: not
+    "names are nicer", but "nobody is marked".
+    """
+    labels = [match.group(1).strip() for match in _SPEAKER_LABEL_RE.finditer(text)]
+    if not labels:
+        return []
+    names = {character.mind.name for character in characters.values()}
+    as_name = [label for label in labels if label in names]
+    as_id = [label for label in labels if label in characters]
+    if not as_name or not as_id:
+        return []
+    minority = as_name if len(set(as_name)) <= len(set(as_id)) else as_id
+    return sorted(set(minority))

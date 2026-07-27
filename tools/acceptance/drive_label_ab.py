@@ -1,4 +1,12 @@
-"""A/B: o contexto do drive/watcher deve rotular por ID ou por nome?
+"""A/B HISTORICO: o contexto do drive/watcher deve rotular por ID ou por nome?
+
+DECIDIDO EM 2026-07-27 — este script NAO RODA MAIS como estava. A pergunta foi
+fechada pela leitura B (o flag violava a trava de agencia do AGENTS.md secao 3),
+`resolve_names` foi REMOVIDO e o contexto rotula todo mundo por nome. O arquivo
+fica como registro do metodo e dos numeros; para reexecuta-lo seria preciso
+reconstruir o braco "ids" a mao, o que so faz sentido se alguem quiser reabrir a
+task 58.
+
 
 RESULTADO DE 2026-07-27 (n=80 por braço, provider real, 4 estados reais):
     ids  : 5/80 seeds com id cru | ancorados 74/80 (92%)

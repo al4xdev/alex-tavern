@@ -238,3 +238,65 @@ def test_the_rule_leaves_diegetic_language_alone() -> None:
             f"rule false-positives on diegetic text: {legitimate!r} -> "
             f"{operator_ontology_hits(legitimate)}"
         )
+
+
+class TestStructuralSingling:
+    """A prompt can point at one character without naming anything.
+
+    Added 2026-07-27. Every pattern in `OPERATOR_ONTOLOGY_PATTERNS` is lexical,
+    so all of them were blind to the drive/watcher context, which rendered the
+    controlled character by name and the rest by internal id. The protected
+    identity was in the FORMATTING.
+    """
+
+    def _cast(self):  # noqa: ANN202
+        from tests.factories import make_cast
+
+        return make_cast("Rui", "Marta", "Bento")
+
+    def test_the_asymmetry_that_shipped_is_detected(self) -> None:
+        from src.prompt_contract import singled_out_speakers
+
+        block = "  Rui: Boa noite.\n  C2: Quem e voce?\n  C3: Ninguem importante."
+        assert singled_out_speakers(block, self._cast()) == ["Rui"]
+
+    def test_a_uniformly_named_block_is_clean(self) -> None:
+        from src.prompt_contract import singled_out_speakers
+
+        block = "  Rui: Boa noite.\n  Marta: Quem e voce?\n  Bento: Ninguem."
+        assert singled_out_speakers(block, self._cast()) == []
+
+    def test_a_uniformly_id_block_is_clean_here(self) -> None:
+        """Not this guard's job: an all-id block is the Director's contract,
+        which ships a roster. What this guard forbids is MIXING."""
+        from src.prompt_contract import singled_out_speakers
+
+        block = "  C1: Boa noite.\n  C2: Quem e voce?\n  C3: Ninguem."
+        assert singled_out_speakers(block, self._cast()) == []
+
+    def test_the_narrator_is_not_a_character_and_never_counts(self) -> None:
+        from src.prompt_contract import singled_out_speakers
+
+        block = "  Rui: Boa noite.\n  Narrator: A porta bate.\n  Marta: Quem e voce?"
+        assert singled_out_speakers(block, self._cast()) == []
+
+    def test_the_shipped_stalled_scene_context_is_clean(self) -> None:
+        """The real builder, not a fixture: this is what regressed."""
+        from src.models import GameState, Player
+        from src.prompt_contract import singled_out_speakers
+        from src.prompting import stalled_scene_context
+        from tests.factories import make_record, make_scene
+
+        cast = self._cast()
+        game = GameState(
+            session_id="t",
+            characters=cast,
+            player=Player(controlled_character_id="C1"),
+            scene=make_scene(characters=cast),
+            history=[
+                make_record(1, "Player", "Boa noite.", "speech"),
+                make_record(2, "C2", "Quem e voce?", "speech"),
+                make_record(3, "C3", "Ninguem importante.", "action"),
+            ],
+        )
+        assert singled_out_speakers("\n".join(stalled_scene_context(game)), cast) == []

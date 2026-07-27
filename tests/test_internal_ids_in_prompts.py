@@ -228,29 +228,20 @@ class TestTheDirectorsFreeTextIsProjected:
         assert FALLBACK_REFERENCE in projected and "Marta" in projected
 
 
-class TestTheResidueThisFixDidNotCover:
-    """Two channels still hand a roster-less prompt raw ids. Pinned, not fixed.
+class TestEverySpeakerIsLabelledTheSameWay:
+    """The residue this file used to pin, now closed.
 
-    A critical review of the fix found them, and the fix's own commit subject
-    ("never hand a prompt an internal id it cannot resolve") was too absolute.
-    Live `drive:event_seed` prompts read:
+    `recent_event_lines` had a `resolve_names` flag. Its off position did not
+    label the cast by id - it labelled the human-controlled character by NAME and
+    everyone else by id, because `speaker_label` resolves the `Player` marker and
+    nothing else. The set of characters rendered by name was exactly
+    `{controlled_character_id}`, so the prompt encoded the protected identity as a
+    formatting rule. AGENTS.md section 3 keeps that fact in the Runner.
 
-        RECENT EVENTS (oldest to newest):
-          C2: Bem, parece que nossa reputacao nos precede.
-          Thorn: ...
-
-    One cast, two labelling systems in one list, because `speaker_label`
-    translates the `Player` marker and nothing else. That is the same shape as
-    the summarizer defect this file exists for.
-
-    It is NOT fixed here on purpose. `recent_event_lines` documents
-    `resolve_names` as a real, curl-validated difference between callers, and
-    AGENTS.md section 6 says a validated prompt does not change without measured
-    evidence. Flipping the default is a prompt experiment with its own A/B, not a
-    tidy-up ridden along with a bug fix.
-
-    So these tests pin today's behaviour. When the experiment runs, they fail and
-    force the decision to be explicit instead of silent.
+    The flag is gone rather than flipped: an option whose off position breaks an
+    invariant is not a choice. These tests hold the line at "no speaker is
+    labelled unlike any other", which is the property that matters - not "names
+    are prettier".
     """
 
     def _game(self):  # noqa: ANN202
@@ -264,28 +255,54 @@ class TestTheResidueThisFixDidNotCover:
             history=[
                 make_record(1, "Player", "Boa noite.", "speech"),
                 make_record(2, "C2", "Quem e voce?", "speech"),
+                make_record(3, "C3", "Ninguem importante.", "action"),
             ],
         )
 
-    def test_the_drive_and_watcher_channel_still_labels_by_id(self) -> None:
+    def test_no_speaker_is_rendered_as_a_raw_id(self) -> None:
         from src.prompting import recent_event_lines
 
         lines = "\n".join(recent_event_lines(self._game()))
-        assert "C2:" in lines, "if this fails the default changed - measure it, do not just tick it"
-        assert "Rui:" in lines, "the Player marker is always resolved (AGENTS.md section 3)"
+        found = ID_RE.search(lines)
+        assert not found, f"raw id {found.group(0)!r} in: {lines!r}"
 
-    def test_the_mixed_labelling_is_what_makes_it_a_hazard(self) -> None:
-        """The same cast under two naming systems in one list is the defect
-        shape: a model reading it can take `C2` for a third person."""
+    def test_the_controlled_character_is_not_the_only_named_one(self) -> None:
+        """The actual invariant: nobody is formatted unlike the others.
+
+        A test asserting only "Rui appears" would pass on the old behaviour too,
+        since the controlled character was ALWAYS the one rendered by name.
+        """
+        from src.prompting import recent_event_lines
+
+        lines = recent_event_lines(self._game())
+        labels = [line.strip().split(":", 1)[0] for line in lines]
+        names = {character.mind.name for character in CAST.values()}
+        assert set(labels) <= names | {"Narrator"}, labels
+        assert len({label for label in labels if label in names}) >= 2, (
+            f"only one character was named, which is the shape of the leak: {labels}"
+        )
+
+    def test_the_player_marker_still_never_reaches_a_prompt(self) -> None:
         from src.prompting import recent_event_lines
 
         lines = "\n".join(recent_event_lines(self._game()))
-        assert "C2:" in lines and "Marta" not in lines
+        assert "Player" not in lines
+        assert "Rui:" in lines, "the human's character is rendered like anyone else"
 
-    def test_the_roteiro_caller_resolves_names(self) -> None:
-        """The other caller of the same helper already passes resolve_names."""
+    def test_the_flag_is_gone_not_defaulted(self) -> None:
+        """Forward-only: the off position broke an invariant, so it was removed.
+
+        Keeping it with a safer default leaves the unsafe path one keyword away.
+        """
+        import inspect
+
         from src.prompting import recent_event_lines
 
-        lines = "\n".join(recent_event_lines(self._game(), resolve_names=True))
-        assert "Marta:" in lines
-        assert not ID_RE.search(lines)
+        assert "resolve_names" not in inspect.signature(recent_event_lines).parameters
+
+    def test_the_stalled_scene_context_carries_no_id(self) -> None:
+        """The two consumers that had the asymmetry, through their real builder."""
+        from src.prompting import stalled_scene_context
+
+        block = "\n".join(stalled_scene_context(self._game()))
+        assert not ID_RE.search(block), block

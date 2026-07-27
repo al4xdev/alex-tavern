@@ -14,7 +14,7 @@ would trade the clarity of five explicit rules for one parameterized one.
 
 from __future__ import annotations
 
-from src.models import GameState, TurnRecord, speaker_label
+from src.models import GameState, TurnRecord
 
 # What counts as something happening: private thoughts are not scene progress.
 PROGRESS_RECORD_TYPES = ("speech", "action", "narration")
@@ -37,37 +37,32 @@ def story_so_far(game: GameState, *, max_chars: int = 600) -> list[str]:
     return [f"STORY SO FAR: {game.story_summary[:max_chars]}"]
 
 
-def recent_event_lines(
-    game: GameState, *, limit: int = 12, max_chars: int = 160, resolve_names: bool = False
-) -> list[str]:
-    """The last events as ``"  Speaker: content"``, oldest first.
+def recent_event_lines(game: GameState, *, limit: int = 12, max_chars: int = 160) -> list[str]:
+    """The last events as ``"  Name: content"``, oldest first.
 
-    The internal ``"Player"`` marker never reaches a prompt either way: that
-    rule (AGENTS.md section 3) is implemented here and nowhere else.
+    Every speaker is rendered by NAME. There is no option to render them by id,
+    and the ``resolve_names`` flag that used to select between the two is gone.
 
-    ``resolve_names`` is a REAL difference between the current callers, not a
-    style choice, so it is explicit instead of accidental. The drive scheduler
-    and the watcher label other characters by ID ("C2"); the roteiro planner
-    labels them by name ("Marta").
+    Why it is gone rather than merely defaulted the other way. ``speaker_label``
+    resolves the internal ``Player`` marker and nothing else, so labelling "by
+    id" never labelled the whole cast by id — it labelled the human-controlled
+    character by name and everyone else by id, in the same list:
 
-    That experiment was run on 2026-07-27 (n=80 per arm, real provider, 4 real
-    game states) under a rule fixed before the run: the name arm had to leak
-    fewer raw ids AND not lose grounding. It won the first decisively (5/80 -> 0)
-    and LOST the second (74/80 -> 70/80 anchored). By the pre-registered rule the
-    change was not adopted, so the default still stands here.
+        RECENT EVENTS (oldest to newest):
+          Thorn: Who runs this inn?
+          C2: Hm, that depends...
 
-    Read the numbers before relying on that: grounding is p = 0.43 and the raw-id
-    difference is p = 0.03, so the criterion that vetoed the change is noise and
-    the one that approved it is signal. The rule itself was also badly formed -
-    "must not drop", strict, over a stochastic binary rate with no noise floor,
-    rejects about half the time on identical arms. Open question, not a settled
-    one: see `.plan/tasks/58-drive-watcher-speaker-label-asymmetry.md`.
+    The set of characters rendered by name was exactly
+    ``{player.controlled_character_id}``. That is not a style difference; it is
+    the protected identity written into the prompt as a formatting rule, and
+    AGENTS.md section 3 keeps that fact in the Runner. A flag whose off position
+    breaks an invariant is not a choice worth preserving.
 
-    Caveat worth knowing before anyone re-runs it: the grounding metric rewards a
-    `source_thread` that quotes the context verbatim, and the ID arm quotes more
-    literally because "C2:" reads as a record label. The metric may therefore be
-    measuring quotation rather than grounding, which would favour the ID arm by
-    construction. Settling that needs a blind judge, not this instrument.
+    An A/B did run first (2026-07-27, n=80 per arm, real provider): the name arm
+    also removed every raw id from the drive's output (5/80 -> 0/80, p = 0.03),
+    while the grounding difference used to reject it was p = 0.43. Full account
+    and the reasoning error it corrected: entry 18 of
+    ``docs/cases/19-pre-1.0-measurement-log-2026-07-26.md``.
     """
     recent: list[TurnRecord] = [
         record for record in game.history[-limit:] if record.content_type in PROGRESS_RECORD_TYPES
@@ -75,14 +70,11 @@ def recent_event_lines(
     controlled = game.player.controlled_character_id
 
     def label(speaker: str) -> str:
-        canonical = controlled if speaker == "Player" else speaker
-        if resolve_names and canonical in game.characters:
-            return game.characters[canonical].mind.name
-        return speaker_label(speaker, game.characters, controlled)
+        subject = controlled if speaker == "Player" else speaker
+        character = game.characters.get(subject)
+        return character.mind.name if character is not None else speaker
 
-    return [
-        f"  {label(record.speaker)}: {record.content[:max_chars]}" for record in recent
-    ]
+    return [f"  {label(record.speaker)}: {record.content[:max_chars]}" for record in recent]
 
 
 def stalled_scene_context(game: GameState) -> list[str]:

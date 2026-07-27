@@ -1,13 +1,15 @@
 # Task 58 — Speaker-label asymmetry in the drive and watcher context
 
-> **Status:** open. Observation confirmed in code and in real prompts; the
-> decision is deliberately NOT made here.
+> **Status: CLOSED 2026-07-27 — Reading B governs.** Decision, reasoning and
+> what shipped are at the end of this file.
 >
-> **Note on framing.** The previous session found this, ran one measurement on
-> it, and did form a preference about the outcome. That preference is
-> deliberately left out of this document so the analysis can start clean; the
-> owner has it and can introduce it after you have formed your own. Treat every
-> section below as evidence, not as argument.
+> **Note on how it was decided.** The document below was written to be neutral:
+> the session that found this withheld its own preference so a second analysis
+> could start clean. That analysis ran independently, reached Reading B, and
+> produced two corrections to the first session's work (the significance figures
+> and the pre-registration flaw, both now folded in above). The two agreed
+> afterwards, not before. Everything above this line is the evidence as it stood
+> before the decision; nothing above was rewritten to fit the outcome.
 
 ## Observation
 
@@ -164,3 +166,73 @@ inside the recent window?** The mechanism is real, but in practice the answer is
 no: recutting the window at three points of one real session gave an asymmetric
 block every time, because the human acts on essentially every turn. Caveat: that
 is one session, and the population on disk is thin.
+
+
+---
+
+# Decision (2026-07-27): Reading B, and the flag removed rather than flipped
+
+**Reading B governs.** The argument that settled it is not analogy, it is the
+code. `label()` in `src/prompting.py` did:
+
+```python
+canonical = controlled if speaker == "Player" else speaker
+```
+
+so the set of characters rendered by name was **exactly**
+`{player.controlled_character_id}`. The prompt did not hint at that field, it
+computed it. `AGENTS.md` §3 says that field is the Runner's knowledge, not the
+agents'. That is a violation of the text, not of an interpretation of it — and
+`5002f11` had already established the precedent one hour earlier, treating
+"marking one id as special" as the leak itself with no word like "player"
+appearing anywhere.
+
+**Reading B also contains Reading A.** The symmetric repair removes the raw-id
+hazard as a side effect (measured 0/80). Choosing B costs nothing that A would
+have bought.
+
+## What shipped
+
+- `resolve_names` is **deleted**, not defaulted safer. Its off position broke an
+  invariant, and a flag whose off position breaks an invariant is not a choice —
+  keeping it leaves the unsafe path one keyword away. `roteiro` loses an argument
+  it no longer needs; `drive` and `watcher` change behaviour.
+- `singled_out_speakers` in `src/prompt_contract.py`: the structural guard that
+  did not exist. Every existing pattern is lexical and none could see a leak
+  encoded in formatting. It reports the minority label form when a block mixes
+  canonical names with internal ids, and is silent on a uniformly-id block,
+  because that is the Director's contract and the Director ships a roster.
+- `AGENTS.md` §3 amended: structural markers are leakage, and a finding under §3
+  is not negotiable by measurement — the experiment decides the SHAPE of the fix,
+  never whether one happens.
+- The pinning test was rewritten to the new intent instead of deleted. It now
+  asserts the property that matters — no speaker is formatted unlike another —
+  rather than "names appear", which would have passed on the old behaviour too,
+  since the controlled character was always the one that got a name.
+
+## Option 3 was rejected on a structural ground, not on cost
+
+Giving these prompts a Director-style roster would require rendering the
+controlled character by id as well, to be symmetric. That contradicts §3's own
+second bullet, which requires `speaker="Player"` records to be rendered with the
+character's name before reaching any prompt. It would weaken one invariant to
+repair the breach of another.
+
+## What was NOT done, on purpose
+
+The blind-judge grounding instrument (Option 1) was not built. Under Reading B it
+cannot change the outcome, only quantify a cost, and an invariant does not wait
+for an instrument. It remains worth building if anyone wants the number: the
+existing four-word window rewards verbatim quotation and the id arm quotes more
+literally, so the 92% vs 88% figure is probably an artefact rather than a real
+loss. That is an open measurement, not an open decision.
+
+## Closure evidence
+
+- [x] a stated decision on which reading governs, with the reasoning recorded here;
+- [x] no new measurement was used to decide, so no new rule was needed; the
+      existing one and its flaws are documented above and in entry 18;
+- [x] `AGENTS.md` §3 amended on structural markers;
+- [x] the pinning test rewritten to the new intent, plus five new cases for the
+      structural guard;
+- [x] suite (938), Ruff and mypy green; local commits only.

@@ -377,7 +377,7 @@ def _story_context_lines(game: GameState, recent_turns: int = 12) -> list[str]:
         lines.append(f"WORLD DIRECTIVES: {game.narrator_directives.strip()[:600]}")
     if game.story_summary.strip():
         lines.append(f"STORY SO FAR: {game.story_summary.strip()[:600]}")
-    events = recent_event_lines(game, limit=recent_turns, resolve_names=True)
+    events = recent_event_lines(game, limit=recent_turns)
     if events:
         lines.append(RECENT_EVENTS_HEADER)
         lines.extend(events)
