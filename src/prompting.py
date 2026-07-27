@@ -53,8 +53,15 @@ def recent_event_lines(
     That experiment was run on 2026-07-27 (n=80 per arm, real provider, 4 real
     game states) under a rule fixed before the run: the name arm had to leak
     fewer raw ids AND not lose grounding. It won the first decisively (5/80 -> 0)
-    and LOST the second (74/80 -> 70/80 anchored), consistently at n=32 and n=80.
-    By the pre-registered rule the change is not justified, so the default stays.
+    and LOST the second (74/80 -> 70/80 anchored). By the pre-registered rule the
+    change was not adopted, so the default still stands here.
+
+    Read the numbers before relying on that: grounding is p = 0.43 and the raw-id
+    difference is p = 0.03, so the criterion that vetoed the change is noise and
+    the one that approved it is signal. The rule itself was also badly formed -
+    "must not drop", strict, over a stochastic binary rate with no noise floor,
+    rejects about half the time on identical arms. Open question, not a settled
+    one: see `.plan/tasks/58-drive-watcher-speaker-label-asymmetry.md`.
 
     Caveat worth knowing before anyone re-runs it: the grounding metric rewards a
     `source_thread` that quotes the context verbatim, and the ID arm quotes more
