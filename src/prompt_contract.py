@@ -42,6 +42,34 @@ OPERATOR_ONTOLOGY_PATTERNS: tuple[str, ...] = (
     # identifies that character even when it avoids the word "player".
     r"PROTAGONIST\s*[—-]",
     r"\bnever an expected actor\b",
+    # --- Added 2026-07-27, after this list missed a shipped built-in scenario ---
+    #
+    # Every pattern above names the operator with a NOUN. The leaks below name
+    # the same relationship with a VERB, or by negating the agents, and the whole
+    # list was blind to them: the scenario said Link's choices "pertencem sempre
+    # ao humano" and that "nenhum agente escolhe fala, pensamento [...] por ele",
+    # and not one pattern fired. Written against the vocabulary the leak actually
+    # used, not the vocabulary I expected it to use.
+    #
+    # Belonging: someone outside owns a character's inner life.
+    r"\bpertencem?\s+(?:sempre\s+)?(?:ao|à|a)\s+(?:humano|humana|jogador|jogadora|usuári[oa]|operador)\b",
+    r"\bbelongs?\s+(?:always\s+)?to\s+the\s+(?:human|player|user|operator)\b",
+    # Negated agency: no agent may choose FOR this character. Naming the
+    # exception is naming the protected identity.
+    r"\bnenhum agente\b[^.]{0,80}\b(?:escolhe|decide|controla)\b",
+    r"\bno agent\b[^.]{0,80}\b(?:chooses|decides|controls)\b",
+    r"\bnão decida\b[^.]{0,60}\bescolhas de\b",
+    r"\bdo not decide\b[^.]{0,60}\bchoices of\b",
+    # Control handover: "input" and "control" have no referent inside the story.
+    r"\breturn(?:ing)?\s+control\b",
+    r"\bdevolver o controle\b",
+    r"\blast input\b",
+    r"\búltima entrada\b",
+    # Outside-the-fiction framing.
+    r"\bfora da ficção\b",
+    r"\boutside the fiction\b",
+    r"\bhuman operator\b",
+    r"\boperador humano\b",
 )
 
 _COMPILED = tuple(re.compile(pattern, re.IGNORECASE) for pattern in OPERATOR_ONTOLOGY_PATTERNS)

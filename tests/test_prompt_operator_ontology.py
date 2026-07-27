@@ -173,13 +173,40 @@ def test_validate_beat_still_removes_the_controlled_character() -> None:
     assert beat.expected_actors == ["C2", "C3"]
 
 
+def _every_string(node: object, path: str = "") -> list[tuple[str, str]]:
+    """Every string in a scenario, with the field path that holds it."""
+    if isinstance(node, str):
+        return [(path, node)]
+    if isinstance(node, dict):
+        return [
+            item
+            for key, value in node.items()
+            for item in _every_string(value, f"{path}.{key}" if path else str(key))
+        ]
+    if isinstance(node, list):
+        return [
+            item
+            for index, value in enumerate(node)
+            for item in _every_string(value, f"{path}[{index}]")
+        ]
+    return []
+
+
 def test_builtin_scenarios_carry_no_operator_ontology() -> None:
-    leaking = {}
+    """Every field, not just the directives.
+
+    This test read ONLY `narrator_directives` until 2026-07-27, and a shipped
+    scenario leaked from `characters.C1.personality` - a field it never opened.
+    A scenario reaches the prompts through its cast sheets as much as through its
+    directives, so the sweep has to be total or it is theatre.
+    """
+    leaking: dict[str, list[str]] = {}
     for path in sorted(SCENARIO_DIR.glob("*.json")):
-        directives = json.loads(path.read_text(encoding="utf-8")).get("narrator_directives", "")
-        hits = sorted(set(operator_ontology_hits(directives)))
-        if hits:
-            leaking[path.name] = hits
+        scenario = json.loads(path.read_text(encoding="utf-8"))
+        for field, text in _every_string(scenario):
+            hits = sorted(set(operator_ontology_hits(text)))
+            if hits:
+                leaking[f"{path.name}:{field}"] = hits
     assert leaking == {}, f"built-in scenarios leaking operator ontology: {leaking}"
 
 
