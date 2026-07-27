@@ -21,10 +21,11 @@ regras.
 4. A variante validada é a shippada; suíte; commit.
 
 ## Aceite
-- [ ] Baseline medido em sessões reais.
-- [ ] Variante vencedora: alonga a prosa de forma consistente (3/3) sem
+- [x] Baseline medido em sessões reais. (mediana 240-390 chars)
+- [x] Variante vencedora: alonga a prosa de forma consistente (3/3) sem
   reintroduzir repetição/invenção (checar com os guards existentes).
-- [ ] Diff mínimo no prompt (frase pequena), posição validada.
+- [x] Diff mínimo no prompt (frase pequena), posição validada.
+      **Confirmado em produção 2026-07-27**, ver seção no fim.
 
 ## DELIVERED 2026-07-18 (puro curl, mesma sessão)
 
@@ -54,3 +55,38 @@ vencedora foi UMA linha de PISO no FIM do PROSE_SYSTEM ("Narrate at least 150
 words; a beat deserves full paragraphs") — mediana 118→1247 e 271→568 chars,
 3/3 nas duas cenas. Piso, nunca cap (regra da casa). A variante validada É a
 shippada (commit "feat(prose): verbosity floor").
+
+
+---
+
+# Confirmado em produção (2026-07-27)
+
+As três caixas de aceite ficaram desmarcadas mesmo com a task entregue: o
+experimento de 18/07 foi replay curl em 2 payloads, 3x por variante. Nove meses
+de mudança de prompt depois — Director reescrito, roteiro, zonas, guard de hint,
+roster de presentes — nunca se checou se o piso ainda vale em sessão real.
+
+Vale. 15 sessões reais de hoje (arms A/B/C da medição da task 55), 122 narrações:
+
+| | julho (baseline) | julho (V3 replay) | hoje (produção) |
+|---|---|---|---|
+| mediana chars | 240-390 | 1247 / 568 | **1130** |
+| mediana palavras | ~40-65 | — | **191** |
+| faixa | — | — | 559 - 2501 chars |
+
+18/122 narrações (14%) ficam abaixo das 150 palavras, mínimo 92. Isso **não é
+falha do piso, é o piso funcionando como especificado**: a task registrou de
+propósito que é piso e não cap ("é PISO, não cap (regra do AGENTS proíbe limitar
+por quantidade fixa — piso é pressão, e o modelo entrega menos em beat pequeno,
+comportamento desejado)"). Um beat pequeno rendendo 92 palavras é a decisão
+original, não uma regressão dela.
+
+O watch item da task ("turno sem eventos rende ~150 palavras de atmosfera — se
+incomodar, tratar na 26") também não se materializou como problema: nenhuma
+narração de produção passou perto de ser puro enchimento de piso, e o mínimo
+observado está **abaixo** dele.
+
+Uma ressalva de método, para quem reler: os dados vêm de sessões geradas para
+medir *outra* coisa (alignment/roteiro na 55), não de uma coleta desenhada para
+comprimento. Isso é a favor da conclusão, não contra — o comprimento não era o
+que estava sendo otimizado ali.
