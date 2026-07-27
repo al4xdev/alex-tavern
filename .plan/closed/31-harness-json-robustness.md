@@ -71,8 +71,51 @@ large fraction of expensive baseline runs would be wasted on infrastructure.
   `test_definitive_client_error_fails_fast`
 - [x] Worst-case call count per character turn is asserted (format retries ×
   correction attempts bounded, no multiplication blow-up).
-- [ ] Three consecutive repetitions of `memory_focus_xyz` against the real
+- [x] Three consecutive repetitions of `memory_focus_xyz` against the real
   provider complete with zero runs lost to `Falha ao obter JSON válido`
   (narrative failures, if any, are out of scope here).
 - [x] `rg 'retries='` in `src/` shows no per-agent overrides left. — **conferido
   2026-07-27**: só o repasse do parâmetro em `client.py:328`, nenhum override.
+
+
+---
+
+# As três repetições, executadas (2026-07-27)
+
+O critério era estreito e por isso mensurável: três repetições consecutivas de
+`memory_focus_xyz` contra o provider real, **zero runs perdidos por "Falha ao
+obter JSON válido"**.
+
+**3/3 completaram o cenário inteiro. Nenhum run perdido por JSON.**
+
+E o run trouxe a evidência positiva de que a política de retry desta task faz
+trabalho real: **9 `JSONSchemaValidationError` ocorreram e todos foram
+recuperados**. O Diretor mandou booleano onde o schema pede string ou nulo (6
+vezes, sempre em chaves de `scene_update` inventadas pelo próprio modelo, tipo
+`porta_arrombada: true`), `location: null`, e a prosa mandou chaves fora do
+schema (`actions`, `events`, `scene_change`). Antes desta task, cada um desses
+era um turno perdido; aqui nenhum sequer apareceu para o jogador.
+
+## O que o run revelou sobre o instrumento, não sobre o produto
+
+O harness marcou 2 dos 3 runs como falhos — mas não por JSON. Por
+`RecallCheckFailed: whispered secrets leaked into records`, com estes tokens:
+
+| run | token acusado |
+|---|---|
+| 1 | `onde` |
+| 2 | `cabeça` |
+
+"Onde" e "cabeça" não são segredos. O detector (`_is_rare` + `PAYLOAD_WINDOW`
+em `src/confidentiality.py`) aceita qualquer token com 4+ caracteres que caia na
+vizinhança da âncora do sussurro, e numa língua onde "onde", "casa", "porta",
+"mesa" e "cabeça" são o vocabulário básico da cena, isso gera falso positivo com
+facilidade. A reaparição dessas palavras numa fala posterior não é evidência de
+vazamento.
+
+Não é bug desta task e **não é conserto para hoje**: mudar o filtro é
+recalibração de um instrumento que outras tasks usam como oráculo (a família
+`secret` do xfailed3 depende dele), e recalibrar sem medir a precisão antes e
+depois só troca um viés por outro. Fica registrado como a próxima pergunta a
+medir: qual a taxa de falso positivo do detector de vazamento em português, e uma
+lista de parada por idioma resolve ou só desloca o problema?
