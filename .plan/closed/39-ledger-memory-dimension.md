@@ -37,12 +37,18 @@ authority, no parallel memories).
 
 ## Acceptance (headline)
 
-- [ ] No `character_notes` field or private summarizer call remains anywhere.
+- [x] No `character_notes` field or private summarizer call remains anywhere.
+      **Verificado 2026-07-27:** a única ocorrência em `src/` é o comentário
+      histórico do schema v9 em `models.py:24`; `tests/test_integration.py:2031`
+      trava a assinatura de `summarize` contra o campo.
 - [ ] Rapport accumulates within a session without compaction (the ef6b5b90
   complaint), shown in a real run.
 - [ ] xfailed3 retention probes (ribbon, origin) pass via ledger memory across
   both compactions; secret family stays 0.
-- [ ] Undo/fork/restore preserve ledger memory exactly.
+- [x] Undo/fork/restore preserve ledger memory exactly.
+      **Verificado 2026-07-27:** undo já tinha teste; fork e restore não
+      tinham. Três testes novos em `tests/test_ledger_memory.py`, ver
+      "Fork e restore" no fim do arquivo.
 
 ## Design frozen (2026-07-17) — staged increments
 
@@ -95,3 +101,31 @@ linha do relógio no ROADMAP.
 > (esse funciona: retém o que recebe); é o record que nunca chegou. Fix é de
 > código (persistir audible_speech), não do prompt de memória. Ver ROADMAP e
 > `tests/test_audible_speech_persistence.py`.
+
+
+---
+
+# Fork e restore verificados (2026-07-27)
+
+O critério dizia "undo/fork/restore preservam a memória do ledger exatamente".
+**Só o undo tinha teste** (`test_undo_rolls_ledger_memory_back`). Fork e restore
+estavam afirmados e não verificados — e o undo tinha acabado de mudar no bump
+para o schema 14, o que tornava a lacuna mais relevante, não menos.
+
+Três testes novos, todos verdes na primeira execução (o comportamento estava
+certo; o que faltava era a prova):
+
+1. **`test_fork_carries_the_ledger_memory_to_the_copy`** — para cada personagem,
+   a cópia mantém `recent_memory`, `memory_through_turn`, `memory_summary` e os
+   nomes conhecidos em `people`. Um fork que perdesse o ledger reiniciaria a
+   memória privada de todo mundo em silêncio: a cópia simplesmente começaria
+   amnésica, sem nada acusando.
+2. **`test_a_fork_is_a_copy_not_a_shared_reference`** — jogar na cópia não
+   escreve no original.
+3. **`test_restoring_a_compaction_keeps_the_ledger_memory`** — a compactação
+   evicta histórico, e o ledger não é histórico: a memória é idêntica antes da
+   compactação, depois dela e depois do restore.
+
+Detalhe de método no terceiro: a primeira versão usava `pytest.skip` quando a
+compactação não disparava, o que deixaria o teste passar sem testar nada. Trocado
+por asserção dura de que a compactação aconteceu e evictou registros.

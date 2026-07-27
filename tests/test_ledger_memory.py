@@ -192,6 +192,104 @@ class TestUndoPreservesMemory:
             await client.aclose()
 
 
+    async def test_fork_carries_the_ledger_memory_to_the_copy(self, monkeypatch) -> None:  # noqa: ANN001
+        """Task 39 listed "undo/fork/restore preserve ledger memory exactly".
+
+        Undo had a test; fork and restore did not. A fork that lost the ledger
+        would silently reset every character's private memory of the session,
+        and nothing would say so - the copy just starts amnesiac.
+        """
+        from src.store.sessions import delete_session, fork_session, load_game
+
+        runner, sid, client = await self._session(monkeypatch)
+        forked = None
+        try:
+            await runner.player_turn(sid, speech="Primeira fala.")
+            await runner.player_turn(sid, speech="Segunda fala.")
+            original = await runner.get_state(sid)
+
+            forked = await fork_session(sid)
+            assert forked is not None
+            copy = load_game(forked)
+            assert copy is not None
+
+            for cid, source in original.character_perspectives.items():
+                target = copy.character_perspectives.get(cid)
+                assert target is not None, f"fork lost the ledger of {cid}"
+                assert target.recent_memory == source.recent_memory
+                assert target.memory_through_turn == source.memory_through_turn
+                assert target.memory_summary == source.memory_summary
+                assert {k: v.known_name for k, v in target.people.items()} == {
+                    k: v.known_name for k, v in source.people.items()
+                }
+        finally:
+            await delete_session(sid)
+            if forked:
+                await delete_session(forked)
+            await client.aclose()
+
+    async def test_a_fork_is_a_copy_not_a_shared_reference(self, monkeypatch) -> None:  # noqa: ANN001
+        """Playing the copy must not write into the original's memory."""
+        from src.store.sessions import delete_session, fork_session, load_game
+
+        runner, sid, client = await self._session(monkeypatch)
+        forked = None
+        try:
+            await runner.player_turn(sid, speech="Primeira fala.")
+            before = list((await runner.get_state(sid)).character_perspectives["C2"].recent_memory)
+
+            forked = await fork_session(sid)
+            assert forked is not None
+            await runner.player_turn(forked, speech="So no fork.")
+
+            after = load_game(sid)
+            assert after is not None
+            assert after.character_perspectives["C2"].recent_memory == before
+        finally:
+            await delete_session(sid)
+            if forked:
+                await delete_session(forked)
+            await client.aclose()
+
+    async def test_restoring_a_compaction_keeps_the_ledger_memory(self, monkeypatch) -> None:  # noqa: ANN001
+        """Compaction evicts history; the private ledger is not history."""
+        from src.store.sessions import delete_session
+
+        runner, sid, client = await self._session(monkeypatch)
+        try:
+            async def fake_summarize(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+                return "Resumo do mundo."
+
+            import src.runner as runner_mod
+
+            monkeypatch.setattr(runner_mod, "summarize", fake_summarize)
+            runner.config["compaction_keep_recent_turns"] = 1
+
+            for turn in range(3):
+                await runner.player_turn(sid, speech=f"Fala {turn}.")
+            before_compaction = await runner.get_state(sid)
+            memory_before = list(before_compaction.character_perspectives["C2"].recent_memory)
+
+            compacted = await runner.compact_session(sid)
+            assert compacted.get("compacted") is True, (
+                f"the test must exercise a real compaction, not skip it: {compacted.get('reason')}"
+            )
+            assert compacted["evicted_records"] > 0
+
+            after_compaction = await runner.get_state(sid)
+            assert after_compaction.character_perspectives["C2"].recent_memory == memory_before, (
+                "compaction must not touch a private ledger"
+            )
+
+            restored = await runner.restore_last_compaction(sid)
+            assert restored["restored"] is True
+            after_restore = await runner.get_state(sid)
+            assert after_restore.character_perspectives["C2"].recent_memory == memory_before
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+
 class TestMemoryRevision:
     def test_trigger_threshold(self) -> None:
         from src.agents.perspective import MEMORY_REVISION_TRIGGER, needs_memory_revision
