@@ -1,3 +1,9 @@
+> ✅ **FECHADA em 2026-07-27.** A ressalva era "coin-flip: 2 vitórias / 2
+> derrotas" — **n=4**, que é exatamente o resultado que ruído puro produz. Foi
+> remedida com n=10 em dois cenários e depois com três braços isolando o
+> confundidor. Veredito e números no fim do arquivo. O roteiro continua opt-in e
+> OFF por padrão, agora por medição e não por dúvida.
+
 > ⚠️ **KEPT IN tasks/ (not in closed/) — delivered WITH RESERVATIONS, without a confident close.**
 > The screenplay (roteiro) is opt-in (OFF by default) and helps drive in ACTION scenes, but is
 > a **coin-flip in large procedural scenes** (portals 2W/2L). The ENGINE gains are
@@ -159,3 +165,92 @@ Suite: 550 passed. Artifacts + all blind-critic rounds:
 `plans/artifacts/roteiro-ab*/`. Commits: 9761f31, 35a9a2f,
 3f4c014, bdda81f, 9f073e0, 06bb963, cedbb1a, 86df261, 7b39304, 6d6e9b8,
 5c40276, c3863ae, 490f1d5 (+ the b23a9e7 revert 52f5f88).
+
+
+---
+
+# Fechamento (2026-07-27) — a ressalva medida
+
+## O problema com a ressalva original
+
+Ela dizia: *"numa cena PROCEDURAL grande o roteiro é COIN-FLIP: 2 vitórias / 2
+derrotas em quatro runs A/B"*. Todos os critérios headline estavam cumpridos; o
+que segurava a task era esse empate.
+
+**2-2 em n=4 não distingue nada.** É o resultado mais provável de uma moeda
+honesta e também de um efeito moderado. A ressalva não estava errada — estava
+sem resolução. E o instrumento era um crítico cego, caro por run, o que
+explicava o n baixo.
+
+## Método novo: métricas objetivas, n maior
+
+Troquei o crítico cego pelas métricas determinísticas do harness (que não
+custam chamada extra) e rodei mais.
+
+### Rodada 1 — dois cenários, ON contra OFF
+
+| Métrica | conversacional ON/OFF (n=6) | elenco grande ON/OFF (n=4) |
+|---|---|---|
+| chamadas LLM | 60,2 / 46,0 (+31%) | 92,5 / 70,0 (+32%) |
+| tokens de saída | 12.528 / 9.861 (+27%) | 20.601 / 16.225 (+27%) |
+| `character_action_heuristic_hits` | 3,17 / 1,17 | 8,50 / 3,50 |
+| guard retries | 2,83 / 5,33 | 3,25 / 6,00 |
+| duplicatas de narração | 5,67±8,0 / 6,33±5,0 | 4,00±4,2 / 11,50±17,1 |
+
+O custo reproduziu nos dois. E o `character_action_heuristic_hits` — personagem
+enfiando movimento físico dentro de fala/pensamento — apareceu 2,4× mais alto
+com roteiro, nos dois cenários.
+
+**Mas eu tinha criado um confundidor**: o braço ON tinha roteiro **e**
+alinhamento de personagem ligados, e o alinhamento manda impulsos dramáticos
+transitórios aos personagens. Causa muito mais plausível para "mais movimento no
+campo errado" do que o roteiro.
+
+### Rodada 2 — três braços, confundidor isolado (n=5/4/5)
+
+| Métrica | A: roteiro+align | B: roteiro só | C: nenhum |
+|---|---:|---:|---:|
+| `character_action_heuristic_hits` | **6,20±1,1** | 3,75±1,7 | 4,40±1,5 |
+| chamadas LLM | 93,6±5,0 | 80,5±1,0 | **69,0±2,9** |
+| tokens de saída | 21.386±2153 | 21.398±1031 | **15.500±988** |
+| `redundant_mood_updates` | 1,60±1,1 | 1,00±2,0 | **0,00±0,0** |
+| duplicatas de narração | 2,60±4,2 | 1,75±2,4 | 2,60±3,4 |
+| falhas de recall / routing | 0 / 0 | 0 / 0 | 0 / 0 |
+
+**B fica igual ou abaixo de C.** A regressão de movimento no campo errado
+acompanha o toggle de **alinhamento**, não o roteiro. Eu teria atribuído ao
+roteiro um defeito que não é dele.
+
+## Veredito
+
+1. **O roteiro custa e não paga em nenhuma métrica objetiva.** +27% de tokens em
+   três lotes independentes. Nenhum sinal de qualidade melhora de forma
+   distinguível do ruído: as duplicatas de narração têm desvio maior que a
+   diferença nos três lotes.
+2. **A ressalva de "coin-flip" está resolvida** — não como vitória nem derrota
+   narrativa, mas como: *não há efeito objetivo mensurável, e há custo medido*.
+   Opt-in e OFF por padrão continua sendo a decisão certa, agora por número.
+3. **O alinhamento de personagem carrega um custo próprio** que estava escondido
+   atrás do roteiro: `character_action_heuristic_hits` 6,20 contra 3,75/4,40.
+   Fica registrado para quem for mexer na task 44.
+
+## Honestidade sobre os limites
+
+- n=5 por braço, desvios de ±1,1 a ±1,7 num intervalo de 3,75 a 6,20. A ordem é
+  consistente; a separação A×B é de ~1,5 desvio. **Sugestivo, não conclusivo.**
+- Os números absolutos variam entre lotes (o mesmo braço deu 8,50 num lote e
+  6,20 noutro). A métrica tem variância de lote além da variância de run — a
+  mesma lição da task 55.
+- `scene_cast_rotation` não pôde ser usada: `stress.json` e `natural.json` usam o
+  elenco padrão de 2 personagens, e a métrica exige 3+.
+- Uma run do braço B morreu com `Invalid Character response after correction` —
+  que virou um bug corrigido (`b62f49b`): um deslize de estilo matava o turno
+  inteiro enquanto os outros dois guards do mesmo arquivo degradam sem falhar.
+
+## O que a medição comprou além do veredito
+
+Escrever esta medição achou dois defeitos que nenhum teste pegava:
+
+1. **O harness estava morto pela linha de comando** (`9402737`) — `write_text`
+   abaixo do `__main__`, seis sessões completadas sem reportar nada.
+2. **Um deslize de estilo matava o turno** (`b62f49b`).
