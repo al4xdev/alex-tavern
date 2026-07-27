@@ -2694,6 +2694,28 @@ select.text-input { cursor: pointer; }
         border-radius: 0;
         border: none;
     }
+    /* Move the full-screen sheet as one opaque layer on mobile. Animating the
+       parent's opacity can expose mixed WebView compositor frames. */
+    .overlay {
+        opacity: 1;
+        transform: translateY(100%);
+        visibility: hidden;
+        transition:
+            transform 360ms var(--ease),
+            visibility 0s linear 360ms;
+    }
+    .overlay.active {
+        opacity: 1;
+        transform: translateY(0);
+        visibility: visible;
+        transition-duration: 240ms, 0s;
+        transition-delay: 0s;
+    }
+    .overlay .modal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
     .modal-head { padding-top: max(18px, env(safe-area-inset-top)); }
     .modal-body { padding-bottom: 24px; }
     .plugin-center-body { height: auto; min-height: 0; flex: 1; padding-bottom: 0; }

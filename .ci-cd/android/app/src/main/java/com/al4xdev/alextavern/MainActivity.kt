@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var loadingView: android.widget.ImageView
     private lateinit var statusView: android.widget.TextView
     private val mainHandler = Handler(Looper.getMainLooper())
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -71,7 +72,6 @@ class MainActivity : AppCompatActivity() {
 
         enterImmersiveMode()
         setContentView(buildLayout())
-        showStatus(getString(R.string.boot_starting))
 
         // Asset copying and the Chaquopy runtime extraction are both heavy disk
         // I/O — on a first boot they take seconds and would freeze the UI.
@@ -81,7 +81,9 @@ class MainActivity : AppCompatActivity() {
 
     /** Loading screen up front; the WebView only replaces it once /health answers. */
     private fun buildLayout(): android.view.View {
-        val container = android.widget.FrameLayout(this)
+        val container = android.widget.FrameLayout(this).apply {
+            setBackgroundColor(getColor(R.color.launcher_icon_background))
+        }
 
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
@@ -123,11 +125,29 @@ class MainActivity : AppCompatActivity() {
         webView.visibility = android.view.View.GONE
         container.addView(webView)
 
+        val logoSize = (192 * resources.displayMetrics.density).toInt()
+        loadingView = android.widget.ImageView(this).apply {
+            setImageResource(R.mipmap.ic_launcher)
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            contentDescription = getString(R.string.app_name)
+            layoutParams = android.widget.FrameLayout.LayoutParams(logoSize, logoSize).apply {
+                gravity = android.view.Gravity.CENTER
+            }
+        }
+        container.addView(loadingView)
+
         statusView = android.widget.TextView(this).apply {
             setPadding(48, 48, 48, 48)
             textSize = 14f
+            setTextColor(android.graphics.Color.WHITE)
+            gravity = android.view.Gravity.CENTER
             setTextIsSelectable(true)
             movementMethod = android.text.method.ScrollingMovementMethod()
+            visibility = android.view.View.GONE
+            layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+            )
         }
         container.addView(statusView)
         return container
@@ -184,6 +204,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showStatus(message: String) {
         mainHandler.post {
+            loadingView.visibility = android.view.View.GONE
             statusView.visibility = android.view.View.VISIBLE
             statusView.text = message
         }
@@ -192,6 +213,7 @@ class MainActivity : AppCompatActivity() {
     private fun revealWebView(url: String) {
         logBootstrap("revealWebView: loading $url")
         mainHandler.post {
+            loadingView.visibility = android.view.View.GONE
             statusView.visibility = android.view.View.GONE
             webView.visibility = android.view.View.VISIBLE
             webView.loadUrl(url)
@@ -264,8 +286,6 @@ class MainActivity : AppCompatActivity() {
                 revealWebView(frontendUrl())
                 return
             }
-            val waited = (READY_TIMEOUT_MS - (deadline - System.currentTimeMillis())) / 1000
-            showStatus(getString(R.string.boot_starting_waiting, waited))
             try {
                 Thread.sleep(READY_POLL_INTERVAL_MS)
             } catch (e: InterruptedException) {
