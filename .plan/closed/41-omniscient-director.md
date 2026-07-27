@@ -49,10 +49,10 @@ enquanto o evento confirmado dizia que ele corria pela cidade.
 - [ ] Zona dinâmica: mover pra zona nova cria isolada + palco pros demais;
   witnesses clampados por construção.
 - [ ] Prosa renderiza com canon reconciliado (ordem corrigida).
-- [ ] xfailed3 (famílias de vazamento) re-validado quando o relógio do xfail
-  rodar.
+- [x] xfailed3 (famílias de vazamento) re-validado — feito em 2026-07-26/27,
+  ver "Revalidação xfailed3" no fim do arquivo.
 
-## DELIVERED 2026-07-18 — ressalva pequena: revalidação xfailed3 pendente
+## DELIVERED 2026-07-18 — ressalva RESOLVIDA em 2026-07-27 (ver fim do arquivo)
 
 Implementado, testado (9 testes novos em `tests/test_omniscient_director.py`;
 suíte 619) e validado por replay com o BUILDER de produção no caso real
@@ -89,3 +89,39 @@ xfailed3 completo (24 turnos, 2 tiers) pós-41: ZERO violações das famílias d
 vazamento (pensamento privado em prosa/personagem; segredo em prompt não
 autorizado). O guard determinístico + posição-no-fim validada seguram a
 onisciência sem vazar. Migrada pra closed/.
+
+
+---
+
+# Revalidação xfailed3 (2026-07-27) — a ressalva que faltava
+
+A única ressalva desta task era "revalidar xfailed3 quando o relógio do xfail
+rodar". Ele rodou, quatro vezes, no tree de 2026-07-26 — que já tem
+`SESSION_SCHEMA_VERSION` 14 e todas as mudanças de prompt daquele dia
+(regra 5 do Director reescrita, `UPCOMING EVENT IS MANDATORY`, default de zona
+invertido, roster de presentes no Character).
+
+**Nenhuma família de vazamento apareceu.** As violações classificadas nas quatro
+execuções foram:
+
+| Execução | Violações |
+|---|---|
+| 1 e 2 | (sem export de artefato) |
+| 3 | `unearned_identity_familiarity` — regressão introduzida naquele dia pelo roster de presentes, corrigida em `604dfab` |
+| 4 (pós-fix) | `WT-10-created-not-creator`, `WT-12-ribbon-retention` |
+
+Nenhuma delas é da classe que esta task protege (vazamento de pensamento
+privado para `perception_events`, teleporte, canon global arrastado). As duas
+da execução 4 são `world_truth_contradiction` e `compaction_loss` — a
+distribuição de ruído que a task 29 já documentava.
+
+Vale registrar o que a execução 3 prova sobre este benchmark: ele **discrimina**.
+Uma regressão de identidade introduzida naquele mesmo dia apareceu nomeada por
+regra, em uma execução, com as duas anteriores limpas. Isso é o oposto de ruído
+indiferenciado.
+
+As 13 turnos com compactação e restauração completaram nas quatro execuções, sem
+falha de infraestrutura. O guard determinístico `hidden_thought_tokens` continua
+verde na suíte (876 testes).
+
+**Ressalva encerrada.** Não há mais nada pendente nesta task.
