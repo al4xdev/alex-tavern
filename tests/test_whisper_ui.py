@@ -69,52 +69,67 @@ class TestWhisperedRendering:
         assert ".msg-whisper-badge" in CSS
 
 
+def _function_body(name: str) -> str:
+    """The whole source of one exported async function, `finally` included.
+
+    Anchoring on a statement pattern is not good enough here: `skipTurn` and
+    `sendTurn` share the `state.lastTurnFailed = false; state.canUndo = true;`
+    pair, and the first match is `skipTurn` - which never touches the composer
+    inputs at all, so assertions about them pass for the wrong reason.
+    """
+    start = APP.index(f"export async function {name}(")
+    end = APP.index("\nexport ", start + 1) if "\nexport " in APP[start + 1 :] else len(APP)
+    return APP[start:end]
+
+
 class TestTheRejectedTurnKeepsWhatTheUserTyped:
     """Task 30's second criterion, written and never tested.
 
     "A rejected audience (backend 422) shows the error toast and does not clear
     the composer." The behaviour was implemented correctly all along - what was
     missing is anything stopping a later edit from moving `clearWhisperSelection`
-    or the input resets into a `finally`, which would silently destroy a
-    whispered turn the user has to retype.
+    or the input resets onto a path that also runs on failure, which would
+    silently destroy a whispered turn the user has to retype, audience included.
 
     Static boundary assertions, like the rest of this file: the composer is a
     module of imperative DOM code with no test harness, so the boundary is the
-    source itself.
+    source itself. The slice deliberately runs to the end of the function so the
+    `finally` block is inside it - moving a reset there is the named threat, and
+    a slice that stopped at `} finally {` could not see it.
     """
 
-    def _submit_body(self) -> str:
-        """Everything from the success path to the end of the catch block."""
-        start = APP.index("state.lastTurnFailed = false;\n        state.canUndo = true;")
-        return APP[start : APP.index("} finally {", start)]
+    def _after_failure(self) -> str:
+        body = _function_body("sendTurn")
+        return body[body.index("} catch (err) {") :]
 
-    def test_the_inputs_are_cleared_only_before_the_catch(self) -> None:
-        body = self._submit_body()
-        catch_at = body.index("} catch (err) {")
-        after_failure = body[catch_at:]
+    def test_the_anchor_really_is_the_submit_path(self) -> None:
+        """Guards the test itself: skipTurn shares the success-path statements."""
+        body = _function_body("sendTurn")
+        assert "clearWhisperSelection();" in body, "not the function that owns the whisper reset"
+        assert "inputSpeech.value = ''" in body, "not the function that clears the composer"
+        assert "} finally {" in body, "the slice must reach the finally block"
+
+    def test_the_inputs_are_cleared_only_on_the_success_path(self) -> None:
+        after_failure = self._after_failure()
         fields = ("inputSpeech.value = ''", "inputThought.value = ''", "inputAction.value = ''")
         for field in fields:
             assert field not in after_failure, (
-                f"{field} runs on the failure path; the user loses what they typed"
+                f"{field} runs after a failure (catch or finally); the user loses what they typed"
             )
 
     def test_the_whisper_selection_survives_a_failure(self) -> None:
-        body = self._submit_body()
-        after_failure = body[body.index("} catch (err) {") :]
-        assert "clearWhisperSelection()" not in after_failure, (
+        assert "clearWhisperSelection()" not in self._after_failure(), (
             "a rejected whisper would drop its audience, so the retry goes public"
         )
 
     def test_a_failure_raises_an_error_toast(self) -> None:
-        body = self._submit_body()
-        after_failure = body[body.index("} catch (err) {") :]
+        after_failure = self._after_failure()
         assert "t('turn.failed'" in after_failure
         assert "'error'" in after_failure, "the toast must be styled as an error"
 
     def test_a_stopped_turn_is_not_reported_as_a_failure(self) -> None:
         """Pressing stop is a user decision, not a rejected audience."""
-        body = self._submit_body()
-        after_failure = body[body.index("} catch (err) {") :]
+        after_failure = self._after_failure()
         assert "err.name === 'AbortError'" in after_failure
         assert "t('turn.stopped')" in after_failure
 
@@ -134,11 +149,16 @@ class TestTheActionMenuIsNeverLeftStale:
     """
 
     def test_both_turn_outcomes_refresh_the_menu(self) -> None:
-        start = APP.index("state.lastTurnFailed = false;\n        state.canUndo = true;")
-        body = APP[start : APP.index("} finally {", start)]
+        body = _function_body("sendTurn")
         catch_at = body.index("} catch (err) {")
         assert "updateActionPopup();" in body[:catch_at], "success path never refreshes the menu"
         assert "updateActionPopup();" in body[catch_at:], "failure path never refreshes the menu"
+
+    def test_the_skip_path_refreshes_the_menu_too(self) -> None:
+        body = _function_body("skipTurn")
+        catch_at = body.index("} catch (err) {")
+        assert "updateActionPopup();" in body[:catch_at]
+        assert "updateActionPopup();" in body[catch_at:]
 
     def test_the_retry_button_appears_exactly_when_the_turn_failed(self) -> None:
         assert "actionRetryBtn.style.display = state.lastTurnFailed ? '' : 'none'" in APP

@@ -226,3 +226,66 @@ class TestTheDirectorsFreeTextIsProjected:
         projected = project_text_for_viewer("C1 e C2 se olham.", CAST, None, viewer_id="C2")
         assert "C1" not in projected and "C2" not in projected
         assert FALLBACK_REFERENCE in projected and "Marta" in projected
+
+
+class TestTheResidueThisFixDidNotCover:
+    """Two channels still hand a roster-less prompt raw ids. Pinned, not fixed.
+
+    A critical review of the fix found them, and the fix's own commit subject
+    ("never hand a prompt an internal id it cannot resolve") was too absolute.
+    Live `drive:event_seed` prompts read:
+
+        RECENT EVENTS (oldest to newest):
+          C2: Bem, parece que nossa reputacao nos precede.
+          Thorn: ...
+
+    One cast, two labelling systems in one list, because `speaker_label`
+    translates the `Player` marker and nothing else. That is the same shape as
+    the summarizer defect this file exists for.
+
+    It is NOT fixed here on purpose. `recent_event_lines` documents
+    `resolve_names` as a real, curl-validated difference between callers, and
+    AGENTS.md section 6 says a validated prompt does not change without measured
+    evidence. Flipping the default is a prompt experiment with its own A/B, not a
+    tidy-up ridden along with a bug fix.
+
+    So these tests pin today's behaviour. When the experiment runs, they fail and
+    force the decision to be explicit instead of silent.
+    """
+
+    def _game(self):  # noqa: ANN202
+        from src.models import GameState, Player
+
+        return GameState(
+            session_id="t",
+            characters=CAST,
+            player=Player(controlled_character_id="C1"),
+            scene=SCENE,
+            history=[
+                make_record(1, "Player", "Boa noite.", "speech"),
+                make_record(2, "C2", "Quem e voce?", "speech"),
+            ],
+        )
+
+    def test_the_drive_and_watcher_channel_still_labels_by_id(self) -> None:
+        from src.prompting import recent_event_lines
+
+        lines = "\n".join(recent_event_lines(self._game()))
+        assert "C2:" in lines, "if this fails the default changed - measure it, do not just tick it"
+        assert "Rui:" in lines, "the Player marker is always resolved (AGENTS.md section 3)"
+
+    def test_the_mixed_labelling_is_what_makes_it_a_hazard(self) -> None:
+        """The same cast under two naming systems in one list is the defect
+        shape: a model reading it can take `C2` for a third person."""
+        from src.prompting import recent_event_lines
+
+        lines = "\n".join(recent_event_lines(self._game()))
+        assert "C2:" in lines and "Marta" not in lines
+
+    def test_the_roteiro_caller_resolves_names(self) -> None:
+        """The other caller of the same helper already passes resolve_names."""
+        from src.prompting import recent_event_lines
+
+        lines = "\n".join(recent_event_lines(self._game(), resolve_names=True))
+        assert "Marta:" in lines
+        assert not ID_RE.search(lines)

@@ -47,6 +47,11 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     config = client.get("/config").json()
     print(f"provider={config['active_provider']} language={config.get('language')}")
 
+    # Saved and restored below. Leaving the server on a 2-turn retention window
+    # would compact almost every later turn - a side effect that outlives this
+    # script and quietly changes any measurement taken afterwards.
+    original_config = json.loads(json.dumps(config))
+
     # The summarizer only runs at a compaction, and a compaction only evicts what
     # falls outside the retained window. With the default 200 the run below plays
     # 8 turns, nothing is evicted, and the story_summary check passes on an empty
@@ -77,10 +82,10 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
         "I move toward the back door.",
     ]
     for turn in range(TURNS):
-        body = (
-            {"speech": prompts[turn % len(prompts)]} if turn % 2 == 0 else {"skip": True}
-        )
-        client.post(f"/session/{sid}/turn", json=body)
+        body = {"speech": prompts[turn % len(prompts)]} if turn % 2 == 0 else {"skip": True}
+        posted = client.post(f"/session/{sid}/turn", json=body)
+        if posted.status_code != 200:
+            check(f"turn {turn + 1} was accepted", False, str(posted.status_code))
 
     compacted = client.post(f"/session/{sid}/compact").json()
     check(
@@ -90,6 +95,8 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     )
 
     state = client.get(f"/session/{sid}/state").json()
+    restored = client.put("/config", json=original_config)
+    check("the server config was restored", restored.status_code == 200, str(restored.status_code))
 
     # 3. the durable memory, which every later prompt reads
     summary = state.get("story_summary") or ""

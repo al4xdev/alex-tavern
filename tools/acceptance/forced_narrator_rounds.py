@@ -53,6 +53,10 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     client.headers["Origin"] = BASE
 
     config = client.get("/config").json()
+    # Saved and restored in the `finally` below: an acceptance script that leaves
+    # the user's server on a one-beat burst silently changes every session played
+    # afterwards, including any measurement taken later.
+    original_config = json.loads(json.dumps(config))
     # One beat per turn: the burst would add turns nobody forced, and the
     # criterion is about consecutive FORCED rounds.
     config["autonomous_burst_max_beats"] = 1
@@ -81,10 +85,12 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     ]
     rounds: list[dict] = []
     for index in range(ROUNDS):
-        response = client.post(
+        posted = client.post(
             f"/session/{sid}/turn",
             json={"speech": speeches[index], "force_speaker": "Narrator"},
-        ).json()
+        )
+        check(f"round {index + 1} was accepted", posted.status_code == 200, str(posted.status_code))
+        response = posted.json()
         rounds.append(response)
         print(
             f"  round {index + 1}: next_speakers={response.get('next_speakers')} "
@@ -92,9 +98,11 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
         )
 
     # The skip variant: same routing, no player content at all.
-    skipped = client.post(
+    posted = client.post(
         f"/session/{sid}/turn", json={"skip": True, "force_speaker": "Narrator"}
-    ).json()
+    )
+    check("the skip round was accepted", posted.status_code == 200, str(posted.status_code))
+    skipped = posted.json()
     print(f"  skip round: next_speakers={skipped.get('next_speakers')}")
 
     every = [*rounds, skipped]
@@ -115,6 +123,8 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     )
 
     state = client.get(f"/session/{sid}/state").json()
+    restored = client.put("/config", json=original_config)
+    check("the server config was restored", restored.status_code == 200, str(restored.status_code))
 
 # The debug log is the evidence the task asked for by name.
 debug_path = Path(".data/sessions") / sid / "debug.jsonl"
@@ -161,21 +171,57 @@ check(
     str([(r["turn_number"], r["agent"]) for r in character_calls]),
 )
 
-# What the unit tests cannot report: how often the real Director tried anyway.
-attempted = 0
+# What the unit tests cannot report: how often the REAL Director tried anyway.
+#
+# Two traps here, both of which a first version fell into. `response` is stored
+# as a JSON *string*, so json.dumps() escapes it and any `"C2"` search silently
+# never matches; it has to be parsed. And searching the whole response always
+# hits, because `scene_blocking.character_zones` lists every character every
+# turn - the only field that means "the Director wants this character to act" is
+# `next_speakers`.
+attempted_turns: set[int] = set()
+parsed_directors = 0
 for record in records:
     if record.get("agent") != "director" or record.get("turn_number") not in forced_turns:
         continue
-    raw = json.dumps(record.get("response"), ensure_ascii=False)
-    if any(f'"{cid}"' in raw for cid in session_config["characters"]):
-        attempted += 1
-print(f"\n  (o Diretor propos um NPC mesmo forcado em {attempted}/{len(forced_turns)} rodadas)")
+    response = record.get("response")
+    if isinstance(response, str):
+        try:
+            response = json.loads(response)
+        except json.JSONDecodeError:
+            continue
+    if not isinstance(response, dict):
+        continue
+    parsed_directors += 1
+    proposed = [s for s in (response.get("next_speakers") or []) if s != "Narrator"]
+    if proposed:
+        attempted_turns.add(record["turn_number"])
+
+check(
+    "the Director's raw responses were readable (the metric below is not vacuous)",
+    parsed_directors > 0,
+    f"parsed {parsed_directors} of the director records in forced turns",
+)
+print(
+    f"\n  (o Diretor propos um NPC mesmo forcado em "
+    f"{len(attempted_turns)}/{len(forced_turns)} rodadas: {sorted(attempted_turns)})"
+)
 
 # Forcing the Narrator forces WHO ACTS, not silence in the fiction. A forced
 # round can still persist NPC-attributed speech, because the Director may stage
-# audible speech in its own narration - that is the audible_speech persistence
-# WT-09 depends on, and it carries an `audience_origin`. What must not appear is
-# speech produced by a Character CALL, which is what the task forbids.
+# audible speech in its own narration - the persistence WT-09 depends on. What
+# must not appear is speech produced by a Character CALL.
+#
+# `audience_origin` cannot tell those apart: it defaults to "whisper" and is
+# always serialized, so "not record.get('audience_origin')" is never true and a
+# check written that way passes on any input. The discriminator that does work is
+# the debug log - a character only speaks when it was called.
+called_in_forced_turns = {
+    record["agent"].split(":", 1)[1]
+    for record in records
+    if (record.get("agent") or "").startswith("character:")
+    and record.get("turn_number") in forced_turns
+}
 npc_records = [
     record
     for record in state["history"]
@@ -183,15 +229,18 @@ npc_records = [
     and record["content_type"] != "narration"
     and record["speaker"] != "Player"
 ]
-unstaged = [record for record in npc_records if not record.get("audience_origin")]
+names = {cid: ch["mind"]["name"] for cid, ch in session_config["characters"].items()}
+from_a_call = [
+    record for record in npc_records if names.get(record["speaker"]) in called_in_forced_turns
+]
 check(
-    "every NPC line in a forced round was staged by the Director, not a Character call",
-    not unstaged,
-    f"{len(unstaged)} unstaged of {len(npc_records)} NPC records",
+    "no NPC line in a forced round came from a Character call",
+    not from_a_call,
+    f"{len(from_a_call)} of {len(npc_records)} NPC records trace back to a call",
 )
 print(
-    f"  (o Diretor encenou {len(npc_records)} falas de NPC nas rodadas forcadas, "
-    "todas via audible_speech)"
+    f"  (o Diretor encenou {len(npc_records)} falas de NPC nas rodadas forcadas; "
+    f"personagens efetivamente chamados: {sorted(called_in_forced_turns) or 'nenhum'})"
 )
 
 print()

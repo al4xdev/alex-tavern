@@ -163,18 +163,30 @@ class TestNobodyElseDoes:
         assert perspective.recent_memory, "the viewer witnessed public speech and stored nothing"
         assert SECRET not in "\n".join(perspective.recent_memory)
 
-    def test_memory_revision_only_condenses_what_the_viewer_saw(self) -> None:
-        """The ledger's own summarizer takes viewer-projected lines. Feeding it
-        the raw transcript is the plausible mistake; the assertion is that the
-        secret cannot arrive through the lines a viewer legitimately holds."""
-        viewer_lines = [
-            record.content
-            for record in _history()
-            if record.content_type in ("speech", "narration")
-        ]
+    def test_the_revision_prompt_is_built_from_the_real_ledger(self) -> None:
+        """The composition, not a hand-filtered stand-in.
+
+        An earlier version of this test built `older_lines` by filtering thoughts
+        out of the history itself, then asserted the thought was absent - which is
+        true by construction and says nothing about either function. Production
+        feeds this builder from `perspective.recent_memory`, so the test has to
+        run that chain: capture first, then build from whatever capture produced.
+        It fails the day `capture_memory` starts folding thoughts in.
+        """
+        perspective = CharacterPerspective(initialized_turn=0, processed_through_turn=0)
+        capture_memory(
+            perspective=perspective,
+            history=_history(),
+            viewer_id="C3",
+            characters=CAST,
+            controlled_id="C1",
+        )
+        assert perspective.recent_memory, "nothing was captured, so nothing is being tested"
         prompt = _text(
             build_memory_revision_messages(
-                viewer_name="Bento", memory_summary="", older_lines=viewer_lines
+                viewer_name="Bento",
+                memory_summary="",
+                older_lines=list(perspective.recent_memory),
             )
         )
         assert SECRET not in prompt

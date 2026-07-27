@@ -138,6 +138,25 @@ bug inexistente e custado uma rodada de investigação — como custou.
 
 Nas 5 rodadas, o Diretor propôs um NPC mesmo forçado em **0** delas. Os testes
 unitários provam que o runner ignora um NPC quando recebe um; nenhum deles
-consegue dizer com que frequência um Diretor real tenta. Agora o script reporta
-esse número em vez de assumi-lo — e num modelo futuro, ou num prompt alterado,
-é justamente esse contador que denuncia a regressão antes do usuário.
+consegue dizer com que frequência um Diretor real tenta.
+
+**Correção de 2026-07-27 (revisão crítica): a primeira versão desse contador não
+media nada.** `record["response"]` é guardado como *string* JSON, então
+`json.dumps()` escapava as aspas e o predicado `'"C2"' in raw` procurava `"C2"`
+dentro de `\"C2\"` — nunca casava, travado em 0 para sempre. E, corrigido o
+escape, ele passaria a casar em toda rodada independentemente do roteamento,
+porque varria a resposta inteira e `scene_blocking.character_zones` lista todos
+os personagens todo turno.
+
+Agora o script parseia a resposta e lê `next_speakers` — o único campo que
+significa "o Diretor quer que este personagem aja" — e **verifica que conseguiu
+parsear**, para que uma mudança futura de serialização falhe alto em vez de
+devolver um zero confortável. Rerodado: **0/5 de novo, agora merecido**.
+
+Uma segunda checagem tinha o mesmo vício: marcava falas de NPC "não encenadas"
+por `not record.get("audience_origin")`, mas esse campo tem default `"whisper"` e
+é sempre serializado — a condição nunca podia ser verdadeira. O discriminador que
+funciona é o log: personagem só fala quando é chamado.
+
+Os dois scripts também deixavam a config do servidor alterada ao sair. Corrigido:
+salvam e restauram.

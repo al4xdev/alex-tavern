@@ -62,7 +62,7 @@ shippada (commit "feat(prose): verbosity floor").
 # Confirmado em produção (2026-07-27)
 
 As três caixas de aceite ficaram desmarcadas mesmo com a task entregue: o
-experimento de 18/07 foi replay curl em 2 payloads, 3x por variante. Nove meses
+experimento de 18/07 foi replay curl em 2 payloads, 3x por variante. Nove dias
 de mudança de prompt depois — Director reescrito, roteiro, zonas, guard de hint,
 roster de presentes — nunca se checou se o piso ainda vale em sessão real.
 
@@ -80,6 +80,17 @@ propósito que é piso e não cap ("é PISO, não cap (regra do AGENTS proíbe l
 por quantidade fixa — piso é pressão, e o modelo entrega menos em beat pequeno,
 comportamento desejado)"). Um beat pequeno rendendo 92 palavras é a decisão
 original, não uma regressão dela.
+
+**Correção de 2026-07-27 (revisão crítica).** O "mínimo 92" vale para ESTA
+população e não é propriedade geral do sistema. Medindo `.data/sessions` — outra
+população, que inclui as sessões descartáveis dos meus próprios scripts de
+aceitação — dá 71 narrações: mediana 1213 chars / 204 palavras (as medianas se
+sustentam entre as duas amostras), mas a cauda desce a **21 palavras** e 24%
+ficam abaixo do piso, contra 15% aqui. As narrações mais curtas vêm de sessões de
+2 personagens criadas por script, não de jogo normal — ainda assim, escrever
+"mínimo 92" como se descrevesse o sistema foi generalizar uma amostra. A leitura
+"é piso, não cap" continua de pé e até sai reforçada; o número que a acompanhava
+é dependente de amostra, e agora isso está dito.
 
 O watch item da task ("turno sem eventos rende ~150 palavras de atmosfera — se
 incomodar, tratar na 26") também não se materializou como problema: nenhuma
