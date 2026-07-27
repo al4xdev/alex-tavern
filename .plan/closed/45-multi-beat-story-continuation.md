@@ -55,8 +55,8 @@ session only.
 - Campo numérico de beats (1–24) em Settings, ligado a `autonomous_burst_max_beats`
   (`runtime-config.js` populate/collect com clamp + markup `index.html` + i18n PT/EN).
 - Rename do botão skip→"continuar história" (title/aria, PT/EN). Teste de i18n verde.
-- ⚠️ Verificação Playwright 1080p/2K PENDENTE — não dá pra rodar navegador aqui; o
-  dono confere no olho.
+- ⚠️ Verificação Playwright 1080p/2K **AINDA PENDENTE** — a razão mudou, ver
+  "Por que o Playwright continua bloqueado" no fim do arquivo.
 
 **Pendente:**
 - **Gate curl do `next_speakers.description`** (variante Task 46, NÃO enum duro) —
@@ -301,3 +301,32 @@ determinística. Suíte: 880.
 ROLEPLAY_DATA_DIR=/tmp/x uv run uvicorn src.main:app --port 8903 &
 uv run python tools/acceptance/burst_http_smoke.py http://127.0.0.1:8903
 ```
+
+
+---
+
+# Por que o Playwright continua bloqueado (2026-07-27)
+
+A ressalva original dizia "não dá pra rodar navegador aqui". Isso deixou de ser
+verdade em 2026-07-26: o plugin de Playwright do editor dirigiu a UI inteira
+naquele dia — carrossel, swipe em viewport de celular, turno real, modal de
+sessões.
+
+Na madrugada de 27 ele parou de subir. Diagnostiquei em vez de reportar
+"navegador não funciona":
+
+| Tentativa | Resultado |
+|---|---|
+| `browser_navigate` (3×) | `TimeoutError: async initializeServer: Timeout 180000ms` |
+| Matar processos órfãos e limpar `SingletonLock` | mesma falha |
+| Mover o perfil inteiro para `/tmp` e deixar recriar | mesma falha |
+| **Chrome direto, headless, `--remote-debugging-port=9333`** | **funciona** — responde `{"Browser": "Chrome/150.0.7871.128", "Protocol-Version": "1.3"}` em 8s |
+
+**O Chrome está saudável.** O que falha é o handshake do MCP, que usa
+`--remote-debugging-pipe` (descritor de arquivo) em vez de porta TCP. É o
+plugin, não o navegador, não este repositório e não a aplicação.
+
+Consequência para esta task: a verificação visual em 1080p/2K segue pendente, e
+segue sendo a única pendência dela. Não é um bloqueio do produto — o smoke HTTP
+cobre o comportamento do burst ponta a ponta, e a UI foi dirigida por navegador
+em 2026-07-26 sem erro de console.
