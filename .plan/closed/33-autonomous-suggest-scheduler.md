@@ -39,7 +39,7 @@ invents events or manually triggers suggestions.
   4-8 turns of inactivity.
 - [x] Debug log records every scheduler decision. — `drive_scheduler` no `debug.jsonl`
   (13 registros na varredura de 2026-07-27)
-- [ ] Real-LLM playtest: a scenario with several skip turns shows injected events
+- [x] Real-LLM playtest: a scenario with several skip turns shows injected events
   advancing the scene (compare against a scheduler-disabled control run).
 
 > **CLOSED 2026-07-16.** Delivered as `src/drive.py`: deterministic hazard
@@ -70,3 +70,44 @@ disruptive Director beat). Give the hazard function a **topic-stagnation** input
 recent turns) so it injects a world event to break the loop in BOTH arms
 (roteiro on/off), not only on quiet skip turns. See
 `docs/cases/11-roteiro-drive-scene-stagnation-2026-07-17.md`.
+
+
+---
+
+# Braço contra controle, executado (2026-07-27)
+
+Este critério nunca foi cumprido pelo motivo mais simples possível: **nenhum
+cenário do `tools/playtests/` tinha um único turno de skip**, e o scheduler só
+existe em turnos ociosos. Sem cenário, não havia o que rodar. Agora existe:
+`tools/playtests/idle_scene_drive.json`, seis skips consecutivos para dar ao
+scheduler sua janela de escalada.
+
+Nota de projeto que vale mais que o número: **nenhuma fala do jogador depois da
+linha de abertura**. Qualquer entrada zera `turns_since_injected_event`, e o
+contador zerado destrói justamente a medida.
+
+Dois runs, mesma config exceto `auto_event_enabled`:
+
+| braço | scheduler disparou | seeds gerados | narrações |
+|---|---|---|---|
+| ligado | **2×** | 2 | 7 |
+| desligado (controle) | **0** | 0 | 7 |
+
+O controle é o que dá sentido ao resto: zero disparos com a chave desligada
+confirma que os dois disparos do outro braço são do scheduler e não do acaso do
+Diretor.
+
+## Os eventos chegaram à cena?
+
+| seed | reaparece literal | substantivos raros que reaparecem |
+|---|---|---|
+| turno 2 (estalo na porta dos fundos) | não | 9/17 |
+| turno 7 (vento empurrando a chuva) | sim | 6/11 |
+
+Os dois materializaram; o do turno 2 foi **reencenado com palavras próprias**, não
+copiado. Isso é o comportamento desejado — o seed é uma dica para o Diretor, não
+um texto a colar — mas registra-se com a ressalva de sempre: "reencenado em
+palavras novas" é exatamente a classe que a task 26 mostrou ser invisível a
+qualquer guarda lexical. A sobreposição de substantivos raros (9/17) é indício,
+não prova. Julgamento cego seria o instrumento certo se alguém quiser fechar isso
+com mais força.
