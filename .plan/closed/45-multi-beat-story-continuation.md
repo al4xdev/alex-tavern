@@ -61,7 +61,8 @@ session only.
 **Pendente:**
 - **Gate curl do `next_speakers.description`** (variante Task 46, NÃO enum duro) —
   ver seção "Gate curl-first do schema".
-- Smoke HTTP real (config→skip→múltiplos beats→motivo de parada) e README.
+- ~~Smoke HTTP real (config→skip→múltiplos beats→motivo de parada)~~ — **feito em
+  2026-07-27**, e achou um bug. Ver "Smoke HTTP" no fim do arquivo.
 
 ---
 
@@ -231,3 +232,72 @@ hipótese. Ver `.plan/backlog/46-schema-description-instruction-channel.md`.
 - Criar um segundo botão de “auto” que concorra com o skip/continuar.
 - Usar o roteiro como requisito para o burst: a continuação deve funcionar com ou
   sem roteiro, respeitando as condições de parada do estado disponível.
+
+
+---
+
+# Smoke HTTP (2026-07-27) — a pendência que achou um bug
+
+`tools/acceptance/burst_http_smoke.py`, tudo pela API HTTP do servidor rodando,
+não pelo Runner em processo — o ponto é a fronteira que um cliente usa de fato:
+
+1. `PUT /config` grava `autonomous_burst_max_beats` e `GET` devolve;
+2. um skip puro commita mais de um beat, cada um com seu número de turno;
+3. a resposta carrega `burst_stop_reason`;
+4. undo tira **um** beat, não o burst inteiro;
+5. undo regride o relógio junto (contrato novo do schema 14);
+6. skip com falante forçado commita exatamente um beat;
+7. todo beat reportado está no histórico persistido.
+
+## O bug: um beat que não produziu nada commitava mesmo assim
+
+Três checagens reprovaram na primeira execução. Uma era assert ingênuo meu
+(assumi que undo regride o relógio em exatamente 1; ele restaura o snapshot, que
+já contabiliza compressão de tempo). As outras duas eram defeito real.
+
+Reproduzido da sessão `ce70b997`, turno 4:
+
+```
+turno 3: next=['C1']  evento: "Lyra pergunta em tom leve, 'Por que a pergunta, Thorn?...'"
+turno 4: next=['C1']  evento: "Por que a pergunta, Thorn? Está pensando em comprar o lugar?"
+```
+
+O evento do turno 4 é a **mesma linha** do turno 3. A cadeia:
+
+1. o filtro anti-repetição do burst (task 37) esvazia os eventos do beat;
+2. sem eventos, um passo multi-beat narra **nada** de propósito;
+3. a fila é o personagem controlado, que o runner nunca dubla;
+4. **o beat commita assim mesmo** — queima número de turno, tick e revisão, com
+   zero registro no histórico.
+
+O custo não é cosmético: `_next_turn_number` lê o número do **último registro**,
+então o número queimado é distribuído de novo. Dois beats diferentes acabam com o
+mesmo número de turno — e o undo tira os dois juntos, quebrando exatamente o
+contrato em que esta feature se apoia: *"cada beat commita como seu PRÓPRIO turno
+(undo tira um beat)"*.
+
+## A correção, e o susto no meio dela
+
+Um beat que não deixou traço não é commitado: `burst.stop_reason` vira
+`beat_produced_nothing` e nada é salvo, então tudo que ele tocou em memória se
+desfaz sozinho.
+
+A primeira versão do guard era "sem registro → descarta" e **quebrou um teste
+existente**: um beat de `time_skip` avança o relógio legitimamente sem gerar
+registro próprio. O guard passou a ser estreito de propósito — só descarta quando
+não há registro **e** não houve `scene_update` **e** não houve compressão de
+tempo.
+
+Dois testes que travavam o contrato antigo (o beat vazio era reportado E
+commitado) foram atualizados mantendo a intenção original: o burst continua
+terminando ali, e agora diz por quê com precisão.
+
+`tests/test_empty_burst_beat.py` (4 testes) reproduz a cadeia inteira de forma
+determinística. Suíte: 880.
+
+## Como rodar
+
+```bash
+ROLEPLAY_DATA_DIR=/tmp/x uv run uvicorn src.main:app --port 8903 &
+uv run python tools/acceptance/burst_http_smoke.py http://127.0.0.1:8903
+```

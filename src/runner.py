@@ -136,6 +136,15 @@ CLOCK_SKIP_INVITE = (
 # too fast. From this beat on, the protagonist is eligible again.
 BURST_PROTAGONIST_EXCLUDE_BEATS = 2
 
+# What a turn returns when not one beat produced anything to show.
+_EMPTY_BEAT: dict[str, Any] = {
+    "narration": "",
+    "character_responses": [],
+    "next_speakers": [],
+    "scene_update": None,
+    "turn_number": 0,
+}
+
 # An audible_speech event that near-repeats a line already in history is the
 # Director re-voicing the scene, not a new fact. Persisting it doubles the
 # record, feeds the repetition back as context, and teaches the model that
@@ -625,6 +634,27 @@ class Runner:
                     game, queue, narrator_raw, turn, step
                 )
                 self._persist_audible_speech(game, narrator_raw, step)
+
+                # A beat that left NO trace never happened. It reaches here when
+                # the burst's anti-repetition filter empties its events and the
+                # queue holds nobody the runner may voice, so there is nothing to
+                # narrate and nobody to answer. Committing it anyway burned a turn
+                # number that `_next_turn_number` (which reads the last RECORD)
+                # handed out again, so two beats shared one number and undo popped
+                # both. Dropping it un-commits everything the beat touched in
+                # memory, because nothing is saved.
+                #
+                # "No trace" is deliberately narrow: a beat that compressed the
+                # clock or changed the scene DID happen even with no record of its
+                # own, and must keep its turn.
+                if (
+                    not any(record.turn_number == step for record in game.history)
+                    and not scene_up
+                    and not int(narrator_raw.get("time_skip_ticks") or 0)
+                ):
+                    burst.stop_reason = "beat_produced_nothing"
+                    break
+
                 _stamp_undo_anchor(game, step, beat_anchor)
                 game = await self._commit_beat(
                     game, narrator_raw, character_responses, step, injected_event
@@ -650,7 +680,7 @@ class Runner:
                 ):
                     break
 
-            if max_beats > 1:
+            if max_beats > 1 and burst.beats:
                 log_burst(
                     game.session_id,
                     burst.beats[-1]["turn_number"],
@@ -658,8 +688,11 @@ class Runner:
                     stop_reason=burst.stop_reason,
                     first_turn=burst.beats[0]["turn_number"],
                 )
+            # A skip whose very first beat produced nothing leaves no beat at
+            # all; the caller still gets a coherent, honest answer.
+            last_beat = burst.beats[-1] if burst.beats else _EMPTY_BEAT
             return {
-                **burst.beats[-1],
+                **last_beat,
                 "beats": burst.beats,
                 "burst_stop_reason": burst.stop_reason if max_beats > 1 else None,
                 "effective_input": turn.effective_input,

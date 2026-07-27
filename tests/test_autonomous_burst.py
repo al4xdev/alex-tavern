@@ -171,20 +171,28 @@ class TestBurst:
 
     @pytest.mark.asyncio
     async def test_empty_beat_settles_immediately(self, monkeypatch) -> None:  # noqa: ANN001
-        """A narrator-only beat with zero novel events ends the burst at once."""
+        """A narrator-only beat with zero novel events ends the burst at once.
+
+        It used to be reported as a beat AND committed as a turn, which burned a
+        turn number `_next_turn_number` then handed out again (found by the task
+        45 HTTP smoke). A beat that leaves no trace is now dropped entirely: the
+        burst still ends here, and it says so precisely.
+        """
         result, game = await _run(
             monkeypatch,
             BURST_CONFIG,
             [_beat(["C2"], events=[_event("Barulho.")]), _beat(["Narrator"]), _beat(["C2"])],
         )
-        assert result["burst_stop_reason"] == "beat_settled"
-        assert len(result["beats"]) == 2
+        assert result["burst_stop_reason"] == "beat_produced_nothing"
+        assert len(result["beats"]) == 1
         # The empty beat writes NO narration record: nothing happened, so the
         # prose renderer is never invited to re-describe the standing tableau.
         assert game is not None
         narration_turns = [r.turn_number for r in game.history if r.content_type == "narration"]
         assert narration_turns == [1]
-        assert result["beats"][1]["narration"] == ""
+        # And it consumed no turn number: every reported beat has records.
+        recorded = {r.turn_number for r in game.history}
+        assert {b["turn_number"] for b in result["beats"]} <= recorded
 
     @pytest.mark.asyncio
     async def test_duplicate_events_are_dropped_across_beats(self, monkeypatch) -> None:  # noqa: ANN001
@@ -198,9 +206,10 @@ class TestBurst:
                 _beat(["C2"]),
             ],
         )
-        # Beat 2's duplicated event is dropped -> empty narrator-only beat -> settled.
-        assert result["burst_stop_reason"] == "beat_settled"
-        assert len(result["beats"]) == 2
+        # Beat 2's duplicated event is dropped -> the beat leaves no trace at all
+        # -> it is not committed, and the burst ends there.
+        assert result["burst_stop_reason"] == "beat_produced_nothing"
+        assert len(result["beats"]) == 1
 
     @pytest.mark.asyncio
     async def test_default_config_keeps_single_beat_contract(self, monkeypatch) -> None:  # noqa: ANN001
