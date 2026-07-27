@@ -19,7 +19,7 @@ from typing import Any
 import httpx
 
 from src.llm.client import call_agent, normalize_generated_text
-from src.models import Character, Scene, TurnRecord, speaker_label, trim_history_by_tokens
+from src.models import Character, Scene, TurnRecord, display_name, trim_history_by_tokens
 
 PROSE_SYSTEM = (
     "You are the prose narrator of a roleplay story. You receive the CONFIRMED\n"
@@ -62,10 +62,7 @@ PROSE_SYSTEM = (
 
 def _canonical_name(cid: str, characters: dict[str, Character], controlled_id: str) -> str:
     """Reader-facing name for a character id ('Player' resolves to the controlled one)."""
-    character = characters.get(cid)
-    if character is not None:
-        return character.mind.name
-    return speaker_label(cid, characters, controlled_id)
+    return display_name(cid, characters, controlled_id)
 
 
 def _transcript_content(
@@ -251,7 +248,7 @@ def build_prose_messages(
     if context_max is not None:
         visible = trim_history_by_tokens(visible, context_max, max_tokens)
     transcript = [
-        f"  {speaker_label(r.speaker, characters, controlled_id)} "
+        f"  {display_name(r.speaker, characters, controlled_id)} "
         f"[{r.content_type}]: {_transcript_content(r, characters, controlled_id)}"
         for r in visible
     ] or ["  (story opening)"]

@@ -455,6 +455,23 @@ def speaker_label(speaker: str, characters: dict[str, Character], controlled_id:
     return speaker
 
 
+def display_name(speaker: str, characters: dict[str, Character], controlled_id: str) -> str:
+    """Resolve a stored ``speaker`` all the way to a human-readable name.
+
+    ``speaker_label`` only translates the ``Player`` marker; every other speaker
+    comes back as the stored token, which for a character IS its internal id. That
+    is correct for the Director, whose prompt carries an ``ID=Cx | NAME=...``
+    roster to resolve it against. It is wrong for any prompt without that roster:
+    the model is handed ``C2`` with no way to know what it refers to.
+
+    Use this wherever a prompt has no id/name mapping of its own. Speakers that
+    are not characters (``Narrator``) pass through unchanged.
+    """
+    subject = controlled_id if speaker == "Player" else speaker
+    character = characters.get(subject)
+    return character.mind.name if character is not None else speaker
+
+
 def default_present_characters(characters: dict[str, Character]) -> list[str]:
     """Canonical "everyone present" list, used only to fill an absent value."""
     return [*characters, "Player"]

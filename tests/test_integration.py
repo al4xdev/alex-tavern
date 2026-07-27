@@ -1069,10 +1069,15 @@ class TestRunnerLogic:
         )
 
         assert result["next_speakers"] == ["C2"]
+        # The context reads "Lyra", not "C2": the Director wrote the id into its
+        # event text, and the viewer projection resolves it before the character
+        # sees it. The forced speaker still reached the Director as an id - which
+        # is what this test is actually about - and the resolved name is the same
+        # character, so the routing evidence survives the projection.
         assert captured == {
             "forced_speaker": "C2",
             "character_id": "C2",
-            "context": "Context filtered for C2",
+            "context": "Context filtered for Lyra",
         }
 
         debug_path = session_debug_path(sid)

@@ -356,14 +356,21 @@ def project_text_for_viewer(
     text: str,
     characters: dict[str, Character],
     perspective: CharacterPerspective | None,
+    viewer_id: str = "",
 ) -> str:
     """Strip identities the viewer never learned from free prose (e.g. narrator
     context): unknown canonical names and raw internal IDs become the viewer's
-    reference for that person."""
-    if not text or perspective is None:
+    reference for that person.
+
+    ``viewer_id`` closes the gap the ledger cannot: a viewer holds no `PersonView`
+    of themselves, so their OWN id was the one token the loop below could never
+    replace. Real sessions showed exactly that - Lyra's prompt reading "a sound
+    near C2's feet", her own internal id handed to her as if it were a name.
+    """
+    if not text:
         return text
     projected = text
-    for subject_id, view in perspective.people.items():
+    for subject_id, view in (perspective.people if perspective is not None else {}).items():
         if subject_id not in characters:
             continue
         replacement = view.known_name or view.reference
@@ -373,6 +380,14 @@ def project_text_for_viewer(
             projected = re.sub(
                 rf"\b{re.escape(canonical)}\b", view.reference, projected, flags=re.IGNORECASE
             )
+    # Whatever the ledger did not cover: the viewer's own id resolves to their own
+    # name (they know who they are); anyone else's id resolves to the anonymous
+    # reference, never the canonical name - an id is not evidence of acquaintance.
+    for subject_id, character in characters.items():
+        if not re.search(rf"\b{re.escape(subject_id)}\b", projected):
+            continue
+        replacement = character.mind.name if subject_id == viewer_id else FALLBACK_REFERENCE
+        projected = re.sub(rf"\b{re.escape(subject_id)}\b", replacement, projected)
     return projected
 
 
@@ -504,7 +519,7 @@ def capture_memory(
         return
     for record in new_records:
         label = viewer_speaker_label(record.speaker, characters, controlled_id, perspective)
-        content = project_text_for_viewer(record.content, characters, perspective)
+        content = project_text_for_viewer(record.content, characters, perspective, viewer_id)
         verb = "disse" if record.content_type == "speech" else "fez"
         perspective.recent_memory.append(f"T{record.turn_number} {label} {verb}: {content}")
     perspective.memory_through_turn = max(
