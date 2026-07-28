@@ -15,10 +15,15 @@ runs:
         java-version: '17'
         distribution: temurin
 
+    - name: Setup Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.14'
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v6
       with:
-        gradle-version: '8.0.2'
+        gradle-version: '9.4.1'
 
     - name: Stamp Build Commit Into the Python Package
       shell: bash
@@ -26,22 +31,22 @@ runs:
       # "unknown" and leave no way to tell which code an installed build runs.
       run: echo "${{ github.sha }}" > src/version.txt
 
-    - name: Sync Static PWA Assets to Android Project
-      shell: bash
-      run: |
-        mkdir -p .ci-cd/android/app/src/main/assets
-        cp -r src/static/* .ci-cd/android/app/src/main/assets/
-
     - name: Build APK with Gradle
       shell: bash
       working-directory: .ci-cd/android
-      run: gradle assembleDebug
+      run: gradle assembleDebug bundleDebug
 
     - name: Upload Compiled APK
       uses: actions/upload-artifact@v4
       with:
         name: app-debug-apk
         path: .ci-cd/android/app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload Compiled App Bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-debug-aab
+        path: .ci-cd/android/app/build/outputs/bundle/debug/app-debug.aab
 
     - name: Deploy to GitHub Releases
       shell: bash

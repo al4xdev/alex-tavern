@@ -30,17 +30,19 @@ Use this coherent matrix unless a real build exposes an incompatibility:
 |---|---|
 | compile / target SDK | 36 |
 | minimum SDK | 24, unchanged |
-| Android Gradle Plugin | 9.0.1 |
-| Gradle | 9.1.0 |
+| Android Gradle Plugin | 9.2.1, newest supported by Chaquopy 17 |
+| Gradle | 9.4.1 |
 | Java | 17 |
-| Kotlin | AGP 9 built-in Kotlin (KGP 2.2.10), no separately pinned plugin |
+| Kotlin | AGP 9 built-in Kotlin (KGP 2.3.10), no separately pinned plugin |
 | Chaquopy | 17.0.0 |
-| Python runtime | 3.11, unchanged |
+| Python runtime | 3.14 |
 
-AGP 9.0.1 officially supports API 36.1, requires Gradle 9.1 and JDK 17.
-Chaquopy 17 officially supports AGP 9.0 through 9.2 and Python 3.11. Built-in
+AGP 9.2.1 supports API 36, requires Gradle 9.4.1 and JDK 17.
+Chaquopy 17 officially supports AGP 9.0 through 9.2 and Python 3.14. Built-in
 Kotlin removes the obsolete independent Kotlin 1.8.20 pin; JVM target follows
-the Android Java target.
+the Android Java target. AGP 9.3 is newer in isolation but deliberately excluded
+until Chaquopy declares it supported. API 37 remains on the SDK Manager preview
+channel, so this task does not pull preview platforms into the release builder.
 
 Do not update one member of this matrix while leaving an accidental mixed
 toolchain behind.
@@ -68,8 +70,8 @@ toolchain behind.
 - no second Android project or copied runtime;
 - no checked-in SDK, Gradle cache, keystore, APK or AAB;
 - no reduction of `targetSdk` after compilation succeeds;
-- no migration from the canonical Python 3.11 runtime unless an actual
-  dependency incompatibility requires its own decision.
+- no fallback to the old Python 3.11 Android runtime after the canonical 3.14
+  dependency set crosses the physical gate.
 
 ## Physical and build gates
 

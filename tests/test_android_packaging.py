@@ -63,7 +63,7 @@ def test_chaquopy_dependencies_stay_pure_python() -> None:
 
     # pydantic 2 pulls pydantic-core (Rust); uvicorn[standard] pulls
     # uvloop/httptools/watchfiles. Both fail the APK build outright.
-    assert 'install "pydantic<2"' in gradle
+    assert 'install("pydantic<2")' in gradle
     assert "pydantic>=2" not in gradle
     assert "uvicorn[standard]" not in gradle
 
@@ -102,7 +102,7 @@ def test_android_identity_matches_the_pwa() -> None:
     assert 'android:label="@string/app_name"' in manifest
     assert 'android:icon="@mipmap/ic_launcher"' in manifest
     assert '<string name="app_name">Alex Tavern</string>' in strings
-    assert 'versionName "0.1"' in gradle
+    assert 'versionName = "0.1"' in gradle
     assert (app / "src" / "main" / "res" / "mipmap-nodpi" / "ic_launcher.png").read_bytes() == (
         ROOT / "src" / "static" / "icon-512.png"
     ).read_bytes()
@@ -119,7 +119,7 @@ def test_android_restarts_the_python_process_after_plugin_changes() -> None:
     restart_activity = (java / "RestartActivity.kt").read_text(encoding="utf-8")
 
     assert 'addJavascriptInterface(AndroidBridge(), "AlexTavernAndroid")' in main_activity
-    assert 'currentUrl.startsWith("$SERVER_URL/") || currentUrl == ASSET_URL' in main_activity
+    assert 'currentUrl.startsWith("$SERVER_URL/")' in main_activity
     assert "putExtra(RestartActivity.EXTRA_MAIN_PID, android.os.Process.myPid())" in main_activity
     assert 'android:name=".RestartActivity"' in manifest
     assert 'android:exported="false"' in manifest
@@ -145,7 +145,6 @@ def test_android_shell_supports_native_files_and_immersive_mode() -> None:
     assert "override fun onShowFileChooser(" in activity
     assert "WebChromeClient.FileChooserParams.parseResult" in activity
     assert "fileChooserLauncher.launch(pickerIntent)" in activity
-    assert "window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)" in activity
     assert "LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES" in activity
     assert "hide(WindowInsetsCompat.Type.systemBars())" in activity
     assert "BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE" in activity
@@ -153,11 +152,42 @@ def test_android_shell_supports_native_files_and_immersive_mode() -> None:
     assert "Ver Logs de Boot" not in activity
     assert "showLogsDialog" not in activity
     assert "tailBootstrapLog" not in activity
-    # The boot screen exists before the WebView does, so the frontend's i18n
-    # cannot reach it: those strings are native resources, localized the native way.
-    assert "showStatus(getString(R.string.boot_starting))" in activity
+    assert "setImageResource(R.mipmap.ic_launcher)" in activity
+    assert "onBackPressedDispatcher.addCallback" in activity
+    assert "allowFileAccess = false" in activity
+    assert "allowUniversalAccessFromFileURLs" not in activity
     strings = (ANDROID / "app/src/main/res/values/strings.xml").read_text(encoding="utf-8")
     localized = (ANDROID / "app/src/main/res/values-pt/strings.xml").read_text(encoding="utf-8")
-    for key in ("boot_starting", "boot_starting_waiting", "boot_failed"):
+    for key in ("boot_failed",):
         assert f'name="{key}"' in strings
         assert f'name="{key}"' in localized
+
+
+def test_android_uses_current_play_toolchain_and_finite_runtime_lease() -> None:
+    app = ANDROID / "app"
+    root_gradle = (ANDROID / "build.gradle").read_text(encoding="utf-8")
+    app_gradle = (app / "build.gradle").read_text(encoding="utf-8")
+    wrapper = (ANDROID / "gradle/wrapper/gradle-wrapper.properties").read_text(encoding="utf-8")
+    manifest = (app / "src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+    java = app / "src/main/java/com/al4xdev/alextavern"
+    activity = (java / "MainActivity.kt").read_text(encoding="utf-8")
+    service = (java / "RuntimeLeaseService.kt").read_text(encoding="utf-8")
+
+    assert "version '9.2.1'" in root_gradle
+    assert "version '17.0.0'" in root_gradle
+    assert "org.jetbrains.kotlin.android" not in root_gradle
+    assert "gradle-9.4.1-bin.zip" in wrapper
+    assert "compileSdk = 36" in app_gradle
+    assert "targetSdk = 36" in app_gradle
+    assert 'version = "3.14"' in app_gradle
+    assert 'abiFilters += ["arm64-v8a", "x86_64"]' in app_gradle
+
+    assert 'android.permission.FOREGROUND_SERVICE"' in manifest
+    assert 'android:name=".RuntimeLeaseService"' in manifest
+    assert 'android:foregroundServiceType="shortService"' in manifest
+    assert "RuntimeLeaseService.start(this)" in activity
+    assert "RuntimeLeaseService.stop(this)" in activity
+    assert "FOREGROUND_SERVICE_TYPE_SHORT_SERVICE" in service
+    assert "MAX_LEASE_MS = 120_000L" in service
+    assert "START_NOT_STICKY" in service
+    assert "override fun onTimeout(startId: Int)" in service

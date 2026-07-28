@@ -1,6 +1,5 @@
 plugins {
     id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
     id 'com.chaquo.python'
 }
 
@@ -21,7 +20,7 @@ tasks.register('copyPythonSources', Sync) {
 // Compile every prepared source before letting the APK be assembled.
 tasks.register('validatePythonSources', Exec) {
     dependsOn 'copyPythonSources'
-    commandLine 'python3', '-m', 'compileall', '-q', stagedPythonPackage.get().asFile
+    commandLine 'python3.14', '-m', 'compileall', '-q', stagedPythonPackage.get().asFile
 }
 
 // Makes the Chaquopy tasks depend on the preparation and validation steps.
@@ -35,54 +34,28 @@ project.afterEvaluate {
 }
 
 android {
-    namespace 'com.al4xdev.alextavern'
-    compileSdk 33
+    namespace = 'com.al4xdev.alextavern'
+    compileSdk = 36
 
     defaultConfig {
-        applicationId "com.al4xdev.alextavern"
-        minSdk 24
-        targetSdk 33
-        versionCode 1
-        versionName "0.1"
+        applicationId = "com.al4xdev.alextavern"
+        minSdk = 24
+        targetSdk = 36
+        versionCode = 1
+        versionName = "0.1"
 
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-        }
-
-        python {
-            version "3.11"
-            extractPackages "src"
-            
-            // Every wheel here must be pure Python: Chaquopy cannot build
-            // native extensions. pydantic 2 is out because pydantic-core is a
-            // Rust extension with no Android wheel, and uvicorn must stay
-            // WITHOUT [standard], whose uvloop/httptools/watchfiles are native
-            // too. src/pydantic_compat.py bridges the v1/v2 API difference;
-            // FastAPI 0.115 still supports pydantic v1.
-            pip {
-                install "pydantic<2"
-                install "fastapi>=0.115,<0.116"
-                install "uvicorn"
-                install "httpx"
-            }
+            // Python 3.14 and current Play devices are 64-bit only.
+            abiFilters += ["arm64-v8a", "x86_64"]
         }
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled = false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-    }
-    
-    sourceSets {
-        main {
-            python {
-                // Points at the temporary build folder holding the 'src' namespace and local scripts
-                srcDirs = ["${project.buildDir}/pythonSrc", "src/main/python"]
-            }
         }
     }
     
@@ -90,15 +63,37 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    
-    kotlinOptions {
-        jvmTarget = '17'
+}
+
+chaquopy {
+    defaultConfig {
+        version = "3.14"
+        extractPackages("src")
+
+        // Every wheel here must be pure Python: the canonical dependency set
+        // deliberately avoids Android-native build forks. pydantic 2 pulls
+        // pydantic-core (Rust), and Uvicorn's optional extras pull native extensions.
+        pip {
+            install("pydantic<2")
+            install("fastapi>=0.115,<0.116")
+            install("uvicorn")
+            install("httpx")
+        }
+    }
+
+    sourceSets {
+        getByName("main") {
+            // The staged canonical package and the Android entry point are the
+            // only Python roots packaged into the APK.
+            srcDirs = ["${stagedPythonRoot.get().asFile}", "src/main/python"]
+        }
     }
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.10.1'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    // 1.19 requires the API 37 preview SDK; 1.18 is the newest stable-36 line.
+    implementation 'androidx.core:core-ktx:1.18.0'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'com.google.android.material:material:1.14.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
 }

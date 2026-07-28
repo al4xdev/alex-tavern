@@ -13,7 +13,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
@@ -45,7 +45,6 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val SERVER_URL = "http://127.0.0.1:8889"
-        private const val ASSET_URL = "file:///android_asset/index.html"
         private const val READY_POLL_INTERVAL_MS = 250L
         private const val READY_TIMEOUT_MS = 90_000L
 
@@ -72,6 +71,16 @@ class MainActivity : AppCompatActivity() {
 
         enterImmersiveMode()
         setContentView(buildLayout())
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (webView.canGoBack()) {
+                    webView.goBack()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
 
         // Asset copying and the Chaquopy runtime extraction are both heavy disk
         // I/O — on a first boot they take seconds and would freeze the UI.
@@ -88,11 +97,7 @@ class MainActivity : AppCompatActivity() {
         webView = WebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        // Only needed by the asset fallback below; inert on an http:// page,
-        // where the frontend is same-origin with the API.
-        webView.settings.allowFileAccess = true
-        webView.settings.allowFileAccessFromFileURLs = true
-        webView.settings.allowUniversalAccessFromFileURLs = true
+        webView.settings.allowFileAccess = false
         webView.addJavascriptInterface(AndroidBridge(), "AlexTavernAndroid")
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
@@ -154,11 +159,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enterImmersiveMode() {
-        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes = window.attributes.apply {
                 layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -174,11 +178,24 @@ class MainActivity : AppCompatActivity() {
         if (hasFocus) enterImmersiveMode()
     }
 
+    override fun onPause() {
+        // Start while the Activity is still foreground-eligible. The Service
+        // protects this same process long enough for an in-flight FastAPI call
+        // to finish after Home or display-off.
+        RuntimeLeaseService.start(this)
+        super.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        RuntimeLeaseService.stop(this)
+    }
+
     /**
      * Restarts the process which owns Python and Uvicorn after plugin changes.
      *
-     * Javascript interfaces are visible to every page loaded in this WebView,
-     * so the call is accepted only from Alex Tavern's local frontend. The
+     * JavaScript interfaces are visible to every page loaded in this WebView,
+     * so the call is accepted only from the server-hosted local frontend. The
      * separate relay process survives long enough to kill and relaunch us.
      */
     private inner class AndroidBridge {
@@ -186,7 +203,7 @@ class MainActivity : AppCompatActivity() {
         fun restartApplication() {
             mainHandler.post {
                 val currentUrl = webView.url.orEmpty()
-                val trustedPage = currentUrl.startsWith("$SERVER_URL/") || currentUrl == ASSET_URL
+                val trustedPage = currentUrl.startsWith("$SERVER_URL/")
                 if (!trustedPage) {
                     logBootstrap("restartApplication: rejected untrusted page $currentUrl")
                     return@post
@@ -217,24 +234,6 @@ class MainActivity : AppCompatActivity() {
             statusView.visibility = android.view.View.GONE
             webView.visibility = android.view.View.VISIBLE
             webView.loadUrl(url)
-        }
-    }
-
-    /**
-     * Prefers the server-hosted frontend, which is same-origin with the API.
-     *
-     * Falls back to the copy in the APK assets when the server serves no
-     * frontend — whether Chaquopy packages the non-.py files under src/static
-     * is not something the build can assert, so this decides at runtime
-     * instead of shipping a blank screen. api.js already points BASE_URL at
-     * 127.0.0.1:8889 when the page protocol is file:.
-     */
-    private fun frontendUrl(): String {
-        return if (httpStatus("$SERVER_URL/") == 200) {
-            "$SERVER_URL/"
-        } else {
-            logBootstrap("frontendUrl: server has no frontend, falling back to APK assets")
-            ASSET_URL
         }
     }
 
@@ -283,7 +282,7 @@ class MainActivity : AppCompatActivity() {
         while (System.currentTimeMillis() < deadline) {
             if (httpStatus("$SERVER_URL/health") == 200) {
                 logBootstrap("awaitServer: /health answered, loading frontend.")
-                revealWebView(frontendUrl())
+                revealWebView("$SERVER_URL/")
                 return
             }
             try {
@@ -351,11 +350,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
-        } else {
-            super.onBackPressed()
-        }
-    }
 }

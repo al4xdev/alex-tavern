@@ -3,4 +3,8 @@
     <string name="app_name">Alex Tavern</string>
     <!-- Shown only when the backend fails before the WebView exists. -->
     <string name="boot_failed">Alex Tavern could not start. Connect the device for diagnostics.</string>
+    <string name="runtime_lease_channel">Background completion</string>
+    <string name="runtime_lease_channel_description">Keeps a request running briefly after leaving Alex Tavern</string>
+    <string name="runtime_lease_title">Alex Tavern is finishing a request</string>
+    <string name="runtime_lease_message">The app will stop background work automatically.</string>
 </resources>

@@ -19,7 +19,13 @@ device_count="$(adb devices | awk 'NR > 1 && $2 == "device" { count++ } END { pr
 sha256sum "$apk"
 adb install -r "$apk"
 adb shell am force-stop "$package"
-adb shell am start -n "$activity"
+# Match a real launcher tap. Starting only by component creates a different
+# root intent, so a later icon tap may stack a fresh MainActivity above the
+# tested one and falsely resemble a process restart.
+adb shell am start -W \
+    -a android.intent.action.MAIN \
+    -c android.intent.category.LAUNCHER \
+    -n "$activity"
 sleep 8
 adb forward "tcp:$host_port" tcp:8889
 

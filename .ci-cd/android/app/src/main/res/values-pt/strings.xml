@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="boot_failed">Não foi possível iniciar o Alex Tavern. Conecte o aparelho para diagnóstico.</string>
+    <string name="runtime_lease_channel">Conclusão em segundo plano</string>
+    <string name="runtime_lease_channel_description">Mantém uma solicitação ativa brevemente ao sair do Alex Tavern</string>
+    <string name="runtime_lease_title">Alex Tavern está concluindo uma solicitação</string>
+    <string name="runtime_lease_message">O trabalho em segundo plano será encerrado automaticamente.</string>
 </resources>

@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="true"
@@ -30,6 +31,11 @@
             android:process=":restart"
             android:taskAffinity="com.al4xdev.alextavern.restart"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <service
+            android:name=".RuntimeLeaseService"
+            android:exported="false"
+            android:foregroundServiceType="shortService"
+            android:stopWithTask="true" />
     </application>
 
 </manifest>

@@ -1,17 +1,8 @@
-buildscript {
-    ext.kotlin_version = '1.8.20'
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.0.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.chaquo.python:gradle:15.0.1'
-    }
+plugins {
+    id 'com.android.application' version '9.2.1' apply false
+    id 'com.chaquo.python' version '17.0.0' apply false
 }
 
-
 task clean(type: Delete) {
-    delete rootProject.buildDir
+    delete rootProject.layout.buildDirectory
 }
