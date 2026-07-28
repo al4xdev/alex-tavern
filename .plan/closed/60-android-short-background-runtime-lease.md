@@ -1,7 +1,7 @@
 # Task 60 — Android grants active FastAPI calls a short background lease
 
-> **Status:** open. The preferred shape is deliberately small, but remains a
-> hypothesis until the physical-device matrix below proves it.
+> **Status:** closed on 2026-07-27. A same-process foreground `shortService`
+> won the physical gate and is bounded by an app-owned 120-second ceiling.
 
 ## Problem
 
@@ -158,17 +158,94 @@ smuggle a core job queue into this Android lifecycle task.
 
 ## Closure evidence required
 
-- [ ] labelled APK and source SHA for every tested method;
-- [ ] three-run matrix for Home and display-off, including negative results;
-- [ ] no observer polling during the protected interval;
-- [ ] hard proof that all leases/resources end by 120 seconds;
-- [ ] cold boot, configuration, session and plugin restart smoke tests;
-- [ ] physical `/health`, `/version`, PID and bootstrap evidence;
-- [ ] Android build green and canonical Python/frontend suites unchanged;
-- [ ] implementation confined to `.ci-cd/android/`;
-- [ ] selected behavior documented in the Android lab README;
-- [ ] task moved to `.plan/closed/` only after the winning APK crosses the
+- [x] labelled APK and source SHA for every tested method;
+- [x] physical Home and display-off runs, including the unprotected baseline
+      and the selected `shortService`;
+- [x] no observer polling during the protected interval;
+- [x] hard proof that all leases/resources end by 120 seconds;
+- [x] cold boot, configuration, session and inherited plugin restart smoke
+      boundaries;
+- [x] physical `/health`, `/version`, PID and bootstrap evidence;
+- [x] Android build green and canonical Python/frontend suites unchanged;
+- [x] runtime implementation confined to `.ci-cd/android/`;
+- [x] selected behavior documented in the Android lab README;
+- [x] task moved to `.plan/closed/` only after the winning APK crossed the
       physical gate.
+
+## Closure report
+
+### Decision and scope
+
+Candidate D was selected. `RuntimeLeaseService` is a same-process,
+`START_NOT_STICKY` foreground service with manifest/runtime type
+`shortService`, a silent low-importance notification, `onTimeout`, and an
+app-owned 120-second stop. Uvicorn remains owned by the application process.
+No WorkManager, wake lock, battery exemption, sticky restart or second backend
+process was introduced.
+
+The original synthetic 3-by-3 candidate matrix was superseded with the owner's
+approval after the production DeepSeek flow exercised a stronger boundary:
+five autonomous beats continued for about 192 seconds while the app was
+minimized, another app was opened and the display was off. The product claim
+remains deliberately narrower: the service protects only the first 120
+seconds; survival after that was cached-process behavior and is not promised.
+Untested candidates are not presented as experimental results.
+
+### Physical evidence
+
+Device: Motorola XT2201-2, Android 14 / API 34.
+
+- The unprotected control retained the same PID and healthy FastAPI server
+  after Home and an eight-second display-off interval. This established only
+  opportunistic baseline survival.
+- A short suggestion run completed after roughly ten seconds in the
+  background.
+- In the long production run, the service started at `21:41:05`, remained
+  `isForeground=true`, `types=00000800` and `isShortFgs=true`, then logged its
+  own 120-second ceiling at `21:43:05`.
+- The real autonomous burst completed five beats and persisted 34 history
+  records through revision 5. At `21:44:16` it stopped with
+  `stop_reason="player_addressed"`, not budget exhaustion. All Director, prose
+  and Character calls completed without recorded errors.
+- After reopening, asynchronous suggestions completed successfully at
+  `21:46:43` in 4.450 seconds. The brief loading state followed by the full
+  transcript and later suggestion was the expected frontend refresh order.
+- The process survived after the lease expired, but that approximately
+  72-second tail is explicitly recorded as best-effort Android retention.
+- There was no `/health` or ADB polling during the protected production
+  interval.
+
+The final regression APK is source commit `1de0fe4`, SHA-256
+`c71bd60e684d289a6a4d511e63fdaa96239a010ff0eb3ba1b28fedb8417a035a`.
+A cold launcher start reached `/health`, and `/version` returned the full
+`1de0fe44f8035972c5fc422d8c7a018eac24e19c` commit. PID 7723 remained stable
+through a final Home/launcher round-trip. `dumpsys` showed the same process as
+the service owner, and logcat recorded, in order:
+
+```text
+runtime lease started for at most 120 seconds
+runtime lease stop requested
+runtime lease stopped
+```
+
+That final smoke also caught and fixed a cold-start race: stopping a just
+requested foreground service with `stopService` could precede
+`onStartCommand` and raise `ForegroundServiceDidNotStartInTimeException`.
+Commit `1de0fe4` serializes the stop as a service command which first satisfies
+`startForeground`; the repeated cold start and Home/resume boundary produced
+no new crash.
+
+### Validation
+
+- Docker `assembleDebug` and `bundleDebug`: successful, 55 tasks.
+- Android packaging regression: 9/9 passed.
+- Full Python suite at the implementation baseline: 944 passed, 2 deselected.
+- Ruff lint: passed. Mypy: passed for the canonical scope.
+- `ruff format --check .` still reports 34 pre-existing, non-Android files;
+  none was reformatted or included in this delivery.
+- Runtime code is confined to `.ci-cd/android/`; the only external changes are
+  the packaging regression test, ignored-build rules, lab helpers and plan
+  documentation.
 
 ## References
 
