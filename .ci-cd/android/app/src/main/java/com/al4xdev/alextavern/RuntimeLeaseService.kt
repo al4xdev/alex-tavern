@@ -30,6 +30,7 @@ class RuntimeLeaseService : Service() {
         private const val CHANNEL_ID = "runtime_lease"
         private const val NOTIFICATION_ID = 51
         private const val MAX_LEASE_MS = 120_000L
+        private const val ACTION_STOP = "com.al4xdev.alextavern.action.STOP_RUNTIME_LEASE"
 
         fun start(context: Context) {
             val intent = Intent(context, RuntimeLeaseService::class.java)
@@ -37,7 +38,15 @@ class RuntimeLeaseService : Service() {
         }
 
         fun stop(context: Context) {
-            context.stopService(Intent(context, RuntimeLeaseService::class.java))
+            // A quick onPause/onResume pair can enqueue this before Android has
+            // delivered the preceding foreground-service start. Sending an
+            // ordered service command lets onStartCommand satisfy the
+            // startForeground contract before stopping, avoiding
+            // ForegroundServiceDidNotStartInTimeException on cold launch.
+            val intent = Intent(context, RuntimeLeaseService::class.java).apply {
+                action = ACTION_STOP
+            }
+            ContextCompat.startForegroundService(context, intent)
         }
     }
 
@@ -64,6 +73,11 @@ class RuntimeLeaseService : Service() {
             buildNotification(),
             foregroundType,
         )
+        if (intent?.action == ACTION_STOP) {
+            Log.i(TAG, "runtime lease stop requested")
+            stopSelfResult(startId)
+            return START_NOT_STICKY
+        }
         handler.removeCallbacks(expireLease)
         handler.postDelayed(expireLease, MAX_LEASE_MS)
         Log.i(TAG, "runtime lease started for at most 120 seconds")

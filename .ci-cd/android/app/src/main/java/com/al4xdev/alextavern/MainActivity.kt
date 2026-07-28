@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         // Activity (rotation, theme change, returning from the background) must
         // not spawn a second uvicorn: the bind on 8889 would fail and kill it.
         private val serverStarted = AtomicBoolean(false)
+        private val runtimeLeaseRequested = AtomicBoolean(false)
     }
 
     private fun logBootstrap(message: String) {
@@ -182,13 +183,17 @@ class MainActivity : AppCompatActivity() {
         // Start while the Activity is still foreground-eligible. The Service
         // protects this same process long enough for an in-flight FastAPI call
         // to finish after Home or display-off.
-        RuntimeLeaseService.start(this)
+        if (runtimeLeaseRequested.compareAndSet(false, true)) {
+            RuntimeLeaseService.start(this)
+        }
         super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
-        RuntimeLeaseService.stop(this)
+        if (runtimeLeaseRequested.compareAndSet(true, false)) {
+            RuntimeLeaseService.stop(this)
+        }
     }
 
     /**

@@ -187,7 +187,11 @@ def test_android_uses_current_play_toolchain_and_finite_runtime_lease() -> None:
     assert 'android:foregroundServiceType="shortService"' in manifest
     assert "RuntimeLeaseService.start(this)" in activity
     assert "RuntimeLeaseService.stop(this)" in activity
+    assert "runtimeLeaseRequested.compareAndSet(false, true)" in activity
+    assert "runtimeLeaseRequested.compareAndSet(true, false)" in activity
     assert "FOREGROUND_SERVICE_TYPE_SHORT_SERVICE" in service
     assert "MAX_LEASE_MS = 120_000L" in service
     assert "START_NOT_STICKY" in service
     assert "override fun onTimeout(startId: Int)" in service
+    assert "intent?.action == ACTION_STOP" in service
+    assert "context.stopService" not in service
