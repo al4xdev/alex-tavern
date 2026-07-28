@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "preset_name": "turma-dos-portais-pt-c7",
+  "character": {
+    "mind": {
+      "name": "Liora Celestria",
+      "personality": "Liora tem 16 anos, pertence a outra casa raríssima de Transbordamento e mede poder 25. É elegante, autoritária e criada para acreditar que liderança acompanha sangue forte. Eletricidade só aparece depois de longa imobilidade e concentração; a descarga é perigosa, imprecisa e a deixa com espasmos. Fala como se emitisse veredictos. Quer superar Mirella e ser escolhida capitã de rank A. Teme que sua reserva esteja diminuindo como a do tio Cassian Aurel. Esconde ter subornado um monitor para ocultar uma falha num exame. Despreza Link publicamente, mas sua mobilidade impossível abala sua teoria. Respeita a força de Asword, rivaliza com Mirella, depende em segredo dos isolantes de Bruna e tenta usar Riven como aliado político.",
+      "knowledge": [
+        "Sua descarga exige preparação longa e pode acertar aliados próximos ao alvo.",
+        "Lorde Cassian Aurel é seu tio materno e esconde dores nos canais de mana.",
+        "Subornou um monitor para apagar uma falha de controle de seu histórico.",
+        "Bruna percebeu seus espasmos e ofereceu isolantes sem exigir explicação.",
+        "Riven aceita sua aliança apenas enquanto ela o tratar como igual."
+      ],
+      "current_mood": "altiva e ansiosa para assegurar uma liderança"
+    },
+    "body": {
+      "name": "Liora Celestria",
+      "physical_description": "Jovem alta de pele escura, olhos violeta, cabelos prateados curtos e pequenas cicatrizes ramificadas nos antebraços.",
+      "outfit": "Uniforme violeta impecável, capa branca, bastão de cobre segmentado e braçadeiras isolantes feitas por Bruna."
+    }
+  },
+  "avatar": null,
+  "revision": 1,
+  "created_at": "2026-07-27T00:00:00+00:00",
+  "updated_at": "2026-07-27T00:00:00+00:00"
+}

@@ -188,6 +188,58 @@ def test_slash_registry_rejects_collisions_and_foreign_result_namespaces() -> No
     )
 
 
+def test_app_registry_is_strict_namespaced_ordered_and_transactional() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is not installed")
+    script = r"""
+        const m = await import('./src/static/app-registry.js');
+        const title = (en = 'Lore', pt = 'Lore') => ({en, 'pt-BR': pt});
+        const entry = (name, icon = '◈') => ({name, title: title(), icon});
+        const assert = (value, message) => { if (!value) throw new Error(message); };
+
+        m.registerCoreApp(entry('adventure'), () => {});
+        m.registerCoreApp(entry('settings'), () => {});
+        m.registerPluginApp('z.plugin', entry('lore'), () => {});
+        m.registerPluginApp('a.plugin', entry('lore'), () => {});
+        assert(m.appEntries().map((item) => item.id).join(',') ===
+            'adventure,settings,z.plugin/lore,a.plugin/lore', 'core/plugin order changed');
+
+        let duplicate = false;
+        try { m.registerPluginApp('z.plugin', entry('lore'), () => {}); }
+        catch (error) { duplicate = error.message.includes('Duplicate'); }
+        assert(duplicate, 'plugin-local duplicate was accepted');
+
+        for (const invalid of [
+            {name: 'BadName', title: title(), icon: 'x'},
+            {name: 'extra', title: title(), icon: 'x', summary: 'legacy'},
+            {name: 'locale', title: {en: 'Only English'}, icon: 'x'},
+            {name: 'blank', title: title(), icon: ''},
+            {name: 'long', title: title(), icon: 'x'.repeat(33)},
+        ]) {
+            let rejected = false;
+            try { m.registerPluginApp('bad.plugin', invalid, () => {}); }
+            catch { rejected = true; }
+            assert(rejected, `invalid descriptor accepted: ${invalid.name}`);
+        }
+        let handler = false;
+        try { m.registerPluginApp('bad.plugin', entry('handler'), null); }
+        catch { handler = true; }
+        assert(handler, 'non-callable handler was accepted');
+
+        m.removePluginAppEntries('z.plugin');
+        assert(m.appEntries().map((item) => item.id).join(',') ===
+            'adventure,settings,a.plugin/lore', 'plugin cleanup was incomplete');
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_session_list_renders_compatible_and_incompatible_cards() -> None:
     node = shutil.which("node")
     if node is None:
@@ -400,6 +452,7 @@ def test_setup_modal_is_always_dismissible() -> None:
     app_source = (STATIC / "app.js").read_text(encoding="utf-8")
 
     assert 'id="setup-close-btn" type="button"' in html
+    assert 'id="scenario-new-btn" type="button"' in html
     assert "closeBtn.addEventListener('click', close);" in setup_source
     assert "if (e.target === overlay) close();" in setup_source
     assert "event.key !== 'Escape'" in setup_source

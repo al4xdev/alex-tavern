@@ -6,8 +6,8 @@ import { t, getLocale } from './i18n.js';
 
 export const PluginCenter = (() => {
     const overlay = el('plugins-overlay');
-    const openBtn = el('plugins-btn');
     const closeBtn = el('plugins-close-btn');
+    const backBtn = el('plugins-back-btn');
     const experienceGrid = el('experience-grid');
     const catalogStack = el('plugin-catalog-stack');
     const pluginStack = el('plugin-stack');
@@ -34,6 +34,7 @@ export const PluginCenter = (() => {
     let gesture = null;
     let restartPending = false;
     let closing = false;
+    let backToApps = () => {};
 
     function empty(container, key) {
         const element = document.createElement('p');
@@ -681,11 +682,15 @@ export const PluginCenter = (() => {
     function init(options = {}) {
         notify = options.notify || notify;
         restartApplication = options.restartApplication || restartApplication;
+        backToApps = options.onBack || backToApps;
         selectTab(tabNames[0], { animate: false });
-        openBtn.addEventListener('click', open);
         closeBtn.addEventListener('click', () => {
             if (!confirmLayer.hidden) hideConfirmation();
             else close();
+        });
+        backBtn.addEventListener('click', async () => {
+            await close();
+            backToApps('plugins');
         });
         overlay.addEventListener('click', (event) => {
             if (event.target === overlay) close();
@@ -696,7 +701,7 @@ export const PluginCenter = (() => {
             if (event.key === 'Escape' && overlay.classList.contains('active')) {
                 event.preventDefault();
                 if (!confirmLayer.hidden) hideConfirmation();
-                else close();
+                else close().then(() => backToApps('plugins'));
                 return;
             }
             if (!tabs.includes(document.activeElement)) return;
@@ -766,6 +771,7 @@ export const PluginCenter = (() => {
 
     async function open() {
         overlay.classList.add('active');
+        backBtn.focus({ preventScroll: true });
         try { await refresh(); }
         catch (error) { notify(t('plugins.operationError', { error: error.message }), 'error'); }
     }

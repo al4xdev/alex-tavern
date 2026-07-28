@@ -468,3 +468,16 @@ def log_presence_undo(
     session_id: str, restored: bool, reason: str, turn_number: int = 0
 ) -> None:
     _emit(session_id, "presence_undo", turn_number, restored=restored, reason=reason)
+
+
+def log_session_setup_change(
+    session_id: str, *, revision: int, fields: list[str], turn_number: int = 0
+) -> None:
+    """Record an explicit out-of-band edit to the materialized session snapshot."""
+    _emit(
+        session_id,
+        "session_setup_change",
+        turn_number,
+        revision=revision,
+        fields=fields,
+    )

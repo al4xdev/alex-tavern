@@ -1,22 +1,26 @@
 import { el } from './dom.js';
 import { api } from './api.js';
-import { bindTranslation, onLocaleChange, t, translateDocument } from './i18n.js';
+import { bindTranslation, getLocale, onLocaleChange, t, translateDocument } from './i18n.js';
 import { PluginRuntime } from './plugin-runtime.js';
 
 /* ══════════════════════════════════════════════════════════════════════
-   setup.js — the setup/lobby overlay: characters, scene, narrator
-   directives, controlled character. Persists to localStorage and builds
-   the config object for POST /session/start.
+   setup.js — one coordinator for session snapshots, scenario records,
+   character records, and engine settings.
    ══════════════════════════════════════════════════════════════════════ */
 
 export const Setup = (() => {
-    const LS_KEY = 'rpt_setup_v2'; // canonical nested mind/body setup
-
     // DOM refs
     const overlay      = el('setup-overlay');
     const closeBtn     = el('setup-close-btn');
+    const backBtn      = el('setup-back-btn');
+    const modal        = el('setup-modal');
+    const modalBody    = modal.querySelector('.modal-body');
+    const titleEl      = el('setup-title');
+    const subtitleEl   = el('setup-subtitle');
+    const startFoot    = el('setup-start-foot');
     const scenarioSelect = el('scenario-select');
     const scenarioLoadBtn= el('scenario-load-btn');
+    const scenarioNewBtn = el('scenario-new-btn');
     const scenarioDelBtn = el('scenario-delete-btn');
     const scenarioNameEl = el('scenario-name');
     const scenarioSaveBtn= el('scenario-save-btn');
@@ -32,14 +36,54 @@ export const Setup = (() => {
     const startBtn     = el('start-btn');
     const cardTpl      = el('char-card-template');
     const presetSelect = el('preset-select');
-    const presetLoadBtn = el('preset-load-btn');
     const presetDeleteBtn = el('preset-delete-btn');
     const presetEmpty = el('preset-empty');
+    const presetNewBtn = el('preset-new-btn');
+    const presetEditorList = el('preset-editor-list');
+    const presetLibraryView = el('preset-library-view');
+    const presetEditorView = el('preset-editor-view');
+    const presetLibraryList = el('preset-library-list');
+    const presetDraftResumeBtn = el('preset-draft-resume-btn');
+    const presetEditorTitle = el('preset-editor-title');
+    const characterPresetSelect = el('character-preset-select');
+    const characterPresetAddBtn = el('character-preset-add-btn');
+    const charactersIntro = el('characters-intro-copy');
+    const activeSourceName = el('active-source-name');
+    const activeScenarioName = el('active-scenario-name');
+    const activeScenarioSaveBtn = el('active-scenario-save-btn');
 
     let onStartCb = null;
+    let onSessionUpdatedCb = null;
+    let getSessionIdCb = () => null;
     let onOpenCb = null;
+    let onBackCb = null;
+    let onCloseCb = null;
     let notifyCb = () => {};
     let returnFocusEl = null;
+    let currentView = 'adventure';
+    let editorMode = 'scenario';
+    let activeRevision = 0;
+    let backEntry = 'scenarios';
+    let presetLibraryScrollTop = 0;
+
+    function setDraftBusy(busy) {
+        modalBody.inert = busy;
+        modal.setAttribute('aria-busy', String(busy));
+        scenarioSelect.disabled = busy;
+        scenarioLoadBtn.disabled = busy;
+        scenarioNewBtn.disabled = busy;
+        scenarioSaveBtn.disabled = busy;
+        if (busy) characterPresetAddBtn.disabled = true;
+        else refreshCharacterPresetAvailability();
+        startBtn.disabled = busy;
+    }
+
+    const VIEW_COPY = Object.freeze({
+        adventure: ['apps.adventure', 'apps.adventureSubtitle'],
+        characters: ['apps.characters', 'apps.charactersSubtitle'],
+        presets: ['apps.characters', 'apps.charactersSubtitle'],
+        settings: ['apps.settings', 'apps.settingsSubtitle'],
+    });
 
     /* ── Row builders ─────────────────────────────────────────────────── */
     function makeKvRow(listEl, key = '', val = '') {
@@ -137,22 +181,42 @@ export const Setup = (() => {
         return { base64: btoa(binary), preview: URL.createObjectURL(blob) };
     }
 
-    async function makeCharCard(data = {}, preset = {}) {
+    async function makeCharCard(data = {}, preset = {}, options = {}) {
+        const mode = options.mode || 'roster';
+        const target = options.target || charsListEl;
         const frag = cardTpl.content.cloneNode(true);
         translateDocument(frag);
         const card = frag.querySelector('.char-card');
         const mind = data.mind || {};
         const body = data.body || {};
-        card.querySelector('.char-name').value = mind.name || body.name || '';
+        const nameInput = card.querySelector('.char-name');
+        const summaryName = card.querySelector('.char-summary-name');
+        const summaryAction = card.querySelector('.char-summary-action');
+        const toggle = card.querySelector('.char-card-toggle');
+        const initialName = mind.name || body.name || '';
+        nameInput.value = initialName;
+        summaryName.textContent = initialName || t('character.untitled');
         card.querySelector('.char-personality').value = mind.personality || '';
         card.querySelector('.char-mood').value = mind.current_mood || '';
         card.querySelector('.char-outfit').value = body.outfit || '';
         card.querySelector('.char-physical').value = body.physical_description || '';
         card.dataset.presetName = preset.preset_name || '';
         card.dataset.presetRevision = preset.revision ? String(preset.revision) : '';
+        card.dataset.presetBuiltin = preset.builtin ? 'true' : 'false';
         card.dataset.avatarBase64 = '';
+        card.dataset.mode = mode;
         card.querySelector('.char-preset-name').value = preset.preset_name || '';
         showCardAvatar(card, preset.avatar?.url || '');
+
+        const setExpanded = (expanded) => {
+            card.classList.toggle('collapsed', !expanded);
+            toggle.setAttribute('aria-expanded', String(expanded));
+            bindTranslation(summaryAction, expanded ? 'character.hideDetails' : 'character.editDetails');
+        };
+        setExpanded(options.expanded ?? (mode === 'preset' || !initialName));
+        toggle.addEventListener('click', () => {
+            setExpanded(toggle.getAttribute('aria-expanded') !== 'true');
+        });
 
         const kList = card.querySelector('.knowledge-list');
         (mind.knowledge && mind.knowledge.length ? mind.knowledge : ['']).forEach((k) =>
@@ -162,11 +226,23 @@ export const Setup = (() => {
             .addEventListener('click', () => makeKnowledgeRow(kList, ''));
         card.querySelector('.char-remove').addEventListener('click', () => {
             card.remove();
-            reindexCards();
+            if (mode === 'roster') reindexCards();
         });
 
         // keep controlled dropdown in sync as the name changes
-        card.querySelector('.char-name').addEventListener('input', refreshControlled);
+        if (mode === 'roster') {
+            card.classList.add('roster-card');
+            nameInput.addEventListener('input', refreshControlled);
+        } else {
+            card.classList.add('preset-card');
+            card.querySelector('.char-id-badge').textContent = '◉';
+            card.querySelector('.char-card-body').appendChild(card.querySelector('.char-preset-row'));
+        }
+        nameInput.addEventListener('input', () => {
+            summaryName.textContent = nameInput.value.trim() || t('character.untitled');
+            const fallback = card.querySelector('.char-avatar-preview span');
+            if (!fallback.hidden) fallback.textContent = (nameInput.value.trim()[0] || '?').toUpperCase();
+        });
         card.querySelector('.char-avatar-file').addEventListener('change', async (event) => {
             try {
                 const processed = await processAvatar(event.target.files?.[0]);
@@ -181,10 +257,14 @@ export const Setup = (() => {
         // Mount point in the card header (badge/name/remove already live there) for a
         // plugin-owned control, e.g. the "Na cena" presence toggle. A handler must
         // mutate and return the same card.
-        await PluginRuntime.runHook('setup.charCardHead', card, {});
+        if (mode === 'roster') await PluginRuntime.runHook('setup.charCardHead', card, {});
 
-        charsListEl.appendChild(card);
-        reindexCards();
+        if (mode === 'roster') {
+            charsListEl.appendChild(card);
+            reindexCards();
+        } else {
+            target.appendChild(card);
+        }
         return card;
     }
 
@@ -196,6 +276,7 @@ export const Setup = (() => {
             card.querySelector('.char-id-badge').textContent = `C${i + 1}`;
         });
         refreshControlled();
+        refreshCharacterPresetAvailability();
     }
 
     function refreshControlled() {
@@ -212,6 +293,28 @@ export const Setup = (() => {
         if ([...controlledEl.options].some((o) => o.value === prev)) {
             controlledEl.value = prev;
         }
+    }
+
+    function linkedCharacterPresetNames() {
+        return new Set(
+            [...charsListEl.querySelectorAll('.char-card')]
+                .map((card) => card.dataset.presetName)
+                .filter(Boolean),
+        );
+    }
+
+    function refreshCharacterPresetAvailability() {
+        const linked = linkedCharacterPresetNames();
+        [...characterPresetSelect.options].forEach((option) => {
+            if (option.value) option.disabled = linked.has(option.value);
+        });
+        if (characterPresetSelect.selectedOptions[0]?.disabled) {
+            characterPresetSelect.value = '';
+        }
+        const busy = modal.getAttribute('aria-busy') === 'true';
+        characterPresetAddBtn.disabled = (
+            busy || characterPresetSelect.disabled || !characterPresetSelect.value
+        );
     }
 
     /* ── Collect / populate ───────────────────────────────────────────── */
@@ -265,15 +368,21 @@ export const Setup = (() => {
         else makeKvRow(factsListEl, '', '');
 
         charsListEl.innerHTML = '';
-        const chars = cfg.characters || {};
-        const ids = Object.keys(chars);
+        const chars = { ...(cfg.characters || {}) };
         const presetIds = cfg.character_preset_ids || {};
+        if (!Object.keys(chars).length && Object.keys(presetIds).length) {
+            for (const [cid, presetName] of Object.entries(presetIds)) {
+                const preset = await api.getPreset(presetName);
+                chars[cid] = preset.character;
+            }
+        }
+        const ids = Object.keys(chars);
         if (ids.length) {
             for (const cid of ids) {
                 const card = await makeCharCard(chars[cid], { preset_name: presetIds[cid] || '' });
                 if (presetIds[cid]) hydrateCardPreset(card, presetIds[cid]);
             }
-        } else await makeCharCard({});
+        } else if (editorMode !== 'scenario') await makeCharCard({});
 
         reindexCards();
         if (cfg.controlled_character_id &&
@@ -300,36 +409,144 @@ export const Setup = (() => {
     async function refreshPresets(selected = '') {
         try {
             const data = await api.listPresets();
+            const presets = data.presets.sort((left, right) =>
+                Number(left.builtin) - Number(right.builtin)
+                || left.display_name.localeCompare(right.display_name, getLocale()));
             presetSelect.innerHTML = '';
-            data.presets.forEach((preset) => {
+            characterPresetSelect.innerHTML = '';
+            presetLibraryList.replaceChildren();
+
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = presets.length
+                ? t('presets.chooseSaved')
+                : t('presets.noneSaved');
+            characterPresetSelect.appendChild(placeholder);
+
+            presets.forEach((preset) => {
                 const option = document.createElement('option');
                 option.value = preset.preset_name;
                 option.textContent = `${preset.display_name} · ${preset.preset_name}`;
                 option.dataset.revision = String(preset.revision);
+                option.dataset.builtin = preset.builtin ? 'true' : 'false';
                 presetSelect.appendChild(option);
+                characterPresetSelect.appendChild(option.cloneNode(true));
+
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'preset-library-item';
+                item.dataset.presetName = preset.preset_name;
+                const avatar = document.createElement('span');
+                avatar.className = 'preset-library-avatar';
+                avatar.textContent = (preset.display_name?.[0] || '?').toUpperCase();
+                if (preset.avatar?.url) {
+                    const image = document.createElement('img');
+                    image.src = preset.avatar.url;
+                    image.alt = '';
+                    avatar.replaceChildren(image);
+                }
+                const copy = document.createElement('span');
+                copy.className = 'preset-library-copy';
+                const displayName = document.createElement('strong');
+                displayName.textContent = preset.display_name;
+                const slug = document.createElement('small');
+                slug.textContent = preset.builtin
+                    ? t('presets.builtinCharacter')
+                    : preset.preset_name;
+                copy.append(displayName, slug);
+                const arrow = document.createElement('span');
+                arrow.className = 'preset-library-arrow';
+                arrow.setAttribute('aria-hidden', 'true');
+                arrow.textContent = '→';
+                item.append(avatar, copy, arrow);
+                item.addEventListener('click', () => openPreset(preset.preset_name));
+                presetLibraryList.appendChild(item);
             });
             if (selected && [...presetSelect.options].some((option) => option.value === selected)) {
                 presetSelect.value = selected;
             }
-            const empty = !data.presets.length;
+            const empty = !presets.length;
             presetEmpty.hidden = !empty;
-            presetSelect.disabled = empty;
-            presetLoadBtn.disabled = empty;
-            presetDeleteBtn.disabled = empty;
+            characterPresetSelect.disabled = empty;
+            refreshCharacterPresetAvailability();
         } catch (error) {
             notify(t('presets.listError', { error: error.message }), 'error');
         }
     }
 
-    async function loadSelectedPreset() {
-        if (!presetSelect.value) return;
+    function showPresetLibrary() {
+        const returningFromEditor = modal.dataset.presetMode === 'editor';
+        modal.dataset.presetMode = 'library';
+        presetLibraryView.hidden = false;
+        presetEditorView.hidden = true;
+        presetDraftResumeBtn.hidden = !presetEditorList.querySelector('.preset-card');
+        if (returningFromEditor) {
+            requestAnimationFrame(() => { modalBody.scrollTop = presetLibraryScrollTop; });
+        }
+    }
+
+    function showPresetEditor({ existing = false } = {}) {
+        if (modal.dataset.presetMode !== 'editor') {
+            presetLibraryScrollTop = modalBody.scrollTop;
+        }
+        modal.dataset.presetMode = 'editor';
+        presetLibraryView.hidden = true;
+        presetEditorView.hidden = false;
+        presetDeleteBtn.hidden = !existing;
+        bindTranslation(presetEditorTitle, existing ? 'presets.editTitle' : 'presets.newTitle');
+        modalBody.scrollTop = 0;
+    }
+
+    async function openPreset(name) {
+        if (!name) return;
+        const current = presetEditorList.querySelector('.preset-card');
+        if (current?.dataset.presetName === name) {
+            presetSelect.value = name;
+            showPresetEditor({ existing: Boolean(current.dataset.presetRevision) });
+            current.querySelector('.char-name').focus({ preventScroll: true });
+            return;
+        }
         try {
-            const preset = await api.getPreset(presetSelect.value);
+            const preset = await api.getPreset(name);
+            presetSelect.value = name;
+            presetEditorList.replaceChildren();
+            const card = await makeCharCard(preset.character, preset, {
+                mode: 'preset',
+                target: presetEditorList,
+            });
+            showPresetEditor({ existing: !preset.builtin });
+            card.querySelector('.char-name').focus({ preventScroll: true });
+        } catch (error) {
+            notify(t('presets.loadError', { error: error.message }), 'error');
+        }
+    }
+
+    async function addSelectedPresetToRoster() {
+        const presetName = characterPresetSelect.value;
+        if (!presetName) return;
+        if (linkedCharacterPresetNames().has(presetName)) {
+            notify(t('presets.alreadyLinked'), 'error');
+            refreshCharacterPresetAvailability();
+            return;
+        }
+        setDraftBusy(true);
+        try {
+            const preset = await api.getPreset(presetName);
             const card = await makeCharCard(preset.character, preset);
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } catch (error) {
             notify(t('presets.loadError', { error: error.message }), 'error');
+        } finally {
+            setDraftBusy(false);
         }
+    }
+
+    async function newPreset() {
+        presetEditorList.replaceChildren();
+        presetSelect.value = '';
+        const card = await makeCharCard({}, {}, { mode: 'preset', target: presetEditorList });
+        showPresetEditor();
+        card.querySelector('.char-name').focus({ preventScroll: true });
     }
 
     async function saveCardPreset(card) {
@@ -364,6 +581,8 @@ export const Setup = (() => {
             card.dataset.avatarBase64 = '';
             showCardAvatar(card, saved.avatar?.url || '');
             await refreshPresets(name);
+            presetDeleteBtn.hidden = false;
+            bindTranslation(presetEditorTitle, 'presets.editTitle');
             notify(t('presets.saved', { name }));
         } catch (error) {
             notify(t('presets.saveError', { error: error.message }), 'error');
@@ -375,7 +594,9 @@ export const Setup = (() => {
         if (!option || !confirm(t('presets.deleteConfirm', { name: option.value }))) return;
         try {
             await api.deletePreset(option.value, Number(option.dataset.revision));
+            presetEditorList.replaceChildren();
             await refreshPresets();
+            showPresetLibrary();
             notify(t('presets.deleted'));
         } catch (error) {
             notify(t('presets.deleteError', { error: error.message }), 'error');
@@ -383,8 +604,14 @@ export const Setup = (() => {
     }
 
     async function openPresetDraft(character, presetName, avatarFile = null) {
-        open();
-        const card = await makeCharCard(character, { preset_name: presetName });
+        openCharacters();
+        presetEditorList.replaceChildren();
+        presetSelect.value = '';
+        const card = await makeCharCard(character, { preset_name: presetName }, {
+            mode: 'preset',
+            target: presetEditorList,
+        });
+        showPresetEditor();
         if (avatarFile) {
             try {
                 const processed = await processAvatar(avatarFile);
@@ -392,8 +619,7 @@ export const Setup = (() => {
                 showCardAvatar(card, processed.preview);
             } catch (error) { notify(error.message, 'error'); }
         }
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        card.querySelector('.char-name').focus();
+        card.querySelector('.char-name').focus({ preventScroll: true });
     }
 
     /* ── Built-in scenarios use the same canonical shape as user scenarios ─ */
@@ -420,32 +646,57 @@ export const Setup = (() => {
 
     function validate(cfg) {
         const ids = Object.keys(cfg.characters);
-        if (ids.length === 0) return { key: 'validation.addCharacter' };
+        if (ids.length === 0) return { key: 'validation.addCharacter', view: 'characters' };
         for (const cid of ids) {
             const c = cfg.characters[cid];
-            if (!c.mind.name) return { key: 'validation.characterName', params: { id: cid } };
+            if (!c.mind.name) {
+                return {
+                    key: 'validation.characterName',
+                    params: { id: cid },
+                    view: 'characters',
+                    selector: `[data-cid="${cid}"] .char-name`,
+                };
+            }
             if (!c.mind.personality)
-                return { key: 'validation.personality', params: { name: c.mind.name || cid } };
+                return {
+                    key: 'validation.personality',
+                    params: { name: c.mind.name || cid },
+                    view: 'characters',
+                    selector: `[data-cid="${cid}"] .char-personality`,
+                };
         }
         if (!cfg.scene.location) return { key: 'validation.location' };
-        if (!cfg.controlled_character_id) return { key: 'validation.controlled' };
+        if (!cfg.controlled_character_id) {
+            return {
+                key: 'validation.controlled',
+                view: 'characters',
+                selector: '#setup-controlled',
+            };
+        }
         // Generic, not plugin-specific: present_characters defaults to "everyone" when
         // no plugin overrides it, so this is always trivially satisfied in that case.
         if (!cfg.scene.present_characters.includes(cfg.controlled_character_id)) {
-            return { key: 'validation.controlledMustBePresent' };
+            return {
+                key: 'validation.controlledMustBePresent',
+                view: 'characters',
+                selector: '#setup-controlled',
+            };
         }
         return null;
     }
 
-    /* ── Persistence ──────────────────────────────────────────────────── */
-    function save(cfg) {
-        try { localStorage.setItem(LS_KEY, JSON.stringify(cfg)); } catch { /* ignore */ }
-    }
-    function loadSaved() {
-        try {
-            const raw = localStorage.getItem(LS_KEY);
-            return raw ? JSON.parse(raw) : null;
-        } catch { return null; }
+    function revealProblem(problem) {
+        if (problem.view !== 'characters') {
+            showError(problem.key, problem.params);
+            return;
+        }
+        notify(t(problem.key, problem.params), 'error');
+        openCharacters();
+        requestAnimationFrame(() => {
+            const target = problem.selector ? modal.querySelector(problem.selector) : addCharBtn;
+            target?.setAttribute('aria-invalid', 'true');
+            target?.focus({ preventScroll: true });
+        });
     }
 
     /* ── Named scenarios ────────────────────────────────────────────────── */
@@ -488,39 +739,99 @@ export const Setup = (() => {
         scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
     }
 
-    async function loadSelectedScenario() {
+    async function loadSelectedScenario(announce = true) {
+        setDraftBusy(true);
         const val = scenarioSelect.value;
-        if (val.startsWith('builtin:')) {
-            const name = val.replace(/^builtin:/, '');
-            await loadBuiltinScenario(name);
-            notify(t('scenarios.defaultLoaded', { name }));
-            return;
-        }
-        const name = val.replace(/^user:/, '');
         try {
+            if (val.startsWith('builtin:')) {
+                const name = val.replace(/^builtin:/, '');
+                await loadBuiltinScenario(name);
+                if (announce) notify(t('scenarios.defaultLoaded', { name }));
+                return;
+            }
+            const name = val.replace(/^user:/, '');
             const cfg = await api.getScenario(name);
             await populate(cfg);
             clearError();
-            notify(t('scenarios.loaded', { name }));
+            if (announce) notify(t('scenarios.loaded', { name }));
         } catch (err) {
             showError('scenarios.serverLoadError', { error: err.message });
+        } finally {
+            setDraftBusy(false);
         }
     }
 
+    async function newBlankScenario() {
+        scenarioSelect.value = '';
+        scenarioDelBtn.disabled = true;
+        scenarioNameEl.value = '';
+        await populate({
+            controlled_character_id: '',
+            narrator_directives: '',
+            characters: {},
+            character_preset_ids: {},
+            scene: {
+                location: '',
+                time_of_day: '',
+                present_characters: [],
+                physical_facts: {},
+            },
+        });
+        clearError();
+        sceneLocEl.focus({ preventScroll: true });
+    }
+
     async function saveCurrentScenario() {
-        const name = scenarioNameEl.value.trim();
+        await saveScenarioSnapshot(scenarioNameEl.value.trim(), {
+            afterSave: async (name) => {
+                scenarioNameEl.value = '';
+                await refreshScenarioSelect(`user:${name}`);
+            },
+        });
+    }
+
+    async function saveActiveScenario() {
+        await saveScenarioSnapshot(activeScenarioName.value.trim(), {
+            afterSave: async (name) => {
+                activeScenarioName.value = '';
+                activeSourceName.textContent = name;
+            },
+        });
+    }
+
+    async function saveScenarioSnapshot(name, { afterSave } = {}) {
         if (!name) { showError('scenarios.nameRequired'); return; }
         const cfg = await collect();
         const problem = validate(cfg);
-        if (problem) { showError(problem.key, problem.params); return; }
+        if (problem) {
+            revealProblem(problem);
+            return;
+        }
+        if (Object.keys(cfg.character_preset_ids).length !== Object.keys(cfg.characters).length) {
+            showError('scenarios.linkedCharactersRequired');
+            return;
+        }
+        const linkedPresetNames = Object.values(cfg.character_preset_ids);
+        if (new Set(linkedPresetNames).size !== linkedPresetNames.length) {
+            showError('scenarios.duplicateCharacterLinks');
+            return;
+        }
+        const scenario = {
+            controlled_character_id: cfg.controlled_character_id,
+            narrator_directives: cfg.narrator_directives,
+            character_preset_ids: cfg.character_preset_ids,
+            scene: cfg.scene,
+        };
         try {
-            await api.saveScenario(name, cfg);
-            scenarioNameEl.value = '';
-            await refreshScenarioSelect(`user:${name}`);
+            setDraftBusy(true);
+            await api.saveScenario(name, scenario);
+            await afterSave?.(name);
             clearError();
             notify(t('scenarios.saved', { name }));
         } catch (err) {
             showError('scenarios.saveError', { error: err.message });
+        } finally {
+            setDraftBusy(false);
         }
     }
 
@@ -538,77 +849,208 @@ export const Setup = (() => {
     }
 
     /* ── Open / close ─────────────────────────────────────────────────── */
-    function open() {
+    function openView(view) {
         clearError();
+        currentView = view;
+        const [titleKey, subtitleKey] = VIEW_COPY[view];
+        modal.dataset.view = view;
+        bindTranslation(titleEl, titleKey);
+        bindTranslation(subtitleEl, subtitleKey);
+        startFoot.hidden = true;
         returnFocusEl = document.activeElement instanceof HTMLElement
             ? document.activeElement
             : null;
         overlay.classList.add('active');
-        closeBtn.focus({ preventScroll: true });
-        if (onOpenCb) onOpenCb();
-        refreshPresets();
+        backBtn.focus({ preventScroll: true });
+        if (view === 'settings' && onOpenCb) onOpenCb();
+        if (view === 'presets') showPresetLibrary();
+        if (view === 'characters' || view === 'presets') refreshPresets();
     }
+    async function openAdventure() {
+        const sessionId = getSessionIdCb();
+        if (!sessionId) {
+            onBackCb?.('sessions');
+            return;
+        }
+        editorMode = 'active';
+        backEntry = 'adventure';
+        modal.dataset.editorMode = editorMode;
+        openView('adventure');
+        startFoot.hidden = false;
+        bindTranslation(titleEl, 'apps.adventure');
+        bindTranslation(subtitleEl, 'adventure.currentSubtitle');
+        bindTranslation(charactersIntro, 'characters.activeSession');
+        bindTranslation(startBtn.querySelector('span'), 'adventure.saveSession');
+        setDraftBusy(true);
+        try {
+            const state = await api.getState(sessionId);
+            activeRevision = state.revision;
+            activeSourceName.textContent = state.scenario_source_id || t('adventure.customSource');
+            activeScenarioName.value = '';
+            await populate(state);
+        } finally {
+            setDraftBusy(false);
+        }
+    }
+    function openCharacters() {
+        editorMode = 'characters';
+        backEntry = 'characters';
+        modal.dataset.editorMode = editorMode;
+        openView('presets');
+    }
+    async function openScenarios() {
+        editorMode = 'scenario';
+        backEntry = 'scenarios';
+        modal.dataset.editorMode = editorMode;
+        openView('adventure');
+        bindTranslation(titleEl, 'apps.scenarios');
+        bindTranslation(subtitleEl, 'apps.scenariosSubtitle');
+        bindTranslation(charactersIntro, 'characters.scenarioCast');
+        setDraftBusy(true);
+        try {
+            await refreshScenarioSelect();
+            await loadSelectedScenario(false);
+        } finally {
+            setDraftBusy(false);
+        }
+    }
+    async function openNewSession() {
+        editorMode = 'new';
+        backEntry = 'sessions';
+        modal.dataset.editorMode = editorMode;
+        openView('adventure');
+        bindTranslation(titleEl, 'sessions.new');
+        bindTranslation(subtitleEl, 'sessions.newSubtitle');
+        bindTranslation(charactersIntro, 'characters.newSessionCast');
+        bindTranslation(startBtn.querySelector('span'), 'setup.start');
+        startFoot.hidden = false;
+        setDraftBusy(true);
+        try {
+            await refreshScenarioSelect();
+            await loadSelectedScenario(false);
+        } finally {
+            setDraftBusy(false);
+        }
+    }
+    function openSettings() {
+        editorMode = 'settings';
+        backEntry = 'settings';
+        modal.dataset.editorMode = editorMode;
+        openView('settings');
+    }
+
     function close() {
         overlay.classList.remove('active');
-        if (returnFocusEl?.isConnected) {
+        if (onCloseCb) {
+            onCloseCb();
+        } else if (returnFocusEl?.isConnected) {
             returnFocusEl.focus({ preventScroll: true });
         }
         returnFocusEl = null;
     }
 
+    function back() {
+        if (currentView === 'presets' && modal.dataset.presetMode === 'editor') {
+            showPresetLibrary();
+            presetDraftResumeBtn.focus({ preventScroll: true });
+            return;
+        }
+        overlay.classList.remove('active');
+        if (onBackCb) onBackCb(backEntry);
+    }
+
     /* ── Wiring ───────────────────────────────────────────────────────── */
-    async function handleStart() {
+    async function handlePrimary() {
         clearError();
         const cfg = await collect();
         const problem = validate(cfg);
-        if (problem) { showError(problem.key, problem.params); return; }
-        save(cfg);
-        close();
-        if (onStartCb) onStartCb(cfg);
+        if (problem) { revealProblem(problem); return; }
+        if (editorMode === 'active') {
+            try {
+                setDraftBusy(true);
+                const sessionId = getSessionIdCb();
+                const result = await api.updateSessionSetup(sessionId, {
+                    ...cfg,
+                    expected_revision: activeRevision,
+                });
+                activeRevision = result.state.revision;
+                onSessionUpdatedCb?.(result.state);
+                notify(t('adventure.sessionSaved'));
+            } catch (error) {
+                notify(t('adventure.sessionSaveError', { error: error.message }), 'error');
+            } finally {
+                setDraftBusy(false);
+            }
+            return;
+        }
+        if (editorMode === 'new') {
+            const scenarioName = scenarioSelect.value.replace(/^(builtin|user):/, '');
+            close();
+            if (onStartCb) onStartCb({ ...cfg, scenario_name: scenarioName });
+        }
     }
 
     function init(opts) {
         onStartCb = opts.onStart;
+        onSessionUpdatedCb = opts.onSessionUpdated;
+        getSessionIdCb = opts.getSessionId;
         onOpenCb = opts.onOpen;
+        onBackCb = opts.onBack;
+        onCloseCb = opts.onClose;
         notifyCb = opts.notify || notifyCb;
 
         addFactBtn.addEventListener('click', () => makeKvRow(factsListEl, '', ''));
         addCharBtn.addEventListener('click', () => { makeCharCard({}); });
-        startBtn.addEventListener('click', handleStart);
+        startBtn.addEventListener('click', handlePrimary);
         closeBtn.addEventListener('click', close);
+        backBtn.addEventListener('click', back);
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close();
         });
         document.addEventListener('keydown', (event) => {
             if (event.key !== 'Escape' || !overlay.classList.contains('active')) return;
             event.preventDefault();
-            close();
+            back();
         });
 
         // Scenarios
         scenarioLoadBtn.addEventListener('click', loadSelectedScenario);
+        scenarioNewBtn.addEventListener('click', newBlankScenario);
         scenarioSaveBtn.addEventListener('click', saveCurrentScenario);
+        activeScenarioSaveBtn.addEventListener('click', saveActiveScenario);
         scenarioDelBtn.addEventListener('click', deleteSelectedScenario);
         scenarioSelect.addEventListener('change', () => {
             scenarioDelBtn.disabled = !scenarioSelect.value.startsWith('user:');
         });
-        presetLoadBtn.addEventListener('click', loadSelectedPreset);
+        characterPresetSelect.addEventListener('change', refreshCharacterPresetAvailability);
         presetDeleteBtn.addEventListener('click', deleteSelectedPreset);
+        presetNewBtn.addEventListener('click', newPreset);
+        presetDraftResumeBtn.addEventListener('click', () => {
+            const card = presetEditorList.querySelector('.preset-card');
+            if (!card) return;
+            showPresetEditor({ existing: Boolean(card.dataset.presetRevision) });
+            card.querySelector('.char-name').focus({ preventScroll: true });
+        });
+        characterPresetAddBtn.addEventListener('click', addSelectedPresetToRoster);
         onLocaleChange(() => {
             [...scenarioSelect.options].forEach((option) => {
                 if (!option.value.startsWith('builtin:')) return;
                 const name = option.value.replace(/^builtin:/, '');
                 option.textContent = `${name} (${t('scenarios.builtinSuffix')})`;
             });
+            if (currentView === 'presets') refreshPresets();
         });
-        refreshScenarioSelect();
         refreshPresets();
-
-        // Pre-fill from last saved setup, else empty scaffolding
-        const saved = loadSaved();
-        if (saved) populate(saved);
-        else populate({ characters: {}, scene: {} });
     }
 
-    return { init, open, close, openPresetDraft };
+    return {
+        init,
+        close,
+        openAdventure,
+        openCharacters,
+        openScenarios,
+        openNewSession,
+        openSettings,
+        openPresetDraft,
+    };
 })();

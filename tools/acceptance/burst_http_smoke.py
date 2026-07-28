@@ -49,16 +49,7 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
         client.get("/config").json()["autonomous_burst_max_beats"] == 4,
     )
 
-    scenario = client.get("/scenario-defaults?name=thorn-lyra").json()["scenario"]
-    started = client.post(
-        "/session/start",
-        json={
-            "characters": scenario["characters"],
-            "scene": scenario["scene"],
-            "controlled_character_id": scenario["controlled_character_id"],
-            "narrator_directives": scenario["narrator_directives"],
-        },
-    ).json()
+    started = client.post("/session/start", json={"scenario_name": "thorn-lyra"}).json()
     sid = started["session_id"]
     print(f"session {sid}")
 

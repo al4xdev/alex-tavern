@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "preset_name": "turma-dos-portais-pt-c20",
+  "character": {
+    "mind": {
+      "name": "Marta Ferrolume",
+      "personality": "Marta Ferrolume, 47 anos, é intendente e armeira de poder 32. Prática, rouca e intolerante a desperdício, acredita que manutenção salva mais que lendas. Mantém um fundo clandestino feito com sobras nobres para equipar alunos pobres. É tia de Bruna Ferrugem e finge tratá-la com dureza extra. Recusa privilégios a Asword, oferece a Link ferramentas adequadas sem escolher por ele, gosta do cuidado de Doran e suspeita que Nix rouba apenas o necessário.",
+      "knowledge": [
+        "Conhece armas, carga, durabilidade, preços e cada item entregue aos candidatos.",
+        "Mantém um fundo clandestino e sua sobrinha Bruna Ferrugem conhece parte dele.",
+        "A Phoenix Force destrói equipamento comum e Link precisa permanecer leve para usar sua técnica.",
+        "Não sabe as equipes finais antes do anúncio.",
+        "Percebeu que Cael carrega ferramentas proibidas, mas ainda não o confrontou."
+      ],
+      "current_mood": "ocupada e desconfiada de requisições grandiosas"
+    },
+    "body": {
+      "name": "Marta Ferrolume",
+      "physical_description": "Mulher baixa e forte, pele parda, cabelo grisalho em coque, olhos escuros e audição reduzida de um lado.",
+      "outfit": "Avental de couro, óculos grossos, martelo de armeira, chaveiro do depósito e livro codificado."
+    }
+  },
+  "avatar": null,
+  "revision": 1,
+  "created_at": "2026-07-27T00:00:00+00:00",
+  "updated_at": "2026-07-27T00:00:00+00:00"
+}

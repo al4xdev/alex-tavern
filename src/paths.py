@@ -11,6 +11,7 @@ CONFIG_PATH = DATA_DIR / "config.json"
 SESSIONS_DIR = DATA_DIR / "sessions"
 SCENARIOS_DIR = DATA_DIR / "scenarios"
 PRESETS_DIR = DATA_DIR / "presets"
+BUILTIN_CHARACTERS_DIR = Path(__file__).resolve().parent / "characters"
 BUILTIN_SCENARIOS_DIR = Path(__file__).resolve().parent / "scenarios"
 # Resolved from the module location, never from the CWD: under Chaquopy the
 # frontend lives inside the extracted package and there is no repo root to be

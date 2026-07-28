@@ -49,7 +49,7 @@ Campos nulos são omitidos. Isso remove variação de estilo e rótulos abstrato
 | Caso | Fonte no projeto | Domínio | Estímulo | Resultado convergente |
 |---|---|---|---|---|
 | Academia | `src/scenarios/turma-dos-portais-pt.json` + sessão `e5a0ca6a` | tensão social + dever institucional | Link dá desculpa constrangedora após atraso público | Riven ri; nobres propagam murmúrios; Maelis inicia seleção |
-| Thorn/Lyra | `src/scenarios/thorn-lyra-pt.json`, presets `thorn`/`lyra` | fantasia, objeto arcano, disposições divergentes | Edda põe medalhão arcano na mesa e pergunta a Lyra | Lyra se inclina para examinar; Thorn permanece guardado como candidato não escolhido |
+| Thorn/Lyra | `src/scenarios/thorn-lyra.json`, personagens `thorn-lyra-c1`/`thorn-lyra-c2` | fantasia, objeto arcano, disposições divergentes | Edda põe medalhão arcano na mesa e pergunta a Lyra | Lyra se inclina para examinar; Thorn permanece guardado como candidato não escolhido |
 | Festa | `.data/scenarios/tony_house.json`, presets `alex`/`sofia` | tensão afetiva moderna + conhecimento privado | Alex cumprimenta a ex, Fernanda, diante de Sofia | Fernanda cora/desvia o olhar/fecha postura; Sofia permanece neutra |
 | Moinho | `.data/scenarios/presence-e2e-test.json` | espaço, presença e risco físico ambíguo | viga acima de Aria estala; Bron está ausente | Aria olha para cima e enrijece postura; nenhum colapso; Bron não reage |
 

@@ -15,8 +15,8 @@ import { bindTranslation, t } from './i18n.js';
 const sessionsOverlay = el('sessions-overlay');
 const sessionList = el('session-list');
 const sessionsCloseBtn = el('sessions-close-btn');
+const sessionsBackBtn = el('sessions-back-btn');
 const sessionsNewBtn = el('sessions-new-btn');
-const sessionsBtn = el('sessions-btn');
 
 const LONG_PRESS_MS = 600;
 
@@ -36,8 +36,8 @@ export function init(options) {
     state = options.state;
     deps = options;
 
-    sessionsBtn.addEventListener('click', open);
     sessionsCloseBtn.addEventListener('click', close);
+    sessionsBackBtn.addEventListener('click', back);
     sessionsNewBtn.addEventListener('click', () => {
         close();
         deps.onNewSession();
@@ -45,10 +45,16 @@ export function init(options) {
     sessionsOverlay.addEventListener('click', (e) => {
         if (e.target === sessionsOverlay) close();
     });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !sessionsOverlay.classList.contains('active')) return;
+        event.preventDefault();
+        back();
+    });
 }
 
 export async function open() {
     sessionsOverlay.classList.add('active');
+    sessionsBackBtn.focus({ preventScroll: true });
     try {
         render(await api.listSessions());
     } catch (err) {
@@ -58,6 +64,11 @@ export async function open() {
 
 export function close() {
     sessionsOverlay.classList.remove('active');
+}
+
+export function back() {
+    close();
+    deps.onBack?.('sessions');
 }
 
 /** Re-render the last fetched list, e.g. after the interface language changes. */

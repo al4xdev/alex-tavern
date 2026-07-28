@@ -298,6 +298,15 @@ class StartSessionResponse(BaseModel):
     state: dict
 
 
+class SessionSetupUpdateRequest(BaseModel):
+    controlled_character_id: str
+    characters: dict[str, CharacterInput]
+    scene: SceneInput
+    narrator_directives: str = ""
+    character_preset_ids: dict[str, str] = Field(default_factory=dict)
+    expected_revision: int = Field(ge=0)
+
+
 class PlayerTurnRequest(StrictModel):
     """The SHAPE of a turn submission; its rules live in ``Runner.player_turn``.
 
@@ -446,9 +455,24 @@ async def start_session(req: StartSessionRequest) -> dict:
     if req.characters:
         for cid, ci in req.characters.items():
             characters[cid] = dict_to_character(dump(ci))
-    elif "characters" in scenario_data:
-        for cid, cdata in scenario_data["characters"].items():
-            characters[cid] = dict_to_character(cdata)
+    elif scenario_data:
+        refs = scenario_data.get("character_preset_ids")
+        if not isinstance(refs, dict) or not refs:
+            raise HTTPException(
+                status_code=422,
+                detail="Scenario must link at least one character preset.",
+            )
+        for cid, preset_name in refs.items():
+            try:
+                preset = load_preset(preset_name)
+            except PresetError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
+            if preset is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Scenario character preset '{preset_name}' was not found.",
+                )
+            characters[cid] = dict_to_character(preset["character"])
 
     scene = None
     if req.scene is not None:
@@ -491,6 +515,7 @@ async def start_session(req: StartSessionRequest) -> dict:
             if req.character_preset_ids
             else dict(scenario_data.get("character_preset_ids", {}))
         ),
+        "scenario_source_id": req.scenario_name or "",
     }
     if characters:
         cfg["characters"] = characters
@@ -698,6 +723,36 @@ async def get_state(session_id: str) -> dict:
     return game_state_to_dict(game)
 
 
+@app.put("/session/{session_id}/setup")
+async def update_session_setup(session_id: str, body: SessionSetupUpdateRequest) -> dict:
+    """Edit the independent runtime snapshot without mutating its source records."""
+    characters = {
+        cid: dict_to_character(dump(character)) for cid, character in body.characters.items()
+    }
+    scene = Scene(
+        location=body.scene.location,
+        time_of_day=body.scene.time_of_day,
+        present_characters=list(body.scene.present_characters),
+        physical_facts=dict(body.scene.physical_facts),
+        zones={zone: list(audible) for zone, audible in body.scene.zones.items()},
+        positions=dict(body.scene.positions),
+    )
+    try:
+        return await _runtime().runner.update_session_setup(
+            session_id,
+            characters=characters,
+            scene=scene,
+            narrator_directives=body.narrator_directives,
+            character_preset_ids=dict(body.character_preset_ids),
+            controlled_character_id=body.controlled_character_id,
+            expected_revision=body.expected_revision,
+        )
+    except PresenceRevisionConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
 @app.get("/session/{session_id}/history")
 async def get_history(
     session_id: str,
@@ -870,6 +925,12 @@ def get_scenario(name: str) -> dict:
 def put_scenario(name: str, body: StartSessionRequest) -> dict:
     """Saves or updates a user scenario."""
 
+    linked_presets = list(body.character_preset_ids.values())
+    if len(set(linked_presets)) != len(linked_presets):
+        raise HTTPException(
+            status_code=422,
+            detail="A scenario cannot link the same character preset twice.",
+        )
     save_scenario(name, dump(body, exclude_none=True))
     return {"saved": True}
 

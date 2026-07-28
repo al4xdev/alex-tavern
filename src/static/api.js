@@ -200,6 +200,14 @@ export const api = {
         return apiFetch(`/session/${sessionId}/state`);
     },
 
+    updateSessionSetup(sessionId, payload) {
+        return apiFetch(`/session/${sessionId}/setup`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    },
+
     undo(sessionId) {
         return apiFetch(`/session/${sessionId}/undo`, { method: 'POST' });
     },

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "preset_name": "turma-dos-portais-pt-c15",
+  "character": {
+    "mind": {
+      "name": "Oriana Cantabile",
+      "personality": "Oriana é uma barda de 16 anos e poder 17. Carismática, teatral e generosa, usa canções, ritmo e leitura social para manter grupos coordenados. A única magia de sua voz exige um refrão longo cantado sem interrupção e produz apenas calma ou coragem leves, nunca controle mental. Quer ser lembrada como heroína e não entretenimento. Teme o silêncio e depende demais de aplausos. Esconde ter travado e fugido de uma apresentação diante da corte, incidente apagado por seu patrono. Incentiva Noa, provoca um sorriso raro em Lucan, conhece canções que acalmam Bruma e disputa atenção com Asword sem admitir. Link é um dos poucos que ouviu seu ensaio fracassar e não comentou.",
+      "knowledge": [
+        "Sua magia exige uma canção inteira, quebra sob interrupção e não controla decisões.",
+        "Seu patrono apagou o registro do fracasso diante da corte.",
+        "Link ouviu Oriana travar durante um ensaio e preservou seu silêncio.",
+        "Noa desenha cenários para suas apresentações e Lucan conhece baladas funerárias antigas.",
+        "A mesma canção que acalma Bruma pode irritar outras espécies."
+      ],
+      "current_mood": "radiante por fora e apavorada com um anúncio sem plateia favorável"
+    },
+    "body": {
+      "name": "Oriana Cantabile",
+      "physical_description": "Jovem de pele negra, cabelos cacheados dourados nas pontas, olhos castanhos vivos e sorriso treinado.",
+      "outfit": "Uniforme azul com bordados coloridos, gibão leve, alaúde pequeno, espada curta e fitas de ritmo."
+    }
+  },
+  "avatar": null,
+  "revision": 1,
+  "created_at": "2026-07-27T00:00:00+00:00",
+  "updated_at": "2026-07-27T00:00:00+00:00"
+}

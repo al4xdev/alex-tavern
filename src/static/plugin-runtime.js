@@ -8,6 +8,7 @@ import {
     removePluginSlashRegistrations,
     reserveBackendCommands,
 } from './slash-registry.js';
+import { registerPluginApp, removePluginAppEntries } from './app-registry.js';
 
 const hooks = new Map();
 
@@ -57,6 +58,22 @@ function sdk(pluginId, pluginName) {
         registerCommandResultRenderer(kind, renderer) {
             registerPluginCommandResultRenderer(pluginId, kind, renderer);
             observe(pluginId, 'frontend.command-renderer.register', { kind });
+        },
+        registerAppEntry(descriptor, handler) {
+            const wrapped = async (context) => {
+                try {
+                    return await handler(context);
+                } catch (error) {
+                    observe(pluginId, 'frontend.crash', {
+                        app_entry: descriptor?.name,
+                        error: String(error),
+                    });
+                    throw error;
+                }
+            };
+            const id = registerPluginApp(pluginId, descriptor, wrapped);
+            observe(pluginId, 'frontend.app.register', { app_entry: descriptor?.name });
+            return id;
         },
         hook(name, handler) {
             const handlers = hooks.get(name) || [];
@@ -118,6 +135,7 @@ async function boot() {
             observe(plugin.plugin_id, 'frontend.loaded');
         } catch (error) {
             removePluginSlashRegistrations(plugin.plugin_id);
+            removePluginAppEntries(plugin.plugin_id);
             observe(plugin.plugin_id, 'frontend.crash', { error: String(error) });
         }
     }

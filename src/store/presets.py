@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from src.models import dict_to_character
-from src.paths import PRESETS_DIR
+from src.paths import BUILTIN_CHARACTERS_DIR, PRESETS_DIR
 from src.store.jsonfile import read_json, write_json
 from src.store.locks import named_lock
 
@@ -51,13 +51,25 @@ def _path(name: str) -> Path:
     return PRESETS_DIR / f"{name}.json"
 
 
-def _read(name: str) -> dict[str, Any] | None:
-    value = read_json(_path(name))
+def _builtin_path(name: str) -> Path:
+    return BUILTIN_CHARACTERS_DIR / f"{name}.json"
+
+
+def _read_path(path: Path, name: str) -> dict[str, Any] | None:
+    value = read_json(path)
     if value is None:
         return None
     if not isinstance(value, dict) or value.get("schema_version") != PRESET_SCHEMA_VERSION:
         raise PresetError("invalid_preset", f"Preset {name} does not use schema version 1.")
     return value
+
+
+def _read(name: str) -> dict[str, Any] | None:
+    return _read_path(_path(name), name)
+
+
+def _read_builtin(name: str) -> dict[str, Any] | None:
+    return _read_path(_builtin_path(name), name)
 
 
 def _validate_character(value: Any) -> dict[str, Any]:
@@ -126,9 +138,10 @@ def _webp_dimensions(data: bytes) -> tuple[int, int] | None:
     return None
 
 
-def _public(value: dict[str, Any]) -> dict[str, Any]:
+def _public(value: dict[str, Any], *, builtin: bool = False) -> dict[str, Any]:
     avatar = value.get("avatar")
     return {key: deepcopy(item) for key, item in value.items() if key != "avatar"} | {
+        "builtin": builtin,
         "avatar": (
             {
                 "media_type": avatar["media_type"],
@@ -145,13 +158,17 @@ def _public(value: dict[str, Any]) -> dict[str, Any]:
 def list_presets() -> list[dict[str, Any]]:
     PRESETS_DIR.mkdir(parents=True, exist_ok=True)
     result: list[dict[str, Any]] = []
-    for path in sorted(PRESETS_DIR.glob("*.json")):
+    sources = [
+        *((path, True) for path in sorted(BUILTIN_CHARACTERS_DIR.glob("*.json"))),
+        *((path, False) for path in sorted(PRESETS_DIR.glob("*.json"))),
+    ]
+    for path, builtin in sources:
         name = path.stem
         with _preset_lock(name):
-            value = _read(name)
+            value = _read_builtin(name) if builtin else _read(name)
             if value is None:
                 continue
-            public = _public(value)
+            public = _public(value, builtin=builtin)
             result.append(
                 {
                     "preset_name": public["preset_name"],
@@ -159,6 +176,7 @@ def list_presets() -> list[dict[str, Any]]:
                     "revision": public["revision"],
                     "updated_at": public["updated_at"],
                     "avatar": public["avatar"],
+                    "builtin": builtin,
                 }
             )
     return result
@@ -168,7 +186,10 @@ def load_preset(name: str) -> dict[str, Any] | None:
     name = validate_preset_name(name)
     with _preset_lock(name):
         value = _read(name)
-        return _public(value) if value is not None else None
+        if value is not None:
+            return _public(value)
+        value = _read_builtin(name)
+        return _public(value, builtin=True) if value is not None else None
 
 
 def save_preset(
@@ -182,6 +203,11 @@ def save_preset(
     name = validate_preset_name(name)
     normalized_character = _validate_character(character)
     with _preset_lock(name):
+        if _read_builtin(name) is not None:
+            raise PresetConflictError(
+                "builtin_character",
+                f"Built-in character '{name}' is immutable. Save it with a new ID.",
+            )
         current = _read(name)
         normalized_avatar = _avatar(avatar)
         if normalized_avatar is None and current is not None:
@@ -223,6 +249,10 @@ def save_preset(
 def delete_preset(name: str, *, expected_revision: int) -> bool:
     name = validate_preset_name(name)
     with _preset_lock(name):
+        if _read_builtin(name) is not None:
+            raise PresetConflictError(
+                "builtin_character", f"Built-in character '{name}' cannot be deleted."
+            )
         current = _read(name)
         if current is None:
             return False
@@ -237,7 +267,7 @@ def delete_preset(name: str, *, expected_revision: int) -> bool:
 def load_avatar(name: str) -> tuple[bytes, str] | None:
     name = validate_preset_name(name)
     with _preset_lock(name):
-        current = _read(name)
+        current = _read(name) or _read_builtin(name)
         if current is None or current.get("avatar") is None:
             return None
         avatar = current["avatar"]

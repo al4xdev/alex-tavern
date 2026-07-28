@@ -61,17 +61,9 @@ with httpx.Client(base_url=BASE, timeout=600) as client:
     check("retention window narrowed so a compaction can happen", saved.status_code == 200)
 
     scenario = client.get("/scenario-defaults?name=thorn-lyra").json()["scenario"]
-    started = client.post(
-        "/session/start",
-        json={
-            "characters": scenario["characters"],
-            "scene": scenario["scene"],
-            "controlled_character_id": scenario["controlled_character_id"],
-            "narrator_directives": scenario["narrator_directives"],
-        },
-    ).json()
+    started = client.post("/session/start", json={"scenario_name": "thorn-lyra"}).json()
     sid = started["session_id"]
-    ids = list(scenario["characters"])
+    ids = list(scenario["character_preset_ids"])
     id_re = re.compile(r"\b(" + "|".join(re.escape(i) for i in ids) + r")\b")
     print(f"session {sid} | cast {ids}")
 

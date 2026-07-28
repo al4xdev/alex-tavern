@@ -20,15 +20,40 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- ══════════════════ App drawer ══════════════════ -->
+    <div class="overlay app-drawer-overlay" id="app-drawer-overlay">
+        <div class="modal app-drawer-modal" role="dialog" aria-modal="true"
+            aria-labelledby="app-drawer-title">
+            <div class="modal-head">
+                <div class="modal-title-wrap">
+                    <span class="modal-glyph" aria-hidden="true">✦</span>
+                    <div>
+                        <h2 id="app-drawer-title" data-i18n="apps.title">Apps</h2>
+                        <p class="modal-sub" data-i18n="apps.subtitle">Manage the Tavern</p>
+                    </div>
+                </div>
+                <button class="icon-btn" id="app-drawer-close-btn" type="button"
+                    title="Close" aria-label="Close" data-i18n-title="common.close"
+                    data-i18n-aria-label="common.close">✕</button>
+            </div>
+            <div class="modal-body app-drawer-body">
+                <div class="app-drawer-grid" id="app-drawer-grid"></div>
+                <p class="setup-error" id="app-drawer-error" role="alert" hidden></p>
+            </div>
+        </div>
+    </div>
+
     <!-- ══════════════════ Setup / Lobby overlay ══════════════════ -->
     <div class="overlay" id="setup-overlay">
         <div class="modal" id="setup-modal" role="dialog" aria-modal="true" aria-labelledby="setup-title">
             <div class="modal-head">
+                <button class="icon-btn editor-back-btn" id="setup-back-btn" type="button"
+                    title="Back to apps" aria-label="Back to apps"
+                    data-i18n-title="apps.back" data-i18n-aria-label="apps.back">←</button>
                 <div class="modal-title-wrap">
-                    <span class="modal-glyph">🎭</span>
                     <div>
-                        <h2 id="setup-title" data-i18n="setup.title">Configure adventure</h2>
-                        <p class="modal-sub" data-i18n="setup.subtitle">Build the scene, characters, and tone of the world</p>
+                        <h2 id="setup-title">Adventure</h2>
+                        <p class="modal-sub" id="setup-subtitle">Build the scene and begin</p>
                     </div>
                 </div>
                 <button class="icon-btn" id="setup-close-btn" type="button" title="Close" aria-label="Close"
@@ -36,7 +61,7 @@
             </div>
 
             <div class="modal-body">
-                <section class="section app-preferences-section" aria-labelledby="app-preferences-title">
+                <section class="section app-preferences-section" data-setup-view="settings" aria-labelledby="app-preferences-title">
                     <div class="section-head">
                         <div>
                             <h3 class="section-title" id="app-preferences-title" data-i18n="preferences.title">🌐 Application preferences</h3>
@@ -62,7 +87,7 @@
                 </section>
 
                 <!-- Runtime / provider configuration (persisted only in .data/config.json) -->
-                <section class="section ai-engine-section" aria-labelledby="ai-engine-title">
+                <section class="section ai-engine-section" data-setup-view="settings" aria-labelledby="ai-engine-title">
                     <div class="section-head ai-engine-head">
                         <div>
                             <h3 class="section-title" id="ai-engine-title" data-i18n="engine.title">⚡ AI engine</h3>
@@ -177,38 +202,77 @@
                 </section>
 
                 <!-- Scenarios -->
-                <div class="section" id="scenarios-section">
-                    <h3 class="section-title" data-i18n="scenarios.title">💾 Scenarios</h3>
-                    <div class="scenario-row">
+                <div class="section" id="scenarios-section" data-setup-view="adventure">
+                    <h3 class="section-title" data-i18n="scenarios.startingPoint">Starting point</h3>
+                    <p class="field-hint" data-i18n="scenarios.startingPointHint">Choose a prepared world, or keep editing the current draft below.</p>
+                    <label class="field-label" for="scenario-select" data-i18n="scenarios.choose">Scenario</label>
+                    <div class="scenario-picker-row">
                         <select class="text-input" id="scenario-select" aria-label="Saved scenario" data-i18n-aria-label="scenarios.savedAria"></select>
-                        <button class="btn btn-mini" id="scenario-load-btn" type="button" data-i18n="scenarios.load">Load</button>
+                        <button class="btn btn-primary btn-mini" id="scenario-load-btn" type="button" data-i18n="scenarios.apply">Open</button>
                         <button class="icon-btn" id="scenario-delete-btn" type="button"
                             title="Delete scenario" aria-label="Delete scenario" data-i18n-title="scenarios.delete" data-i18n-aria-label="scenarios.delete">🗑️</button>
                     </div>
-                    <div class="scenario-row">
-                        <input type="text" class="text-input" id="scenario-name"
-                            placeholder="New scenario name (e.g. Pirate campaign)" data-i18n-placeholder="scenarios.namePlaceholder">
-                        <button class="btn btn-mini" id="scenario-save-btn" type="button" data-i18n="scenarios.saveCurrent">Save current</button>
+                    <button class="btn btn-mini scenario-new-btn" id="scenario-new-btn" type="button"
+                        data-i18n="scenarios.newBlank">+ New blank scenario</button>
+                    <details class="scenario-save-panel">
+                        <summary data-i18n="scenarios.saveDisclosure">Save this draft as a scenario</summary>
+                        <div class="scenario-row">
+                            <input type="text" class="text-input" id="scenario-name"
+                                placeholder="Scenario name (e.g. Pirate campaign)" data-i18n-placeholder="scenarios.namePlaceholder">
+                            <button class="btn btn-mini" id="scenario-save-btn" type="button" data-i18n="scenarios.saveCurrent">Save scenario</button>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="section preset-library" id="preset-library-section" data-setup-view="presets">
+                    <div class="preset-library-view" id="preset-library-view">
+                        <div class="section-head preset-library-head">
+                            <div>
+                                <h3 class="section-title" data-i18n="presets.libraryTitle">Character library</h3>
+                                <p class="field-hint" data-i18n="presets.libraryHint">Saved characters stay here until you add them to an adventure.</p>
+                            </div>
+                            <button class="btn btn-primary btn-mini" id="preset-new-btn" type="button"
+                                data-i18n="presets.new">+ New character</button>
+                        </div>
+                        <button class="preset-draft-resume" id="preset-draft-resume-btn" type="button" hidden>
+                            <span data-i18n="presets.resumeDraft">Continue editing draft</span>
+                            <span aria-hidden="true">→</span>
+                        </button>
+                        <div class="preset-library-list" id="preset-library-list"></div>
+                        <div class="preset-empty-state" id="preset-empty">
+                            <span class="preset-empty-mark" aria-hidden="true">◉</span>
+                            <strong data-i18n="presets.emptyTitle">No saved characters yet</strong>
+                            <p data-i18n="presets.emptyHint">Create one here, then add it to any future adventure.</p>
+                        </div>
+                    </div>
+                    <div class="preset-editor-view" id="preset-editor-view" hidden>
+                        <div>
+                            <span class="editor-kicker" data-i18n="presets.editorKicker">LIBRARY CHARACTER</span>
+                            <h3 class="section-title" id="preset-editor-title" data-i18n="presets.newTitle">New character</h3>
+                            <p class="field-hint" data-i18n="presets.editorHint">This does not add the character to your current adventure.</p>
+                        </div>
+                        <select id="preset-select" aria-label="Library character" hidden></select>
+                        <div id="preset-editor-list" class="chars-list preset-editor-list"></div>
+                        <button class="btn btn-danger-ghost" id="preset-delete-btn" type="button"
+                            data-i18n="presets.delete">Delete character</button>
                     </div>
                 </div>
 
-                <div class="section preset-library" id="preset-library-section">
-                    <div class="section-head">
-                        <div>
-                            <h3 class="section-title" data-i18n="presets.title">🪪 Character presets</h3>
-                            <p class="field-hint" data-i18n="presets.hint">Reuse a character and avatar without copying them into every story.</p>
-                        </div>
+                <div class="active-source-card" id="active-source-card" data-setup-view="adventure">
+                    <span data-i18n="adventure.sourceLabel">SOURCE SCENARIO</span>
+                    <strong id="active-source-name"></strong>
+                    <small data-i18n="adventure.sourceHint">This session is an independent copy.</small>
+                    <div class="active-source-save">
+                        <input class="text-input" id="active-scenario-name" type="text"
+                            data-i18n-placeholder="adventure.saveScenarioPlaceholder"
+                            placeholder="New scenario name">
+                        <button class="btn btn-mini" id="active-scenario-save-btn" type="button"
+                            data-i18n="adventure.saveScenario">Save snapshot as scenario</button>
                     </div>
-                    <div class="scenario-row">
-                        <select class="text-input" id="preset-select" aria-label="Character preset"></select>
-                        <button class="btn btn-mini" id="preset-load-btn" type="button" data-i18n="presets.load">Add to adventure</button>
-                        <button class="icon-btn" id="preset-delete-btn" type="button" aria-label="Delete preset">🗑️</button>
-                    </div>
-                    <p class="field-hint" id="preset-empty" data-i18n="presets.empty">No saved presets yet. Save one from a character card below.</p>
                 </div>
 
                 <!-- Narrator directives -->
-                <div class="field-group">
+                <div class="field-group" id="directives-section" data-setup-view="adventure">
                     <label class="field-label" for="setup-directives" data-i18n="setup.directives">Narrator directives</label>
                     <p class="field-hint" data-i18n="setup.directivesHint">World, tone, and extra rules the Narrator must always respect.</p>
                     <textarea class="text-area" id="setup-directives" rows="3"
@@ -217,7 +281,7 @@
                 </div>
 
                 <!-- Scene -->
-                <div class="section">
+                <div class="section" id="scene-section" data-setup-view="adventure">
                     <h3 class="section-title" data-i18n="setup.scene">🗺️ Scene</h3>
                     <div class="grid-2">
                         <div class="field-group">
@@ -240,24 +304,34 @@
                 </div>
 
                 <!-- Characters -->
-                <div class="section">
-                    <div class="section-head">
-                        <h3 class="section-title" data-i18n="setup.characters">👥 Characters</h3>
-                        <button class="btn btn-mini" id="add-char-btn" type="button" data-i18n="setup.addCharacter">+ Character</button>
+                <div class="section" id="characters-section" data-setup-view="characters">
+                    <div class="characters-intro">
+                        <p id="characters-intro-copy" data-i18n="characters.nextAdventure">Choose the cast linked to this scenario.</p>
+                    </div>
+                    <div class="field-group controlled-character-field" id="controlled-section" data-setup-view="characters">
+                        <label class="field-label" for="setup-controlled" data-i18n="setup.controlled">Your character</label>
+                        <p class="field-hint" data-i18n="characters.controlledHint">You speak and make decisions for this character.</p>
+                        <select class="text-input" id="setup-controlled"></select>
+                    </div>
+                    <div class="character-add-bar">
+                        <button class="btn btn-primary btn-mini" id="add-char-btn" type="button" data-i18n="setup.addCharacter">+ New character</button>
+                        <div class="preset-add-control">
+                            <label class="field-label" for="character-preset-select" data-i18n="presets.addSaved">Add saved character</label>
+                            <div class="scenario-row">
+                                <select class="text-input" id="character-preset-select"
+                                    data-i18n-aria-label="presets.selectAria" aria-label="Library character"></select>
+                                <button class="btn btn-mini" id="character-preset-add-btn" type="button"
+                                    data-i18n="presets.add">Add</button>
+                            </div>
+                        </div>
                     </div>
                     <div id="chars-list" class="chars-list"></div>
                 </div>
 
-                <!-- Controlled -->
-                <div class="field-group">
-                    <label class="field-label" for="setup-controlled" data-i18n="setup.controlled">Who do you control?</label>
-                    <select class="text-input" id="setup-controlled"></select>
-                </div>
-
-                <div class="setup-error" id="setup-error"></div>
+                <div class="setup-error" id="setup-error" data-setup-view="adventure"></div>
             </div>
 
-            <div class="modal-foot">
+            <div class="modal-foot" id="setup-start-foot">
                 <button class="btn btn-primary btn-lg" id="start-btn" type="button">
                     <span data-i18n="setup.start">Start adventure →</span>
                 </button>
@@ -269,6 +343,9 @@
     <div class="overlay" id="sessions-overlay">
         <div class="modal" id="sessions-modal" role="dialog" aria-modal="true" aria-labelledby="sessions-title">
             <div class="modal-head">
+                <button class="icon-btn editor-back-btn" id="sessions-back-btn" type="button"
+                    data-i18n-title="apps.back" data-i18n-aria-label="apps.back"
+                    title="Back to apps" aria-label="Back to apps">←</button>
                 <div class="modal-title-wrap">
                     <span class="modal-glyph">📋</span>
                     <div>
@@ -295,21 +372,29 @@
         <div class="char-card">
             <div class="char-card-head">
                 <span class="char-id-badge"></span>
-                <input type="text" class="text-input char-name" placeholder="Character name" data-i18n-placeholder="character.namePlaceholder">
+                <button class="char-card-toggle" type="button" aria-expanded="true">
+                    <span class="char-summary-name" data-i18n="character.untitled">New character</span>
+                    <span class="char-summary-action" data-i18n="character.editDetails">Edit details</span>
+                    <span class="char-summary-chevron" aria-hidden="true">⌄</span>
+                </button>
                 <button class="icon-btn char-remove" title="Remove" aria-label="Remove" data-i18n-title="common.remove" data-i18n-aria-label="common.remove">🗑️</button>
             </div>
             <div class="char-card-body">
+                <div class="field-group">
+                    <label class="field-label" data-i18n="character.name">Name</label>
+                    <input type="text" class="text-input char-name" placeholder="Character name" data-i18n-placeholder="character.namePlaceholder">
+                </div>
                 <div class="char-preset-row">
                     <div class="char-avatar-preview" aria-hidden="true"><span>?</span><img alt=""></div>
                     <div class="char-preset-controls">
-                        <label class="field-label" data-i18n="presets.slug">Preset name</label>
+                        <label class="field-label" data-i18n="presets.slug">Character ID</label>
                         <input type="text" class="text-input char-preset-name" placeholder="lyra-nightfall" autocomplete="off">
                         <div class="char-preset-actions">
                             <label class="btn btn-mini char-avatar-label">
                                 <span data-i18n="presets.avatar">Choose avatar</span>
                                 <input type="file" class="char-avatar-file" accept="image/*" hidden>
                             </label>
-                            <button class="btn btn-mini char-save-preset" type="button" data-i18n="presets.save">Save preset</button>
+                            <button class="btn btn-mini char-save-preset" type="button" data-i18n="presets.save">Save character</button>
                         </div>
                         <p class="field-hint" data-i18n="presets.avatarHint">The image is cropped once to a small square WebP.</p>
                     </div>
@@ -345,6 +430,9 @@
     <div class="overlay" id="plugins-overlay">
         <div class="modal plugin-center" role="dialog" aria-modal="true" aria-labelledby="plugins-title">
             <div class="modal-head">
+                <button class="icon-btn editor-back-btn" id="plugins-back-btn" type="button"
+                    data-i18n-title="apps.back" data-i18n-aria-label="apps.back"
+                    title="Back to apps" aria-label="Back to apps">←</button>
                 <div class="modal-title-wrap">
                     <span class="modal-glyph">✦</span>
                     <div>
@@ -424,11 +512,9 @@
             <h1 class="brand" id="brand-header" tabindex="0" role="button" aria-label="Open help"><span class="brand-glyph">🎭</span> Alex Tavern</h1>
             <div class="header-actions">
                 <button class="btn btn-primary" id="install-btn" type="button" hidden data-i18n="header.install">⬇ Install</button>
-                <button class="icon-btn plugin-center-trigger" id="plugins-btn" title="Plugin Center"
-                    aria-label="Plugin Center" data-i18n-title="plugins.title"
-                    data-i18n-aria-label="plugins.title">✦</button>
-                <button class="icon-btn" id="settings-btn" title="Configure" aria-label="Configure" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙️</button>
-                <button class="icon-btn" id="sessions-btn" title="Sessions" aria-label="Manage sessions" data-i18n-title="sessions.title" data-i18n-aria-label="sessions.manage">📋</button>
+                <button class="icon-btn app-drawer-trigger" id="app-drawer-btn" type="button"
+                    title="Apps" aria-label="Apps" data-i18n-title="apps.title"
+                    data-i18n-aria-label="apps.title">⠿</button>
             </div>
         </header>
 
@@ -504,6 +590,9 @@
             <!-- Help drawer -->
             <aside class="help-drawer" id="help-drawer">
                 <div class="help-head">
+                    <button class="icon-btn editor-back-btn" id="help-apps-back-btn" type="button"
+                        data-i18n-title="apps.back" data-i18n-aria-label="apps.back"
+                        title="Back to apps" aria-label="Back to apps">←</button>
                     <h3 data-i18n="help.title">Help & Guides</h3>
                     <button class="icon-btn help-close-btn" id="help-close-btn" type="button" title="Close" aria-label="Close help">✕</button>
                 </div>

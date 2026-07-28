@@ -1640,6 +1640,80 @@ class TestPresenceAdmin:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Testes — Edição do snapshot materializado da sessão
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestSessionSetupSnapshot:
+    def setup_method(self) -> None:
+        self.sid = generate_session_id()
+        self.client = httpx.AsyncClient(base_url="http://localhost:8888")
+        self.runner = Runner(self.client, {})
+        game = _make_test_game(self.sid)
+        game.scenario_source_id = "thorn-lyra"
+        save_game(game)
+
+    def teardown_method(self) -> None:
+        delete_session(self.sid)
+
+    @pytest.mark.asyncio
+    async def test_update_changes_only_the_session_snapshot(self) -> None:
+        from src.store.scenarios import load_builtin_scenario
+
+        source_before = copy.deepcopy(load_builtin_scenario("thorn-lyra"))
+        characters = copy.deepcopy(DEFAULT_CHARACTERS)
+        characters["C1"].mind.current_mood = "resolved"
+        scene = copy.deepcopy(DEFAULT_SCENE)
+        scene.location = "Cellar"
+
+        result = await self.runner.update_session_setup(
+            self.sid,
+            characters=characters,
+            scene=scene,
+            narrator_directives="Keep the cellar cold.",
+            character_preset_ids={},
+            controlled_character_id="C2",
+            expected_revision=0,
+        )
+
+        assert result["changed"] is True
+        assert result["state"]["revision"] == 1
+        assert result["state"]["scenario_source_id"] == "thorn-lyra"
+        assert result["state"]["characters"]["C1"]["mind"]["current_mood"] == "resolved"
+        assert result["state"]["scene"]["location"] == "Cellar"
+        assert result["state"]["player"]["controlled_character_id"] == "C2"
+        assert load_builtin_scenario("thorn-lyra") == source_before
+
+    @pytest.mark.asyncio
+    async def test_update_rejects_stale_revision_and_roster_shape_changes(self) -> None:
+        from src.runner import PresenceRevisionConflictError
+
+        with pytest.raises(PresenceRevisionConflictError):
+            await self.runner.update_session_setup(
+                self.sid,
+                characters=copy.deepcopy(DEFAULT_CHARACTERS),
+                scene=copy.deepcopy(DEFAULT_SCENE),
+                narrator_directives="",
+                character_preset_ids={},
+                controlled_character_id="C1",
+                expected_revision=3,
+            )
+
+        changed_roster = copy.deepcopy(DEFAULT_CHARACTERS)
+        changed_roster.pop("C2")
+        with pytest.raises(ValueError, match="IDs and order"):
+            await self.runner.update_session_setup(
+                self.sid,
+                characters=changed_roster,
+                scene=copy.deepcopy(DEFAULT_SCENE),
+                narrator_directives="",
+                character_preset_ids={},
+                controlled_character_id="C1",
+                expected_revision=0,
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Testes — Config customizada + Debug (LLM mockado)
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1718,6 +1792,28 @@ class TestCustomSessionAndDebug:
         """start_session sem personagens levanta ValueError."""
         with pytest.raises(ValueError, match="at least one character"):
             await self.runner.start_session({"characters": {}})
+
+    async def test_start_session_rejects_duplicate_character_sources(self) -> None:
+        """Um personagem da biblioteca só pode ocupar uma vaga no elenco."""
+        with pytest.raises(ValueError, match="only be linked once"):
+            await self.runner.start_session(
+                {
+                    "characters": {
+                        "C1": _custom_char("Aria"),
+                        "C2": _custom_char("Bron"),
+                    },
+                    "scene": Scene(
+                        location="Praça",
+                        time_of_day="noite",
+                        present_characters=[],
+                        physical_facts={},
+                    ),
+                    "character_preset_ids": {
+                        "C1": "same-library-character",
+                        "C2": "same-library-character",
+                    },
+                }
+            )
 
     async def test_start_session_invalid_controlled_fallback(self) -> None:
         """controlled_character_id inexistente cai no primeiro personagem."""
@@ -3086,14 +3182,29 @@ class TestDynamicConfigAndScenarios:
         assert load_user_scenario(self.temp_scenario_name) in (first, second)
 
     def test_scenarios_defaults_fallback(self) -> None:
-        """Built-ins são assets imutáveis e usam o mesmo formato canônico."""
-        from src.store.scenarios import load_builtin_scenario, load_scenario
+        """Built-ins são assets imutáveis e referenciam personagens canônicos."""
+        from src.store.presets import load_preset
+        from src.store.scenarios import (
+            list_builtin_scenarios,
+            load_builtin_scenario,
+            load_scenario,
+        )
 
-        loaded = load_builtin_scenario("thorn-lyra")
-        assert loaded is not None
-        assert loaded == load_scenario("thorn-lyra")
-        assert loaded["controlled_character_id"] == "C1"
-        assert set(loaded["characters"]["C1"]) == {"mind", "body"}
+        names = list_builtin_scenarios()
+        assert names
+        for name in names:
+            loaded = load_builtin_scenario(name)
+            assert loaded is not None
+            assert loaded == load_scenario(name)
+            assert loaded["controlled_character_id"] in loaded["character_preset_ids"]
+            assert "characters" not in loaded
+            linked_presets = list(loaded["character_preset_ids"].values())
+            assert len(set(linked_presets)) == len(linked_presets)
+            for source_id in loaded["character_preset_ids"].values():
+                character = load_preset(source_id)
+                assert character is not None
+                assert character["builtin"] is True
+                assert set(character["character"]) == {"mind", "body"}
 
 
 class TestLanguageConfiguration:

@@ -199,7 +199,7 @@ def test_preset_crud_revision_avatar_and_public_shape() -> None:
     )
     assert created["revision"] == 1
     assert "data_base64" not in json.dumps(created)
-    assert list_presets()[0]["preset_name"] == "lyra-nightfall"
+    assert any(item["preset_name"] == "lyra-nightfall" for item in list_presets())
     assert load_avatar("lyra-nightfall")[0] == avatar_bytes  # type: ignore[index]
     response = get_preset_avatar(
         "lyra-nightfall", Request({"type": "http", "method": "GET", "headers": []})
@@ -237,6 +237,27 @@ def test_preset_crud_revision_avatar_and_public_shape() -> None:
     assert updated["avatar"] is not None
     assert delete_preset("lyra-nightfall", expected_revision=2)
     assert load_preset("lyra-nightfall") is None
+
+
+def test_builtin_characters_are_listed_loadable_and_immutable() -> None:
+    builtins = [item for item in list_presets() if item["builtin"]]
+    assert builtins
+    source_id = builtins[0]["preset_name"]
+    loaded = load_preset(source_id)
+    assert loaded is not None
+    assert loaded["builtin"] is True
+    assert set(loaded["character"]) == {"mind", "body"}
+
+    with pytest.raises(PresetConflictError, match="immutable"):
+        save_preset(
+            source_id,
+            character=_character(),
+            avatar=None,
+            expected_revision=None,
+            replace=False,
+        )
+    with pytest.raises(PresetConflictError, match="cannot be deleted"):
+        delete_preset(source_id, expected_revision=loaded["revision"])
 
 
 def test_concurrent_replacement_allows_only_one_revision_winner() -> None:

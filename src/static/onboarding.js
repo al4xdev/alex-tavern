@@ -25,6 +25,7 @@ export function init(options) {
     const drawer = el('help-drawer');
     const brand = el('brand-header');
     const closeBtn = el('help-close-btn');
+    const appsBackBtn = el('help-apps-back-btn');
     const backBtn = el('help-back-btn');
     const banner = el('tip-banner');
     const bannerClose = el('tip-close-btn');
@@ -37,6 +38,10 @@ export function init(options) {
         }
     });
     closeBtn.addEventListener('click', () => setHelp(false));
+    appsBackBtn.addEventListener('click', () => {
+        setHelp(false);
+        deps.onBack?.('help');
+    });
     backBtn.addEventListener('click', showHelpMenu);
     document.querySelectorAll('.help-menu-list li').forEach((li) => {
         li.addEventListener('click', () => showHelpArticle(li.dataset.helpTopic));
@@ -54,6 +59,12 @@ export function init(options) {
         e.stopPropagation();
         banner.style.display = 'none';
     });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape' || !drawer.classList.contains('active')) return;
+        event.preventDefault();
+        setHelp(false);
+        deps.onBack?.('help');
+    });
 }
 
 export function setHelp(on) {
@@ -62,6 +73,7 @@ export function setHelp(on) {
     if (on) {
         deps.setDebug(false);
         showHelpMenu();
+        el('help-apps-back-btn').focus({ preventScroll: true });
     }
 }
 

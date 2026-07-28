@@ -599,7 +599,7 @@ sensitive session data.
 
 ---
 
-## ⌨️ Slash tools, character presets, and avatars
+## ⌨️ Slash tools, character library, and avatars
 
 Typing `/` in the Speech field opens one palette for Alex Tavern actions, active frontend-plugin
 actions, and backend plugin tools. The leading slash becomes a violet sigil beside the field while
@@ -622,13 +622,17 @@ takes precedence over `chara`, and ordinary images fail clearly rather than invo
 active structured provider maps untrusted card data into canonical `mind`/`body`; one semantic
 correction is allowed. The result is always an editable draft and is never saved automatically.
 
-Native character presets live in `.data/presets/{preset-name}.json`. Writes are atomic and use
+The reusable character library uses native records under `.data/presets/{character-id}.json`;
+built-in characters live separately under `src/characters/`. Writes are atomic and use
 per-name locks plus optimistic revisions; replacing an existing name requires explicit
-confirmation. The setup library can load, edit, save, replace, or delete presets. A browser upload
+confirmation. The character screen can load, edit, save, replace, or delete mutable characters.
+A browser upload
 is center-cropped once to a 256×256 WebP at approximately 0.82 quality. Only that compact image is
-stored with the preset. Sessions persist a character-to-preset mapping, never image Base64, and
-avatars are fetched separately through revisioned URLs with ETags for setup and chat rendering.
-Initials remain the fallback. Dynamic addition to a running session remains separate future work.
+stored with the character. Scenarios store an ordered `C*` → character-ID mapping instead of
+embedding character sheets. Starting a session resolves those records once and materializes an
+independent snapshot; later source edits never leak into the running adventure. Sessions persist
+the source identities, never image Base64, and avatars are fetched separately through revisioned
+URLs with ETags. Initials remain the fallback.
 
 The in-app **Shortcuts & Features** guide explains the same behavior in English and Brazilian
 Portuguese for non-technical users.
@@ -915,6 +919,7 @@ contract:
 | `context.contribute` | Register providers, routes, settings, or panels | Shared registry with plugin provenance |
 | `context.command` | Register one executable slash utility and its localized form | Unique global name, session lock, typed input, no narrative mutation |
 | `sdk.registerAction` | Add a global or session-scoped frontend action to the slash palette | Shared name/alias namespace; active-plugin provenance and contextual availability |
+| `sdk.registerAppEntry` | Add an explicit icon-and-title launcher to the app drawer | Strict localized text descriptor; core-first deterministic order; activation cleanup |
 | `sdk.registerCommandResultRenderer` | Render a plugin-namespaced backend result | Missing renderer disables the tool before execution |
 | `context.config` | Read/write plugin-owned global configuration | Atomic JSON, separate from session state |
 | `context.storage` | Read/write plugin-owned files under `.data/plugins/storage/<plugin-id>/` | Path-safe namespace (absolute paths, `..` and symlink escapes rejected) |
@@ -1290,9 +1295,11 @@ The entire `.data/` directory is gitignored and removed from the repository inde
 CI/CD, desktop, and packaged runtimes must create and own separate data directories rather than
 sharing a checked-in key, session, scenario, or debug log.
 
-Built-in scenarios are immutable application assets under `src/scenarios/`. User scenarios remain
-mutable runtime data under `.data/scenarios/`. Both use the same nested `mind`/`body` character
-shape from browser form through API, storage, and Runner; there is no flat legacy conversion path.
+Built-in scenarios are immutable application assets under `src/scenarios/`; their character
+records live under `src/characters/`. User scenarios remain mutable runtime data under
+`.data/scenarios/`, while user characters remain under `.data/presets/`. A scenario stores world,
+scene, directives, controlled slot, and character references only. The Runner resolves canonical
+`mind`/`body` records when it materializes the independent session snapshot.
 
 ### Browser-boundary security
 
@@ -1402,7 +1409,8 @@ Start the development server:
 This runs `uv run python -m src.supervisor --host 0.0.0.0 --port 8889`. The supervisor owns a real
 server child so activating a plugin or Experience can replace the Python process cleanly. Configuration lives
 in `.data/config.json` (gitignored); edit it through the gear menu or directly while the server is
-stopped. Scenarios (character and scene starting points) live under `.data/scenarios/`.
+stopped. Mutable scenario templates live under `.data/scenarios/` and link characters from the
+character library; they do not duplicate character sheets.
 
 For a containerized installation, run `./start_docker.sh` on Linux or use the Docker Desktop
 command from [Docker](#-docker).

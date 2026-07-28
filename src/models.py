@@ -38,7 +38,9 @@ from typing import Any
 # 13 = Task 43 close: composure removed after failing its empirical razor,
 # relationship appraisal revisions clamped to evidence the observer perceived,
 # and disposition state included in each TurnRecord's atomic undo snapshot.
-SESSION_SCHEMA_VERSION = 14
+# 14 = narrative-kernel audit state; 15 = source scenario identity on the
+# materialized session snapshot (Task 62).
+SESSION_SCHEMA_VERSION = 15
 
 
 @dataclass
@@ -381,6 +383,8 @@ class GameState:
     compaction_stack: list[CompactionStackEntry] = field(default_factory=list)
     # Character -> native preset identity. Avatar bytes remain outside session state.
     character_preset_ids: dict[str, str] = field(default_factory=dict)
+    # Source identity only. The session is a snapshot and never live-syncs from it.
+    scenario_source_id: str = ""
     presence_edit_stack: list[PresenceEditEntry] = field(default_factory=list)
     # {viewer_id: CharacterPerspective} — each character's subjective identity
     # ledger. Absent until that viewer first needs it (lazy initialization).
@@ -654,6 +658,7 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         plugin_state=copy.deepcopy(data["plugin_state"]),
         compaction_stack=compaction_stack,
         character_preset_ids=dict(data["character_preset_ids"]),
+        scenario_source_id=str(data["scenario_source_id"]),
         presence_edit_stack=presence_edit_stack,
         character_perspectives={
             viewer_id: dict_to_perspective(item)

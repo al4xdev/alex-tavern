@@ -5,7 +5,7 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v31';
+const CACHE = 'rpt-shell-v32';
 const SHELL = [
     '/',
     '/index.html',
@@ -16,6 +16,8 @@ const SHELL = [
     '/i18n.js',
     '/runtime-config.js',
     '/plugin-runtime.js',
+    '/app-registry.js',
+    '/app-drawer.js',
     '/slash-registry.js',
     '/plugin-center.js',
     '/adapters/base.js',

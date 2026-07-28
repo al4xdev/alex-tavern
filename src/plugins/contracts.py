@@ -207,6 +207,7 @@ PERMISSIONS = {
     "frontend.provider.register": "Register a browser-side provider adapter",
     "frontend.action.register": "Register a browser-side slash action",
     "frontend.command-renderer.register": "Render a plugin-namespaced command result",
+    "frontend.app.register": "Register an explicit app-drawer launcher",
 }
 
 SERVICES = {
@@ -314,6 +315,20 @@ FRONTEND_SLASH = {
     },
 }
 
+FRONTEND_APPS = {
+    "registration": "sdk.registerAppEntry(descriptor, handler)",
+    "descriptor": {
+        "required": ["name", "title", "icon"],
+        "additional_properties": False,
+        "name": "plugin-local kebab-case; internal identity is <plugin-id>/<name>",
+        "title": {"required_locales": ["en", "pt-BR"], "rendering": "textContent"},
+        "icon": {"type": "non-empty text", "max_length": 32, "rendering": "textContent"},
+    },
+    "ordering": "seven core entries first, then deterministic plugin activation/registration order",
+    "cleanup": "all entries from a frontend activation are removed if activation fails",
+    "scope": "launcher only; no router, iframe, or general application host",
+}
+
 
 def exported_contract() -> dict[str, Any]:
     from src.models import SESSION_SCHEMA_VERSION
@@ -333,6 +348,7 @@ def exported_contract() -> dict[str, Any]:
         "settings": SETTINGS,
         "commands": COMMANDS,
         "frontend_slash": FRONTEND_SLASH,
+        "frontend_apps": FRONTEND_APPS,
         "permissions": PERMISSIONS,
         "crash_policy": {
             "before_commit": "discard plugin draft, disable plugin for boot, continue clean",

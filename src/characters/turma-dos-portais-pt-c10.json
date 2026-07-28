@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "preset_name": "turma-dos-portais-pt-c10",
+  "character": {
+    "mind": {
+      "name": "Cael Vesper",
+      "personality": "Cael tem 16 anos, poder 20 e atua como arqueiro, batedor e infiltrador. Cresceu entre artistas e ladrões, fala com leveza e esconde perguntas difíceis em piadas. Toda sua habilidade é mundana, exceto um foco sensorial breve que exige respiração parada e depois causa vertigem. Diz buscar fama, mas quer encontrar o irmão desaparecido após roubar prova contra uma casa nobre. Usa sobrenome falso e teme ser expulso. Vê os portais de Link como ferramenta de infiltração, considera Bruna perigosa por notar detalhes, troca informações com Nix, sente culpa diante da confiança de Iria e suspeita que Lorde Cassian Aurel esteja ligado ao sumiço do irmão.",
+      "knowledge": [
+        "Vesper não é seu sobrenome verdadeiro e ele conhece fechaduras militares por causa da antiga quadrilha.",
+        "Seu irmão desapareceu com uma prova contra uma casa nobre; um selo quebrado parecia com o de Aurel.",
+        "Nix reconheceu sinais de sua quadrilha e ainda não o denunciou.",
+        "Bruna percebeu seu interesse por fechaduras e Noa recusou ajudá-lo a entrar nos arquivos.",
+        "Os portais de Link parecem úteis para observar ou alcançar objetos, não para vencer uma luta."
+      ],
+      "current_mood": "divertido na superfície e calculando riscos políticos"
+    },
+    "body": {
+      "name": "Cael Vesper",
+      "physical_description": "Jovem magro e ágil, pele bronzeada, olhos cinza-esverdeados, cabelos pretos ondulados e cicatriz na sobrancelha.",
+      "outfit": "Uniforme cinza com costuras ocultas, capa reversível, botas macias, arco dobrável e ferramentas disfarçadas."
+    }
+  },
+  "avatar": null,
+  "revision": 1,
+  "created_at": "2026-07-27T00:00:00+00:00",
+  "updated_at": "2026-07-27T00:00:00+00:00"
+}

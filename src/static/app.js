@@ -35,6 +35,8 @@ import { RuntimeConfig } from './runtime-config.js';
 import { PluginRuntime } from './plugin-runtime.js';
 import { PluginCenter } from './plugin-center.js';
 import { Setup } from './setup.js';
+import * as AppDrawer from './app-drawer.js';
+import { registerCoreApp } from './app-registry.js';
 import { SlashCommands } from './slash-commands.js';
 import {
     registerCoreAction,
@@ -94,7 +96,6 @@ const inputSpeech   = el('input-speech');
 const inputThought  = el('input-thought');
 const inputAction   = el('input-action');
 const sendBtn       = el('send-btn');
-const settingsBtn   = el('settings-btn');
 const emptyConfigBtn= el('empty-config-btn');
 const spinner       = el('spinner');
 const spinnerLabel  = el('spinner-label');
@@ -282,7 +283,7 @@ function registerBuiltinSlashEntries() {
     builtinAction('settings', '⚙', 'global', localized('Settings', 'Configurações'),
         localized('Configure the adventure and AI engine.', 'Configure a aventura e o motor de IA.'),
         terms([], ['configuracoes']), terms(['configure', 'engine'], ['configurar', 'motor']),
-        () => Setup.open());
+        () => Setup.openSettings());
     builtinAction('sessions', '▤', 'global', localized('Sessions', 'Sessões'),
         localized('Open, fork, or delete adventures.', 'Abra, bifurque ou apague aventuras.'),
         terms([], ['sessoes']), terms(['adventures', 'history'], ['aventuras', 'historico']),
@@ -290,7 +291,7 @@ function registerBuiltinSlashEntries() {
     builtinAction('new', '＋', 'global', localized('New adventure', 'Nova aventura'),
         localized('Prepare a new adventure.', 'Prepare uma nova aventura.'),
         terms([], ['novo']), terms(['start', 'create'], ['iniciar', 'criar']),
-        () => Setup.open());
+        () => SessionsModal.open());
 
     builtinAction('suggest', '💡', 'session', localized('Suggest a move', 'Sugerir jogada'),
         localized('Ask the Narrator for possible moves.', 'Peça ao Narrador possíveis jogadas.'),
@@ -449,10 +450,6 @@ chatLog.addEventListener('scroll', () => {
     lastScrollTop = currentScrollTop;
 });
 
-// Sessions button — open sessions modal
-settingsBtn.addEventListener('click', () => {
-    Setup.open();
-});
 if (emptyConfigBtn) emptyConfigBtn.addEventListener('click', () => {
     if (state.sessionId) expandMobileInput();
     else SessionsModal.open();
@@ -545,7 +542,11 @@ async function initializeApplication() {
             Onboarding.showHelpArticle('compaction');
         },
     });
-    PluginCenter.init({ notify: toast, restartApplication });
+    PluginCenter.init({
+        notify: toast,
+        restartApplication,
+        onBack: (entry) => AppDrawer.back(entry),
+    });
     Composer.init({
         state,
         isCompactLayout,
@@ -565,7 +566,8 @@ async function initializeApplication() {
     SessionsModal.init({
         state,
         loadSession,
-        onNewSession: () => Setup.open(),
+        onNewSession: () => Setup.openNewSession(),
+        onBack: (entry) => AppDrawer.back(entry),
         onCurrentSessionDeleted: () => {
             state.sessionId = null;
             state.compactionDepth = 0;
@@ -596,10 +598,25 @@ async function initializeApplication() {
         onToggle: (on) => { state.debug = on; },
         notify: toast,
     });
-    Onboarding.init({ setDebug: DebugDrawer.setDebug, notify: toast });
+    Onboarding.init({
+        setDebug: DebugDrawer.setDebug,
+        notify: toast,
+        onBack: (entry) => AppDrawer.back(entry),
+    });
+    AppDrawer.init({ notify: toast });
     Setup.init({
         onStart: (cfg) => startSession(cfg),
+        getSessionId: () => state.sessionId,
+        onSessionUpdated: (gameState) => {
+            ingestState(gameState);
+            hydrateAvatarUrls(gameState);
+        },
         onOpen: () => RuntimeConfig.refresh(),
+        onBack: (view) => {
+            if (view === 'sessions') SessionsModal.open();
+            else AppDrawer.back(view);
+        },
+        onClose: () => AppDrawer.close(),
         notify: toast,
     });
     SlashCommands.init({
@@ -615,6 +632,22 @@ async function initializeApplication() {
     await PluginRuntime.runHook('app.ready', null, { state, toast });
     Onboarding.checkVersionSync();
 }
+
+const appTitle = (en, ptBR) => ({ en, 'pt-BR': ptBR });
+registerCoreApp({ name: 'adventure', title: appTitle('Adventure', 'Aventura'), icon: '◇' },
+    () => Setup.openAdventure());
+registerCoreApp({ name: 'characters', title: appTitle('Characters', 'Personagens'), icon: '♟' },
+    () => Setup.openCharacters());
+registerCoreApp({ name: 'scenarios', title: appTitle('Scenarios', 'Cenários'), icon: '◉' },
+    () => Setup.openScenarios());
+registerCoreApp({ name: 'settings', title: appTitle('Settings', 'Configurações'), icon: '⚙' },
+    () => Setup.openSettings());
+registerCoreApp({ name: 'sessions', title: appTitle('Sessions', 'Sessões'), icon: '▤' },
+    SessionsModal.open);
+registerCoreApp({ name: 'plugins', title: appTitle('Plugins', 'Plugins'), icon: '✦' },
+    () => PluginCenter.open());
+registerCoreApp({ name: 'help', title: appTitle('Help', 'Ajuda'), icon: '?' },
+    () => Onboarding.setHelp(true));
 
 registerBuiltinSlashEntries();
 initializeApplication();

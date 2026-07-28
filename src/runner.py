@@ -72,6 +72,7 @@ from src.llm.debug_log import (
     log_restore_compaction,
     log_roteiro_decision,
     log_scenario_contract_warning,
+    log_session_setup_change,
     log_time_skip,
     log_turn_input,
     log_unanswered_player,
@@ -89,6 +90,7 @@ from src.models import (
     dict_to_perspective,
     dict_to_roteiro,
     dict_to_turn_record,
+    game_state_to_dict,
     perspective_to_dict,
     validate_present_characters,
 )
@@ -322,14 +324,20 @@ class Runner:
                 raise ValueError(
                     "The session needs at least one character, and no default scenario was found."
                 )
-            if not scenario_data or "characters" not in scenario_data:
+            if not scenario_data or not scenario_data.get("character_preset_ids"):
                 raise ValueError(
                     "The session needs at least one character, and the default "
                     "scenario is corrupted."
                 )
+            from src.store.presets import load_preset
+
             characters = {
-                cid: dict_to_character(cdata) for cid, cdata in scenario_data["characters"].items()
+                cid: dict_to_character(preset["character"])
+                for cid, preset_name in scenario_data["character_preset_ids"].items()
+                if (preset := load_preset(preset_name)) is not None
             }
+            if len(characters) != len(scenario_data["character_preset_ids"]):
+                raise ValueError("The default scenario links a missing character preset.")
         if "scene" in cfg:
             scene = cfg["scene"]
         elif scenario_data and "scene" in scenario_data:
@@ -370,9 +378,18 @@ class Runner:
         else:
             scene.present_characters = default_present_characters(characters)
 
-        character_preset_ids = dict(cfg.get("character_preset_ids", {}))
+        character_preset_ids = dict(
+            cfg.get("character_preset_ids")
+            or (
+                (scenario_data or {}).get("character_preset_ids", {})
+                if "characters" not in cfg
+                else {}
+            )
+        )
         if set(character_preset_ids) - set(characters):
             raise ValueError("A preset can only be linked to a character in this session.")
+        if len(set(character_preset_ids.values())) != len(character_preset_ids):
+            raise ValueError("A character preset can only be linked once in a session.")
         if character_preset_ids:
             from src.store.presets import load_preset
 
@@ -388,6 +405,7 @@ class Runner:
             created_at=datetime.now(UTC).isoformat(),
             narrator_directives=cfg.get("narrator_directives", ""),
             character_preset_ids=character_preset_ids,
+            scenario_source_id=str(cfg.get("scenario_source_id", "")),
         )
         game = await self.plugins.hooks.filter(
             Hook.SESSION_BEFORE_COMMIT, game, {"kind": "start", "runner": self}
@@ -1950,6 +1968,79 @@ class Runner:
                 "revision": game.revision,
                 "edit_id": entry.edit_id,
             }
+
+    async def update_session_setup(
+        self,
+        session_id: str,
+        *,
+        characters: dict[str, Any],
+        scene: Any,
+        narrator_directives: str,
+        character_preset_ids: dict[str, str],
+        controlled_character_id: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        """Replace editable fields on one materialized session snapshot."""
+        async with session_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                raise SessionNotFoundError(session_id)
+            if game.revision != expected_revision:
+                raise PresenceRevisionConflictError(
+                    "Session was modified concurrently; reload and retry with the current revision."
+                )
+            if list(characters) != list(game.characters):
+                raise ValueError("Active-session character IDs and order cannot be changed.")
+            if controlled_character_id not in characters:
+                raise ValueError("The controlled character must exist in this session.")
+            if set(character_preset_ids) - set(characters):
+                raise ValueError("A character source can only refer to a session character.")
+            if len(set(character_preset_ids.values())) != len(character_preset_ids):
+                raise ValueError("A character source can only be linked once in a session.")
+            from src.store.presets import load_preset
+
+            missing = [
+                source_id
+                for source_id in character_preset_ids.values()
+                if load_preset(source_id) is None
+            ]
+            if missing:
+                raise ValueError(f"Character source '{missing[0]}' was not found.")
+            scene.present_characters = validate_present_characters(
+                scene.present_characters,
+                characters,
+                controlled_character_id,
+            )
+            changed_fields = []
+            for field_name, before, after in (
+                ("characters", game.characters, characters),
+                ("scene", game.scene, scene),
+                ("narrator_directives", game.narrator_directives, narrator_directives),
+                ("character_preset_ids", game.character_preset_ids, character_preset_ids),
+                (
+                    "controlled_character_id",
+                    game.player.controlled_character_id,
+                    controlled_character_id,
+                ),
+            ):
+                if before != after:
+                    changed_fields.append(field_name)
+            if not changed_fields:
+                return {"changed": False, "state": game_state_to_dict(game)}
+            game.characters = copy.deepcopy(characters)
+            game.scene = copy.deepcopy(scene)
+            game.narrator_directives = narrator_directives
+            game.character_preset_ids = dict(character_preset_ids)
+            game.player.controlled_character_id = controlled_character_id
+            game.revision += 1
+            save_game(game)
+            log_session_setup_change(
+                session_id,
+                revision=game.revision,
+                fields=changed_fields,
+                turn_number=_current_turn(game),
+            )
+            return {"changed": True, "state": game_state_to_dict(game)}
 
     async def undo_last_presence_edit(self, session_id: str) -> dict:
         """Undo the newest out-of-band admin presence edit — strictly LIFO.
