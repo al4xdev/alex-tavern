@@ -66,7 +66,7 @@ def lexical_metrics(sid: str) -> dict:
     }
 
 
-REPO = Path("/home/alex/git/my/roleplay")
+REPO = Path(__file__).resolve().parents[2]
 BASE = REPO / "plans/artifacts/roteiro-ab"
 
 CHARACTER_SPEC = {

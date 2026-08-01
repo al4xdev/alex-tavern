@@ -93,11 +93,11 @@ Its bundled official source and help establish that:
 
 Evidence in the installed checkout:
 
-- `/home/alex/.unsloth/llama.cpp/tools/server/README.md:514`
-- `/home/alex/.unsloth/llama.cpp/tools/server/README.md:1328-1360`
-- `/home/alex/.unsloth/llama.cpp/tools/server/server-task.cpp:389-397`
-- `/home/alex/.unsloth/llama.cpp/tools/server/tests/unit/test_chat_completion.py:54-73`
-- `/home/alex/.unsloth/llama.cpp/tools/server/server-context.cpp:1545-1634`
+- `~/.unsloth/llama.cpp/tools/server/README.md:514`
+- `~/.unsloth/llama.cpp/tools/server/README.md:1328-1360`
+- `~/.unsloth/llama.cpp/tools/server/server-task.cpp:389-397`
+- `~/.unsloth/llama.cpp/tools/server/tests/unit/test_chat_completion.py:54-73`
+- `~/.unsloth/llama.cpp/tools/server/server-context.cpp:1545-1634`
 
 The configured llama.cpp endpoint (`192.168.0.183:8888`) was unreachable during this
 exploration. Its running version, flags, slot count, and actual cache counters remain unverified.
@@ -180,12 +180,12 @@ The DeepCode clone does two relevant things rather than implementing its own res
 1. It orders default system messages from broadly stable to runtime/project-specific content and
    has a regression test named `createSession appends default system prompts in
    prefix-cache-friendly order`
-   (`/home/alex/git/my/deepcode/packages/core/src/session.ts:1144-1173`,
-   `/home/alex/git/my/deepcode/packages/core/src/tests/session.test.ts:1107-1142`).
+   (`../deepcode/packages/core/src/session.ts:1144-1173`,
+   `../deepcode/packages/core/src/tests/session.test.ts:1107-1142`).
 2. It retains and recursively aggregates provider `usage`, including both
    `prompt_tokens_details.cached_tokens` and DeepSeek's direct hit/miss fields, per model
-   (`/home/alex/git/my/deepcode/packages/core/src/session.ts:145-204`,
-   `/home/alex/git/my/deepcode/packages/core/src/tests/session.test.ts:2970-3017`).
+   (`../deepcode/packages/core/src/session.ts:145-204`,
+   `../deepcode/packages/core/src/tests/session.test.ts:2970-3017`).
 
 The reusable pattern is stable-prefix ordering plus provider evidence. It is not a client-side
 cache of generated responses.

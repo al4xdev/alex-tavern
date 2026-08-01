@@ -7,8 +7,9 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, "/home/alex/git/my/roleplay")
-OUT = Path("/home/alex/git/my/roleplay/plans/artifacts/burst-live")
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+OUT = REPO / "plans/artifacts/burst-live"
 os.environ["ROLEPLAY_DATA_DIR"] = str(OUT / "data")
 import httpx
 
@@ -47,7 +48,7 @@ CH = {
 
 async def main():
     config = resolve_active_config(
-        load_config(Path("/home/alex/git/my/roleplay/.data/config.json"))
+        load_config(REPO / ".data/config.json")
     )
     config.update(
         {

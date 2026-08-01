@@ -3,7 +3,7 @@
 **Status:** Completed and closed
 **Closed:** 2026-07-13
 **README evidence:** `README.md`
-**Detailed report:** [walkthrough.md](file:///home/alex/.gemini/antigravity-cli/brain/d16b955d-246f-453e-8845-7c0804525a7f/walkthrough.md)
+**Detailed report:** `~/.gemini/antigravity-cli/brain/d16b955d-246f-453e-8845-7c0804525a7f/walkthrough.md`
 
 ## Goal
 

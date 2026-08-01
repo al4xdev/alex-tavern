@@ -7,7 +7,7 @@
         "python",
         "tools/mcp_server.py"
       ],
-      "cwd": "/home/alex/git/my/roleplay"
+      "cwd": "."
     }
   }
 }
