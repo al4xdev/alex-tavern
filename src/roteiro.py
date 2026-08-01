@@ -320,7 +320,7 @@ def _validate_beat(raw: object, game: GameState, fallback_id: str) -> RoteiroBea
         cid
         for cid in dict.fromkeys(raw.get("expected_actors") or [])
         if isinstance(cid, str) and cid in game.characters and cid != controlled
-    ][:4]
+    ]
     anchors = [
         anchor.strip()
         for anchor in dict.fromkeys(raw.get("expected_anchors") or [])
@@ -402,7 +402,7 @@ _ARCHITECT_RULES = (
     "  show. A beat is something that HAPPENS, not something explained.\n"
     "- expected_actors: character IDs who should get stage time during the\n"
     "  beat. Naming someone here is a request for presence, never a script.\n"
-    "- expected_anchors: 2-4 short CONCRETE single nouns (objects, places, names) that\n"
+    "- expected_anchors: 2-4 short CONCRETE tokens (objects, places, names) that\n"
     "  physically ENTER or CHANGE in the scene when the beat lands, not topics\n"
     "  of conversation. Measurable, not abstract.\n"
     "- exit_condition: one observable sentence describing how the beat ends.\n"

@@ -290,16 +290,6 @@ class TestBeatValidation:
         )
         assert beat.expected_actors == ["C2"]
 
-    def test_expected_actors_clamped_to_max_4(self) -> None:
-        game = _game(characters=make_cast("C1", "C2", "C3", "C4", "C5", "C6"))
-        beat = _validate_beat(
-            {"intent": "x", "expected_actors": [f"C{i}" for i in range(2, 7)], "expected_anchors": []},
-            game,
-            fallback_id="fb",
-        )
-        assert len(beat.expected_actors) == 4
-        assert beat.expected_actors == ["C2", "C3", "C4", "C5"]
-
     def test_budget_clamped_and_anchors_capped(self) -> None:
         beat = _validate_beat(
             {
