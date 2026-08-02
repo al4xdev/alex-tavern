@@ -75,7 +75,9 @@ class TestDetection:
 
 
 class TestGuardRetry:
-    async def _narrate(self, monkeypatch, responses: list[dict]) -> tuple[dict, list[dict]]:
+    async def _narrate(  # noqa: ANN001
+        self, monkeypatch, responses: list[dict], hint: str = HINT, control: bool = False
+    ) -> tuple[dict, list[dict]]:
         calls: list[dict] = []
 
         async def fake_call_agent(client, config, messages, **kwargs):  # noqa: ANN001, ANN003
@@ -93,7 +95,8 @@ class TestGuardRetry:
             player_controlled_id="C1",
             history=game.history,
             config={},
-            narrator_hint=HINT,
+            narrator_hint=hint,
+            hint_is_control_signal=control,
         )
         return result, calls
 
@@ -130,6 +133,48 @@ class TestGuardRetry:
         result, calls = await self._narrate(monkeypatch, [stubborn])
         assert len(calls) == 2
         assert result["perception_events"], "a refused hint never costs the turn"
+
+
+class TestControlSignalsAreExempt:
+    """A control signal instructs the Director; it is not an event to perceive.
+
+    ``CLOCK_SKIP_INVITE`` went down the same channel and failed the
+    materialization check on 6 of 6 skip turns in every battery run — it is an
+    English constant and the scenes are Portuguese, so no content word can ever
+    match. Each miss burned a full Director call (~170k tokens per session, about
+    13% of the run) on a retry that could not succeed, and the correction it sent
+    asked for the instruction text itself to become the first perception event.
+    The Director refused all 6 times, so nothing leaked; the cost and the prompt
+    noise were real.
+    """
+
+    _narrate = TestGuardRetry._narrate
+
+    @pytest.mark.asyncio
+    async def test_a_control_signal_never_triggers_the_correction(self, monkeypatch) -> None:  # noqa: ANN001
+        from src.runner import CLOCK_SKIP_INVITE
+
+        ignoring = director_beat(
+            next_speakers=["C2"], perception_events=_events("Maelis observa o portal.")
+        )
+        _, calls = await self._narrate(
+            monkeypatch, [ignoring], hint=CLOCK_SKIP_INVITE, control=True
+        )
+        assert len(calls) == 1, "um sinal de controle nao tem o que materializar"
+        assert calls[0].get("guard_retry", "") == ""
+
+    @pytest.mark.asyncio
+    async def test_the_same_signal_without_the_flag_still_costs_a_retry(self, monkeypatch) -> None:  # noqa: ANN001
+        """The exemption is the flag, not the text — the old path is unchanged."""
+        from src.runner import CLOCK_SKIP_INVITE
+
+        ignoring = director_beat(
+            next_speakers=["C2"], perception_events=_events("Maelis observa o portal.")
+        )
+        _, calls = await self._narrate(
+            monkeypatch, [ignoring], hint=CLOCK_SKIP_INVITE, control=False
+        )
+        assert len(calls) == 2
 
 
 def test_the_mandatory_rule_ships_in_the_system_prompt() -> None:

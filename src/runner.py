@@ -609,11 +609,18 @@ class Runner:
                 # one carries its own anchor.
                 beat_anchor = _undo_anchor(game)
 
-                hint, injected_event = await self._resolve_beat_hint(
+                hint, injected_event, hint_is_control = await self._resolve_beat_hint(
                     game, step, beat_index, turn, pending_hint
                 )
                 narrator_raw = await self._director_beat(
-                    game, step, turn, beat_index, hint, multi_beat=max_beats > 1, burst=burst
+                    game,
+                    step,
+                    turn,
+                    beat_index,
+                    hint,
+                    multi_beat=max_beats > 1,
+                    burst=burst,
+                    hint_is_control=hint_is_control,
                 )
 
                 # A manual force wins over whatever the Director (or a plugin filter)
@@ -950,11 +957,15 @@ class Runner:
         5. the watcher's causal disruption (Task 33b), the semantic fallback that
            only speaks when everything gentler left the scene standing still.
 
-        Returns the hint and whether it came from the world rather than the human,
-        which is what ``turns_since_injected_event`` counts.
+        Returns the hint, whether it came from the world rather than the human
+        (which is what ``turns_since_injected_event`` counts), and whether it is a
+        CONTROL SIGNAL rather than an event — the clock invite instructs the
+        Director, it is not something a character can perceive, so it must not be
+        held to the event-materialization contract.
         """
         hint = pending
         injected = False
+        is_control_signal = False
         opening_skip = beat_index == 0 and turn.skip
 
         if opening_skip and not hint.strip():
@@ -984,6 +995,7 @@ class Runner:
             # DECIDES the skip; the code only invites and later clamps the result.
             # Validated: a live scene never skips even when invited.
             hint = CLOCK_SKIP_INVITE
+            is_control_signal = True
 
         # Roteiro maintenance (Task 38): CODE decides whether the story direction
         # needs a new rolling beat (coverage/budget/drift over history, with
@@ -1003,7 +1015,7 @@ class Runner:
             if watch_hint:
                 hint = watch_hint
                 injected = True
-        return hint, injected
+        return hint, injected, is_control_signal
 
     async def _director_beat(
         self,
@@ -1015,6 +1027,7 @@ class Runner:
         *,
         multi_beat: bool,
         burst: BurstState,
+        hint_is_control: bool = False,
     ) -> dict[str, Any]:
         """Run the Director call for one beat, with the plugin surfaces around it.
 
@@ -1043,6 +1056,7 @@ class Runner:
                 step,
                 turn.effective_force_speaker,
                 hint,
+                hint_is_control_signal=hint_is_control,
                 extra_context=extra_context,
                 extra_schema_properties=dict(schema_extension.get("properties", {})),
                 extra_schema_required=list(schema_extension.get("required", [])),
@@ -2293,6 +2307,7 @@ class Runner:
         turn_number: int,
         forced_speaker: str | None = None,
         narrator_hint: str = "",
+        hint_is_control_signal: bool = False,
         extra_context: list[str] | None = None,
         extra_schema_properties: dict[str, Any] | None = None,
         extra_schema_required: list[str] | None = None,
@@ -2324,6 +2339,7 @@ class Runner:
             story_summary=game.story_summary,
             forced_speaker=forced_speaker,
             narrator_hint=narrator_hint,
+            hint_is_control_signal=hint_is_control_signal,
             exclude_speaker=exclude_speaker,
             extra_context=extra_context,
             extra_schema_properties=extra_schema_properties,

@@ -872,6 +872,7 @@ class TestRunnerLogic:
             turn_number,
             forced_speaker=None,
             narrator_hint="",  # noqa: ANN001
+            hint_is_control_signal=False,  # noqa: ANN001
             extra_context=None,
             extra_schema_properties=None,
             extra_schema_required=None,  # noqa: ANN001

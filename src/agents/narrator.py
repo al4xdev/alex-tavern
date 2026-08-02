@@ -619,6 +619,7 @@ async def narrate(
     story_summary: str = "",
     forced_speaker: str | None = None,
     narrator_hint: str = "",
+    hint_is_control_signal: bool = False,
     exclude_speaker: str | None = None,
     extra_context: list[str] | None = None,
     extra_schema_properties: dict[str, Any] | None = None,
@@ -684,7 +685,20 @@ async def narrate(
     }
     result = await call_agent(client, config, messages, **request_kwargs)
 
-    if narrator_hint.strip() and not _hint_materialized(result, narrator_hint):
+    # A CONTROL SIGNAL is an instruction to the Director, not an event for the
+    # fiction, so there is nothing for it to "materialize" as a perception event
+    # — and the correction would literally ask for the instruction text to become
+    # the first thing a character perceives. Measured on the battery runs: the
+    # clock invite failed the check on 6 of 6 skip turns (it is an English
+    # constant in a Portuguese scene, so no content word can ever match), burning
+    # ~170k tokens per session, about 13% of the run, on a retry that cannot
+    # succeed. The Director resisted all 6 times, so nothing leaked into the
+    # story — this is pure waste plus prompt noise.
+    if (
+        narrator_hint.strip()
+        and not hint_is_control_signal
+        and not _hint_materialized(result, narrator_hint)
+    ):
         result = await call_agent(
             client,
             config,

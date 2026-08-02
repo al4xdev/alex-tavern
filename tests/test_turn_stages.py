@@ -58,17 +58,24 @@ def runner() -> Runner:
 
 class TestBeatHintPrecedence:
     async def test_a_hint_the_player_wrote_is_never_overridden(self, runner: Runner) -> None:
-        hint, injected = await runner._resolve_beat_hint(_game(), 1, 0, _turn(), "A storm nears.")
+        hint, injected, control = await runner._resolve_beat_hint(
+            _game(), 1, 0, _turn(), "A storm nears."
+        )
         assert hint == "A storm nears."
         assert injected is False
 
     async def test_a_bare_skip_falls_back_to_the_time_compression_invite(
         self, runner: Runner
     ) -> None:
-        hint, injected = await runner._resolve_beat_hint(_game(), 1, 0, _turn(), "")
+        hint, injected, control = await runner._resolve_beat_hint(_game(), 1, 0, _turn(), "")
         assert hint == CLOCK_SKIP_INVITE
         # The invite is a question for the Director, not an event the world caused.
         assert injected is False
+        # ...and not an event at all, so it is exempt from the materialization
+        # contract. It failed that check on 6 of 6 skip turns in the battery runs
+        # (an English constant in a Portuguese scene), burning ~13% of the
+        # session's tokens on a retry that could never succeed.
+        assert control is True
 
     async def test_the_drive_seed_wins_over_the_invite(
         self, runner: Runner, monkeypatch: pytest.MonkeyPatch
@@ -81,21 +88,22 @@ class TestBeatHintPrecedence:
         monkeypatch.setattr(runner_mod, "generate_event_seed", seed)
         runner.config = {"auto_event_enabled": True, "auto_event_base_probability": 1.0}
 
-        hint, injected = await runner._resolve_beat_hint(_game(), 1, 0, _turn(), "")
+        hint, injected, control = await runner._resolve_beat_hint(_game(), 1, 0, _turn(), "")
 
         assert hint == "Um cavalo escapa do estábulo."
         assert injected is True
+        assert control is False, "a drive seed IS an event and must materialize"
 
     async def test_a_turn_with_content_gets_no_invite(self, runner: Runner) -> None:
         """The invite is the "player passed" signal; a written turn is not one."""
-        hint, injected = await runner._resolve_beat_hint(
+        hint, injected, control = await runner._resolve_beat_hint(
             _game(), 1, 0, _turn(skip=False, speech="Boa noite."), ""
         )
         assert hint == ""
         assert injected is False
 
     async def test_later_burst_beats_get_no_invite_either(self, runner: Runner) -> None:
-        hint, _ = await runner._resolve_beat_hint(_game(), 2, 1, _turn(), "")
+        hint, _, control = await runner._resolve_beat_hint(_game(), 2, 1, _turn(), "")
         assert hint == ""
 
     async def test_the_watcher_speaks_only_when_nothing_else_did(
@@ -107,13 +115,13 @@ class TestBeatHintPrecedence:
         monkeypatch.setattr(runner, "_maybe_watcher_recovery", recovery)
 
         # A written turn leaves the channel free, so the watcher may use it...
-        hint, injected = await runner._resolve_beat_hint(
+        hint, injected, control = await runner._resolve_beat_hint(
             _game(), 1, 0, _turn(skip=False, speech="Boa noite."), ""
         )
         assert (hint, injected) == ("A porta range.", True)
 
         # ...but it never displaces what the player wrote.
-        hint, injected = await runner._resolve_beat_hint(
+        hint, injected, control = await runner._resolve_beat_hint(
             _game(), 1, 0, _turn(skip=False, speech="Boa noite."), "O sino toca."
         )
         assert (hint, injected) == ("O sino toca.", False)
