@@ -1,0 +1,46 @@
+{
+  "label": "p2-spoken",
+  "archived_at": "2026-08-02T15:04:52.465002+00:00",
+  "engine": {
+    "fingerprint": "6ed5639e049f",
+    "commit": "2d512ab",
+    "commit_subject": "feat(benchmarks): archive batteries keyed by the engine that ran them",
+    "dirty": false
+  },
+  "models": [],
+  "model_note": "Provider weights can change without the id changing; a benchmark is comparable only to runs on the same id AND the same weights window.",
+  "runs": [
+    {
+      "run": "base-P2-r1",
+      "cell": "base",
+      "profile": "P2",
+      "replicate": 1,
+      "session_id": "87157fa1",
+      "provenance": {}
+    },
+    {
+      "run": "base-P2-r2",
+      "cell": "base",
+      "profile": "P2",
+      "replicate": 2,
+      "session_id": "4351ed30",
+      "provenance": {}
+    },
+    {
+      "run": "oldcode-P2-r1",
+      "cell": "oldcode",
+      "profile": "P2",
+      "replicate": 1,
+      "session_id": "976e9d42",
+      "provenance": {}
+    },
+    {
+      "run": "oldcode-P2-r2",
+      "cell": "oldcode",
+      "profile": "P2",
+      "replicate": 2,
+      "session_id": "45dac069",
+      "provenance": {}
+    }
+  ]
+}
