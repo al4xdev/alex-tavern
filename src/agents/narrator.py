@@ -12,6 +12,7 @@ from src.confidentiality import (
     hidden_thought_tokens,
     hidden_whisper_tokens,
     redact_tokens,
+    scene_fact_secret_tokens,
 )
 from src.llm.client import call_agent, normalize_generated_text
 from src.models import (
@@ -361,7 +362,12 @@ def build_narrator_json_schema(
                         "location": {"type": "string"},
                         "time_of_day": {"type": "string"},
                     },
-                    "additionalProperties": {"type": ["string", "null"]},
+                    # Any scalar, coerced downstream by `_clean_fact_value`. It
+                    # used to demand string-or-null, and one boolean value made
+                    # the local validator discard the entire decision and
+                    # resample blind — 5 of the 8 Director validation failures
+                    # across the battery runs were exactly that.
+                    "additionalProperties": True,
                 },
                 "mood_updates": {
                     "type": ["object", "null"],
@@ -781,15 +787,49 @@ async def narrate(
             content = redact_tokens(content, thought_secret)
         event["content"] = content
 
-    for field in ("scene_update", "mood_updates"):
-        values = result.get(field)
-        if isinstance(values, dict):
-            result[field] = {
-                key: normalize_generated_text(value) if isinstance(value, str) else value
-                for key, value in values.items()
-            }
+    # `scene_update` is the one output with no per-viewer projection: its keys
+    # become durable physical facts that reach the prose prompt verbatim AND are
+    # counted as public knowledge by the secrecy guards, forever. So it needs the
+    # SAME redaction the events get, against a stricter set — see
+    # `scene_fact_secret_tokens`.
+    fact_secret = scene_fact_secret_tokens(history, characters, scene)
+    values = result.get("scene_update")
+    if isinstance(values, dict):
+        result["scene_update"] = {
+            key: _clean_fact_value(value, fact_secret) for key, value in values.items()
+        }
+
+    values = result.get("mood_updates")
+    if isinstance(values, dict):
+        result["mood_updates"] = {
+            key: normalize_generated_text(value) if isinstance(value, str) else value
+            for key, value in values.items()
+        }
 
     return result
+
+
+def _clean_fact_value(value: object, secret: set[str]) -> str | None:
+    """Coerce a fact value to text (or ``None`` to delete), then redact secrets.
+
+    COERCE, never reject. The schema used to demand string-or-null here and the
+    local validator threw away the WHOLE decision — events, moods, zone moves —
+    when a single value came back as a bool, resampling with the same messages
+    and no correction. Measured across the battery runs: 5 of the 8 Director
+    validation failures were exactly one boolean fact value. A lossless
+    conversion is strictly better than losing the turn.
+    """
+    if value is None:
+        return None  # an explicit delete, preserved
+    if isinstance(value, bool):
+        value = "true" if value else "false"
+    elif not isinstance(value, str):
+        if isinstance(value, (int, float)):
+            value = str(value)
+        else:
+            return None  # a list/dict is not a fact; drop the key
+    text = normalize_generated_text(str(value))
+    return redact_tokens(text, secret) if secret else text
 
 
 def _build_suggest_system_prompt(

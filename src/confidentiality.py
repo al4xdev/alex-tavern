@@ -259,3 +259,30 @@ def redact_tokens(text: str, secret: set[str]) -> str:
     redacted = pattern.sub(REDACTION_MARKER, text)
     marker = re.escape(REDACTION_MARKER)
     return re.sub(rf"{marker}(?:[\s\-,;:/.]*{marker})+", REDACTION_MARKER, redacted)
+
+
+def scene_fact_secret_tokens(
+    history: list[TurnRecord],
+    characters: dict[str, Character],
+    scene: Scene,
+) -> set[str]:
+    """Tokens that must never be written into a durable scene fact.
+
+    Physical facts are the one Director output with no per-viewer projection:
+    ``perception_events`` are rendered separately for each witness and whispers
+    are stripped there, but a fact goes verbatim into the prose prompt and into
+    ``known_tokens`` for EVERY viewer. Worse, being "known" is subtractive — a
+    token that appears in a fact is removed from both the whisper and the
+    thought secret sets from then on, and facts are never pruned. So one
+    whispered detail laundered through a fact silences the guard for everyone,
+    permanently.
+
+    Hence the union: thought-only tokens, plus anything whispered that ANY
+    present character did not hear. If a whisper reached everyone but one
+    person, publishing it as a fact is precisely what leaks it to that person.
+    """
+    secret = hidden_thought_tokens(history, characters, scene)
+    for viewer_id in scene.present_characters:
+        if viewer_id in characters:
+            secret |= hidden_whisper_tokens(history, viewer_id, characters, scene)
+    return secret

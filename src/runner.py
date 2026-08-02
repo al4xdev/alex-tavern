@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import re
 from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
-from difflib import SequenceMatcher
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -94,7 +94,13 @@ from src.models import (
     perspective_to_dict,
     validate_present_characters,
 )
-from src.perception import eligible_witnesses, render_events_for_viewer, repeats_event_text
+from src.perception import (
+    comparable_text,
+    eligible_witnesses,
+    render_events_for_viewer,
+    repeats_event_text,
+    similar_text,
+)
 from src.plugins.contracts import Hook
 from src.plugins.runtime import PluginRuntime
 from src.prompt_contract import operator_ontology_hits
@@ -154,7 +160,79 @@ _EMPTY_BEAT: dict[str, Any] = {
 # Character agent uses for its own echo guard, for the same reason.
 _SPEECH_ECHO_THRESHOLD = 0.88
 _SPEECH_ECHO_MIN_CHARS = 30
-_SPEECH_ECHO_LOOKBACK = 8
+# Counted in TURNS, not records. A record window (it was 8) is a moving target:
+# at a 21-character cast eight records is about one turn, and every one of the
+# seven verbatim duplicates measured in session 20d4cdb3 sat 10-19 records back
+# — three of them above the threshold, blocked only by the window being too
+# short to see them. Turns are the unit the defect actually recurs in.
+_SPEECH_ECHO_LOOKBACK_TURNS = 4
+
+
+# Physical facts are durable, unbounded and never pruned: the only prune path
+# clears them on a LOCATION change, and the Director reliably re-emits the
+# identical location string, so it never fires. Measured on the battery runs, a
+# 38-turn session accumulated 54 keys / 3169 chars of Director prompt, 10 of
+# them near-synonym pairs (ceiling_crack / crack_in_ceiling / ceil_crack_widened)
+# and 18 per-character transient state.
+# A SAFETY VALVE, not the policy. The intake filters below are what actually
+# bound the channel: replayed against the 38-turn session they refuse 63 keys and
+# take the peak from 54 to 32. The cap only exists so pathological growth cannot
+# run away. Sized above that observed peak on purpose — at 24 it evicted 8 facts
+# that nothing else objected to, and eviction is dangerous here: dropping
+# `main_doors: trancadas` is precisely what would let the Director seal the doors
+# again, so a cap set too low causes the defect it is meant to help with.
+_MAX_PHYSICAL_FACTS = 40
+_FACT_SYNONYM_THRESHOLD = 0.75
+# Per-character transient state. Where someone is standing belongs in
+# zone_moves, how they feel in mood_updates; neither is a durable world fact,
+# and writing them here is what filled a third of the budget.
+_TRANSIENT_FACT_KEY = re.compile(r"_(action|position|stance|state|status)$")
+
+
+def _canonical_fact_key(key: str) -> str:
+    """A fact key reduced to its sorted word set.
+
+    Compared raw, ``crack_in_ceiling`` and ``ceiling_crack`` score 0.48 — a
+    character-level ratio cannot see word reordering, which is exactly how the
+    Director spells the same fact twice. Sorting the words first takes that pair
+    to 0.90 while pushing unrelated keys further APART (``main_doors`` vs
+    ``crack_in_ceiling``: 0.31 raw, 0.15 canonical), so the separation improves
+    in both directions.
+    """
+    return " ".join(sorted(comparable_text(key).replace("_", " ").split()))
+
+
+def _fact_key_admissible(key: str, facts: dict[str, str]) -> bool:
+    """Whether a new physical-fact key may join the scene.
+
+    Rejects per-character transient state and near-synonyms of a key already
+    present, so the same crack cannot be tracked under three names at once. An
+    exact re-write of an existing key is always allowed: that is an UPDATE, and
+    updating a fact is the whole point of the channel.
+
+    Deliberately conservative. Refusing a genuinely new fact loses world state;
+    admitting a near-duplicate only costs prompt budget, which the eviction cap
+    already bounds. So borderline pairs are let through.
+    """
+    if key in facts:
+        return True
+    if _TRANSIENT_FACT_KEY.search(key):
+        return False
+    canonical = _canonical_fact_key(key)
+    return not any(
+        similar_text(canonical, _canonical_fact_key(existing)) > _FACT_SYNONYM_THRESHOLD
+        for existing in facts
+    )
+
+
+def _evict_oldest_facts(facts: dict[str, str]) -> None:
+    """Keep the fact budget bounded, dropping the least recently written first.
+
+    Python dicts preserve insertion order and ``_update_scene`` re-inserts on
+    every write, so iteration order is already least-recently-written first.
+    """
+    while len(facts) > _MAX_PHYSICAL_FACTS:
+        facts.pop(next(iter(facts)))
 
 
 def _echoes_recent_speech(game: GameState, subject: str, spoken: str) -> bool:
@@ -163,18 +241,27 @@ def _echoes_recent_speech(game: GameState, subject: str, spoken: str) -> bool:
     "The same voice" includes the ``Player`` sentinel when the subject is the
     controlled character: the Director reformulating the human's own input as
     ``Link diz: ...`` is the exact duplication this guards against.
+
+    Comparison runs on the frame-stripped payload (``comparable_text``): the
+    Director re-voices a line wrapped in an attribution ("Lorde Cassian Aurel
+    comenta em voz alta: '<line>'"), and that wrapper alone dropped raw
+    similarity from 1.0 to 0.82-0.86 — under the threshold, so the duplicate was
+    persisted as a fresh speech record and fed back through RECENT EVENTS every
+    following turn (docs/cases/20-repetition-baseline-2026-08-01.md).
     """
     if len(spoken) < _SPEECH_ECHO_MIN_CHARS:
         return False
     voices = {subject}
     if subject == game.player.controlled_character_id:
         voices.add("Player")
-    candidate = " ".join(spoken.lower().split())
-    for record in game.history[-_SPEECH_ECHO_LOOKBACK:]:
+    turns = sorted({record.turn_number for record in game.history})
+    recent_turns = set(turns[-_SPEECH_ECHO_LOOKBACK_TURNS:])
+    for record in game.history:
+        if record.turn_number not in recent_turns:
+            continue
         if record.content_type not in ("speech", "action") or record.speaker not in voices:
             continue
-        prior = " ".join(record.content.lower().split())
-        if SequenceMatcher(None, candidate, prior).ratio() >= _SPEECH_ECHO_THRESHOLD:
+        if similar_text(spoken, record.content) >= _SPEECH_ECHO_THRESHOLD:
             return True
     return False
 
@@ -2510,10 +2597,13 @@ class Runner:
         for key, value in scene_update.items():
             if key in {"location", "time_of_day"}:
                 continue
+            if value is not None and not _fact_key_admissible(key, game.scene.physical_facts):
+                continue
             if value is None:
                 game.scene.physical_facts.pop(key, None)
             else:
                 game.scene.physical_facts[key] = value
+                _evict_oldest_facts(game.scene.physical_facts)
 
     def _update_moods(self, game: GameState, mood_updates: dict[str, str]) -> None:
         """Applies the new mood decided by the Narrator to each affected character."""

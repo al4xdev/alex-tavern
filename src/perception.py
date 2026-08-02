@@ -10,6 +10,9 @@ unlearned names and internal IDs never reach a character prompt.
 
 from __future__ import annotations
 
+import re
+import unicodedata
+from difflib import SequenceMatcher
 from typing import Any
 
 from src.agents.perspective import project_text_for_viewer
@@ -149,14 +152,43 @@ def describe_zones_for_narrator(scene: Scene, characters: dict[str, Character]) 
     return lines
 
 
+# "<attribution>: '<payload>'" — the wrapper the Director puts around a line it
+# re-voices ("A Diretora Maelis Ordan, do pódio, anuncia em voz clara: '...'").
+# It costs roughly 0.16 of raw similarity, which is enough to carry a VERBATIM
+# repeat under any sane threshold: the nine duplicates measured in sessions
+# 20d4cdb3 and 15d40dfa score 0.82-0.95 raw and 1.0000 on the payload alone
+# (docs/cases/20-repetition-baseline-2026-08-01.md).
+_ATTRIBUTION_FRAME = re.compile(r"^.{0,90}?[:—–-]\s*[\"'“‘](.+)[\"'”’]\s*$", re.S)
+
+
+def unframe_speech(text: str) -> str:
+    """The quoted payload of an attribution frame, or the text unchanged."""
+    match = _ATTRIBUTION_FRAME.match(text.strip())
+    return match.group(1) if match else text
+
+
+def comparable_text(text: str) -> str:
+    """Normalized comparison key: payload only, accent- and case-folded.
+
+    Accents are folded because the same line re-voiced is often re-typed, and a
+    single dropped diacritic must not read as a different sentence.
+    """
+    decomposed = unicodedata.normalize("NFD", unframe_speech(text).casefold())
+    stripped = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    return " ".join(stripped.split())
+
+
+def similar_text(left: str, right: str) -> float:
+    """Similarity of two utterances, blind to attribution framing."""
+    return SequenceMatcher(None, comparable_text(left), comparable_text(right)).ratio()
+
+
 def repeats_event_text(content: str, previous: list[str], threshold: float = 0.8) -> bool:
     """Whether an event near-duplicates one already established (fuzzy per text).
 
     Used by the autonomous burst so a single stimulus is resolved exactly once
     across beats instead of being re-narrated with synonyms.
     """
-    from difflib import SequenceMatcher
-
     normalized = " ".join(content.lower().split())
     for prior in previous:
         prior_normalized = " ".join(prior.lower().split())
