@@ -1,0 +1,3449 @@
+[
+  {
+    "run": "base-P1-r1",
+    "cell": "base",
+    "profile": "P1",
+    "replicate": 1,
+    "session_id": "22b27d6e",
+    "provenance": {},
+    "metrics": {
+      "session_id": "22b27d6e",
+      "tau": 0.8,
+      "turns": 29,
+      "player_actions": 10,
+      "rsr_prop": 0.01,
+      "stimuli": 100,
+      "repeated_stimuli": 1,
+      "nsr": 3.413793103448276,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.13793103448275862,
+      "guard_turns": 4,
+      "prose_turns": 29,
+      "beat_occupancy_max": 3,
+      "beat_runs": [
+        {
+          "beat_id": "beat_1_1",
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_1_2",
+          "turns": [
+            4,
+            5,
+            6
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_1",
+          "turns": [
+            7,
+            8,
+            9
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_2",
+          "turns": [
+            10,
+            11,
+            12
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_3",
+          "turns": [
+            13
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "beat_3_1",
+          "turns": [
+            14,
+            15
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_3_2",
+          "turns": [
+            16,
+            17,
+            18
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_3_3",
+          "turns": [
+            19,
+            20
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_3_4",
+          "turns": [
+            21
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "beat_4_1",
+          "turns": [
+            22,
+            23,
+            24
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_4_2",
+          "turns": [
+            25,
+            26,
+            27
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_5_1",
+          "turns": [
+            28,
+            29
+          ],
+          "length": 2
+        }
+      ],
+      "exit_reasons": {
+        "replan_beat:stalled": 6,
+        "act_deadline:clock": 4,
+        "advance:coverage_sufficient": 1,
+        "act_regenerate:acts_exhausted": 1
+      },
+      "replans_per_action": 1.2,
+      "llm_calls_per_action": 19.0,
+      "act_rewrites": 1,
+      "act_rewrites_per_action": 0.1,
+      "cluster_max": 2,
+      "cluster_span": 2,
+      "clusters": [
+        {
+          "turns": [
+            5,
+            6
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Irmã Elowen ergue a cabeça e anuncia, com voz firme: 'Ele está vivo, mas perdeu muito sangue. O selo está quente; foi ativado há menos de um"
+        },
+        {
+          "turns": [
+            14,
+            15
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Perto do corpo, uma picareta rúnica quebrada está cravada no chão; o metal ainda emite um brilho fraco e o ar carrega cheiro intenso de enxo"
+        },
+        {
+          "turns": [
+            17,
+            18
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Elowen aponta para as marcas de garras frescas no chão enpoeirado da passagem secreta recém-aberta."
+        },
+        {
+          "turns": [
+            19,
+            20
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "A parede lateral do túnel estala e uma brecha se alarga, revelando uma câmara escura onde um artefato metálico pulsante emite luz amarelada "
+        },
+        {
+          "turns": [
+            25,
+            26
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Elowen, com a voz tensa, diz: 'Link, fica perto de mim. Essas armadilhas estão se ativando uma a uma, temos que encontrar uma saída.'"
+        }
+      ],
+      "max_hint_repeats": 1,
+      "control_injections": 6,
+      "distinct_hints": 4,
+      "injected_turn_fraction": 0.3448275862068966,
+      "act_deadlines": 4,
+      "hint_detail": [
+        {
+          "repeats": 1,
+          "turns": [
+            7
+          ],
+          "sample": "Um alarme de segurança soa brevemente, causando pânico e exigindo que a Diretora acalme a multidão e adie o anúncio fina"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            14
+          ],
+          "sample": "O teto de um corredor desaba atrás de uma das equipes, cortando sua retaguarda e obrigando-as a seguir em frente, enquan"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            22
+          ],
+          "sample": "O chão da câmara central treme violentamente, abrindo uma fissura que engole parte do chão e revela um túnel subterrâneo"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            28
+          ],
+          "sample": "Uma explosão de energia corrompida rompe o teto do laboratório, revelando o céu e forçando as equipes a uma decisão imed"
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 27,
+      "fact_bytes": 801,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 0,
+      "beat_life_mean": 2.4166666666666665,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.04,
+        "0.8": 0.01,
+        "0.9": 0.01
+      },
+      "worst_repeats": [
+        {
+          "turn": 26,
+          "kind": "audible_speech",
+          "recur": 0.9862,
+          "event": "No salão dos Quatro Arcos, Seraphine, com voz educada mas firme, pede à Diretora: 'Com licença, Diretora, posso ajudar a estabilizar o mensageiro enqu",
+          "matched": "Com licença, Diretora... posso ajudar a estabilizar o mensageiro enquanto o grupo vai à ala leste? Minhas mãos são firmes e não hesito em serviço."
+        },
+        {
+          "turn": 6,
+          "kind": "audible_speech",
+          "recur": 0.7383,
+          "event": "A Irmã Elowen anuncia que o mensageiro está vivo, mas perdeu muito sangue, e que o selo foi ativado há menos de uma hora.",
+          "matched": "Irmã Elowen ergue a cabeça e anuncia, com voz firme: 'Ele está vivo, mas perdeu muito sangue. O selo está quente; foi ativado há menos de uma hora.'"
+        },
+        {
+          "turn": 18,
+          "kind": "observation",
+          "recur": 0.7321,
+          "event": "Elowen aponta para marcas de garras frescas que cortam a poeira do chão, desaparecendo na escuridão da passagem recém-aberta.",
+          "matched": "Elowen aponta para as marcas de garras frescas no chão enpoeirado da passagem secreta recém-aberta."
+        },
+        {
+          "turn": 17,
+          "kind": "audible_speech",
+          "recur": 0.7009,
+          "event": "Garran grita: 'Link, Elowen, vão pela passagem! Eu seguro o entulho e encontro outra rota!'",
+          "matched": "Eu seguro o entulho e encontro outra rota."
+        },
+        {
+          "turn": 20,
+          "kind": "scene_change",
+          "recur": 0.6983,
+          "event": "A pedra lateral do túnel cede, revelando uma câmara escura com um artefato pulsante amarelo e um rugido grave vindo de dentro.",
+          "matched": "A parede lateral do túnel estala e uma brecha se alarga, revelando uma câmara escura onde um artefato metálico pulsante emite luz amarelada e um forte"
+        },
+        {
+          "turn": 6,
+          "kind": "audible_speech",
+          "recur": 0.6364,
+          "event": "Garran se vira para a Diretora e afirma que vai com Link até a ala leste antes que o rastro esfrie.",
+          "matched": "Ala leste, Diretora. Isso não é coincidência. Vou com Link até lá agora, antes que o rastro esfrie."
+        },
+        {
+          "turn": 15,
+          "kind": "observation",
+          "recur": 0.627,
+          "event": "A picareta rúnica quebrada ao lado do corpo emite um brilho amarelado e o cheiro de enxofre fica mais forte.",
+          "matched": "Perto do corpo, uma picareta rúnica quebrada está cravada no chão; o metal ainda emite um brilho fraco e o ar carrega cheiro intenso de enxofre."
+        },
+        {
+          "turn": 3,
+          "kind": "scene_change",
+          "recur": 0.625,
+          "event": "O pergaminho de regras em mãos da Diretora estala e uma luz dourada se espalha pelo salão, acompanhada de um novo zumbido grave.",
+          "matched": "O pergaminho de regras nas mãos da Diretora começa a brilhar com uma luz dourada fraca enquanto ela o desenrola."
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "base-P1-r2",
+    "cell": "base",
+    "profile": "P1",
+    "replicate": 2,
+    "session_id": "8bd4d0f1",
+    "provenance": {},
+    "metrics": {
+      "session_id": "8bd4d0f1",
+      "tau": 0.8,
+      "turns": 39,
+      "player_actions": 10,
+      "rsr_prop": 0.016666666666666666,
+      "stimuli": 180,
+      "repeated_stimuli": 3,
+      "nsr": 4.538461538461538,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.15384615384615385,
+      "guard_turns": 6,
+      "prose_turns": 39,
+      "beat_occupancy_max": 3,
+      "beat_runs": [
+        {
+          "beat_id": "B1",
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B2",
+          "turns": [
+            4,
+            5,
+            6
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B3",
+          "turns": [
+            7,
+            8
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "B4",
+          "turns": [
+            9,
+            10,
+            11
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B5",
+          "turns": [
+            12,
+            13,
+            14
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B6",
+          "turns": [
+            15,
+            16
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "B7",
+          "turns": [
+            17,
+            18,
+            19
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B8",
+          "turns": [
+            20,
+            21,
+            22
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B9",
+          "turns": [
+            23,
+            24
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "B10",
+          "turns": [
+            25,
+            26,
+            27
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B11",
+          "turns": [
+            28,
+            29,
+            30
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B12",
+          "turns": [
+            31,
+            32
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "B13",
+          "turns": [
+            33,
+            34,
+            35
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B14",
+          "turns": [
+            36,
+            37,
+            38
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B15",
+          "turns": [
+            39
+          ],
+          "length": 1
+        }
+      ],
+      "exit_reasons": {
+        "replan_beat:stalled": 9,
+        "act_deadline:clock": 5,
+        "act_regenerate:acts_exhausted": 1
+      },
+      "replans_per_action": 1.5,
+      "llm_calls_per_action": 39.2,
+      "act_rewrites": 1,
+      "act_rewrites_per_action": 0.1,
+      "cluster_max": 3,
+      "cluster_span": 5,
+      "clusters": [
+        {
+          "turns": [
+            13,
+            16,
+            17
+          ],
+          "size": 3,
+          "span": 5,
+          "sample": "A diretora Maelis, com a bengala erguida, aponta para a passagem secreta e ordena que os alunos se movam em direção a ela, mantendo a calma."
+        },
+        {
+          "turns": [
+            20,
+            23,
+            26
+          ],
+          "size": 3,
+          "span": 7,
+          "sample": "Riven grita: 'Liora está presa! Abram caminho!' e avança em direção aos escombros da passagem."
+        },
+        {
+          "turns": [
+            22,
+            23,
+            36
+          ],
+          "size": 3,
+          "span": 15,
+          "sample": "O teto da passagem desaba completamente, bloqueando o acesso e levantando uma nuvem de poeira que se espalha pelo salão."
+        },
+        {
+          "turns": [
+            24,
+            26,
+            34
+          ],
+          "size": 3,
+          "span": 11,
+          "sample": "A névoa verde, agora mais densa, avança mais um metro em direção à arquibancada norte, fazendo a madeira dos bancos estalar e escurecer em c"
+        },
+        {
+          "turns": [
+            26,
+            27,
+            29
+          ],
+          "size": 3,
+          "span": 4,
+          "sample": "A fresta entre os escombros se estreita visivelmente, e gritos abafados de Liora soam mais fracos."
+        }
+      ],
+      "max_hint_repeats": 1,
+      "control_injections": 6,
+      "distinct_hints": 5,
+      "injected_turn_fraction": 0.28205128205128205,
+      "act_deadlines": 5,
+      "hint_detail": [
+        {
+          "repeats": 1,
+          "turns": [
+            9
+          ],
+          "sample": "A névoa corrompida rompe a primeira barreira de segurança e avança em direção aos alunos, obrigando a Diretora a evacuar"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            17
+          ],
+          "sample": "O selo subterrâneo enfraquece e a névoa começa a vazar do chão em múltiplos pontos, forçando os grupos a se reunirem em "
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            25
+          ],
+          "sample": "O selo subterrâneo se rompe completamente, liberando uma onda massiva de névoa que ameaça consumir a Academia, forçando "
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            31
+          ],
+          "sample": "Um novo desmoronamento parcial bloqueia metade da fresta, forçando os alunos a decidirem entre arriscar a rota do duto o"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            39
+          ],
+          "sample": "O alarme principal soa, e a Diretora Maelis anuncia que a névoa está se espalhando para as alas residenciais, exigindo u"
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 40,
+      "fact_bytes": 2598,
+      "fact_synonym_pairs": 1,
+      "fact_transient_keys": 0,
+      "beat_life_mean": 2.6,
+      "beats_replaced_with_anchors_pending": 0.8888888888888888,
+      "rsr_prop_by_tau": {
+        "0.7": 0.06111111111111111,
+        "0.8": 0.016666666666666666,
+        "0.9": 0.0
+      },
+      "worst_repeats": [
+        {
+          "turn": 34,
+          "kind": "observation",
+          "recur": 0.8962,
+          "event": "A névoa verde alcança a base das arquibancadas norte, e a madeira estala e escurece, soltando lascas.",
+          "matched": "A névoa verde alcança a base da arquibancada norte, e a madeira estala e escurece."
+        },
+        {
+          "turn": 27,
+          "kind": "observation",
+          "recur": 0.8851,
+          "event": "Uma língua de névoa verde lambe a base da arquibancada norte, e a madeira estala e escurece.",
+          "matched": "A névoa verde alcança a base da arquibancada norte, e a madeira estala e escurece."
+        },
+        {
+          "turn": 38,
+          "kind": "observation",
+          "recur": 0.845,
+          "event": "Bruna Ferrugem, agachada na moldura do duto, grita para Mirella não descer, avisando que a escada está viva e que a carga pode disparar, enquanto tent",
+          "matched": "Bruna grita para Mirella não descer, avisando que a escada está viva e que a carga pode disparar, enquanto tenta aterrar a braçadeira na moldura."
+        },
+        {
+          "turn": 36,
+          "kind": "audible_speech",
+          "recur": 0.8,
+          "event": "Bruna, ainda com a braçadeira chamuscada, grita que a escada está viva, que a carga pode disparar se alguém descer.",
+          "matched": "Bruna grita que a escada está viva e que a carga pode disparar se alguém descer."
+        },
+        {
+          "turn": 34,
+          "kind": "observation",
+          "recur": 0.7927,
+          "event": "O teto da câmara oculta desaba com um rugido, abrindo um buraco por onde um jato espesso de névoa verde dispara em direção ao pátio, enquanto a entrad",
+          "matched": "O teto da câmara oculta desaba com um estrondo, abrindo um buraco de onde a névoa verde jorra em jato direto para o pátio, e a entrada fica soterrada."
+        },
+        {
+          "turn": 5,
+          "kind": "audible_speech",
+          "recur": 0.7917,
+          "event": "Ysara grita 'Ela está vindo para a arquibancada, recuem!'",
+          "matched": "Ysara grita do outro lado do arco leste: 'Ela está vindo para a arquibancada, recuem!'."
+        },
+        {
+          "turn": 38,
+          "kind": "physical_outcome",
+          "recur": 0.776,
+          "event": "Liora Celestria, atingida pela névoa, solta um grito curto e desaba sob os escombros na base da passagem, e seus chamados cessam por completo.",
+          "matched": "Liora Celestria solta um grito breve antes de desabar sob os escombros, e seus chamados cessam por completo."
+        },
+        {
+          "turn": 24,
+          "kind": "observation",
+          "recur": 0.743,
+          "event": "Uma nova onda de névoa mais densa irrompe dos escombros, e o teto do corredor desmorona, enterrando completamente a passagem e levantando uma nuvem de",
+          "matched": "Uma nova onda de névoa esmeralda irrompe dos escombros da passagem, e o teto do corredor desmorona completamente, bloqueando qualquer acesso e levanta"
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "base-P1-r3",
+    "cell": "base",
+    "profile": "P1",
+    "replicate": 3,
+    "session_id": "513cb09f",
+    "provenance": {},
+    "metrics": {
+      "session_id": "513cb09f",
+      "tau": 0.8,
+      "turns": 40,
+      "player_actions": 10,
+      "rsr_prop": 0.07926829268292683,
+      "stimuli": 164,
+      "repeated_stimuli": 13,
+      "nsr": 3.775,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.2,
+      "guard_turns": 8,
+      "prose_turns": 40,
+      "beat_occupancy_max": 3,
+      "beat_runs": [
+        {
+          "beat_id": "primeira_beat",
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_disruption",
+          "turns": [
+            4,
+            5
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_3_1",
+          "turns": [
+            6,
+            7
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_3_2",
+          "turns": [
+            8,
+            9,
+            10
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_3_3",
+          "turns": [
+            11,
+            12
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_4_1",
+          "turns": [
+            13,
+            14,
+            15
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_4_2",
+          "turns": [
+            16,
+            17,
+            18
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_4_3",
+          "turns": [
+            19,
+            20
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_5_1",
+          "turns": [
+            21,
+            22,
+            23
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_6_1",
+          "turns": [
+            24,
+            25,
+            26
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_6_2",
+          "turns": [
+            27,
+            28,
+            29
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_6_3",
+          "turns": [
+            30,
+            31,
+            32
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_6_4",
+          "turns": [
+            33
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "beat_7_1",
+          "turns": [
+            34,
+            35,
+            36
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_7_2",
+          "turns": [
+            37,
+            38,
+            39
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_8_1",
+          "turns": [
+            40
+          ],
+          "length": 1
+        }
+      ],
+      "exit_reasons": {
+        "replan_beat:stalled": 8,
+        "act_deadline:clock": 7,
+        "act_regenerate:acts_exhausted": 3
+      },
+      "replans_per_action": 1.8,
+      "llm_calls_per_action": 38.4,
+      "act_rewrites": 3,
+      "act_rewrites_per_action": 0.3,
+      "cluster_max": 3,
+      "cluster_span": 28,
+      "clusters": [
+        {
+          "turns": [
+            8,
+            9,
+            35
+          ],
+          "size": 3,
+          "span": 28,
+          "sample": "As segundas portas dos quatro arcos se abrem com um rangido metálico, revelando corredores escuros logo além das saletas iluminadas."
+        },
+        {
+          "turns": [
+            26,
+            27,
+            30
+          ],
+          "size": 3,
+          "span": 5,
+          "sample": "A runa no antebraço de Doran emite um pulso amarelo estável, e a névoa recua mais um palmo ao redor da entrada, revelando uma linha de pedra"
+        },
+        {
+          "turns": [
+            29,
+            30,
+            31
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "Riven avança para a réplica que o imita, golpeando com o sabre; a figura se dissipa em fumaça, mas se reforma três passos adiante."
+        },
+        {
+          "turns": [
+            2,
+            3
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Maelis diz: 'A prova começa agora. Quatro equipes, quatro portas. Não haverá combate, somente cooperação.'"
+        },
+        {
+          "turns": [
+            9,
+            10
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "A névoa escura engolfou a mancha de luz vermelha diante do arco D, apagando-a sob a escuridão rastejante."
+        }
+      ],
+      "max_hint_repeats": 1,
+      "control_injections": 6,
+      "distinct_hints": 7,
+      "injected_turn_fraction": 0.325,
+      "act_deadlines": 7,
+      "hint_detail": [
+        {
+          "repeats": 1,
+          "turns": [
+            6
+          ],
+          "sample": "O sino da torre norte toca o primeiro quarto de hora, ecoando mais alto que o normal, e um clarão azul percorre os arcos"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            13
+          ],
+          "sample": "Um estrondo vindo das fundações abala o salão, fazendo as portas já abertas se fecharem com violência e separando as equ"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            21
+          ],
+          "sample": "O teto da ala leste desaba, liberando uma criatura feita de sombras e ferrugem que bloqueia a saída, e o sino do meio-di"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            24
+          ],
+          "sample": "A passagem lateral desaba parcialmente, forçando os últimos alunos a se arrastarem, e a criatura antiga emerge das ruína"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            27
+          ],
+          "sample": "Antes que a runa se complete, a criatura rompe a passagem e avança, e a névoa sobe até a cintura, forçando o selo a ser "
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 40,
+      "fact_bytes": 1727,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 0,
+      "beat_life_mean": 2.5,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.11585365853658537,
+        "0.8": 0.07926829268292683,
+        "0.9": 0.06097560975609756
+      },
+      "worst_repeats": [
+        {
+          "turn": 3,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis anuncia: 'A prova começa agora. Quatro equipes, quatro portas. Não haverá combate, somente cooperação.'",
+          "matched": "Maelis diz: 'A prova começa agora. Quatro equipes, quatro portas. Não haverá combate, somente cooperação.'"
+        },
+        {
+          "turn": 9,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita para Link: 'Arqueiro, hesitar aqui é o mesmo que morrer. Venha para a porta A comigo agora.'",
+          "matched": "Arqueiro, hesitar aqui é o mesmo que morrer. Venha para a porta A comigo agora."
+        },
+        {
+          "turn": 9,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Nix grita, apontando para a esquerda: 'Fogo e névoa ao mesmo tempo? Essa sala não quer esperar ninguém. Quem tiver afiado, vem comigo pela esquerda, a",
+          "matched": "Fogo e névoa ao mesmo tempo? Essa sala não quer esperar ninguém. Quem tiver afiado, vem comigo pela esquerda, antes que a saída suma."
+        },
+        {
+          "turn": 20,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Bruna diz: 'Doran, a névoa tá cobrindo o chão! Segura a runa, eu reforço a cunha direita antes que a gente perca o apoio!'",
+          "matched": "Doran, a névoa tá cobrindo o chão! Segura a runa, eu reforço a cunha direita antes que a gente perca o apoio!"
+        },
+        {
+          "turn": 20,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Doran responde: 'Bruna, a névoa subiu rápido, mas a runa está gravada. Levanta a viga agora, eu seguro o ponto de carga!'",
+          "matched": "Bruna, a névoa subiu rápido, mas a runa está gravada. Levanta a viga agora, eu seguro o ponto de carga!"
+        },
+        {
+          "turn": 20,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis ordena: 'A névoa é a prova final. Usem o que aprenderam: Bruna, segure a cunha; Doran, a runa. Não deixem o medo abrir espaço para o",
+          "matched": "A névoa é a prova final. Usem o que aprenderam: Bruna, segure a cunha; Doran, a runa. Não deixem o medo abrir espaço para o caos."
+        },
+        {
+          "turn": 38,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Lorde Cassian grita, com a voz cortando a poeira: 'O mensageiro! Abram caminho, a Coroa exige que ele seja resgatado!'",
+          "matched": "Lorde Cassian Aurel grita, com a voz cortando a poeira: 'O mensageiro! Abram caminho, a Coroa exige que ele seja resgatado!'"
+        },
+        {
+          "turn": 9,
+          "kind": "observation",
+          "recur": 0.9655,
+          "event": "As segundas portas dos quatro arcos se abriram com um rangido metálico, revelando corredores escuros além das saletas iluminadas.",
+          "matched": "As segundas portas dos quatro arcos se abrem com um rangido metálico, revelando corredores escuros logo além das saletas iluminadas."
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "drive-P1-r1",
+    "cell": "drive",
+    "profile": "P1",
+    "replicate": 1,
+    "session_id": "5c994c42",
+    "provenance": {},
+    "metrics": {
+      "session_id": "5c994c42",
+      "tau": 0.8,
+      "turns": 33,
+      "player_actions": 10,
+      "rsr_prop": 0.0234375,
+      "stimuli": 128,
+      "repeated_stimuli": 3,
+      "nsr": 3.787878787878788,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.15151515151515152,
+      "guard_turns": 5,
+      "prose_turns": 33,
+      "beat_occupancy_max": 3,
+      "beat_runs": [
+        {
+          "beat_id": "B1A1",
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B1A2",
+          "turns": [
+            4
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "B1A2",
+          "turns": [
+            5,
+            6,
+            7
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B1A3",
+          "turns": [
+            8,
+            9,
+            10
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B2A1",
+          "turns": [
+            11,
+            12,
+            13
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B2A1",
+          "turns": [
+            14,
+            15,
+            16
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B3A1",
+          "turns": [
+            17,
+            18
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "B4A1",
+          "turns": [
+            19,
+            20,
+            21
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B5A4",
+          "turns": [
+            22,
+            23,
+            24
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B1A5",
+          "turns": [
+            25,
+            26
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "B6A5",
+          "turns": [
+            27,
+            28,
+            29
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "B7A5",
+          "turns": [
+            30
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "B8A6",
+          "turns": [
+            31,
+            32,
+            33
+          ],
+          "length": 3
+        }
+      ],
+      "exit_reasons": {
+        "replan_beat:stalled": 7,
+        "advance:coverage_sufficient": 1,
+        "act_deadline:clock": 4,
+        "act_regenerate:acts_exhausted": 1
+      },
+      "replans_per_action": 1.3,
+      "llm_calls_per_action": 33.1,
+      "act_rewrites": 1,
+      "act_rewrites_per_action": 0.1,
+      "cluster_max": 3,
+      "cluster_span": 5,
+      "clusters": [
+        {
+          "turns": [
+            11,
+            14,
+            15
+          ],
+          "size": 3,
+          "span": 5,
+          "sample": "A Diretora Maelis grita para os alunos se moverem em direção à saída dos fundos e formarem equipes."
+        },
+        {
+          "turns": [
+            20,
+            26,
+            28
+          ],
+          "size": 3,
+          "span": 9,
+          "sample": "A criatura de poeira avança mais um passo, e os olhos rubros se fixam em Asword, cuja aura de calor já distorce o ar."
+        },
+        {
+          "turns": [
+            25,
+            26,
+            27
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "A Diretora Maelis aponta para a fenda e ordena que os alunos desçam imediatamente, formando equipes durante a descida."
+        },
+        {
+          "turns": [
+            11,
+            33
+          ],
+          "size": 2,
+          "span": 23,
+          "sample": "Garran mantém-se firme na entrada, escudo erguido, observando as criaturas que avançam na fumaça."
+        },
+        {
+          "turns": [
+            12,
+            13
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "A Diretora Maelis aponta para a porta dos fundos e ordena que as equipes formem-se agora, com Link ao seu lado."
+        }
+      ],
+      "max_hint_repeats": 1,
+      "control_injections": 3,
+      "distinct_hints": 6,
+      "injected_turn_fraction": 0.2727272727272727,
+      "act_deadlines": 4,
+      "hint_detail": [
+        {
+          "repeats": 1,
+          "turns": [
+            6
+          ],
+          "sample": "Do lado de fora, ouve-se um estrondo metálico, seguido do som de cascos de cavalos em disparada e gritos abafados, enqua"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            11
+          ],
+          "sample": "O sino da Academia soa sozinho três vezes, um alarme nunca usado em décadas, fazendo com que todos os presentes fiquem e"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            19
+          ],
+          "sample": "Um eco de latido e um arranhão metálico vêm do corredor que leva ao canil, seguidos por um baque surdo contra a porta, c"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            21
+          ],
+          "sample": "Do corredor oeste, agora mais próximo, um latido agudo e um arranhão frenético na porta do canil, seguidos pelo som de m"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            25
+          ],
+          "sample": "O clarim de emergência soa três vezes, e o chão do salão treme, abrindo uma fenda que revela escadas descendentes para a"
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 40,
+      "fact_bytes": 2066,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 2,
+      "beat_life_mean": 2.5384615384615383,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.0859375,
+        "0.8": 0.0234375,
+        "0.9": 0.0234375
+      },
+      "worst_repeats": [
+        {
+          "turn": 15,
+          "kind": "audible_speech",
+          "recur": 0.9727,
+          "event": "Garran grita da entrada que as criaturas estão avançando e que não há tempo para esperar.",
+          "matched": "Garran Holt grita da entrada que as criaturas estão avançando e que não há tempo para esperar."
+        },
+        {
+          "turn": 15,
+          "kind": "audible_speech",
+          "recur": 0.9669,
+          "event": "A Diretora Maelis grita para que todos se movam em direção à entrada principal, pois a saída dos fundos está comprometida.",
+          "matched": "A Diretora Maelis grita para todos se moverem em direção à entrada principal, pois a saída dos fundos está comprometida."
+        },
+        {
+          "turn": 26,
+          "kind": "physical_outcome",
+          "recur": 0.9291,
+          "event": "A Diretora Maelis aponta para a fenda e ordena em voz alta que todos os alunos desçam imediatamente, formando equipes durante a descida.",
+          "matched": "A Diretora Maelis aponta para a fenda e ordena que os alunos desçam imediatamente, formando equipes durante a descida."
+        },
+        {
+          "turn": 32,
+          "kind": "observation",
+          "recur": 0.7744,
+          "event": "Uma rajada de vento gelado irrompe da fenda, apagando as últimas lâmpadas e trazendo o eco de portas de ferro se fechando nas profundezas.",
+          "matched": "Uma rajada de vento frio sobe da fenda, apagando as lâmpadas de mana, e o estrondo de portas de ferro se fechando ecoa de baixo."
+        },
+        {
+          "turn": 19,
+          "kind": "audible_speech",
+          "recur": 0.7526,
+          "event": "Lucan Morcant, pressionando Cael, diz em tom frio: \"Você reconheceu a fechadura dessa coisa. Fale agora, ou feche a boca e segure a linha.\"",
+          "matched": "Cael, se reconheceu a fechadura, sabe o que essa poeira quer. Fale agora ou feche a boca e forme a barreira."
+        },
+        {
+          "turn": 13,
+          "kind": "audible_speech",
+          "recur": 0.7508,
+          "event": "Lorde Cassian Aurel, aproximando-se de Maelis, exige em voz alta que os nobres sob sua proteção saiam primeiro, citando a necessidade de proteger a hi",
+          "matched": "Lorde Cassian Aurel, descendo da arquibancada, exige em voz alta que os grupos sob sua liderança sejam formados primeiro, citando a necessidade de pro"
+        },
+        {
+          "turn": 31,
+          "kind": "observation",
+          "recur": 0.7489,
+          "event": "A criatura de poeira, ainda se recompondo, avança mais um passo na direção de Asword, seus olhos rubros pulsando.",
+          "matched": "A criatura de poeira avança mais um passo na direção de Asword, os olhos rubros pulsando, a forma de fuligem se adensando."
+        },
+        {
+          "turn": 25,
+          "kind": "audible_speech",
+          "recur": 0.7186,
+          "event": "Asword grita que vai segurar a criatura enquanto os outros descem pela fenda.",
+          "matched": "Asword grita que vai segurar a linha com Garran enquanto os feridos são levados para trás."
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "drive-P1-r2",
+    "cell": "drive",
+    "profile": "P1",
+    "replicate": 2,
+    "session_id": "ec84b31e",
+    "provenance": {},
+    "metrics": {
+      "session_id": "ec84b31e",
+      "tau": 0.8,
+      "turns": 37,
+      "player_actions": 10,
+      "rsr_prop": 0.05185185185185185,
+      "stimuli": 135,
+      "repeated_stimuli": 7,
+      "nsr": 3.4594594594594597,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.08108108108108109,
+      "guard_turns": 3,
+      "prose_turns": 37,
+      "beat_occupancy_max": 3,
+      "beat_runs": [
+        {
+          "beat_id": "beat_1_1",
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_1_2",
+          "turns": [
+            4,
+            5
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_2_1",
+          "turns": [
+            6,
+            7,
+            8
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_2",
+          "turns": [
+            9,
+            10,
+            11
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_3",
+          "turns": [
+            12
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "beat_3_1",
+          "turns": [
+            13,
+            14,
+            15
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_3_2",
+          "turns": [
+            16,
+            17
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_3_3",
+          "turns": [
+            18,
+            19,
+            20
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_4_1",
+          "turns": [
+            21,
+            22,
+            23
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_4_2",
+          "turns": [
+            24,
+            25
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_5_1",
+          "turns": [
+            26,
+            27,
+            28
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_5_2",
+          "turns": [
+            29,
+            30
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_5_3",
+          "turns": [
+            31
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "beat_6_1",
+          "turns": [
+            32,
+            33,
+            34
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_6_2",
+          "turns": [
+            35,
+            36
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_7_1",
+          "turns": [
+            37
+          ],
+          "length": 1
+        }
+      ],
+      "exit_reasons": {
+        "replan_beat:stalled": 8,
+        "act_deadline:clock": 6,
+        "advance:coverage_sufficient": 1,
+        "act_regenerate:acts_exhausted": 2
+      },
+      "replans_per_action": 1.7,
+      "llm_calls_per_action": 38.0,
+      "act_rewrites": 2,
+      "act_rewrites_per_action": 0.2,
+      "cluster_max": 3,
+      "cluster_span": 3,
+      "clusters": [
+        {
+          "turns": [
+            18,
+            19,
+            20
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "A Diretora Maelis, com a bengala fincada no chão, ordena: 'Primeira equipe, avancem imediatamente pela entrada norte! Cassian, afaste-se da "
+        },
+        {
+          "turns": [
+            4,
+            27
+          ],
+          "size": 2,
+          "span": 24,
+          "sample": "Um tremor violento sacode o salão e um candelabro se solta do teto, caindo em direção ao centro."
+        },
+        {
+          "turns": [
+            6,
+            9
+          ],
+          "size": 2,
+          "span": 4,
+          "sample": "Garran grita que todos se afastem da parede e que a avaliação de cooperação começa agora no pátio."
+        },
+        {
+          "turns": [
+            7,
+            8
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Garran responde no mesmo instante, gritando que ninguém será avaliado em dupla e que os primeiros quatro que formarem linha na marca de giz "
+        },
+        {
+          "turns": [
+            10,
+            11
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "Garran, já na plataforma oeste, vira-se e grita para que os alunos formem linha ali, mantendo distância da fenda."
+        }
+      ],
+      "max_hint_repeats": 1,
+      "control_injections": 2,
+      "distinct_hints": 8,
+      "injected_turn_fraction": 0.2702702702702703,
+      "act_deadlines": 6,
+      "hint_detail": [
+        {
+          "repeats": 1,
+          "turns": [
+            2
+          ],
+          "sample": "No exato momento em que a Diretora Maelis conclui o anúncio, uma das lâmpadas de mana posicionadas acima do arco B oscil"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            12
+          ],
+          "sample": "Um estalo agudo ecoa do chão perto da fenda, e uma lasca de madeira da barreira engolida é cuspirada para fora, caindo a"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            13
+          ],
+          "sample": "Um portão da masmorra se abre sozinho, soltando uma onda de energia que derruba alguns alunos e apaga as tochas próximas"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            19
+          ],
+          "sample": "O corno de caça soa novamente do leste, e o corcel branco de Lorde Cassian, assustado com o som e as trincas no chão, re"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            21
+          ],
+          "sample": "Um alarme soa vindo do interior da masmorra, e um brilho vermelho emana de uma das entradas, forçando todos a recuarem p"
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 40,
+      "fact_bytes": 1894,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 0,
+      "beat_life_mean": 2.3125,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.1037037037037037,
+        "0.8": 0.05185185185185185,
+        "0.9": 0.02962962962962963
+      },
+      "worst_repeats": [
+        {
+          "turn": 22,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita: 'Recuem todos! A entrada norte cedeu. Formem linha contra a parede leste, longe dos escombros, e ninguém entre sem minha ordem. Nix, con",
+          "matched": "Recuem todos! A entrada norte cedeu. Formem linha contra a parede leste, longe dos escombros, e ninguém entre sem minha ordem. Nix, conte quem está de"
+        },
+        {
+          "turn": 22,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis, da borda do pátio, declara: 'Garran, a contenção é sua. Nix, a contagem agora. Todos, parede leste, e ninguém age sem minha ordem d",
+          "matched": "Garran, a contenção é sua. Nix, a contagem agora. Todos, parede leste, e ninguém age sem minha ordem direta."
+        },
+        {
+          "turn": 36,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita: 'Ysara, recua! Mirella, segura o flanco esquerdo com gelo. Liora, solta a carga só quando eu gritar!'",
+          "matched": "Ysara, recua! Mirella, segura o flanco esquerdo com gelo. Liora, solta a carga só quando eu gritar!"
+        },
+        {
+          "turn": 20,
+          "kind": "audible_speech",
+          "recur": 0.9317,
+          "event": "A Diretora Maelis ordena em voz alta que a primeira equipe avance imediatamente pela entrada norte e que todos se afastem da borda.",
+          "matched": "A Diretora Maelis grita que a primeira equipe avance imediatamente pela entrada norte e que todos se afastem da borda."
+        },
+        {
+          "turn": 14,
+          "kind": "audible_speech",
+          "recur": 0.8947,
+          "event": "Garran grita as quatro equipes provisórias e aponta para a entrada norte da masmorra.",
+          "matched": "Garran grita que as quatro equipes provisórias foram definidas e aponta para a entrada norte da masmorra."
+        },
+        {
+          "turn": 12,
+          "kind": "audible_speech",
+          "recur": 0.8763,
+          "event": "Bruna, ainda no pátio, diz que ninguém deve correr antes de ela conferir as braçadeiras, enquanto saca uma chave de fenda do avental.",
+          "matched": "Bruna, ainda a alguns passos da plataforma, diz em voz alta que ninguém deve correr antes de ela conferir as braçadeiras, enquanto saca uma chave de f"
+        },
+        {
+          "turn": 36,
+          "kind": "observation",
+          "recur": 0.8757,
+          "event": "Ysara solta um grito agudo de 'Duas feras!' enquanto Bruma rosna com os pelos eriçados.",
+          "matched": "Ysara grita um aviso agudo: 'Duas feras!' enquanto Bruma rosna, os pelos eriçados."
+        },
+        {
+          "turn": 36,
+          "kind": "physical_outcome",
+          "recur": 0.7962,
+          "event": "Asword avança um passo em direção à segunda criatura, a lança erguida, posicionando-se entre Ysara e o grupo.",
+          "matched": "avançar um passo em direção à segunda criatura, mantendo a lança erguida para proteger Ysara e o grupo"
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "drive-P1-r3",
+    "cell": "drive",
+    "profile": "P1",
+    "replicate": 3,
+    "session_id": "17ec48d5",
+    "provenance": {},
+    "metrics": {
+      "session_id": "17ec48d5",
+      "tau": 0.8,
+      "turns": 38,
+      "player_actions": 10,
+      "rsr_prop": 0.05228758169934641,
+      "stimuli": 153,
+      "repeated_stimuli": 8,
+      "nsr": 3.8157894736842106,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.13157894736842105,
+      "guard_turns": 5,
+      "prose_turns": 38,
+      "beat_occupancy_max": 3,
+      "beat_runs": [
+        {
+          "beat_id": "abertura_recepcao",
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "interrupcao_do_batedor",
+          "turns": [
+            4,
+            5,
+            6
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "medidas_de_emergencia",
+          "turns": [
+            7,
+            8,
+            9
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "colapso_do_dossel",
+          "turns": [
+            10,
+            11,
+            12
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "inspecao_da_garcula",
+          "turns": [
+            13,
+            14,
+            15
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "colapso_do_arco_leste",
+          "turns": [
+            16,
+            17
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "emergencia_e_ordem_de_seguranca",
+          "turns": [
+            18
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "evacuacao_pela_porta_oeste",
+          "turns": [
+            19,
+            20,
+            21
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "queda_do_arco_norte",
+          "turns": [
+            22,
+            23,
+            24
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "desabamento_do_dossel_norte",
+          "turns": [
+            25
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "desabamento_do_dossel_norte",
+          "turns": [
+            26,
+            27,
+            28
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "quebra_do_arco_leste",
+          "turns": [
+            29,
+            30,
+            31
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "reforco_do_vão_norte",
+          "turns": [
+            32
+          ],
+          "length": 1
+        },
+        {
+          "beat_id": "viga_cai_sobre_escombros",
+          "turns": [
+            33,
+            34,
+            35
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "grito_sob_os_escombros",
+          "turns": [
+            36,
+            37
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "voz_sob_a_viga",
+          "turns": [
+            38
+          ],
+          "length": 1
+        }
+      ],
+      "exit_reasons": {
+        "replan_beat:stalled": 8,
+        "act_deadline:clock": 6,
+        "advance:coverage_sufficient": 1,
+        "act_regenerate:acts_exhausted": 2,
+        "act_clock_stopped:acts_exhausted": 1
+      },
+      "replans_per_action": 1.8,
+      "llm_calls_per_action": 37.0,
+      "act_rewrites": 3,
+      "act_rewrites_per_action": 0.3,
+      "cluster_max": 3,
+      "cluster_span": 16,
+      "clusters": [
+        {
+          "turns": [
+            10,
+            17,
+            25
+          ],
+          "size": 3,
+          "span": 16,
+          "sample": "O dossel central desaba com um estrondo, e uma gárgula de pedra despenca no centro do salão, erguendo uma nuvem de poeira e espalhando estil"
+        },
+        {
+          "turns": [
+            16,
+            23,
+            29
+          ],
+          "size": 3,
+          "span": 14,
+          "sample": "O arco leste desaba com um estrondo, bloqueando a saída lateral e espalhando uma nuvem de poeira sobre o salão."
+        },
+        {
+          "turns": [
+            16,
+            26,
+            33
+          ],
+          "size": 3,
+          "span": 18,
+          "sample": "A Diretora Maelis firma a bengala no chão e ordena que todos recuem para o centro, mantendo a calma."
+        },
+        {
+          "turns": [
+            29,
+            30,
+            35
+          ],
+          "size": 3,
+          "span": 7,
+          "sample": "Ysara, com as orelhas lupinas eretas, avisa que ouve movimento vindo da fenda, algo se aproximando por baixo."
+        },
+        {
+          "turns": [
+            1,
+            2
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "A Diretora Maelis declara em voz alta que a cerimônia de seleção está oficialmente aberta e que as equipes serão formadas em instantes."
+        }
+      ],
+      "max_hint_repeats": 1,
+      "control_injections": 6,
+      "distinct_hints": 5,
+      "injected_turn_fraction": 0.2894736842105263,
+      "act_deadlines": 6,
+      "hint_detail": [
+        {
+          "repeats": 1,
+          "turns": [
+            7
+          ],
+          "sample": "O sino da cerimônia toca exatamente quando o último nome da lista é anunciado, forçando o fim das apresentações e o iníc"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            13
+          ],
+          "sample": "Um batedor ferido chega ao salão com um aviso de que criaturas estão avançando em direção à entrada da masmorra, forçand"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            19
+          ],
+          "sample": "Um colapso de pedras bloqueia o caminho de volta, forçando as equipes a avançar e se comprometer com a exploração."
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            26
+          ],
+          "sample": "O chão treme violentamente e uma criatura colosso emerge do túnel à frente, bloqueando o avanço e forçando as equipes a "
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            38
+          ],
+          "sample": "O teto do salão desmorona de uma vez, engolindo o interior, e o grupo sobrevivente fica no pátio em meio à poeira."
+        }
+      ],
+      "revert_total": 2,
+      "revert_max_per_key": 1,
+      "revert_detail": [
+        {
+          "key": "ceremony_open",
+          "reverts": 1,
+          "values": [
+            "true",
+            "false",
+            "true"
+          ]
+        },
+        {
+          "key": "arco_norte",
+          "reverts": 1,
+          "values": [
+            "desabado",
+            "desabado, bloqueando passagem",
+            "desabado",
+            "parcialmente desobstruído, vão instável",
+            "malha de corda parcialmente presa",
+            "vão estreito com corda presa"
+          ]
+        }
+      ],
+      "fact_keys": 1,
+      "fact_bytes": 28,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 0,
+      "beat_life_mean": 2.375,
+      "beats_replaced_with_anchors_pending": 0.75,
+      "rsr_prop_by_tau": {
+        "0.7": 0.13725490196078433,
+        "0.8": 0.05228758169934641,
+        "0.9": 0.0196078431372549
+      },
+      "worst_repeats": [
+        {
+          "turn": 5,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis, em voz alta e urgente, ordena ao batedor: 'Soldado, fale agora. O que encontraram na masmorra?'",
+          "matched": "Soldado, fale agora. O que encontraram na masmorra?"
+        },
+        {
+          "turn": 19,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita: 'Saiam todos para o centro, agora! Ninguém toca na fenda até eu voltar da varredura. Link, você vem comigo, quero seus olhos no que está",
+          "matched": "Saiam todos para o centro, agora! Ninguém toca na fenda até eu voltar da varredura. Link, você vem comigo, quero seus olhos no que está por baixo."
+        },
+        {
+          "turn": 19,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Maelis ordena: 'Garran, faça a varredura com os voluntários, mas leve a curandeira e o Link. Cassian, se quiser ajudar, coordene os kits no pátio. Tod",
+          "matched": "Garran, faça a varredura com os voluntários, mas leve a curandeira e o Link. Cassian, se quiser ajudar, coordene os kits no pátio. Todos, para a porta"
+        },
+        {
+          "turn": 27,
+          "kind": "physical_outcome",
+          "recur": 0.8957,
+          "event": "Garran puxa Link para trás de si e avança em direção à criatura, segurando a arma.",
+          "matched": "puxar Link para trás de mim e avançar em direção à criatura, segurando minha arma"
+        },
+        {
+          "turn": 34,
+          "kind": "audible_speech",
+          "recur": 0.8779,
+          "event": "A Diretora Maelis ordena em voz alta que todos recuem para o vão norte imediatamente, um de cada vez, sem empurrar.",
+          "matched": "A Diretora Maelis, com a bengala fincada no chão, ordena em voz alta que todos recuem para o vão norte imediatamente, um de cada vez, sem empurrar."
+        },
+        {
+          "turn": 24,
+          "kind": "physical_outcome",
+          "recur": 0.8542,
+          "event": "O arco norte desaba por completo, bloqueando a passagem com uma cortina de pedras e vigas retorcidas.",
+          "matched": "O arco norte desaba por completo, bloqueando a passagem em uma avalanche de pedras e vigas."
+        },
+        {
+          "turn": 17,
+          "kind": "physical_outcome",
+          "recur": 0.8304,
+          "event": "Nix se posiciona ao lado de Garran, afastando a poeira dos olhos com a manga enquanto observa os destroços com os olhos dourados.",
+          "matched": "ficar ao lado de Garran, afastando a poeira dos olhos com a manga enquanto observa os destroços"
+        },
+        {
+          "turn": 17,
+          "kind": "physical_outcome",
+          "recur": 0.813,
+          "event": "O arco leste desaba parcialmente com um estrondo, soterrando a saída lateral e erguendo uma nuvem de poeira que encobre parte do salão.",
+          "matched": "O arco leste desaba com um estrondo, bloqueando a saída lateral e espalhando uma nuvem de poeira sobre o salão."
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "null-P1-r1",
+    "cell": "null",
+    "profile": "P1",
+    "replicate": 1,
+    "session_id": "7fd84e9a",
+    "provenance": {},
+    "metrics": {
+      "session_id": "7fd84e9a",
+      "tau": 0.8,
+      "turns": 39,
+      "player_actions": 10,
+      "rsr_prop": 0.1450381679389313,
+      "stimuli": 131,
+      "repeated_stimuli": 19,
+      "nsr": 2.871794871794872,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.23076923076923078,
+      "guard_turns": 9,
+      "prose_turns": 39,
+      "beat_occupancy_max": 0,
+      "beat_runs": [],
+      "exit_reasons": {},
+      "replans_per_action": 0.0,
+      "llm_calls_per_action": 32.0,
+      "act_rewrites": 0,
+      "act_rewrites_per_action": 0.0,
+      "cluster_max": 6,
+      "cluster_span": 6,
+      "clusters": [
+        {
+          "turns": [
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ],
+          "size": 6,
+          "span": 6,
+          "sample": "Garran, da entrada do portão verde, grita em direção ao salão que restam dez segundos para os portões azul e amarelo se fecharem."
+        },
+        {
+          "turns": [
+            26,
+            27,
+            28,
+            30
+          ],
+          "size": 4,
+          "span": 5,
+          "sample": "Téo, da arquibancada, comenta em voz alta que a decisão de desqualificar Link foi dura demais e que a masmorra ainda poderia ensinar algo a "
+        },
+        {
+          "turns": [
+            32,
+            33,
+            34,
+            36
+          ],
+          "size": 4,
+          "span": 5,
+          "sample": "O portão azul range mais alguns centímetros, reduzindo a fresta a uma passagem estreita, sob o olhar atento da equipe azul."
+        },
+        {
+          "turns": [
+            2,
+            4,
+            31
+          ],
+          "size": 3,
+          "span": 30,
+          "sample": "O Instrutor Garran golpeia a mesa central com a palma da mão, e o metal emite um zumbido grave que percorre o salão."
+        },
+        {
+          "turns": [
+            18,
+            20,
+            38
+          ],
+          "size": 3,
+          "span": 21,
+          "sample": "O portão da equipe verde emite um rangido final e se fecha com um baque surdo, isolando o túnel."
+        }
+      ],
+      "max_hint_repeats": 0,
+      "control_injections": 6,
+      "distinct_hints": 0,
+      "injected_turn_fraction": 0.15384615384615385,
+      "act_deadlines": 0,
+      "hint_detail": [],
+      "revert_total": 1,
+      "revert_max_per_key": 1,
+      "revert_detail": [
+        {
+          "key": "contagem_regressiva",
+          "reverts": 1,
+          "values": [
+            "iniciada",
+            "iniciada em 60 segundos",
+            "60 segundos em andamento",
+            "50 segundos restantes",
+            "45 segundos restantes",
+            "30 segundos restantes"
+          ]
+        }
+      ],
+      "fact_keys": 17,
+      "fact_bytes": 1196,
+      "fact_synonym_pairs": 1,
+      "fact_transient_keys": 2,
+      "beat_life_mean": null,
+      "beats_replaced_with_anchors_pending": null,
+      "rsr_prop_by_tau": {
+        "0.7": 0.21374045801526717,
+        "0.8": 0.1450381679389313,
+        "0.9": 0.11450381679389313
+      },
+      "worst_repeats": [
+        {
+          "turn": 4,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran, ainda de punho na mesa, resmunga em tom grave: 'Chega de discurso. O primeiro teste começa agora, com as placas.'",
+          "matched": "Garran, ainda de punho na mesa, resmunga em tom grave: 'Chega de discurso. O primeiro teste começa agora, com as placas.'"
+        },
+        {
+          "turn": 6,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran diz em tom grave: 'Placas liberadas. Mas antes de virar, uma última coisa: a masmorra não tem salva-vidas. Cooperação não é gentileza, é sobrev",
+          "matched": "Garran diz em tom grave: 'Placas liberadas. Mas antes de virar, uma última coisa: a masmorra não tem salva-vidas. Cooperação não é gentileza, é sobrev"
+        },
+        {
+          "turn": 19,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis anuncia em voz alta que Link está oficialmente desqualificado desta seleção.",
+          "matched": "A Diretora Maelis anuncia em voz alta que Link está oficialmente desqualificado desta seleção."
+        },
+        {
+          "turn": 24,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Concordo. Vou conduzir; você sente o chão e avisa o perigo. Confio no seu faro antes do meu passo.",
+          "matched": "Concordo. Vou conduzir; você sente o chão e avisa o perigo. Confio no seu faro antes do meu passo."
+        },
+        {
+          "turn": 24,
+          "kind": "physical_outcome",
+          "recur": 1.0,
+          "event": "Garran bate três vezes no portão fechado com o pomo de ferro e anuncia que os sessenta segundos começaram.",
+          "matched": "Garran bate três vezes no portão fechado com o pomo de ferro e anuncia que os sessenta segundos começaram."
+        },
+        {
+          "turn": 28,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Téo, já da marca da equipe amarela, ergue a voz para o salão: 'Desqualificar Link foi duro demais. A masmorra ainda podia ensinar algo a ele.'",
+          "matched": "Téo, da arquibancada, ergue a voz: 'Desqualificar Link foi duro demais. A masmorra ainda podia ensinar algo a ele.'"
+        },
+        {
+          "turn": 28,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis responde, sem se virar, com voz firme: 'Hesitação custou a vaga dele. A masmorra ensina apenas quem desce.'",
+          "matched": "A Diretora Maelis responde seca: 'Hesitação custou a vaga dele. A masmorra ensina apenas quem desce.'"
+        },
+        {
+          "turn": 28,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran, ainda com o pomo erguido, acrescenta: 'Regras são regras. Link não desceu. Próximo.'",
+          "matched": "Garran, ainda de braço erguido, acrescenta: 'Regras são regras. Link não desceu. Próximo.'"
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "null-P1-r2",
+    "cell": "null",
+    "profile": "P1",
+    "replicate": 2,
+    "session_id": "05e0dffc",
+    "provenance": {},
+    "metrics": {
+      "session_id": "05e0dffc",
+      "tau": 0.8,
+      "turns": 40,
+      "player_actions": 10,
+      "rsr_prop": 0.09448818897637795,
+      "stimuli": 127,
+      "repeated_stimuli": 12,
+      "nsr": 2.875,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.325,
+      "guard_turns": 13,
+      "prose_turns": 40,
+      "beat_occupancy_max": 0,
+      "beat_runs": [],
+      "exit_reasons": {},
+      "replans_per_action": 0.0,
+      "llm_calls_per_action": 35.0,
+      "act_rewrites": 0,
+      "act_rewrites_per_action": 0.0,
+      "cluster_max": 4,
+      "cluster_span": 8,
+      "clusters": [
+        {
+          "turns": [
+            14,
+            16,
+            17,
+            21
+          ],
+          "size": 4,
+          "span": 8,
+          "sample": "A diretora Maelis, com a prancheta erguida, anuncia em voz firme que o registro de Bruna foi aceito e que o próximo candidato deve avançar."
+        },
+        {
+          "turns": [
+            19,
+            20,
+            35,
+            36
+          ],
+          "size": 4,
+          "span": 18,
+          "sample": "A diretora Maelis anuncia que a próxima avaliação é de Noa Véu, ignorando a iniciativa de Riven e ordenando que ele retorne ao círculo de es"
+        },
+        {
+          "turns": [
+            10,
+            11,
+            13
+          ],
+          "size": 3,
+          "span": 4,
+          "sample": "Liora responde de onde está, com um riso frio: 'Ela verá se a técnica aguenta a pressão da masmorra.'"
+        },
+        {
+          "turns": [
+            3,
+            4
+          ],
+          "size": 2,
+          "span": 2,
+          "sample": "A diretora Maelis ordena silêncio e anuncia que a seleção começa agora, decidindo a sequência de avaliação individual na mesa."
+        },
+        {
+          "turns": [
+            5,
+            40
+          ],
+          "size": 2,
+          "span": 36,
+          "sample": "A diretora Maelis, batendo a bengala no chão de pedra, anuncia que a seleção individual começa agora e que as placas de nome serão viradas u"
+        }
+      ],
+      "max_hint_repeats": 0,
+      "control_injections": 6,
+      "distinct_hints": 0,
+      "injected_turn_fraction": 0.15,
+      "act_deadlines": 0,
+      "hint_detail": [],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 9,
+      "fact_bytes": 780,
+      "fact_synonym_pairs": 1,
+      "fact_transient_keys": 2,
+      "beat_life_mean": null,
+      "beats_replaced_with_anchors_pending": null,
+      "rsr_prop_by_tau": {
+        "0.7": 0.14960629921259844,
+        "0.8": 0.09448818897637795,
+        "0.9": 0.07874015748031496
+      },
+      "worst_repeats": [
+        {
+          "turn": 11,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Liora Celestria responde com um riso frio: 'Ela verá se a técnica aguenta a pressão da masmorra.'",
+          "matched": "Liora responde de onde está, com um riso frio: 'Ela verá se a técnica aguenta a pressão da masmorra.'"
+        },
+        {
+          "turn": 11,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Asword fala em tom conciliador: 'Talvez possamos deixar a inspeção seguir e ver o que ela sabe fazer primeiro.'",
+          "matched": "Asword fala, tentando apaziguar a tensão: 'Talvez possamos deixar a inspeção seguir e ver o que ela sabe fazer primeiro.'"
+        },
+        {
+          "turn": 13,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Bruna diz em voz firme: 'Essa é a prova de que a oficina não faz enfeite.'",
+          "matched": "Bruna diz em voz firme: 'Essa é a prova de que a oficina não faz enfeite.'"
+        },
+        {
+          "turn": 13,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Liora responde de onde está, com um riso frio: 'Ela verá se a técnica aguenta a pressão da masmorra.'",
+          "matched": "Liora responde de onde está, com um riso frio: 'Ela verá se a técnica aguenta a pressão da masmorra.'"
+        },
+        {
+          "turn": 13,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Marta diz em voz rouca: 'A intendência não faz enfeite. Confira, diretora.'",
+          "matched": "Marta diz em voz rouca: 'A intendência não faz enfeite. Confira, diretora.'"
+        },
+        {
+          "turn": 22,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Link, em voz baixa e sem olhar para ninguém, diz apenas: 'Não se preocupem comigo, continuem.'",
+          "matched": "Não se preocupem comigo, continuem."
+        },
+        {
+          "turn": 24,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Link diz, em tom baixo, que não se preocupem com ele e que continuem.",
+          "matched": "Link diz, em tom baixo, que não se preocupem com ele e que continuem."
+        },
+        {
+          "turn": 29,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A diretora Maelis, com a prancheta erguida, declara em voz alta: \"Noa Véu, sua demonstração é suficiente. Retorne ao círculo de espera.\"",
+          "matched": "Noa Véu, sua demonstração é suficiente. Retorne ao círculo de espera."
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "null-P1-r3",
+    "cell": "null",
+    "profile": "P1",
+    "replicate": 3,
+    "session_id": "07218133",
+    "provenance": {},
+    "metrics": {
+      "session_id": "07218133",
+      "tau": 0.8,
+      "turns": 36,
+      "player_actions": 10,
+      "rsr_prop": 0.09433962264150944,
+      "stimuli": 106,
+      "repeated_stimuli": 10,
+      "nsr": 2.6666666666666665,
+      "sil": 0.0,
+      "echo_persist": 0,
+      "guard": 0.3333333333333333,
+      "guard_turns": 12,
+      "prose_turns": 36,
+      "beat_occupancy_max": 0,
+      "beat_runs": [],
+      "exit_reasons": {},
+      "replans_per_action": 0.0,
+      "llm_calls_per_action": 29.9,
+      "act_rewrites": 0,
+      "act_rewrites_per_action": 0.0,
+      "cluster_max": 4,
+      "cluster_span": 13,
+      "clusters": [
+        {
+          "turns": [
+            6,
+            7,
+            8,
+            18
+          ],
+          "size": 4,
+          "span": 13,
+          "sample": "A diretora vira uma placa sobre a mesa, revelando um nome, e o próximo selecionado pode dar um passo à frente."
+        },
+        {
+          "turns": [
+            12,
+            13,
+            15,
+            16
+          ],
+          "size": 4,
+          "span": 5,
+          "sample": "Liora, ainda além de sua marca, pergunta à diretora se pode ao menos apresentar sua proposta após a revelação."
+        },
+        {
+          "turns": [
+            2,
+            3,
+            18
+          ],
+          "size": 3,
+          "span": 17,
+          "sample": "A diretora bate a bengala no chão uma vez, interrompendo o debate, e anuncia que a seleção começa agora."
+        },
+        {
+          "turns": [
+            4,
+            5,
+            6
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "Liora dá um passo à frente erguendo a mão e anuncia que traz uma proposta de formação de equipe antes que a diretora prossiga."
+        },
+        {
+          "turns": [
+            7,
+            8,
+            22
+          ],
+          "size": 3,
+          "span": 16,
+          "sample": "A diretora anuncia, com firmeza, que a seleção prossegue e que novos nomes serão revelados."
+        }
+      ],
+      "max_hint_repeats": 0,
+      "control_injections": 6,
+      "distinct_hints": 0,
+      "injected_turn_fraction": 0.16666666666666666,
+      "act_deadlines": 0,
+      "hint_detail": [],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 9,
+      "fact_bytes": 981,
+      "fact_synonym_pairs": 1,
+      "fact_transient_keys": 2,
+      "beat_life_mean": null,
+      "beats_replaced_with_anchors_pending": null,
+      "rsr_prop_by_tau": {
+        "0.7": 0.16981132075471697,
+        "0.8": 0.09433962264150944,
+        "0.9": 0.0660377358490566
+      },
+      "worst_repeats": [
+        {
+          "turn": 3,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A diretora bate a bengala no chão uma vez, interrompendo o debate, e anuncia que a seleção começa agora.",
+          "matched": "A diretora bate a bengala no chão uma vez, interrompendo o debate, e anuncia que a seleção começa agora."
+        },
+        {
+          "turn": 9,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Riven, em tom cortante, desafia Asword para quando a seleção permitir.",
+          "matched": "Riven, em tom cortante, desafia Asword para quando a seleção permitir."
+        },
+        {
+          "turn": 13,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A diretora anuncia que Doran Pedra-Rúnica é o segundo nome da primeira equipe.",
+          "matched": "A diretora anuncia que Doran Pedra-Rúnica é o segundo nome da primeira equipe."
+        },
+        {
+          "turn": 36,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran golpeia o chão com a bengala e ordena que todas as equipes se dirijam aos seus arcos agora, e que qualquer atraso será penalizado na prova.",
+          "matched": "Garran golpeia o chão com a bengala e ordena que todas as equipes se dirijam aos seus arcos agora, e que qualquer atraso será penalizado na prova."
+        },
+        {
+          "turn": 27,
+          "kind": "audible_speech",
+          "recur": 0.9717,
+          "event": "A diretora anuncia em voz alta que a equipe de Liora será formada com os próximos quatro nomes e que qualquer nova interrupção resultará em desclassif",
+          "matched": "A diretora anuncia que a equipe de Liora será formada com os próximos quatro nomes e que qualquer nova interrupção resultará em desclassificação imedi"
+        },
+        {
+          "turn": 16,
+          "kind": "audible_speech",
+          "recur": 0.9498,
+          "event": "Liora, à frente de sua marca, pergunta em voz alta se a diretora deseja ouvir sua proposta de integração antes da revelação final.",
+          "matched": "Liora, da frente da fileira, pergunta em voz alta se a diretora deseja ouvir sua proposta de integração antes da revelação final."
+        },
+        {
+          "turn": 27,
+          "kind": "physical_outcome",
+          "recur": 0.9385,
+          "event": "Noa Véu caminha até a marca da terceira equipe e fica em pé, tentando manter a postura firme.",
+          "matched": "caminhar até a marca da terceira equipe e ficar em pé, tentando manter a postura firme"
+        },
+        {
+          "turn": 22,
+          "kind": "audible_speech",
+          "recur": 0.858,
+          "event": "A diretora anuncia em voz alta que Mirella, Seraphine, Doran e Riven formam a primeira equipe, e que os demais nomes serão revelados em seguida.",
+          "matched": "A diretora anuncia em voz alta que o sexto nome é Mirella Valecourt, e que Mirella, Seraphine, Doran e Riven formam a primeira equipe, enquanto os dem"
+        }
+      ],
+      "echo_pairs": []
+    }
+  },
+  {
+    "run": "oldcode-P1-r1",
+    "cell": "oldcode",
+    "profile": "P1",
+    "replicate": 1,
+    "session_id": "11028536",
+    "provenance": {},
+    "metrics": {
+      "session_id": "11028536",
+      "tau": 0.8,
+      "turns": 40,
+      "player_actions": 10,
+      "rsr_prop": 0.1,
+      "stimuli": 180,
+      "repeated_stimuli": 18,
+      "nsr": 4.05,
+      "sil": 0.0,
+      "echo_persist": 4,
+      "guard": 0.175,
+      "guard_turns": 7,
+      "prose_turns": 40,
+      "beat_occupancy_max": 5,
+      "beat_runs": [
+        {
+          "beat_id": "beat_1_1",
+          "turns": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "length": 4
+        },
+        {
+          "beat_id": "beat_2_1",
+          "turns": [
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "length": 5
+        },
+        {
+          "beat_id": "beat_2_2",
+          "turns": [
+            10,
+            11,
+            12
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_2_3",
+          "turns": [
+            13,
+            14
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_3_1",
+          "turns": [
+            15,
+            16,
+            17
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_3_2",
+          "turns": [
+            18,
+            19
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_4_1",
+          "turns": [
+            20,
+            21
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_4_2",
+          "turns": [
+            22,
+            23,
+            24
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_5_1",
+          "turns": [
+            25,
+            26,
+            27,
+            28,
+            29
+          ],
+          "length": 5
+        },
+        {
+          "beat_id": "beat_6_1",
+          "turns": [
+            30,
+            31
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_7_1",
+          "turns": [
+            32,
+            33,
+            34
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_8_1",
+          "turns": [
+            35,
+            36,
+            37
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "beat_9_1",
+          "turns": [
+            38,
+            39
+          ],
+          "length": 2
+        },
+        {
+          "beat_id": "beat_10_1",
+          "turns": [
+            40
+          ],
+          "length": 1
+        }
+      ],
+      "exit_reasons": {
+        "act_deadline:clock": 8,
+        "replan_beat:stalled": 3,
+        "advance:coverage_sufficient": 2
+      },
+      "replans_per_action": 1.3,
+      "llm_calls_per_action": 38.4,
+      "act_rewrites": 0,
+      "act_rewrites_per_action": 0.0,
+      "cluster_max": 4,
+      "cluster_span": 5,
+      "clusters": [
+        {
+          "turns": [
+            35,
+            37,
+            38,
+            39
+          ],
+          "size": 4,
+          "span": 5,
+          "sample": "Marta grita: 'O arsenal foi violado! Sumiu equipamento e há fumaça vindo da ala de armamentos! A cerimônia precisa parar!'"
+        },
+        {
+          "turns": [
+            8,
+            9,
+            11
+          ],
+          "size": 3,
+          "span": 4,
+          "sample": "Asword avança um passo, fios vermelhos de luz ardem brevemente sob a pele do antebraço e ele encara Riven."
+        },
+        {
+          "turns": [
+            15,
+            16,
+            17
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "A Diretora Maelis ergue a bengala e, com a voz firme, anuncia que a descida à masmorra será antecipada para amanhã, ordenando que todos se p"
+        },
+        {
+          "turns": [
+            25,
+            30,
+            40
+          ],
+          "size": 3,
+          "span": 16,
+          "sample": "Um alarme de emergência soa, anunciando que a entrada da masmorra foi aberta antecipadamente por um defeito no selo."
+        },
+        {
+          "turns": [
+            32,
+            33,
+            34
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "Lorde Cassian exige em tom frio que a Diretora explique a sabotagem antes que a cerimônia prossiga."
+        }
+      ],
+      "max_hint_repeats": 4,
+      "control_injections": 6,
+      "distinct_hints": 3,
+      "injected_turn_fraction": 0.3,
+      "act_deadlines": 8,
+      "hint_detail": [
+        {
+          "repeats": 4,
+          "turns": [
+            20,
+            25,
+            30,
+            40
+          ],
+          "sample": "Um alarme de emergência soa, anunciando que a entrada da masmorra foi aberta antecipadamente por um defeito no selo, for"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            5
+          ],
+          "sample": "O sino do Primeiro Sino soa duas vezes, sinalizando que o anúncio oficial está prestes a começar, forçando os alunos a s"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            10
+          ],
+          "sample": "Uma gaiola de contenção no canto do pátio se rompe, libertando um verme de mana que avança em direção aos alunos."
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 26,
+      "fact_bytes": 1325,
+      "fact_synonym_pairs": 5,
+      "fact_transient_keys": 7,
+      "beat_life_mean": 2.857142857142857,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.15555555555555556,
+        "0.8": 0.1,
+        "0.9": 0.07777777777777778
+      },
+      "worst_repeats": [
+        {
+          "turn": 14,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita do flanco direito: 'Firmem a linha! Quem tem arma, proteja a quarta fileira, não deixem esses bichos tocarem em Noa!'",
+          "matched": "Firmem a linha! Quem tem arma, proteja a quarta fileira, não deixem esses bichos tocarem em Noa!"
+        },
+        {
+          "turn": 17,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Riven, já próximo do arsenal, afirma em tom mordaz: 'Link, oito é número de quem serve de suporte, não de quem enfrenta o que virá. Amanhã veremos se ",
+          "matched": "Link, oito é número de quem serve de suporte, não de quem enfrenta o que virá. Amanhã veremos se você fica na retaguarda ou se aprende a sangrar."
+        },
+        {
+          "turn": 19,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Grito vindo do arsenal: 'Alguém venha aqui! Este selo não é dos nossos registros!'",
+          "matched": "Marta Ferrolume grita do arsenal: 'Alguém venha aqui! Este selo não é dos nossos registros!'"
+        },
+        {
+          "turn": 22,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis proclama em voz alta: 'A masmorra abriu. Formem na entrada em cinco minutos. Sem exceções.'",
+          "matched": "A Diretora Maelis proclama: 'A masmorra abriu. Formem na entrada em cinco minutos. Sem exceções.'"
+        },
+        {
+          "turn": 30,
+          "kind": "observation",
+          "recur": 1.0,
+          "event": "Um alarme de emergência soa, anunciando que a entrada da masmorra foi aberta antecipadamente por um defeito no selo.",
+          "matched": "Um alarme de emergência soa, anunciando que a entrada da masmorra foi aberta antecipadamente por um defeito no selo."
+        },
+        {
+          "turn": 34,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Lorde Cassian exige, em tom frio, que a Diretora explique a sabotagem antes que a cerimônia prossiga.",
+          "matched": "Lorde Cassian exige, em tom frio, que a Diretora explique a sabotagem antes que a cerimônia prossiga."
+        },
+        {
+          "turn": 26,
+          "kind": "audible_speech",
+          "recur": 0.9966,
+          "event": "A Diretora Maelis corta o ar com a bengala e ordena que ninguém toque na vareta, enquanto ela mesma avança em passos firmes em direção à caixa caída.",
+          "matched": "A Diretora Maelis corta o ar com a bengala e ordena que ninguém toque a vareta, enquanto ela mesma avança em passos firmes em direção à caixa caída."
+        },
+        {
+          "turn": 33,
+          "kind": "audible_speech",
+          "recur": 0.99,
+          "event": "Lorde Cassian exige, em tom frio, que a Diretora explique a sabotagem antes que a cerimônia prossiga.",
+          "matched": "Lorde Cassian exige em tom frio que a Diretora explique a sabotagem antes que a cerimônia prossiga."
+        }
+      ],
+      "echo_pairs": [
+        {
+          "speaker": "C18",
+          "first_turn": 13,
+          "repeat_turn": 14,
+          "ratio": 1.0,
+          "raw_ratio": 0.8496,
+          "text": "Garran grita do flanco direito: 'Firmem a linha! Quem tem arma, proteja a quarta fileira, não deixem esses bichos tocarem em Noa!'"
+        },
+        {
+          "speaker": "C13",
+          "first_turn": 16,
+          "repeat_turn": 17,
+          "ratio": 1.0,
+          "raw_ratio": 0.843,
+          "text": "Riven, já próximo do arsenal, afirma em tom mordaz: 'Link, oito é número de quem serve de suporte, não de quem enfrenta o que virá. Amanhã veremos se você fica "
+        },
+        {
+          "speaker": "C17",
+          "first_turn": 21,
+          "repeat_turn": 22,
+          "ratio": 1.0,
+          "raw_ratio": 0.9417,
+          "text": "A Diretora Maelis proclama em voz alta: 'A masmorra abriu. Formem na entrada em cinco minutos. Sem exceções.'"
+        },
+        {
+          "speaker": "C19",
+          "first_turn": 32,
+          "repeat_turn": 34,
+          "ratio": 0.99,
+          "raw_ratio": 0.99,
+          "text": "Lorde Cassian exige, em tom frio, que a Diretora explique a sabotagem antes que a cerimônia prossiga."
+        }
+      ]
+    }
+  },
+  {
+    "run": "oldcode-P1-r2",
+    "cell": "oldcode",
+    "profile": "P1",
+    "replicate": 2,
+    "session_id": "a3e1ceda",
+    "provenance": {},
+    "metrics": {
+      "session_id": "a3e1ceda",
+      "tau": 0.8,
+      "turns": 39,
+      "player_actions": 10,
+      "rsr_prop": 0.06134969325153374,
+      "stimuli": 163,
+      "repeated_stimuli": 10,
+      "nsr": 3.923076923076923,
+      "sil": 0.0,
+      "echo_persist": 1,
+      "guard": 0.3076923076923077,
+      "guard_turns": 12,
+      "prose_turns": 39,
+      "beat_occupancy_max": 7,
+      "beat_runs": [
+        {
+          "beat_id": "Abertura da Cerimônia",
+          "turns": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act2_beat1_obstacles",
+          "turns": [
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13
+          ],
+          "length": 7
+        },
+        {
+          "beat_id": "act3_beat1_sirene",
+          "turns": [
+            14,
+            15,
+            16
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act3_beat1_disrupcao",
+          "turns": [
+            17,
+            18,
+            19
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act3_beat2_portao",
+          "turns": [
+            20,
+            21,
+            22,
+            23,
+            24,
+            25
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act4_beat1_contencao",
+          "turns": [
+            26,
+            27,
+            28,
+            29,
+            30,
+            31
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act4_beat2_canil",
+          "turns": [
+            32,
+            33,
+            34,
+            35,
+            36,
+            37
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act5_beat1_rali",
+          "turns": [
+            38,
+            39
+          ],
+          "length": 2
+        }
+      ],
+      "exit_reasons": {
+        "act_deadline:clock": 6,
+        "replan_beat:stalled": 1
+      },
+      "replans_per_action": 0.7,
+      "llm_calls_per_action": 38.9,
+      "act_rewrites": 0,
+      "act_rewrites_per_action": 0.0,
+      "cluster_max": 4,
+      "cluster_span": 19,
+      "clusters": [
+        {
+          "turns": [
+            20,
+            26,
+            37,
+            38
+          ],
+          "size": 4,
+          "span": 19,
+          "sample": "Um estrondo profundo sacode o salão e uma fenda se rasga no portão principal, sua borda brilhando com um clarão azulado."
+        },
+        {
+          "turns": [
+            23,
+            25,
+            27,
+            31
+          ],
+          "size": 4,
+          "span": 9,
+          "sample": "Garran avança em linha reta, espada alta, forçando a criatura a recuar na direção de Ysara."
+        },
+        {
+          "turns": [
+            26,
+            27,
+            32
+          ],
+          "size": 3,
+          "span": 7,
+          "sample": "Nix, com um sorriso torto, diz em voz alta que a criatura veio na hora perfeita para apagar a prova da lima e que a Coroa parece envolvida."
+        },
+        {
+          "turns": [
+            29,
+            30,
+            31
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "Maelis, com a bengala batendo no chão, ordena que Guardas e alunos formem uma linha de contenção na porta leste, e que ninguém persiga a cri"
+        },
+        {
+          "turns": [
+            36,
+            38,
+            39
+          ],
+          "size": 3,
+          "span": 4,
+          "sample": "Garran e Ysara forçam a criatura a recuar para o leste, enquanto Mirella confirma o canil selado com a geada."
+        }
+      ],
+      "max_hint_repeats": 4,
+      "control_injections": 6,
+      "distinct_hints": 2,
+      "injected_turn_fraction": 0.28205128205128205,
+      "act_deadlines": 6,
+      "hint_detail": [
+        {
+          "repeats": 4,
+          "turns": [
+            20,
+            26,
+            32,
+            38
+          ],
+          "sample": "Um estrondo vindo da Masmorra sacode o chão do salão, e uma fenda visível se abre no portão principal, forçando a formaç"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            7
+          ],
+          "sample": "Um mensageiro da Coroa entrega um pergaminho selado à diretora Maelis, que após lê-lo, anuncia uma mudança nas regras da"
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 10,
+      "fact_bytes": 639,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 2,
+      "beat_life_mean": 4.875,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.13496932515337423,
+        "0.8": 0.06134969325153374,
+        "0.9": 0.018404907975460124
+      },
+      "worst_repeats": [
+        {
+          "turn": 25,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita para fecharem o flanco do canil e não deixarem a criatura sumir com a trilha da lima.",
+          "matched": "Garran grita para fecharem o flanco do canil e não deixarem a criatura sumir com a trilha da lima."
+        },
+        {
+          "turn": 35,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Nix, observando da porta do salão, comenta em voz alta: 'Agora a gente escolhe: correr atrás de bicho ou vigiar quem devia estar mais sujo que os próp",
+          "matched": "Agora a gente escolhe: correr atrás de bicho ou vigiar quem devia estar mais sujo que os próprios jardins. Eu fico olhando a fenda, Cassian; não pago "
+        },
+        {
+          "turn": 31,
+          "kind": "audible_speech",
+          "recur": 0.9021,
+          "event": "Maelis, do salão, ordena que guardas e alunos formem uma linha de contenção na porta leste e que ninguém persiga a criatura sozinho.",
+          "matched": "Maelis, com a bengala batendo no chão, ordena que Guardas e alunos formem uma linha de contenção na porta leste, e que ninguém persiga a criatura sozi"
+        },
+        {
+          "turn": 27,
+          "kind": "audible_speech",
+          "recur": 0.8849,
+          "event": "Nix diz em voz alta, com um sorriso torto, que a criatura veio na hora perfeita para apagar a prova da lima e que a Coroa parece envolvida.",
+          "matched": "Nix, com um sorriso torto, diz em voz alta que a criatura veio na hora perfeita para apagar a prova da lima e que a Coroa parece envolvida."
+        },
+        {
+          "turn": 39,
+          "kind": "audible_speech",
+          "recur": 0.8837,
+          "event": "A diretora Maelis bate a bengala no chão e ordena a formação imediata das equipes, apontando para a entrada da masmorra.",
+          "matched": "A diretora Maelis ordena a formação imediata das equipes, apontando para a entrada da masmorra."
+        },
+        {
+          "turn": 30,
+          "kind": "audible_speech",
+          "recur": 0.8759,
+          "event": "Maelis, com a bengala batendo no chão, ordena que a linha de contenção se forme na porta leste e que ninguém persiga a criatura sozinho.",
+          "matched": "Maelis, com a bengala batendo no chão, ordena que Guardas e alunos formem uma linha de contenção na porta leste, e que ninguém persiga a criatura sozi"
+        },
+        {
+          "turn": 38,
+          "kind": "scene_change",
+          "recur": 0.8649,
+          "event": "Um estrondo vindo da Masmorra sacode o chão, e o portão principal se fende com um clarão azulado.",
+          "matched": "Um estrondo vindo da Masmorra sacode o chão do salão e o portão principal se fende, com um clarão azulado pulsando na brecha."
+        },
+        {
+          "turn": 32,
+          "kind": "physical_outcome",
+          "recur": 0.8498,
+          "event": "Garran avança com a espada erguida, forçando a criatura a recuar mais um passo em direção ao canil.",
+          "matched": "Garran avança com a espada erguida, forçando a criatura a recuar mais um passo em direção ao canil, enquanto ela rosna e cava a terra."
+        }
+      ],
+      "echo_pairs": [
+        {
+          "speaker": "C5",
+          "first_turn": 34,
+          "repeat_turn": 35,
+          "ratio": 1.0,
+          "raw_ratio": 0.8449,
+          "text": "Nix, observando da porta do salão, comenta em voz alta: 'Agora a gente escolhe: correr atrás de bicho ou vigiar quem devia estar mais sujo que os próprios jardi"
+        }
+      ]
+    }
+  },
+  {
+    "run": "oldcode-P1-r3",
+    "cell": "oldcode",
+    "profile": "P1",
+    "replicate": 3,
+    "session_id": "63deac61",
+    "provenance": {},
+    "metrics": {
+      "session_id": "63deac61",
+      "tau": 0.8,
+      "turns": 40,
+      "player_actions": 10,
+      "rsr_prop": 0.09883720930232558,
+      "stimuli": 172,
+      "repeated_stimuli": 17,
+      "nsr": 3.875,
+      "sil": 0.0,
+      "echo_persist": 4,
+      "guard": 0.35,
+      "guard_turns": 14,
+      "prose_turns": 40,
+      "beat_occupancy_max": 6,
+      "beat_runs": [
+        {
+          "beat_id": "act_1_beat_1",
+          "turns": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "length": 5
+        },
+        {
+          "beat_id": "act_2_beat_1",
+          "turns": [
+            6,
+            7,
+            8,
+            9,
+            10,
+            11
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act_3_beat_1",
+          "turns": [
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act_3_beat_2",
+          "turns": [
+            18,
+            19,
+            20,
+            21,
+            22,
+            23
+          ],
+          "length": 6
+        },
+        {
+          "beat_id": "act_4_beat_1",
+          "turns": [
+            24,
+            25,
+            26
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act_4_beat_2",
+          "turns": [
+            27,
+            28,
+            29
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act_4_beat_3",
+          "turns": [
+            30,
+            31,
+            32
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act_4_beat_4",
+          "turns": [
+            33,
+            34,
+            35
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act_5_beat_1",
+          "turns": [
+            36,
+            37,
+            38
+          ],
+          "length": 3
+        },
+        {
+          "beat_id": "act_5_beat_2",
+          "turns": [
+            39,
+            40
+          ],
+          "length": 2
+        }
+      ],
+      "exit_reasons": {
+        "act_deadline:clock": 6,
+        "replan_beat:stalled": 3
+      },
+      "replans_per_action": 0.9,
+      "llm_calls_per_action": 41.6,
+      "act_rewrites": 0,
+      "act_rewrites_per_action": 0.0,
+      "cluster_max": 5,
+      "cluster_span": 5,
+      "clusters": [
+        {
+          "turns": [
+            13,
+            14,
+            15,
+            16,
+            17
+          ],
+          "size": 5,
+          "span": 5,
+          "sample": "Marta Ferrolume atravessa o pátio com um baú de equipamentos e o deposita com um baque seco, anunciando que cada equipe receberá um kit de s"
+        },
+        {
+          "turns": [
+            1,
+            2,
+            3,
+            6
+          ],
+          "size": 4,
+          "span": 6,
+          "sample": "A Diretora Maelis anuncia que, por ordem da Coroa, a seleção desta manhã será precedida por uma prova especial, cujos detalhes serão revelad"
+        },
+        {
+          "turns": [
+            13,
+            14,
+            15,
+            16
+          ],
+          "size": 4,
+          "span": 4,
+          "sample": "Lorde Cassian levanta-se nas arquibancadas e exige, em voz alta, que a formação considere também a linhagem e a reserva de mana dos candidat"
+        },
+        {
+          "turns": [
+            33,
+            34,
+            35,
+            36
+          ],
+          "size": 4,
+          "span": 4,
+          "sample": "Garran grita para todos se afastarem do portão."
+        },
+        {
+          "turns": [
+            1,
+            2,
+            3
+          ],
+          "size": 3,
+          "span": 3,
+          "sample": "Lorde Cassian inclina-se para a frente, um leve sorriso nos lábios, como se o anúncio fosse exatamente o que esperava."
+        }
+      ],
+      "max_hint_repeats": 4,
+      "control_injections": 6,
+      "distinct_hints": 3,
+      "injected_turn_fraction": 0.3,
+      "act_deadlines": 6,
+      "hint_detail": [
+        {
+          "repeats": 4,
+          "turns": [
+            18,
+            24,
+            30,
+            36
+          ],
+          "sample": "O sino da academia toca novamente, marcando o início oficial da expedição, e uma névoa estranha começa a se levantar da "
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            6
+          ],
+          "sample": "O grande sino da academia toca cinco vezes, anunciando oficialmente o início da cerimônia, mas também trazendo um mensag"
+        },
+        {
+          "repeats": 1,
+          "turns": [
+            12
+          ],
+          "sample": "Uma falha no campo de treino, causada por uma sobrecarga de mana, faz uma barreira de proteção desabar parcialmente, exp"
+        }
+      ],
+      "revert_total": 0,
+      "revert_max_per_key": 0,
+      "revert_detail": [],
+      "fact_keys": 8,
+      "fact_bytes": 611,
+      "fact_synonym_pairs": 0,
+      "fact_transient_keys": 0,
+      "beat_life_mean": 4.0,
+      "beats_replaced_with_anchors_pending": 1.0,
+      "rsr_prop_by_tau": {
+        "0.7": 0.16279069767441862,
+        "0.8": 0.09883720930232558,
+        "0.9": 0.05232558139534884
+      },
+      "worst_repeats": [
+        {
+          "turn": 3,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis anuncia que, por ordem da Coroa, a seleção desta manhã será precedida por uma prova especial, cujos detalhes serão revelados em brev",
+          "matched": "A Diretora Maelis anuncia que, por ordem da Coroa, a seleção desta manhã será precedida por uma prova especial, cujos detalhes serão revelados em brev"
+        },
+        {
+          "turn": 10,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "O instrutor Garran solta um bufo e diz: 'A Diretora já deu a ordem. Se quiserem assistir da arquibancada, fiquem. Mas quem vai entrar na prova é vocês",
+          "matched": "Garran Holt solta um bufo e diz: 'A Diretora já deu a ordem. Se quiserem assistir da arquibancada, fiquem. Mas quem vai entrar na prova é vocês, não e"
+        },
+        {
+          "turn": 22,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis grita: 'Protejam o artefato, não deixem que o levem! Garran, cubra o flanco direito!'",
+          "matched": "A Diretora Maelis grita das arquibancadas: 'Protejam o artefato, não deixem que o levem! Garran, cubra o flanco direito!'"
+        },
+        {
+          "turn": 29,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "A Diretora Maelis corta o ar com a bengala e ordena: 'Isso não estava no protocolo. Garran, me diga como reabrir antes que percamos o contato.'",
+          "matched": "A Diretora Maelis corta o ar com a bengala e ordena: 'Isso não estava no protocolo. Garran, me diga como reabrir antes que percamos o contato.'"
+        },
+        {
+          "turn": 29,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran Holt responde, com a voz tensa: 'Fica frio, Link, o selo tem mecanismo de reabertura. Deixa eu ver isso com calma; já vi esse padrão antes.'",
+          "matched": "Fica frio, Link, o selo tem mecanismo de reabertura. Deixa eu ver isso com calma; já vi esse padrão antes."
+        },
+        {
+          "turn": 34,
+          "kind": "audible_speech",
+          "recur": 1.0,
+          "event": "Garran grita para todos se afastarem do portão.",
+          "matched": "Garran grita para todos se afastarem do portão."
+        },
+        {
+          "turn": 26,
+          "kind": "audible_speech",
+          "recur": 0.9839,
+          "event": "A Diretora Maelis brada, apontando para os portões: 'Persigam-nos agora! Entrem na masmorra e recuperem o artefato!'",
+          "matched": "A Diretora Maelis ordena em voz alta: 'Persigam-nos agora! Entrem na masmorra e recuperem o artefato.'"
+        },
+        {
+          "turn": 15,
+          "kind": "audible_speech",
+          "recur": 0.9137,
+          "event": "Lorde Cassian levanta-se nas arquibancadas e exige, em voz alta, que a formação considere também a linhagem e a reserva de mana dos candidatos, gerand",
+          "matched": "Lorde Cassian levanta-se nas arquibancadas e exige, em voz alta, que a formação considere também a linhagem e a reserva de mana dos candidatos."
+        }
+      ],
+      "echo_pairs": [
+        {
+          "speaker": "C17",
+          "first_turn": 1,
+          "repeat_turn": 3,
+          "ratio": 1.0,
+          "raw_ratio": 1.0,
+          "text": "A Diretora Maelis anuncia que, por ordem da Coroa, a seleção desta manhã será precedida por uma prova especial, cujos detalhes serão revelados em breve."
+        },
+        {
+          "speaker": "C17",
+          "first_turn": 21,
+          "repeat_turn": 22,
+          "ratio": 1.0,
+          "raw_ratio": 0.9196,
+          "text": "A Diretora Maelis grita: 'Protejam o artefato, não deixem que o levem! Garran, cubra o flanco direito!'"
+        },
+        {
+          "speaker": "C18",
+          "first_turn": 28,
+          "repeat_turn": 29,
+          "ratio": 1.0,
+          "raw_ratio": 0.8379,
+          "text": "Garran Holt responde, com a voz tensa: 'Fica frio, Link, o selo tem mecanismo de reabertura. Deixa eu ver isso com calma; já vi esse padrão antes.'"
+        },
+        {
+          "speaker": "C18",
+          "first_turn": 33,
+          "repeat_turn": 34,
+          "ratio": 1.0,
+          "raw_ratio": 1.0,
+          "text": "Garran grita para todos se afastarem do portão."
+        }
+      ]
+    }
+  }
+]

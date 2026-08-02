@@ -81,33 +81,52 @@ PROFILE_INPUTS: dict[str, list[tuple[str, str | None]]] = {
     # Recurrence can only rise with length (every stimulus gets a larger pool of
     # priors to match), so a short P2 would score near zero for reasons that have
     # nothing to do with the engine. 40 lines, 40 turns.
+    #
+    # All 40 DISTINCT. A first draft repeated 20 lines twice and scored 20
+    # ECHO_PERSIST hits in every cell — the fixture duplicating itself, not the
+    # engine. The metric now skips the Player sentinel as well; both fixes are
+    # needed, because an input profile must not be able to author its own result.
     "P2": [
-        ("speech", line)
-        for line in (
-            [
-                "...",
-                "Prefiro so observar por enquanto.",
-                "Entendo.",
-                "Nao se preocupem comigo, continuem.",
-                "Certo.",
-                "Estou acompanhando.",
-                "Hm.",
-                "E agora?",
-                "Sigo junto.",
-                "Tudo bem.",
-                "Continuo aqui.",
-                "Que seja.",
-                "Estou vendo.",
-                "Nao tenho pressa.",
-                "Pode seguir.",
-                "Anotado.",
-                "Fico atento.",
-                "Sem problema.",
-                "Acompanho de perto.",
-                "Vamos ver no que da.",
-            ]
-            * 2
-        )
+        ("speech", "Continuo aqui."),
+        ("speech", "Que seja."),
+        ("speech", "Estou vendo."),
+        ("speech", "Nao tenho pressa."),
+        ("speech", "Pode seguir."),
+        ("speech", "Anotado."),
+        ("speech", "Fico atento."),
+        ("speech", "Sem problema."),
+        ("speech", "Acompanho de perto."),
+        ("speech", "Vamos ver no que da."),
+        ("speech", "Nada a acrescentar."),
+        ("speech", "Prossigam."),
+        ("speech", "Escuto."),
+        ("speech", "Como quiserem."),
+        ("speech", "Aguardo."),
+        ("speech", "Fica registrado."),
+        ("speech", "Observo daqui."),
+        ("speech", "Segue o baile."),
+        ("speech", "Nao me oponho."),
+        ("speech", "Concordo."),
+        ("speech", "Faz sentido."),
+        ("speech", "Vejo o mesmo."),
+        ("speech", "Deixo com voces."),
+        ("speech", "Estou junto."),
+        ("speech", "Tudo anotado."),
+        ("speech", "Sigo atras."),
+        ("speech", "Nao atrapalho."),
+        ("speech", "Melhor assim."),
+        ("speech", "Percebi."),
+        ("speech", "Vamos la."),
+        ("speech", "Confirmo."),
+        ("speech", "Sem objecao."),
+        ("speech", "Entendido."),
+        ("speech", "Ficou claro."),
+        ("speech", "Acompanhando ainda."),
+        ("speech", "Nada muda pra mim."),
+        ("speech", "Por mim tudo bem."),
+        ("speech", "Continuem entao."),
+        ("speech", "Estou pronto."),
+        ("speech", "Ate aqui, bem."),
     ],
 }
 
@@ -242,13 +261,20 @@ def _spawn(cell: str, profile: str, replicate: int, scenario: str, max_inputs: i
         text=True,
     )
     sys.stdout.write(proc.stdout)
+    # A provider hiccup must cost ONE run, not the battery. A malformed response
+    # that survives all retries killed a 6-run P2 battery after 3.5 runs; the
+    # completed cells were still valid and the remaining ones simply never ran.
+    # Report the gap and carry on — an unbalanced design is analysable, a
+    # truncated one is not even that.
     if proc.returncode != 0:
         sys.stderr.write(proc.stderr)
-        raise SystemExit(f"cell {cell}/{profile} replicate {replicate} failed")
+        print(f"  !! {cell}/{profile} r{replicate} FAILED, continuing")
+        return {}
     for line in proc.stdout.splitlines():
         if line.startswith("RUN "):
             return json.loads(line[4:])
-    raise SystemExit(f"cell {cell}/{profile} replicate {replicate} produced no RUN line")
+    print(f"  !! {cell}/{profile} r{replicate} produced no RUN line, continuing")
+    return {}
 
 
 def main() -> None:
@@ -290,6 +316,8 @@ def main() -> None:
         rng.shuffle(block)  # block on replicate, randomize cell order within it
         for cell in block:
             run = _spawn(cell, args.profile, replicate, args.scenario, args.max_inputs)
+            if not run:
+                continue
             data_dir = BASE / f"{cell}-{args.profile}-r{replicate}"
             run["metrics"] = score(run["session_id"], data_dir)
             run["data_dir"] = str(data_dir)

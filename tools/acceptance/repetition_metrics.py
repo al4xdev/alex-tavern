@@ -447,7 +447,15 @@ def _turn_numbers(state: dict) -> list[int]:
 
 
 def _echo_persist(state: dict) -> tuple[int, list[dict]]:
-    """Speech records that verbatim-duplicate an earlier line by the same voice."""
+    """Speech records that verbatim-duplicate an earlier line by the same voice.
+
+    The ``Player`` sentinel is skipped on both sides. This metric exists to catch
+    the DIRECTOR re-voicing a line already in history and persisting it as a
+    fresh record; a human who types the same thing twice is legitimate input, and
+    counting it made a scripted input profile score 20 self-inflicted duplicates.
+    A Director reformulation of the human's own words still counts, because that
+    record carries the controlled character's id, not the sentinel.
+    """
     seen: list[tuple[int, str, str]] = []
     hits: list[dict] = []
     for record in state.get("history", []):
@@ -455,6 +463,8 @@ def _echo_persist(state: dict) -> tuple[int, list[dict]]:
             continue
         turn = int(record["turn_number"])
         speaker = str(record["speaker"])
+        if speaker == "Player":
+            continue
         content = str(record["content"])
         for prior_turn, prior_speaker, prior in seen:
             if prior_speaker != speaker:

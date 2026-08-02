@@ -1,0 +1,110 @@
+{
+  "label": "p1-burst",
+  "archived_at": "2026-08-02T14:01:20.562128+00:00",
+  "engine": {
+    "fingerprint": "6ed5639e049f",
+    "commit": "b75afbc",
+    "commit_subject": "docs: the repetition investigation, and what it changes for task 59",
+    "dirty": false
+  },
+  "models": [],
+  "model_note": "Provider weights can change without the id changing; a benchmark is comparable only to runs on the same id AND the same weights window.",
+  "runs": [
+    {
+      "run": "base-P1-r1",
+      "cell": "base",
+      "profile": "P1",
+      "replicate": 1,
+      "session_id": "22b27d6e",
+      "provenance": {}
+    },
+    {
+      "run": "base-P1-r2",
+      "cell": "base",
+      "profile": "P1",
+      "replicate": 2,
+      "session_id": "8bd4d0f1",
+      "provenance": {}
+    },
+    {
+      "run": "base-P1-r3",
+      "cell": "base",
+      "profile": "P1",
+      "replicate": 3,
+      "session_id": "513cb09f",
+      "provenance": {}
+    },
+    {
+      "run": "drive-P1-r1",
+      "cell": "drive",
+      "profile": "P1",
+      "replicate": 1,
+      "session_id": "5c994c42",
+      "provenance": {}
+    },
+    {
+      "run": "drive-P1-r2",
+      "cell": "drive",
+      "profile": "P1",
+      "replicate": 2,
+      "session_id": "ec84b31e",
+      "provenance": {}
+    },
+    {
+      "run": "drive-P1-r3",
+      "cell": "drive",
+      "profile": "P1",
+      "replicate": 3,
+      "session_id": "17ec48d5",
+      "provenance": {}
+    },
+    {
+      "run": "null-P1-r1",
+      "cell": "null",
+      "profile": "P1",
+      "replicate": 1,
+      "session_id": "7fd84e9a",
+      "provenance": {}
+    },
+    {
+      "run": "null-P1-r2",
+      "cell": "null",
+      "profile": "P1",
+      "replicate": 2,
+      "session_id": "05e0dffc",
+      "provenance": {}
+    },
+    {
+      "run": "null-P1-r3",
+      "cell": "null",
+      "profile": "P1",
+      "replicate": 3,
+      "session_id": "07218133",
+      "provenance": {}
+    },
+    {
+      "run": "oldcode-P1-r1",
+      "cell": "oldcode",
+      "profile": "P1",
+      "replicate": 1,
+      "session_id": "11028536",
+      "provenance": {}
+    },
+    {
+      "run": "oldcode-P1-r2",
+      "cell": "oldcode",
+      "profile": "P1",
+      "replicate": 2,
+      "session_id": "a3e1ceda",
+      "provenance": {}
+    },
+    {
+      "run": "oldcode-P1-r3",
+      "cell": "oldcode",
+      "profile": "P1",
+      "replicate": 3,
+      "session_id": "63deac61",
+      "provenance": {}
+    }
+  ]
+}
