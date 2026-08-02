@@ -2212,18 +2212,57 @@ class Runner:
             # The act advance is CODE-owned: the deadline concluded it, whatever
             # the conversation was doing. The replan only writes the next act's
             # opening beat (its status text says the world_event just happened).
-            if game.roteiro.act_index + 1 < len(game.roteiro.acts):
+            #
+            # On the LAST act there is nowhere to advance to, and the previous
+            # code still reset the tick and returned the world_event — so the
+            # terminal act re-fired its climax every `duration_ticks`, forever.
+            # Measured in base-P1-r1: 17 act deadlines in 38 turns, the same
+            # world_event injected as a MANDATORY UPCOMING EVENT twelve times
+            # (turns 11-37), and the Director duly re-sealed the same doors seven
+            # times (docs/cases/20-repetition-baseline-2026-08-01.md).
+            #
+            # A story that runs out of acts gets NEW acts. Scope "act" is the
+            # right tool and already exists: it keeps the premise, keeps every
+            # act already played, and splices the rewrite after them — which at
+            # the terminal act means appending. Regenerating from scratch would
+            # mint a fresh premise and restart the story instead of continuing
+            # it.
+            acts_before = len(game.roteiro.acts)
+            terminal = game.roteiro.act_index + 1 >= acts_before
+            if not terminal:
                 game.roteiro.act_index += 1
             game.roteiro.act_started_tick = game.narrative_tick
             game.roteiro.beat_replans_in_act = 0
             game.roteiro = await replan_roteiro(
                 self.client,
                 game,
-                ReplanDecision(action="replan_beat", reason="act_deadline"),
+                ReplanDecision(
+                    action="replan_act" if terminal else "replan_beat",
+                    reason="act_deadline",
+                ),
                 self.config,
                 turn_number,
                 current_tick=game.narrative_tick,
             )
+            if terminal:
+                # Own the landing deterministically; `replan_roteiro` advances
+                # only when the model volunteers `act_completed`, and the clock
+                # must not depend on that.
+                grew = len(game.roteiro.acts) > acts_before
+                # Safety valve: a replan that returns no usable act must STOP the
+                # clock, never re-fire it. Otherwise one bad generation trades a
+                # repeated event for a repeated expensive call.
+                game.roteiro.act_index = acts_before if grew else len(game.roteiro.acts)
+                game.roteiro.act_started_tick = game.narrative_tick
+                log_roteiro_decision(
+                    game.session_id,
+                    turn_number,
+                    action="act_regenerate" if grew else "act_clock_stopped",
+                    reason="acts_exhausted",
+                    beat_id=game.roteiro.beat.beat_id if game.roteiro.beat else "none",
+                    anchors_missing=[],
+                    actors_missing=[],
+                )
             return world_event or None
         decision = evaluate_roteiro(
             game.roteiro, game.history, game.player.controlled_character_id, next_turn

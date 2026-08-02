@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 import httpx
 import pytest
 
@@ -249,30 +251,49 @@ class TestEvaluateRoteiro:
         decision = evaluate_roteiro(roteiro, history, "C1", 2)
         assert decision.action == "advance"
 
-    def test_burst_turns_do_not_stall_a_beat(self) -> None:
-        """One continuation costs the beat ONE action, not one per beat.
+    def test_a_burst_spends_one_action_but_cannot_outrun_the_turn_ceiling(self) -> None:
+        """Two clocks: the action budget is per submission, the ceiling per turn.
 
-        Regression (observed 2026-07-20 in sessions 29caff75 and 503bb018): a
-        6-beat continuation committed 6 turns from a single click, blowing past
-        the 3-turn cap inside one player action, so the screenplay replanned as
-        "stalled" after every continuation.
+        Task 45 made a continuation cost the beat ONE action, because counting
+        committed turns made every continuation replan as "stalled" (sessions
+        29caff75 and 503bb018, 2026-07-20). Counting ONLY actions then went too
+        far the other way: a 6-beat burst held one beat for six narrated turns
+        and the cap never saw it. Measured over 20d4cdb3 and 15d40dfa, 17 turns
+        produced two beat exits, both from the ACT clock, with single beats
+        occupying five consecutive turns
+        (docs/cases/20-repetition-baseline-2026-08-01.md).
+
+        The budget keeps its action unit; the ceiling is what the reader stands
+        on, so it counts turns.
         """
-        roteiro = _roteiro(
-            beat=_beat(expected_anchors=["selo real"], budget_turns=10),
-            beat_actions_elapsed=1,
+        beat = _beat(expected_anchors=["selo real"], budget_turns=10)
+        engaged = [_record(turn, "C2", "Preciso agir logo.") for turn in range(1, 7)]
+
+        # Two narrated turns off one action: under the ceiling, nothing fires.
+        decision = evaluate_roteiro(
+            _roteiro(beat=beat, beat_actions_elapsed=1), engaged[:2], "C1", 3
         )
-        history = [_record(turn, "C2", "Preciso agir logo.") for turn in range(1, 7)]
-        decision = evaluate_roteiro(roteiro, history, "C1", 7)
         assert decision.action is None
         assert decision.reason == "in_progress"
-        # Three real actions still stall it — the cap itself is untouched.
-        roteiro = _roteiro(
-            beat=_beat(expected_anchors=["selo real"], budget_turns=10),
-            beat_actions_elapsed=3,
-        )
-        decision = evaluate_roteiro(roteiro, history, "C1", 7)
+
+        # A sixth turn from that SAME single action stalls on the turn ceiling.
+        decision = evaluate_roteiro(_roteiro(beat=beat, beat_actions_elapsed=1), engaged, "C1", 7)
         assert decision.action == "replan_beat"
         assert decision.reason == "stalled"
+        assert decision.progress is not None
+        assert decision.progress.actions_elapsed == 1, "the action budget stays untouched"
+        assert decision.progress.turns_elapsed == 6
+
+        # The action cap still stalls a beat on its own, with turns to spare.
+        # In play the turn ceiling almost always preempts it, because an action
+        # that narrates contributes a counted turn; this state is what a run of
+        # SILENT actions looks like, and it is the case the ceiling cannot see.
+        decision = evaluate_roteiro(
+            _roteiro(beat=beat, beat_actions_elapsed=3), engaged[:1], "C1", 2
+        )
+        assert decision.action == "replan_beat"
+        assert decision.reason == "stalled"
+        assert decision.progress is not None and decision.progress.turns_elapsed == 1
 
     def test_repeated_replans_escalate_to_act_rewrite(self) -> None:
         roteiro = _roteiro(beat_replans_in_act=ACT_REPLAN_THRESHOLD)
@@ -643,11 +664,17 @@ class TestRunnerWiring:
 
     @pytest.mark.asyncio
     async def test_multi_beat_continuation_spends_one_action(self, monkeypatch) -> None:  # noqa: ANN001
-        """A continuation commits several turns but costs the beat ONE action."""
+        """A continuation commits several turns but costs the beat ONE action.
+
+        Budget kept at 3 beats so the burst stays under the turn ceiling: this
+        test is about the ACTION clock, and a longer burst would (correctly) be
+        cut short by the turn ceiling before the counter could be read. The
+        ceiling itself is driven end to end in tests/test_beat_clock.py.
+        """
         config = {
             "auto_event_enabled": False,
             "roteiro_enabled": True,
-            "autonomous_burst_max_beats": 4,
+            "autonomous_burst_max_beats": 3,
         }
         _, game = await self._turn(
             monkeypatch,
@@ -716,7 +743,7 @@ class TestNarrativeClock:
         assert len(acts[0].world_event) == 300
         assert acts[1].duration_ticks == 0
 
-    async def _clock_session(self, monkeypatch, roteiro):  # noqa: ANN001, ANN202
+    async def _clock_session(self, monkeypatch, roteiro, new_acts=0):  # noqa: ANN001, ANN202
         import src.runner as runner_mod
         from src.runner import Runner
 
@@ -736,9 +763,33 @@ class TestNarrativeClock:
 
         async def fake_replan(client, game, decision, config, turn_number, current_tick=0):  # noqa: ANN001, ANN202, ARG001
             replans.append(decision.reason)
-            updated = _roteiro(acts=list(game.roteiro.acts))
+            acts = list(game.roteiro.acts)
+            if decision.action == "replan_act":
+                # Mirror the real scope="act" splice: already-played acts are
+                # kept and the rewrite lands after them. ``new_acts=0`` is the
+                # generation that produced nothing usable.
+                acts += [
+                    RoteiroAct(
+                        act_id=f"gen{len(acts) + index}",
+                        summary=f"Ato gerado {len(acts) + index}",
+                        exit_condition="algo muda",
+                        duration_ticks=2,
+                        world_event=f"Evento novo do ato {len(acts) + index}.",
+                    )
+                    for index in range(new_acts)
+                ]
+            updated = _roteiro(acts=acts)
             updated.act_index = game.roteiro.act_index
-            updated.act_started_tick = current_tick
+            # Mirror `replan_roteiro`: the act clock only restarts when the ACT
+            # changed. Clobbering it unconditionally (as this fake used to) let
+            # every ordinary beat replan silently reset the act deadline, which
+            # hid the terminal-act loop entirely — the fixture was measuring
+            # itself instead of the engine.
+            updated.act_started_tick = (
+                current_tick
+                if updated.act_index != game.roteiro.act_index
+                else game.roteiro.act_started_tick
+            )
             return updated
 
         monkeypatch.setattr(runner_mod, "replan_roteiro", fake_replan)
@@ -970,6 +1021,90 @@ class TestNarrativeClock:
             await runner.player_turn(sid, skip=True)
             game = await runner.get_state(sid)
             assert game.narrative_tick == 4 + 1 + 8
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_terminal_act_regenerates_instead_of_repeating_forever(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        """The last act must not re-fire its climax every `duration_ticks`.
+
+        The old code guarded the index advance but still reset `act_started_tick`
+        and returned `world_event`, so the terminal act's deadline fired forever.
+        Measured in `base-P1-r1`: 17 act deadlines in 38 turns and the SAME
+        world_event injected as a mandatory UPCOMING EVENT twelve times, which
+        the Director obeyed by re-sealing the same doors seven times
+        (docs/cases/20-repetition-baseline-2026-08-01.md).
+        """
+        from src.store.sessions import delete_session
+
+        acts = [
+            RoteiroAct(
+                act_id="only",
+                summary="ato unico",
+                exit_condition="e",
+                duration_ticks=2,
+                world_event="O portao se fecha com um baque.",
+            )
+        ]
+        runner, sid, client, hints, replans = await self._clock_session(
+            monkeypatch, _roteiro(acts=acts), new_acts=2
+        )
+        try:
+            for _ in range(7):
+                await runner.player_turn(sid, speech="Sigo.")
+            # The general property, stronger than watching one string: NO world
+            # event may be injected twice. Before the fix the terminal act's
+            # event repeated once per `duration_ticks` for the whole session.
+            staged = [h for h in hints if h.strip()]
+            worst = max(Counter(staged).values(), default=0)
+            assert worst == 1, f"algum evento foi injetado {worst}x: {Counter(staged)}"
+            assert "O portao se fecha com um baque." in staged
+
+            game = await runner.get_state(sid)
+            # Acts ran out twice in seven turns, so the skeleton grew twice: the
+            # clock keeps producing pressure, with a NEW event each time.
+            assert len(game.roteiro.acts) > 1, "os atos novos devem ter sido anexados"
+            assert game.roteiro.acts[game.roteiro.act_index].act_id.startswith("gen"), (
+                "deve pousar num ato recem-escrito, nao no terminal antigo"
+            )
+            assert replans.count("act_deadline") >= 2
+        finally:
+            await delete_session(sid)
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_a_regeneration_that_yields_nothing_stops_the_clock(
+        self, monkeypatch
+    ) -> None:  # noqa: ANN001
+        """The safety valve: no new act must stop the clock, never re-fire it.
+
+        Without it one bad generation trades a repeated event for a repeated
+        expensive call, which is strictly worse.
+        """
+        from src.store.sessions import delete_session
+
+        acts = [
+            RoteiroAct(
+                act_id="only",
+                summary="ato unico",
+                exit_condition="e",
+                duration_ticks=2,
+                world_event="O portao se fecha com um baque.",
+            )
+        ]
+        runner, sid, client, hints, _ = await self._clock_session(
+            monkeypatch, _roteiro(acts=acts), new_acts=0
+        )
+        try:
+            for _ in range(7):
+                await runner.player_turn(sid, speech="Sigo.")
+            staged = [h for h in hints if h == "O portao se fecha com um baque."]
+            assert len(staged) == 1, f"o world_event re-disparou {len(staged)}x"
+            game = await runner.get_state(sid)
+            assert game.roteiro.act_index >= len(game.roteiro.acts), "o relogio deve parar"
         finally:
             await delete_session(sid)
             await client.aclose()

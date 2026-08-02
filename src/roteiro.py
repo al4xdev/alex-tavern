@@ -32,16 +32,36 @@ ROTEIRO_DEFAULTS = {
 }
 
 # Replan tuning (module constants; measured before ever becoming config).
-# All three count PLAYER ACTIONS, not committed turns — one action can commit
-# several turns since Task 45 (see ``evaluate_roteiro``).
+# Unit rule for everything below: anything that measures the scene DWELLING is
+# counted in narrated turns, because that is what the reader experiences and
+# what a burst produces without the player acting. Only the beat's declared
+# narrative BUDGET is counted in player actions. Mixing the two is what let a
+# burst hold one beat for five turns.
 DRIFT_WINDOW_TURNS = 3  # M consecutive disengaged turns = drifted
-PARTIAL_ADVANCE_PATIENCE = 2  # actions before a near-covered beat advances anyway
-# Hard ceiling on how many actions one beat may stay active, regardless of its
-# declared budget or how many anchors remain. Beyond this the scene is moving
-# on: a beat held longer makes the Director re-stage the same tableau (measured
-# on the portais scene, where a 5-turn beat produced three identical turns).
-# Drive over completeness - a stuck beat replans into a fresh situation.
-HARD_BEAT_TURN_CAP = 3
+PARTIAL_ADVANCE_PATIENCE = 2  # narrated turns before a near-covered beat advances anyway
+# TWO CLOCKS, deliberately. The beat's BUDGET is narrative pacing and belongs to
+# the player: one submission spends one unit of it, however many turns the world
+# plays in response (Task 45's calibration). The CEILING is anti-repetition and
+# belongs to the reader: it counts narrated turns, because that is the unit the
+# same tableau gets re-staged in.
+#
+# Collapsing them into one action-counted cap is what broke: a bare skip commits
+# up to `autonomous_burst_max_beats` (6) turns while the counter advances once,
+# so the cap could not fire inside a burst at all. Measured over sessions
+# 20d4cdb3 and 15d40dfa, 17 turns produced exactly two beat exits, both by the
+# ACT clock; the intended path never fired once, and single beats occupied five
+# consecutive turns (docs/cases/20-repetition-baseline-2026-08-01.md).
+# The turn ceiling normally preempts the action cap, because an action that
+# narrates anything contributes at least one counted turn — so three actions
+# already means three turns. The action cap earns its keep only for actions that
+# commit NO progress record at all (a beat whose events were all filtered out
+# and whom nobody answered): there the scene is silent, turns do not accumulate,
+# and without it a beat could sit forever. It is a backstop, not the main clock.
+HARD_BEAT_ACTION_CAP = 3  # player actions, whatever the declared budget says
+HARD_BEAT_TURN_CAP = 3  # narrated turns; the ceiling a burst cannot outrun
+# Committed turns, matching the unit of `cooldown_until_turn` and of the turn
+# ceiling above — so a beat gets its full ceiling before a replan can be blocked
+# on hysteresis, and the two never fight.
 COOLDOWN_TURNS = 2  # replans blocked for this many turns after any replan
 ACT_REPLAN_THRESHOLD = 2  # stall/drift replans in one act before act rewrite
 MIN_BUDGET_TURNS = 2
@@ -186,9 +206,14 @@ def measure_beat_progress(
         actors_missing=tuple(a for a in beat.expected_actors if a not in actors_hit),
         turns_elapsed=len(turn_numbers),
         disengaged_streak=disengaged,
-        # Sessions written before the counter existed fall back to committed
-        # turns, which is the same number whenever bursts are off.
-        actions_elapsed=roteiro.beat_actions_elapsed or len(turn_numbers),
+        # No fallback to committed turns. A fallback made this clock
+        # NON-MONOTONIC: while the counter sat at 0 (a beat born mid-burst) it
+        # read accumulated turns, and the next player action set the counter to
+        # 1, so the effective elapsed time went backwards — observed regressing
+        # 2 -> 1 in session 20d4cdb3 at the turn-7 action boundary, which
+        # postponed the cap indefinitely. Turn pressure is `turns_elapsed`, a
+        # separate field; this one counts actions and nothing else.
+        actions_elapsed=roteiro.beat_actions_elapsed,
     )
 
 
@@ -225,21 +250,29 @@ def evaluate_roteiro(
         and len(progress.anchors_hit) >= 1
         and len(progress.anchors_missing) <= 1
     )
-    if substantial and progress.actions_elapsed >= PARTIAL_ADVANCE_PATIENCE:
+    if substantial and progress.turns_elapsed >= PARTIAL_ADVANCE_PATIENCE:
         return ReplanDecision(action="advance", reason="coverage_sufficient", progress=progress)
 
-    # A beat stalls at its declared budget OR the hard cap, whichever comes
-    # first — the cap guarantees no beat can pin the scene into static
-    # repetition. The unit is PLAYER ACTIONS, not committed turns: a multi-beat
-    # continuation (Task 45) commits up to `autonomous_burst_max_beats` turns
-    # from one click, which blew past a 3-turn cap inside a single action and
-    # made every continuation replan the beat as "stalled" (observed in
-    # sessions 29caff75 and 503bb018, 2026-07-20). Counting actions restores
-    # the calibration this budget was measured under in Task 38.
-    stall_at = min(roteiro.beat.budget_turns, HARD_BEAT_TURN_CAP)
-    stalled = progress.actions_elapsed >= stall_at
+    # A beat stalls when EITHER clock runs out (see the constants above).
+    #
+    # The action clock carries the declared budget, so a multi-beat continuation
+    # (Task 45) costs one unit however many turns it plays — that is what stopped
+    # every continuation from replanning as "stalled" in sessions 29caff75 and
+    # 503bb018 (2026-07-20).
+    #
+    # The turn clock is the reader's guarantee: no beat may hold the stage past
+    # HARD_BEAT_TURN_CAP narrated turns, whatever the budget says and whoever
+    # spent the action. Without it the burst outruns the action clock entirely
+    # and the Director re-stages one tableau for five turns.
+    stall_at = min(roteiro.beat.budget_turns, HARD_BEAT_ACTION_CAP)
+    stalled = (
+        progress.actions_elapsed >= stall_at or progress.turns_elapsed >= HARD_BEAT_TURN_CAP
+    )
+    # Both halves in turns. `disengaged_streak` was always counted in turns, so
+    # pairing it with an action counter was a unit mismatch that only ever
+    # worked because the removed fallback made the action counter read turns.
     drifted = (
-        progress.actions_elapsed >= DRIFT_WINDOW_TURNS
+        progress.turns_elapsed >= DRIFT_WINDOW_TURNS
         and progress.disengaged_streak >= DRIFT_WINDOW_TURNS
     )
     if not stalled and not drifted:
