@@ -127,18 +127,30 @@ INPUTS_PASSIVE_GENERIC = [
 ]
 
 # scenario -> (builtin name or None for the hardcoded estalagem, inputs profile,
-# optional present-subset). The portais preset has 21 present; a viewer's
-# perspective-ledger init (one PersonView per other present character) overflows
-# the fixed 1024-token init budget at that size (a Task 29.2 scaling limit,
-# logged as evidence). Use a 6-character team-selection sub-scene: Link plus the
-# classmates his sheet gives relationship priors with (Asword, Mirella, Nix,
-# Doran, Riven). Still 2x the estalagem cast, a wholly different genre.
+# optional present-subset).
+#
+# The 6-character subset is a team-selection sub-scene: Link plus the classmates
+# his sheet gives relationship priors with (Asword, Mirella, Nix, Doran, Riven).
+# Still 2x the estalagem cast, a wholly different genre.
+#
+# It used to be the only portais option because the perspective-ledger init was
+# capped at 1024 tokens and overflowed at 21 present (a Task 29.2 scaling limit).
+# That cap is gone — `perspective.py` now asks for `max(4096,
+# max_tokens_character)`, and the live 21-character sessions 20d4cdb3 /
+# 15d40dfa completed `perspective:init` in ~1365 tokens without error. The
+# full-cast variant exists because that is the size the repetition defect was
+# measured at, and cast size changes how easily actor coverage can ever close.
 SCENARIOS = {
     "estalagem": (None, INPUTS_ESTALAGEM, None),
     "turma-dos-portais-pt": (
         "turma-dos-portais-pt",
         INPUTS_PASSIVE_GENERIC,
         ["C1", "C2", "C3", "C5", "C6", "C13", "Player"],
+    ),
+    "turma-dos-portais-pt-full": (
+        "turma-dos-portais-pt",
+        INPUTS_PASSIVE_GENERIC,
+        None,  # every character the preset places in the scene: 21 + Player
     ),
 }
 
@@ -168,9 +180,23 @@ def _build_session_args(scenario: str):  # noqa: ANN202
     scene_raw = spec["scene"]
     present = present_subset or list(scene_raw["present_characters"])
     npc_ids = [cid for cid in present if cid != "Player"]
+    # A builtin scenario LINKS its cast by preset id; only a user scenario ever
+    # inlines `characters`. Resolve the same way the Runner does
+    # (src/runner.py, start_session) so this harness casts the real sheets.
+    if "characters" in spec:
+        raw_characters = spec["characters"]
+    else:
+        from src.store.presets import load_preset
+
+        raw_characters = {}
+        for cid, preset_name in spec.get("character_preset_ids", {}).items():
+            preset = load_preset(preset_name)
+            if preset is None:
+                raise SystemExit(f"scenario {builtin} links a missing preset: {preset_name}")
+            raw_characters[cid] = preset["character"]
     characters = {
         cid: Character(mind=CharacterMind(**c["mind"]), body=CharacterBody(**c["body"]))
-        for cid, c in spec["characters"].items()
+        for cid, c in raw_characters.items()
         if cid in npc_ids
     }
     return {
