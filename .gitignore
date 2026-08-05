@@ -23,3 +23,6 @@ src/version.txt
 
 # Claude Code Playwright plugin scratch output
 .playwright-mcp/
+
+# Local agent relay config (per-machine, not part of the project)
+.pi/

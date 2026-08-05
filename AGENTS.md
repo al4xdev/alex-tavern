@@ -86,6 +86,47 @@ e um `KeyError` significa arquivo corrompido, não versão antiga — o loader j
 qualquer versão diferente antes de chegar ali. Ler campo com default só é legítimo quando
 o valor é opcional *no schema atual* (o `roteiro`, que é `None` com a feature desligada).
 
+### Orçamentos: o que este projeto trata como barato
+
+A regra forward-only diz o que estamos dispostos a **quebrar**. Esta diz o que
+estamos dispostos a **gastar**, e existe pelo mesmo motivo: agentes novos chegam
+economizando o recurso errado e pedem permissão para gastar o certo.
+
+**Três recursos são baratos aqui. Não os proteja, não peça autorização, não
+proponha um design pior para poupá-los.**
+
+1. **Retrocompatibilidade** — §2 acima. Suba a versão do schema e siga.
+2. **Custo de tokens.** Uma chamada a mais que melhora a ficção é para ser feita.
+   Não faça orçamento de centavos, não escolha um modelo pior por preço e não
+   escreva "isso custaria caro" como argumento contra um design correto. O cache
+   de prompt já carrega a maior parte disso (`docs/cases/06`, `docs/cases/10`).
+3. **Latência.** Esta é a mais contraintuitiva e a mais importante:
+
+> **“Latência não é problema. Se demorar 10 minutos e chegarmos em boa
+> qualidade, é uma questão de tempo — os modelos melhoram a cada trimestre e
+> isso está a nosso favor.”**
+
+Engenharia gasta em deixar o motor rápido é investida num ativo que se
+desvaloriza sozinho a cada trimestre. Engenharia gasta na ficção não se
+desvaloriza. Então o turno pode ser lento se a lentidão comprar qualidade: mais
+chamadas de agente, roteamento real de personagem, projeção por viewer, validação
+que de fato valida. A conta de UX dessa postura é paga na interface — diário de
+bordo, tela de carregamento com conteúdo (`.plan/backlog/73-...`) — nunca
+cortando qualidade.
+
+**O que continua caro, e o que isso NÃO autoriza:**
+
+- **Latência serial não medida.** Gastar latência é permitido; gastá-la sem
+  contar não é. Chamadas independentes vão em `asyncio.gather` — se elas são
+  independentes e estão em série, isso é um defeito, não uma escolha de
+  orçamento. O risco real desta postura não é o usuário esperar: é o motor
+  acumular espera serial que ninguém mediu, e continuar lento quando os modelos
+  ficarem dez vezes mais rápidos.
+- **Complexidade e acoplamento.** Continuam caros. Uma chamada a mais é barata;
+  um subsistema a mais para justificá-la, não.
+- **Uma resposta pior.** Nada aqui autoriza cortar qualidade para ganhar tempo —
+  o vetor inteiro desta regra aponta na direção contrária.
+
 ## 3. Invariantes de domínio
 
 ### Agência e imersão
