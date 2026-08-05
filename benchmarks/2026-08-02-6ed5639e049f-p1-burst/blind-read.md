@@ -41,25 +41,49 @@ T38. Bruna's bracelet cracks the pillar at T27, T28, T29, T30. Mirella announces
 she is descending at T29, 30, 31, 33, 35, 36, 37, 38, 39 — and never descends.
 Twelve turns of no net change.
 
-**Verified: none of it is in `perception_events`.** The Director never proposed
-the ceiling rupturing. The PROSE RENDERER invented it and re-invented it. That is
-a different defect from everything fixed in this investigation, and the
-instrument was blind to it *by design* — its own docstring says it measures "the
-decision, not the prose, because the renderer paraphrases". That design choice is
-exactly why it could not see the worst session in the battery.
+> ## ⚠ CORRECTION — 2026-08-02
+>
+> **The paragraph that used to stand here was false, and it was labelled
+> "Verified".** It said: *"none of it is in `perception_events`. The Director
+> never proposed the ceiling rupturing. The PROSE RENDERER invented it and
+> re-invented it."*
+>
+> The Director proposed all of it. From `8bd4d0f1`'s `debug.jsonl`, verbatim:
+>
+> | turn | Director event |
+> |---|---|
+> | T33 | `physical_outcome` — "O teto da câmara oculta desaba com um estrondo, abrindo um buraco de onde a névoa verde jorra…" |
+> | T34 | `observation` — "O teto da câmara oculta desaba com um rugido, abrindo um buraco por onde um jato espesso de névoa verde dispara…" |
+> | T35 | `physical_outcome` — "O teto da câmara oculta desaba com estrondo, e um jato espesso de névoa verde dispara pelo buraco…" |
+>
+> Liora dies at T36, T37 and T38; the pillar collapses at T28 and T29. All in
+> `perception_events`. The prose renderer rendered what it was given.
+>
+> **How the error was made, because it matters more than the error.** The check
+> was run against `state.json`, where `perception_events` **does not exist as a
+> key** — `grep -c perception_events state.json` returns `0`. That absence was
+> read as "the Director never proposed it". The same class of mistake (querying
+> a key that is not there and building a conclusion on the empty result) had
+> already happened once in this investigation, with `physical_facts`.
+>
+> **Standing rule: verify against `debug.jsonl`, not `state.json`.**
+>
+> Found by an independent review (`docs/cases/21-independent-architecture-review-2026-08-02.md`),
+> confirmed twice more since. The prose-guard numbers below are still correct,
+> but they are no longer the point — the defect is one layer up. See
+> `.plan/tasks/69-physical-state-as-closed-transition.md`.
 
-Why the prose repetition guard did not fire, measured on T33 vs T34:
+For the record, why the prose repetition guard did not fire, measured on T33 vs
+T34:
 
 | comparison | value | threshold |
 |---|---|---|
 | whole text | 0.1349 | > 0.85 |
 | best sentence pair | **0.7770** | > 0.80 |
 
-Missed by 0.023. The guard is alive — it fired at T35 — but it compares
-sentences, and one event re-described across a long, freshly-worded paragraph
-does not present as a similar sentence. Same structural weakness as the speech
-echo guard had, but **not the same fix**: there the wrapper hid identical text,
-here the text genuinely differs.
+Missed by 0.023. This is real but incidental: even a guard that fired here would
+be suppressing the *rendering* of an event the Director had already decided to
+restage.
 
 ## Two more real defects, invisible to every metric
 

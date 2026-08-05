@@ -117,30 +117,89 @@ model id is not evidence of comparability.**
 **The metrics missed the worst session in the battery.** `base-r2` scored clean
 on everything and a blind reader ranked it worst of twelve: a ceiling ruptures
 four times, a character announces she is descending nine times and never
-descends. Verified: none of it is in `perception_events`. The **prose renderer**
-invented and re-invented it, and the instrument was blind to that by design — its
-own docstring says it measures the decision, not the prose. See `blind-read.md`.
+descends. See `blind-read.md`.
+
+> **⚠ Corrected 2026-08-02.** This paragraph used to continue: *"Verified: none of
+> it is in `perception_events`. The prose renderer invented and re-invented it."*
+> **That was false.** The **Director** proposed the ceiling collapse at T33, T34
+> and T35, verbatim in `perception_events`; the renderer rendered what it was
+> given. The check had been run against `state.json`, where the key does not
+> exist at all. Standing rule that came out of it: **verify against
+> `debug.jsonl`, not `state.json`.** Full correction in `blind-read.md`; the
+> review that caught it is `docs/cases/21-independent-architecture-review-2026-08-02.md`.
 
 ## 6. Open, not fixed
 
-- **The prose renderer restages events.** Unfixed, and the largest known
-  remaining cause. `prose._repeats_prior_narration` compares whole text (>0.85)
-  and sentences (>0.8); on the measured pair those score 0.1349 and 0.7770. It
-  misses by 0.023, and it misses structurally: one event re-described across a
-  long freshly-worded paragraph is not a similar sentence.
+> **This section was rewritten on 2026-08-02.** Its first two entries named the
+> wrong layer and the wrong cause; both are corrected below. The phase that
+> followed is planned in `.plan/ROADMAP.md`, and each item here now points at the
+> task that owns it.
+
+- **The DIRECTOR restages events** — not the renderer. Largest known remaining
+  cause. See the correction in §5 and `.plan/tasks/69-...`. The prose guard
+  numbers (0.1349 / 0.7770 against 0.85 / 0.8) are real but incidental: tightening
+  a guard on the *rendering* of an event the Director decided to restage does not
+  address it.
+- **The Director authors speech.** Not listed here originally, and it is the
+  largest measured defect in this archive: **467 of 1,649 persisted speech
+  records (28%)** across the twelve P1 sessions came from Director
+  `audible_speech` text rather than from a character agent, in **12 of 12**
+  sessions. Owns the internal-id leak and the English flip below.
+  `.plan/tasks/65-...`.
 - **Fact churn.** Relaxing the `scene_update` schema to `additionalProperties:
   true` raised the Director's fact-writing rate from ~37 distinct keys per
   session to 51-80; two of three `base` runs finished pinned at the 40-key cap.
-  No harm observed, but a saturated cap means constant eviction, and evicting
-  `main_doors: trancadas` is precisely what re-enables re-staging.
-- **Internal ids in prose** (`C17`, `C20`) — one occurrence, `oldcode-r1` T39.
-- **Narration flipping to English** under a pinned language — one occurrence,
-  `null-r2`.
+  Recorded here as "no harm observed" — a later review argued the harm is visible
+  and misattributed, since a saturated cap evicts exactly the low-salience facts
+  worth keeping. Instrument the evictions before building on this bag
+  (`.plan/tasks/69-...`). *The original entry cited `main_doors: trancadas` as
+  the example; that session is not in this archive and its restaging had a known,
+  fixed cause (the R0 injection loop). Withdrawn.*
+- **Internal ids in prose** (`C17`, `C20`) — one occurrence, `oldcode-r1` T39,
+  and it arrived through the `audible_speech` channel. Closed by
+  `.plan/tasks/65-...`.
+- **Narration flipping to English** — **misfiled**. `null-r2` T2 has four Director
+  `audible_speech` events in English; **zero** narration records in the corpus are
+  English. Also `.plan/tasks/65-...`.
+- **The redaction guard mutilates public speech.** 69 `[indistinct]` across 15 of
+  16 transcripts, in dialogue and in narration, on ordinary words (`bengala`,
+  `sinto`, `estão`). Not measured by anything here. `.plan/tasks/63-...`.
 - Never run: the semantic delta judge (`MDR`, specified in
-  `tools/acceptance/repetition_metrics.py::material_delta_rate`) and any
-  reader-facing pairwise judgement. **Every repetition metric here is lexical.**
+  `tools/acceptance/repetition_metrics.py::material_delta_rate`). **Its
+  justification has since been withdrawn** — see §7.
 
-## 7. How much to trust the numbers
+## 7. What each number is, and how much to trust it
+
+The tables above use short names. Nothing in this directory defined them, which
+made the archive unreadable in exactly the way §1 says it must not be. All of it
+is computed offline by `tools/acceptance/repetition_metrics.py` from `state.json`
++ `debug.jsonl`, and spends nothing.
+
+**The unit almost everything is built on: a *stimulus*.** One `perception_event`
+the Director proposed, taken from the **last successful** `director` record of
+each turn (`proposed_stimuli`, `:127`) — transport retries and the
+hint-materialization retry are not extra proposals. So these metrics measure the
+Director's **decision**, not the prose. That distinction is the whole point of
+the module and is what §5's correction turned on.
+
+| name in the tables | field | what it is | the catch |
+|---|---|---|---|
+| **repeated injected event** | `max_hint_repeats` | Largest number of turns handed the *same* `UPCOMING EVENT` text. Read from the **prompt**, not the response (`injected_hints`, `:314`); the block is contract-mandatory, so a repeat is an order repeated, not a model preference. Control signals excluded | The metric that carried the whole investigation. `oldcode` [4,4,4] vs `base` [1,1,1] |
+| **RSR_prop** | `rsr_prop` | Fraction of stimuli whose similarity to *anything already in play* exceeds τ. Priors = every earlier stimulus **plus** all prior speech/action (`spoken_before`, `:164`) | τ = `DEFAULT_TAU` **0.8**, pairwise. Cells overlap at n=3 |
+| **ECHO** | `echo_persist` | Speech records that verbatim-duplicate an earlier line **by the same voice** (`_echo_persist`, `:449`) | τ = `ECHO_TAU` **0.95**, deliberately far above the rest. The `Player` sentinel is skipped, so a scripted input profile no longer scores its own repeats — but a Director reformulation of the human's words still counts, because that record carries the character's id |
+| **BOCC** | `beat_occupancy_max` | Longest run of consecutive turns under one roteiro beat | Keyed by beat **content** (intent + sorted anchors), never `beat_id` — that string is model-written, unstable across replans, and collides across acts (`_beat_timeline`, `:491`) |
+| **cluster** | `cluster_max` / `cluster_span` | How many times ONE situation came back: leader clustering, every member similar to the cluster's **first** member (`_cluster_stimuli`, `:262`). Reported `size × span` | τ = `CLUSTER_TAU` **0.6** — a *different, looser* threshold than `RSR_prop`'s 0.8, on purpose: a restaged scene drifts in wording. Leader, not single-linkage, because chaining fused 22 unrelated stimuli on `null-P1-r2`. Only clusters spanning >1 turn count. **`cluster_span` is misreported throughout this archive — see the warning below** |
+| **NSR** | `nsr` | Novel stimuli per turn — stimuli whose similarity to every prior is `<= τ` | **Not a gate. Inverted on this corpus — see below** |
+| **SIL** | `sil` | Fraction of turns with no narration record | **0.0 in 16/16 runs. Structurally cannot fire — see below** |
+| **GUARD** | `guard` | Fraction of prose turns that hit the prose repetition-guard retry | Measures the *renderer's* guard firing, one layer below where §6 says the defect lives |
+| **REVERT** | `revert_total` | Fact values returning to a value the key already held — doors cannot seal twice (`_reverts`, `:382`) | 0 almost everywhere; floor effect, no power |
+
+Secondary fields in `metrics.json`, reported but never decisive: `fact_keys` /
+`fact_bytes` (scene fact-bag size — watch the 40-key cap), `injected_turn_fraction`,
+`act_deadlines`, `act_rewrites`, `exit_reasons`, `replans_per_action`,
+`llm_calls_per_action`, `distinct_hints`.
+
+### How much to trust them
 
 Only three metrics ever decided anything, and they are the ones measuring a
 *specific deterministic defect* rather than "how repetitive is this":
@@ -150,14 +209,67 @@ Only three metrics ever decided anything, and they are the ones measuring a
 | repeated injected event | none (4,4,4 vs 1,1,1) | trust it |
 | `BOCC` (turns under one beat) | none in `base`/`drive` | trust it |
 | `ECHO_PERSIST` | none | trust it |
-| `RSR_prop`, `GUARD`, `NSR` | **cells overlap at n=3** | indicative only |
-| `REVERT` | 0 almost everywhere | floor effect, no power |
+| `RSR_prop`, `GUARD` | **cells overlap at n=3** | indicative only |
+| `NSR` | **anti-correlated with read quality** | never a gate — see below |
+| `REVERT`, `SIL` | 0 almost everywhere / 0 everywhere | floor effect, no power |
 
 Roughly twenty-five numbers were built; three carried the result. The rest are
 attempts to quantify a subjective judgement and behaved accordingly — one
 produced a false cluster of 22 unrelated stimuli, one caught 4 of 7 restagings,
 one scored 20 duplicates that were the *input profile* repeating itself.
 **Reading the transcripts found more, faster, than any of them.**
+
+> **⚠ `cluster_span` is misreported everywhere in this archive (found 2026-08-02).**
+> `analyze()` takes `cluster_span=clusters[0]["span"]`, and `clusters` is sorted
+> by size — so the reported span belongs to the largest cluster, not to the
+> widest one, and `clusters[:5]` can drop a real cluster from the listing.
+> Re-derived maxima: `base-P1-r2` 15 (reported 5), `oldcode-P1-r1` 37 (5),
+> `null-P1-r2` 36 (8), `drive-P1-r2` 24 (3).
+>
+> Case 20 cancelled the durable staged-event memory on a gate keyed partly on
+> this scalar (`cluster_span >= 10`). Re-derived, the span half is satisfied
+> almost everywhere; the conjunction still fails on `cluster_max`, so **the
+> cancellation stands — but it stood on a wrong number.**
+>
+> The same finding retires a claim made after this battery, that the lexical
+> instrument was exhausted and "no threshold works". False: `CLUSTER_TAU = 0.6`
+> (the 0.8 is `DEFAULT_TAU`, pairwise only), the three ceiling sentences are all
+> above it, and the metric **did** find the cluster — the reporting hid it. The
+> real pillar escalation pair scores 0.4873, so the feared escalation
+> false-positive did not materialise either: zero of `base-P1-r2`'s 16 clusters
+> at τ=0.6 are escalations. Fix in `.plan/tasks/68-...`.
+
+> **⚠ `NSR` is inverted on this corpus, and `SIL` cannot fire (found 2026-08-05).**
+> The module docstring calls them the two guards *"against a degenerate engine
+> that fixes repetition by going quiet"*, and the phase that followed this battery
+> made *"`NSR` must not fall"* its acceptance gate. **Applied to this archive that
+> gate endorses the worst session in it and rejects the three best.**
+>
+> `NSR` is `len(novel) / turn_count` (`:609`) over *lexically* novel stimuli
+> (`:555`). It measures **event volume**, not narrative substance. Against the
+> blind reader's ranking of these same twelve sessions:
+>
+> | | |
+> |---|---|
+> | Spearman ρ, blind rank (1 = best read) vs `NSR` | **+0.923** |
+> | `base-P1-r2` — the reader's **worst of twelve** | **highest `NSR` in its cell** (4.54 vs 3.41 / 3.78) |
+> | within-`base` spread | **1.12** |
+> | `base` − `oldcode` median delta | **−0.15** |
+>
+> Higher `NSR` tracks *worse* reading, almost monotonically — this corpus's
+> failure mode is over-production, which is the direction `NSR` rewards. And the
+> within-cell spread is **7× the effect it would be asked to detect**; at n=3 it
+> cannot see anything.
+>
+> `SIL` is `0.0` in **16 of 16 runs**, both batteries. It cannot degrade, because
+> `perception_events` `minItems: 1` (`narrator.py:333`) and the 150-word floor
+> (`prose.py:59`) make a silent turn structurally impossible. A future task
+> (`.plan/tasks/72-...`) exists to legalise the silence those two forbid — after
+> which a **nonzero `SIL` is the feature**, not the regression.
+>
+> The rule they encode is still right; the instruments are not. Both are now
+> **reported, never a gate** — a large move in either is a prompt to go read.
+> Full derivation and the replacement gate in `.plan/ROADMAP.md`.
 
 ---
 
