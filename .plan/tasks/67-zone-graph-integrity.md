@@ -178,3 +178,25 @@ right; the graph was wrong.
 **The measurement that would falsify this task:** if the 33 empty-audience
 records survive after the graph fixes, the cause is elsewhere and the intersect
 is the problem after all.
+
+## ⤴ Hand-off: task 71 is waiting on this fix's numbers
+
+**Do this as part of closing 67, not later.** Task 71 (per-viewer narration) is
+parked until this ships, and it is parked specifically because *every cost figure
+it carries was measured on the graph this task fixes*. Both of its bugs
+manufacture a spurious cluster — a sub-zone with no inbound edge is a cluster of
+one — so 71's split rate, cluster counts and prose-call multiplier are all upper
+bounds of unknown tightness.
+
+On the post-fix cell, re-derive and write the numbers into
+`.plan/tasks/71-per-viewer-narration.md`:
+
+- the fraction of narrated turns whose scene holds more than one
+  mutually-perceiving cluster (**168 of 610, 28%** before);
+- mean clusters per narrated turn (**1.56** before) and mean clusters holding two
+  or more characters (**1.21** before) — the gap between those two is what
+  decides whether singleton clusters get their own render;
+- how many sessions never split at all (**8 of 16** before).
+
+If the split rate collapses, say so plainly: 71 shrinks or closes, and this task
+will have removed a wave-3 item as a side effect.

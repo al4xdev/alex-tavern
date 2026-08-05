@@ -152,7 +152,7 @@ checkpoint; if stalls survive, it ships and its argument is confirmed.
 | **66** — Identity and possession as data | Costs a schema bump; part of it disappears with 65. Inherits the phantom-cast scanner cut from 68 |
 | **65b** — WT-09 without an authored line | The genuinely open design question 65a defers |
 | **59** — Knowledge visibility | Already open. Blocked on 63 |
-| **71** — Per-viewer narration | **Unblocked 2026-08-05.** Strictly after 67: it projects narration through the zone graph, so it cannot be built on a graph that wrongly severs a sub-zone — and its cost was sized on that same broken graph |
+| **71** — Per-viewer narration | Product question answered 2026-08-05, then **parked until 67 has shipped**. It projects narration through the zone graph, so it cannot be built on a graph that wrongly severs a sub-zone — and every cost figure it carries was measured on that same broken graph. **Its first action is a re-measurement, not a design**; if the split rate collapses on the fixed graph, the task shrinks or closes |
 
 ### The product decision this phase was waiting on — answered
 
@@ -166,10 +166,16 @@ It is the most expensive of the three options and it was chosen knowing that.
 The falsifier was evaluated before scheduling it: scenes split on **168 of 610
 narrated turns (28%)** across the archive, bimodally — 8 of 16 sessions never
 split, 5 split on 42–78% of their turns. So the defect is not rare enough to live
-with, and 71 enters wave 3 rather than closing unbuilt. Full derivation, the cost
-multiplier (1.56x prose calls, 1.21x if singleton clusters fold) and the reason
-every one of those numbers is an **upper bound measured on the pre-67 graph** are
-in the task.
+with, and 71 enters wave 3 rather than closing unbuilt.
+
+**And then it was parked, on the same day, until 67 ships.** Every number above
+is an upper bound taken on the broken zone graph, whose two bugs each manufacture
+a spurious cluster — so the task's **first action is a re-measurement, not a
+design**, and a collapsed split rate is a legitimate reason to shrink or close
+it. The owner's leaning on the phase's biggest cost lever is recorded there too
+(fold singleton clusters: 1.56x prose calls becomes 1.21x), for the same reason
+held short of a decision: the graph bugs are what produce isolated single
+characters in the first place.
 
 ```
 68 ✅ ─▶ 65a ──▶ 63     70       67

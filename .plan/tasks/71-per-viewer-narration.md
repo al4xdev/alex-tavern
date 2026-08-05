@@ -1,6 +1,33 @@
 # Task 71 — Per-viewer narration
 
-> **Status:** open, **UNBLOCKED 2026-08-05 — scheduled into wave 3, after 67.**
+> **Status:** open. The product question is **ANSWERED** (2026-08-05, below), and
+> the task is **PARKED until task 67 has shipped** — deliberately, by the owner,
+> on the same day the answer was given. It is wave 3.
+>
+> ## ⛔ DO NOT DESIGN THIS TASK UNTIL THE RE-MEASUREMENT BELOW HAS RUN
+>
+> Every cost figure in this file was taken on the **pre-67 zone graph**, which is
+> known to be broken in two ways that each **manufacture a spurious cluster**
+> (`zone_moves` mints a sub-zone with no inbound edge; `zone_link_updates`
+> replaces instead of merging). So the split rate, the cluster counts and the
+> prose-call multiplier are all **upper bounds of unknown tightness**.
+>
+> **First action when 67 lands, before any design work:**
+>
+> ```
+> # re-derive the split rate on the fixed graph, over a post-67 cell
+> uv run python -m tools.acceptance.immersion_scanners --battery <artifact-dir>
+> # plus the cluster count per narrated turn — the block in .plan/tasks/68
+> ```
+>
+> If the split rate collapses once the graph is right, this task shrinks or
+> disappears, and that is a legitimate outcome. Designing it against the numbers
+> currently in this file is designing against a confounded baseline — the exact
+> failure this phase has now recorded three times (`main_doors`,
+> `perception_events`-in-`state.json`, the inverted `NSR` gate).
+>
+> ---
+>
 > Found by a blind narrative reviewer reading the transcripts as fiction; no
 > metric, case or task in this project had raised it.
 >
@@ -43,12 +70,19 @@ What the decision settles, and what it does not:
   longer handed a scene their character cannot reach. The two cheaper options
   are rejected: filtering after one render risks incoherent prose, and rendering
   only the player's zone throws away the ensemble quality the project has.
-- **Not settled, and deliberately left open:** whether a cluster holding **one
-  character who is not the player** gets its own render at all. That character
-  already learns their surroundings through perception events and memory, which
-  are per-viewer today. Folding singleton clusters is the difference between
-  1.56x and 1.21x prose calls per turn (measured below) and it is the single
-  biggest cost lever in this task. Decide it with the wave-3 numbers, not now.
+- **Leaning, endorsed by the owner the same day, not yet a decision: fold the
+  singleton clusters.** A cluster holding **one character who is not the player**
+  probably does not need its own narration render — that character already learns
+  their surroundings through perception events and memory, both of which are
+  per-viewer today, and nobody is reading their paragraph. It is the single
+  biggest cost lever here: **1.56x prose calls per turn if every cluster renders,
+  1.21x if singletons fold**, on the numbers below.
+
+  It stays a leaning rather than a decision for one reason: *those numbers are
+  from the broken graph*, and the graph bugs specifically produce **isolated
+  single characters**. After 67 the singleton population is expected to shrink,
+  which cuts both ways — folding saves less, and so does not folding cost less.
+  **Confirm against the post-67 measurement, then write the decision here.**
 
 ### Scenes do split, so the falsifier does not fire
 
@@ -165,9 +199,12 @@ engineering one, and this task should not pick it silently.
 
 - [x] the product question answered and recorded here before implementation —
       **per zone-cluster, 2026-08-05**, see the decision block at the top;
-- [ ] the split rate and cluster count **re-measured after task 67**, since the
-      figures in the decision block were taken on the broken graph;
-- [ ] the singleton-cluster question decided (render for a lone NPC, or fold);
+- [ ] **⛔ BLOCKING, do this first:** the split rate and cluster count
+      **re-measured on the post-67 graph**. Every figure in this file is a
+      pre-67 upper bound. If the rate collapses, re-size or close the task
+      instead of building it;
+- [ ] the singleton-cluster question decided against those numbers — the leaning
+      is **fold**, and it needs the post-67 population to be confirmed;
 - [ ] a test with a split scene: a character in zone A does not receive narration
       describing zone B, asserted against the real builders;
 - [ ] `prose.py:50-52`'s rule becomes enforceable — a test that the renderer is
