@@ -1,13 +1,21 @@
 # Task 65 — The Director must not author speech
 
-> **Status:** open. **Wave 1, first.** Two blind reviewers with different
-> framings — one auditing logs, one reading transcripts as fiction — independently
-> concluded this should be the first cut of the phase. It is the largest measured
-> defect in the archive and it subsumes parts of three other tasks.
+> **Status:** open, **BLOCKED ON A SCOPE DECISION as of 2026-08-05.** Still wave
+> 1, still the largest measured defect in the archive; two blind reviewers with
+> different framings — one auditing logs, one reading transcripts as fiction —
+> independently concluded it should be the first cut of the phase, and that
+> stands.
 >
-> Split into **65a** (wave 1, no design risk) and **65b** (wave 3, a real open
-> question). Shipping 65a as if it were the whole thing would delete ~18% of the
-> dialogue in the corpus.
+> **What does not stand is the 65a/65b split.** It was drawn on the assumption
+> that 64% of the channel duplicates a line that already exists. Verified against
+> the archive before implementation, the real figure is **21–42%**; the majority
+> of this channel is dialogue that exists nowhere else, and the prose renderer is
+> structurally forbidden from carrying it. See "⚠ 65a's premise did not survive
+> verification" below.
+>
+> Shipping 65a as originally written would delete **264–362 dialogue records**,
+> not the ~18% the note below estimated — which is what Case 20's rule against
+> buying quiet instead of movement exists to prevent.
 
 ## Problem
 
@@ -77,7 +85,70 @@ reads history — never had it. That need is real and stays.
 
 **Only the producer of the text changes.**
 
-## 65a — the half with no design risk (wave 1)
+## ⚠ 65a's premise did not survive verification — 2026-08-05
+
+**The version below claimed a pure win with zero content loss. It is wrong, and
+implementing it would delete between 264 and 362 lines of dialogue that exist
+nowhere else in the session.** Read this section before the next one.
+
+### What the 64% actually counts
+
+*"64% of Director `audible_speech` events are for a character who was routed that
+same turn, **so a persisted record already exists**"* — the first clause is right
+(the scanner measures 66%), the second does not follow. "The character also spoke
+this turn" is a proxy for "the Director restated the line they spoke", and the
+proxy fails: the Director usually re-voices **something else**.
+
+Measured over all 458 Director-authored records in P1, against every line the
+same character spoke in the same turn **and the four before it** — the window the
+existing echo guard uses — scored by shared content words, which is far more
+forgiving of third-person paraphrase than the lexical ratio that found them:
+
+| "restates a recent line" at overlap ≥ | restatements | **new content** |
+|---|---|---|
+| 0.3 — barely more than sharing a topic | 194 (42%) | **264 (58%)** |
+| 0.4 | 135 (30%) | **323 (71%)** |
+| **0.5** — a defensible reading | **96 (21%)** | **362 (79%)** |
+| 0.8 — near-verbatim | 14 (3%) | **444 (97%)** |
+
+**The conclusion is robust across the whole threshold range**: even at the most
+generous setting, where "restatement" means little more than talking about the
+same subject, the majority of this channel is new dialogue. Only **19 of 458**
+are close paraphrases of the character's own line *in the same turn*, which is
+the case the original text described.
+
+### And the prose renderer cannot carry the content
+
+This is what makes the cut expensive rather than merely debatable. The prose
+prompt **never receives `audible_speech` content** — the event is filtered out of
+`event_lines` entirely and `_stage_event_content` reduces it to *"X diz algo
+audível para Y"* (`prose.py:98-107`, `:262`). That is a deliberate leak guard:
+the renderer must not be able to re-voice dialogue.
+
+So the persisted speech record is the **only** path by which those words reach
+the reader. Dropping it does not move the line into narration; it removes it from
+the story. Case 20's pre-registered rule binds directly: *a cut that buys quiet
+instead of movement is a failure, not a fix.*
+
+### What survives, and what this does to the 65a/65b split
+
+The channel is still a role-boundary violation and still owns the duplication,
+the self-narration, the player's words read back, the id leak, the language flip
+and 40 of the redaction markers. **None of that is retracted.** What changes is
+the shape of the fix:
+
+- the population that can be dropped or referenced with no content loss is
+  **21–42%**, not 64%;
+- the population that needs a *producer*, not a deletion, is **58–79%** — it is
+  the majority of the channel, and it was scoped as 65b's minority case;
+- so **65b option 1 — route the character for a real line — stops being one of
+  three alternatives for a corner and becomes the primary mechanism.** Costed
+  against the archive it is roughly **+38 character calls per session (~+33%)**,
+  which is the number that has to be decided before anything ships.
+
+**Nothing is implemented against the section below until that fork is chosen.**
+
+## 65a — the half with no design risk (wave 1) — SUPERSEDED, see above
 
 Measured by the audit: **64%** of Director `audible_speech` events are for a
 character who **was routed that same turn**, i.e. the character agent produced a
@@ -88,8 +159,9 @@ Direction: persist a **reference** to the existing record, never the Director's
 text. Where the referenced line already exists in history, the Director's version
 is dropped with zero content loss — it was duplication.
 
-This is the pure win. It kills all the duplication, the self-narration, the
-player-words-read-back, and the id leak; it takes most of `[indistinct]` with it.
+~~This is the pure win.~~ It kills all the duplication, the self-narration, the
+player-words-read-back, and the id leak; it takes most of `[indistinct]` with it
+— **and it deletes the majority of the channel's content along with them.**
 
 ## 65b — the open question (wave 3)
 
@@ -128,6 +200,15 @@ line, which is the WT-09 feature working."* Correct, and that is precisely the
 the echo adds a second copy. The 36% is the feature. The number that decides 65a
 is not the 28% — it is that in the 64% case a persisted original **already
 exists**, which is parameter-free.
+
+> **This paragraph is the error, and it is left standing so the shape of it is
+> visible.** It says the deciding number is "parameter-free", and it is: *whether
+> the character was routed*. The mistake is that the parameter-free number
+> **answers a different question** than the one the design needs. Routing tells
+> you an agent ran; it does not tell you the Director restated what came out of
+> it. Measuring the second question directly (above) moves the safe population
+> from 64% to 21–42%. A number being clean and cheap is not evidence that it is
+> the right number.
 
 ## The scanner exists, and this is its "before" — 2026-08-05
 

@@ -91,7 +91,7 @@ subsystem.
 
 | task | why here |
 |---|---|
-| **65a** — The Director must not author speech | **28% of all speech records** in the corpus, 12/12 sessions, every cell. Largest measured defect. Both reviewers put it first, independently |
+| **65a** — The Director must not author speech | **28% of all speech records** in the corpus, 12/12 sessions, every cell. Largest measured defect. Both reviewers put it first, independently. **⚠ Blocked 2026-08-05 on a scope decision:** verification before implementation showed the "64% is duplication" premise is false — the safe population is 21–42%, the rest is dialogue with no other path to the reader, and the fix needs a producer rather than a deletion. See the task |
 | **70** — The Director prompt names the protagonist | `AGENTS.md` §3 calls named exclusion a leak in as many words. Not negotiable by measurement |
 | **63** — Redaction must not reach the persisted record | Depends on 68's scanner to choose the fix, and on 65 which removes 42 of its 43 cases |
 | **67** — Zone graph integrity | Independent; the cause is the zone graph, not the model |
