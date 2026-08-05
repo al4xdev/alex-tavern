@@ -9,9 +9,18 @@ repetition guard on 5 of 11 turns, 15d40dfa on 0 of 6 — so any single primary
 metric masks one of them.
 
 What this module measures instead is the DECISION: which stimuli the Director
-proposed, and how many of them restate something already in play. Two guards
-against a degenerate engine that "fixes" repetition by going quiet: NSR (novel
-stimuli per turn) and SIL (silent turns) must not degrade while RSR falls.
+proposed, and how many of them restate something already in play.
+
+NSR (novel stimuli per turn) and SIL (silent turns) were written here as guards
+against a degenerate engine that "fixes" repetition by going quiet. They do not
+work as guards and must never gate anything — measured over the 2026-08-02
+archive, NSR ranks the sessions in the OPPOSITE order to a blind reader
+(Spearman +0.923, and its within-cell spread is 7x the effect it would be asked
+to detect), because it counts event volume and this corpus fails by
+over-production. SIL is 0.0 in 16 of 16 runs: `perception_events` requires one
+item and the prose floor is 150 words, so a silent turn is structurally
+impossible. Report both, read the transcripts, gate on neither. Derivation in
+`benchmarks/README.md` §7 and `.plan/tasks/68-cluster-reporting-and-scanners.md`.
 
 Everything here except ``material_delta_rate`` is pure stdlib and offline: it
 reads ``state.json`` and ``debug.jsonl`` and spends nothing.
@@ -216,8 +225,12 @@ class RepetitionReport:
     # across 8 turns with pairwise similarities of 0.53-0.89; RSR counted 4.
     # Clustering at a deliberately looser threshold asks the right question:
     # how many times did ONE situation come back?
+    # cluster_max and cluster_span are MAXIMA over every cluster, independently:
+    # the widest cluster is usually not the largest one. See _cluster_summary.
     cluster_max: int = 0
     cluster_span: int = 0
+    cluster_count: int = 0
+    cluster_count_ge3: int = 0
     clusters: list[dict] = field(default_factory=list)
     # INPUT, not output. Every metric above scores what the model PRODUCED; the
     # dominant defect measured in base-P1-r1 was in what the code ORDERED — the
@@ -300,6 +313,33 @@ def _cluster_stimuli(stimuli: list[Stimulus], tau: float = CLUSTER_TAU) -> list[
             }
         )
     return sorted(clusters, key=lambda c: -c["size"])
+
+
+def _cluster_summary(clusters: list[dict]) -> dict:
+    """The reported cluster scalars: both are MAXIMA over all clusters.
+
+    They were ``clusters[0]["size"]`` and ``clusters[0]["span"]``, and
+    ``_cluster_stimuli`` sorts by size — so ``cluster_span`` reported the span of
+    the largest cluster rather than the widest one, and ``clusters[:5]`` could
+    drop the widest from the evidence listing entirely. Re-derived over the
+    2026-08-02 archive the two disagree by a factor of 3 to 7 (base-P1-r2
+    reported 5 against a true 15; oldcode-P1-r1 5 against 37), and a shipped gate
+    had already been decided on the wrong scalar.
+
+    ``cluster_count_ge3`` is the number a human actually wants: how many distinct
+    situations came back three turns or more.
+    """
+    widest = max(clusters, key=lambda c: c["span"], default=None)
+    listed = clusters[:5]
+    if widest is not None and widest not in listed:
+        listed = [*listed, widest]
+    return {
+        "cluster_max": max((c["size"] for c in clusters), default=0),
+        "cluster_span": max((c["span"] for c in clusters), default=0),
+        "cluster_count": len(clusters),
+        "cluster_count_ge3": sum(1 for c in clusters if c["size"] >= 3),
+        "clusters": listed,
+    }
 
 
 # The Director prompt renders the injected hint as a header line followed by one
@@ -621,9 +661,7 @@ def analyze(
         llm_calls_per_action=(llm_calls / player_actions) if player_actions else None,
         act_rewrites=act_rewrites,
         act_rewrites_per_action=(act_rewrites / player_actions) if player_actions else None,
-        cluster_max=clusters[0]["size"] if clusters else 0,
-        cluster_span=clusters[0]["span"] if clusters else 0,
-        clusters=clusters[:5],
+        **_cluster_summary(clusters),
         **_hint_repetition(records, turn_count),
         revert_total=revert_total,
         revert_max_per_key=revert_max,
@@ -653,6 +691,13 @@ def analyze(
 
 # ---------------------------------------------------------------------------
 # Material delta rate — the only metric here that costs tokens
+#
+# SPECIFIED AND NOT AUTHORIZED. Never run. It was re-proposed on the argument
+# that the lexical family cannot see a scene restaged in fresh wording, and that
+# argument turned out to be false: the cluster metric found the restaging at
+# CLUSTER_TAU=0.6 and a reporting bug hid it (_cluster_summary above). Re-open it
+# when there is a structural notion of "already staged" to judge against —
+# .plan/tasks/68-cluster-reporting-and-scanners.md §3, after task 69.
 # ---------------------------------------------------------------------------
 
 
@@ -728,7 +773,8 @@ def _summary_line(report: RepetitionReport) -> str:
         f"SIL={pct(report.sil)}  GUARD={pct(report.guard)}  "
         f"ECHO={report.echo_persist}  BOCC={report.beat_occupancy_max}  "
         f"RPA={report.replans_per_action}  ACTR={report.act_rewrites}  "
-        f"CLUSTER={report.cluster_max}/{report.cluster_span}t  "
+        f"CLUSTER={report.cluster_max}/{report.cluster_span}t "
+        f"(n>=3: {report.cluster_count_ge3}/{report.cluster_count})  "
         f"CPA={report.llm_calls_per_action}"
     )
 

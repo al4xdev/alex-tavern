@@ -219,17 +219,34 @@ produced a false cluster of 22 unrelated stimuli, one caught 4 of 7 restagings,
 one scored 20 duplicates that were the *input profile* repeating itself.
 **Reading the transcripts found more, faster, than any of them.**
 
-> **⚠ `cluster_span` is misreported everywhere in this archive (found 2026-08-02).**
-> `analyze()` takes `cluster_span=clusters[0]["span"]`, and `clusters` is sorted
-> by size — so the reported span belongs to the largest cluster, not to the
-> widest one, and `clusters[:5]` can drop a real cluster from the listing.
+> **⚠ `cluster_span` was misreported everywhere in this archive (found
+> 2026-08-02, **fixed and the archive re-scored 2026-08-05**).**
+> `analyze()` took `cluster_span=clusters[0]["span"]`, and `clusters` is sorted
+> by size — so the reported span belonged to the largest cluster, not to the
+> widest one, and `clusters[:5]` could drop a real cluster from the listing.
 > Re-derived maxima: `base-P1-r2` 15 (reported 5), `oldcode-P1-r1` 37 (5),
 > `null-P1-r2` 36 (8), `drive-P1-r2` 24 (3).
+>
+> **`metrics.json` in both batteries now carries the corrected values**, so any
+> table in this directory quoting a pre-2026-08-05 `cluster_span` is stale. Both
+> scalars are maxima over every cluster now, and two fields join them:
+> `cluster_count` and `cluster_count_ge3` — how many distinct situations came
+> back at all, and how many came back three turns or more, which is the number a
+> human actually wanted from this metric.
 >
 > Case 20 cancelled the durable staged-event memory on a gate keyed partly on
 > this scalar (`cluster_span >= 10`). Re-derived, the span half is satisfied
 > almost everywhere; the conjunction still fails on `cluster_max`, so **the
 > cancellation stands — but it stood on a wrong number.**
+>
+> **`cluster_count_ge3` is the one number here that does not score `base-P1-r2`
+> clean.** That session — the reader's worst of twelve, `RSR_prop` 1.7%,
+> `cluster_max` 3 — ties for the archive's highest count of situations recurring
+> three turns or more (8, with `oldcode-P1-r1`), and the column tracks the blind
+> ranking at ρ = +0.60 where `RSR_prop` manages −0.09. **Do not gate on it.**
+> n = 12, one battery, and `BOCC` scores +0.74 on the same ranking without
+> claiming to measure reading quality. Re-check at the phase checkpoint;
+> `.plan/tasks/68-...` records why it is deliberately not being promoted.
 >
 > The same finding retires a claim made after this battery, that the lexical
 > instrument was exhausted and "no threshold works". False: `CLUSTER_TAU = 0.6`
@@ -271,16 +288,55 @@ one scored 20 duplicates that were the *input profile* repeating itself.
 > **reported, never a gate** — a large move in either is a prompt to go read.
 > Full derivation and the replacement gate in `.plan/ROADMAP.md`.
 
+## 8. `immersion-scan.json` — three counters that DO gate
+
+Added 2026-08-05 by `tools/acceptance/immersion_scanners.py`, and present in both
+batteries. Everything in §7 tries to quantify "how repetitive is this", overlaps
+between cells at n=3, and ends up indicative. These three do the opposite: each
+counts a **specific invariant being violated**, so each one is parameter-free,
+needs no replicates, and gates its own task at **zero**. They are the deterministic
+half of the replacement gate; the blind read is the other half.
+
+| counter | what it counts | this archive (P1 / P2) |
+|---|---|---|
+| `redaction` | `REDACTION_MARKER` by channel — narration, persisted speech/action, and the three ledger channels (`recent_memory`, `memory_summary`, `people`) | **87 / 28** occurrences; **42 / 15** persisted records; **33 / 6** ledger entries |
+| `director_speech` | persisted speech records whose text came from a Director `audible_speech` event, matched back to the event in `debug.jsonl` | **458 of 1,601 (28.6%) / 181 of 618 (29.3%)**, in **12 of 12** and **4 of 4** sessions; **303 / 132** of them for a character the engine routed that same turn |
+| `empty_audience` | speech/action persisted with an audience of nobody, classified WITHOUT trusting the zone graph | **33 / 2** records, all with other characters present; **31 / 2** cut off by the graph, **2 / 0** narrowed to none by the Director's own list |
+
+Three things about how they are computed matter more than the numbers:
+
+- **Nothing here reads a stored flag.** A Director-authored line is persisted with
+  `audience_origin='zone'` exactly like an ordinary one, so `state.json` cannot
+  tell them apart. The scanner matches record text back to the Director event
+  that produced it, at a similarity threshold high enough to survive redaction
+  replacing tokens inside the line.
+- **The audience scanner refuses to ask the zone graph whether the audience
+  should have been empty**, because the graph is the suspect: when a sub-zone is
+  minted with no inbound edge the graph agrees nobody can hear, and a
+  graph-trusting scanner would certify the bug as correct. It asks instead
+  whether anyone else was *present*, and reports the graph's opinion separately.
+  That split is what shows 31 of the 33 are the graph cutting people off and 2
+  are the Director narrowing its own witness list to nothing.
+- **`director_events_raw_empty_witnesses` is the control**: 2 of 1,868 raw
+  Director events in P1 proposed an empty witness list, against 33 persisted
+  records that have one. Whatever emptied them, it was not the model.
+
+Seeded positives and negatives for all three live in
+`tests/test_immersion_scanners.py`, and the scanner's raw-dict copy of the zone
+rule is cross-checked there against the shipped `src.perception.can_perceive`, so
+it cannot drift into agreeing with a broken graph.
+
 ---
 
 ## Format
 
 ```
 <date>-<engine-fingerprint>-<label>/
-  manifest.json    engine, models, per-run config
-  metrics.json     every metric for every run
-  transcripts/     one readable transcript per run
-  blind-read.md    (p1 only) what a clean-context reader saw
+  manifest.json       engine, models, per-run config
+  metrics.json        every metric for every run (§7)
+  immersion-scan.json the three invariant counters (§8)
+  transcripts/        one readable transcript per run
+  blind-read.md       (p1 only) what a clean-context reader saw
 ```
 
 `engine.fingerprint` is a hash of `src/**/*.py`, not a commit — batteries are run

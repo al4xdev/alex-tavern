@@ -1,0 +1,2477 @@
+{
+  "totals": {
+    "sessions": 12,
+    "redaction_occurrences": 87,
+    "redaction_sessions": 11,
+    "redaction_persisted_records": 42,
+    "redaction_ledger_entries": 33,
+    "speech_records": 1601,
+    "director_authored": 458,
+    "director_authored_share": 0.2860712054965647,
+    "director_authored_routed_same_turn": 303,
+    "director_authored_sessions": 12,
+    "empty_audience_records": 33,
+    "empty_audience_with_others_present": 33,
+    "empty_audience_graph_isolated": 31,
+    "empty_audience_narrowed_to_none": 2,
+    "empty_audience_isolated": 0,
+    "empty_audience_sessions": 5,
+    "director_events_raw": 1868,
+    "director_events_raw_empty_witnesses": 2
+  },
+  "runs": [
+    {
+      "run": "base-P1-r1",
+      "session_id": "22b27d6e",
+      "turns": 29,
+      "redaction": {
+        "occurrences": 1,
+        "records_with_marker": 1,
+        "persisted_speech_records": 1,
+        "ledger_entries": 0,
+        "ledger_viewers": 0,
+        "by_channel": {
+          "speech": {
+            "occurrences": 1,
+            "records": 1
+          }
+        },
+        "evidence": [
+          {
+            "turn": 8,
+            "channel": "speech",
+            "speaker": "C21",
+            "text": "A Irmã Elowen, ao acompanhar o grupo, [indistinct] em tom seco: 'Se o selo está fresco, pode haver feridos. E se houver feridos, eu preciso do meu kit. Garran, autorize.'"
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 75,
+        "speech_records_excluding_player": 71,
+        "director_authored": 18,
+        "share_of_speech": 0.2535211267605634,
+        "routed_same_turn": 13,
+        "carrying_redaction": 1,
+        "audible_speech_events": 19,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia: 'Alunos da Academia Real do Primeiro Sino, a seleção está prestes a começar. Formem suas fileiras.'"
+          },
+          {
+            "turn": 3,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Com voz clara e grave, a Diretora afirma: 'Que fique registrado: esta seleção não premia sangue, premia escolha sob pressão.'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran resmunga, alto o bastante para os alunos ouvirem: 'Selo de emergência, e o sangue ainda fresco. Diretora, isto não é aviso; é um pedido de socorro.'"
+          },
+          {
+            "turn": 6,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran se vira para a Diretora e afirma que vai com Link até a ala leste antes que o rastro esfrie."
+          },
+          {
+            "turn": 6,
+            "character_id": "C21",
+            "name": "Irmã Elowen Ramires",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Irmã Elowen anuncia que o mensageiro está vivo, mas perdeu muito sangue, e que o selo foi ativado há menos de uma hora."
+          },
+          {
+            "turn": 6,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora suspende a seleção, ordena que Garran e Link vão à ala leste, que Elowen estabilize o mensageiro e que todos os alunos permaneçam em silêncio nas fileiras."
+          },
+          {
+            "turn": 7,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis afirma com voz firme: 'Garran, leve Link e Elowen; o restante permaneça em fileiras.'"
+          },
+          {
+            "turn": 8,
+            "character_id": "C21",
+            "name": "Irmã Elowen Ramires",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "A Irmã Elowen, ao acompanhar o grupo, [indistinct] em tom seco: 'Se o selo está fresco, pode haver feridos. E se houver feridos, eu preciso do meu kit. Garran, autorize.'"
+          },
+          {
+            "turn": 8,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis, erguendo a voz para alcançar o grupo que parte, ordena: 'Garran, autorize o kit da Irmã. E não se esqueçam: a rota de manutenção exige cautela. Nada de heroísmos"
+          },
+          {
+            "turn": 9,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran grunhe e diz que o bloqueio não é natural, que alguém fez isso de propósito, e aponta para a passagem alternativa."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 8,
+        "isolated": 0,
+        "with_others_present": 8,
+        "graph_isolated": 8,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 3,
+        "max_witnesses_clamped": 2,
+        "director_events_effective": 100,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 100,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": [
+          {
+            "turn": 16,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Link, Elowen, ouçam: a passagem abriu, vão por ela agora. O selo é o que importa, não fiquem esperando por mim."
+          },
+          {
+            "turn": 16,
+            "type": "action",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Eu seguro o entulho e encontro outra rota."
+          },
+          {
+            "turn": 17,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Elowen, leia as marcas. Se for o que eu temo, sigam para o norte do corredor. Eu me viro aqui, mas deixo o selo com Link."
+          },
+          {
+            "turn": 17,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 2,
+            "text": "Garran grita: 'Link, Elowen, vão pela passagem! Eu seguro o entulho e encontro outra rota!'"
+          },
+          {
+            "turn": 18,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Ainda estou aqui! Sigam as garras, eu escavo por este lado e encontro vocês na saída. Selo com o Link, não soltem!"
+          },
+          {
+            "turn": 18,
+            "type": "action",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "continuar removendo pedras do entulho para tentar abrir uma passagem"
+          },
+          {
+            "turn": 28,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 2,
+            "text": "Garran grita através dos escombros, avisando que o corredor secreto está se fechando e que eles devem avançar agora."
+          },
+          {
+            "turn": 29,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "Ala Leste, túnel de manutenção (lado Garran)",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 2,
+            "text": "Através dos escombros, a voz de Garran ecoa distante, quase inaudível, instando a avançar antes que o acesso se feche."
+          }
+        ]
+      }
+    },
+    {
+      "run": "base-P1-r2",
+      "session_id": "8bd4d0f1",
+      "turns": 39,
+      "redaction": {
+        "occurrences": 0,
+        "records_with_marker": 0,
+        "persisted_speech_records": 0,
+        "ledger_entries": 0,
+        "ledger_viewers": 0,
+        "by_channel": {},
+        "evidence": []
+      },
+      "director_speech": {
+        "speech_records": 154,
+        "speech_records_excluding_player": 150,
+        "director_authored": 41,
+        "share_of_speech": 0.2733333333333333,
+        "routed_same_turn": 32,
+        "carrying_redaction": 0,
+        "audible_speech_events": 41,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis ergue a mão, silencia o salão e anuncia que a seleção será adiada até a névoa ser contida."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Todos em seus lugares. A seleção está adiada até contermos a névoa. Garran, relate a extensão do dano."
+          },
+          {
+            "turn": 3,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran, do limite leste, grita uma ordem: 'Marquem o avanço! Não deixem ninguém tocar a névoa até eu voltar!'"
+          },
+          {
+            "turn": 4,
+            "character_id": "C14",
+            "name": "Ysara Lua-Parda",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Ysara grita do outro lado do arco leste: 'Ela está vindo para a arquibancada, recuem!'."
+          },
+          {
+            "turn": 5,
+            "character_id": "C14",
+            "name": "Ysara Lua-Parda",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Ysara grita 'Ela está vindo para a arquibancada, recuem!'"
+          },
+          {
+            "turn": 6,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A diretora Maelis ordena: 'Garran, assegure a fresta! Alunos, recuem para o norte, não toquem na névoa!'"
+          },
+          {
+            "turn": 8,
+            "character_id": "C21",
+            "name": "Irmã Elowen Ramires",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Irmã Elowen diz, com voz firme: 'Ele não foi corroído vivo. A névoa o matou antes de consumi-lo. Isso não é um acidente, é uma armadilha direcionada.'"
+          },
+          {
+            "turn": 8,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Lorde Cassian Aurel, do fundo da plateia, com voz controlada, comenta: 'Uma armadilha? Então a seleção foi sabotada de dentro. Diretora, exijo que investiguemos os alunos imediatam"
+          },
+          {
+            "turn": 9,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A diretora Maelis grita uma ordem: 'Evacuar o salão agora! Todos para o pátio externo pelo corredor leste!'"
+          },
+          {
+            "turn": 10,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran Holt, ao lado da placa, solta um resmungo e diz em voz firme: 'Isso é um fragmento do selo antigo. A névoa está rompendo a proteção original da Academia.'"
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 10,
+        "isolated": 0,
+        "with_others_present": 10,
+        "graph_isolated": 10,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 2,
+        "max_witnesses_clamped": 18,
+        "director_events_effective": 180,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 180,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": [
+          {
+            "turn": 23,
+            "type": "speech",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Bruna, essa fonte não é coincidência. Se a carga foi plantada sob o piso, o sabotador conhecia cada rachadura desse salão. Eu entro nos escombros com você, lâmina pronta, e se algo"
+          },
+          {
+            "turn": 23,
+            "type": "action",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "avançar mais um passo em direção aos escombros, mantendo a espada erguida, pronto para seguir Bruna e revirar as pedras"
+          },
+          {
+            "turn": 23,
+            "type": "speech",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 18,
+            "text": "Riven grita que Liora está presa e avança em direção aos escombros da passagem, apesar do desabamento recente."
+          },
+          {
+            "turn": 25,
+            "type": "speech",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "A névoa rompeu o piso! Eu recuo, mas se alguém quiser provar valor, venha comigo até o pilar, em vez de fugir."
+          },
+          {
+            "turn": 25,
+            "type": "action",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "recuar alguns passos da névoa, mantendo a espada erguida, e observar o pilar para planejar um avanço"
+          },
+          {
+            "turn": 25,
+            "type": "speech",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 16,
+            "text": "Riven grita: 'A névoa rompeu o piso! Precisamos nos afastar agora!'"
+          },
+          {
+            "turn": 26,
+            "type": "speech",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Bruna, corte esse fio agora! Se o pilar ceder, eu seguro você com a lâmina. Liora não fica presa lá dentro enquanto a névoa nos engole!"
+          },
+          {
+            "turn": 26,
+            "type": "action",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "avançar em direção à base do pilar, espada erguida, pronto para intervir se Bruna precisar de cobertura"
+          },
+          {
+            "turn": 27,
+            "type": "speech",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Bruna, se esse pilar ceder, eu seguro o peso com a lâmina. Aterre agora, antes que a névoa alcance Liora!"
+          },
+          {
+            "turn": 27,
+            "type": "action",
+            "speaker": "C13",
+            "verdict": "graph_isolated",
+            "zone": "Salão dos Quatro Arcos, junto aos escombros da passagem",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "avançar um passo em direção ao pilar, erguendo a espada para apoiar o peso da estrutura"
+          }
+        ]
+      }
+    },
+    {
+      "run": "base-P1-r3",
+      "session_id": "513cb09f",
+      "turns": 40,
+      "redaction": {
+        "occurrences": 13,
+        "records_with_marker": 12,
+        "persisted_speech_records": 7,
+        "ledger_entries": 4,
+        "ledger_viewers": 4,
+        "by_channel": {
+          "speech": {
+            "occurrences": 8,
+            "records": 7
+          },
+          "narration": {
+            "occurrences": 1,
+            "records": 1
+          },
+          "ledger_recent_memory": {
+            "occurrences": 4,
+            "records": 4
+          }
+        },
+        "evidence": [
+          {
+            "turn": 7,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis projeta a voz sobre o caos: 'As segundas portas [indistinct] abertas. Entrem agora ou a névoa decide por vocês.'"
+          },
+          {
+            "turn": 14,
+            "channel": "speech",
+            "speaker": "C2",
+            "text": "Asword chama pela fenda, a voz abafada pela poeira, pedindo que [indistinct] se reúnam e procurem uma saída antes que a névoa alcance o centro."
+          },
+          {
+            "turn": 21,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis, com a [indistinct] erguida, ordena que os grupos se organizem para atravessar a entrada lateral antes que a criatura avance."
+          },
+          {
+            "turn": 22,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "Maelis ordena, com a [indistinct] erguida: 'Atravessem agora, em ordem, sem empurrões.'"
+          },
+          {
+            "turn": 27,
+            "channel": "speech",
+            "speaker": "C8",
+            "text": "Bruna diz a Doran que a linha de pedras [indistinct] um caminho firme e pede para verificá-lo antes de avançar."
+          },
+          {
+            "turn": 34,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "Maelis anuncia: 'A seleção [indistinct]. As equipes formais [indistinct] dissolvidas. Cada um de vocês deve escolher uma das quatro alas da Masmorra do Primeiro Sino.'"
+          },
+          {
+            "turn": 35,
+            "channel": "narration",
+            "speaker": "Narrator",
+            "text": "O tropel de cascos ecoa pelo pátio, e um mensageiro montado surge sob o arco de entrada, o cavalo ainda espumando pela pressa. Ele segura um pergaminho selado com o brasão da Coroa"
+          },
+          {
+            "turn": 37,
+            "channel": "speech",
+            "speaker": "C19",
+            "text": "Lorde Cassian Aurel grita, com a voz cortando a poeira: 'O mensageiro! Abram caminho, a Coroa exige que ele [indistinct] resgatado!'"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C6",
+            "text": "T27 Bruna disse: Bruna diz a Doran que a linha de pedras [indistinct] um caminho firme e pede para verificá-lo antes de avançar."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C4",
+            "text": "T14 Asword disse: Asword chama pela fenda, a voz abafada pela poeira, pedindo que [indistinct] se reúnam e procurem uma saída antes que a névoa alcance o centro."
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 140,
+        "speech_records_excluding_player": 136,
+        "director_authored": 29,
+        "share_of_speech": 0.21323529411764705,
+        "routed_same_turn": 22,
+        "carrying_redaction": 7,
+        "audible_speech_events": 37,
+        "evidence": [
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Maelis diz: 'A prova começa agora. Quatro equipes, quatro portas. Não haverá combate, somente cooperação.'"
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Maelis conclui: 'As portas só abrem se cada equipe usar o que cada membro sabe fazer. O sino marca a hora. Organizem-se.'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis projeta a voz por cima do zumbido: 'A porta A reage a quem já a escolheu. Dez minutos, candidatos. Formem-se ou fiquem para trás.'"
+          },
+          {
+            "turn": 7,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 0.9172,
+            "routed_same_turn": false,
+            "redacted": true,
+            "text": "A Diretora Maelis projeta a voz sobre o caos: 'As segundas portas [indistinct] abertas. Entrem agora ou a névoa decide por vocês.'"
+          },
+          {
+            "turn": 13,
+            "character_id": "C2",
+            "name": "Asword",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Asword grita, a voz cortando a poeira: 'Link, onde você está? A porta se fechou, temos que achar outra saída!'"
+          },
+          {
+            "turn": 13,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Riven responde, irritado, do outro lado da fenda: 'Agora a decisão foi tomada por nós. Espero que sua precisão valha mais que seu silêncio.'"
+          },
+          {
+            "turn": 14,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Riven golpeia a parede próxima com o cabo do sabre, procurando uma passagem, enquanto murmura que a porta não vai se abrir por vontade própria."
+          },
+          {
+            "turn": 14,
+            "character_id": "C2",
+            "name": "Asword",
+            "ratio": 0.9534,
+            "routed_same_turn": false,
+            "redacted": true,
+            "text": "Asword chama pela fenda, a voz abafada pela poeira, pedindo que [indistinct] se reúnam e procurem uma saída antes que a névoa alcance o centro."
+          },
+          {
+            "turn": 15,
+            "character_id": "C4",
+            "name": "Seraphine Alvor",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Seraphine chama Asword e Lucan para ajudá-la a levantar a viga, dizendo que devem procurar passagem por baixo."
+          },
+          {
+            "turn": 15,
+            "character_id": "C6",
+            "name": "Doran Pedra-Rúnica",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Doran diz que levantar a viga sem plano é pedir desabamento, e pede a Bruna que examine a estrutura antes de qualquer esforço."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 2,
+        "isolated": 0,
+        "with_others_present": 2,
+        "graph_isolated": 2,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 164,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 167,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": [
+          {
+            "turn": 11,
+            "type": "speech",
+            "speaker": "C5",
+            "verdict": "graph_isolated",
+            "zone": "travessia esquerda",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Asword, para de puxar o arqueiro como se fosse saco de farinha. Ele decide com a própria cabeça, não no teu grito. Eu vou pela esquerda, quem quiser vir com jeito, vem."
+          },
+          {
+            "turn": 11,
+            "type": "action",
+            "speaker": "C5",
+            "verdict": "graph_isolated",
+            "zone": "travessia esquerda",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "avançar pela esquerda em direção à porta de trás, mantendo o ritmo para não ser coberta pela fumaça"
+          }
+        ]
+      }
+    },
+    {
+      "run": "drive-P1-r1",
+      "session_id": "5c994c42",
+      "turns": 33,
+      "redaction": {
+        "occurrences": 3,
+        "records_with_marker": 3,
+        "persisted_speech_records": 3,
+        "ledger_entries": 0,
+        "ledger_viewers": 0,
+        "by_channel": {
+          "speech": {
+            "occurrences": 3,
+            "records": 3
+          }
+        },
+        "evidence": [
+          {
+            "turn": 2,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis conclui: 'A cooperação será medida antes de qualquer força. [indistinct] lugares estão marcados. Nenhuma equipe será anunciada enquanto o círculo não estiver plen"
+          },
+          {
+            "turn": 3,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis diz: 'Parem. Um clarim real [indistinct] que algo urgente exige atenção imediata.'"
+          },
+          {
+            "turn": 6,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "Diretora Maelis [indistinct] o pergaminho ensanguentado e declara: 'A seleção é antecipada. Formem equipes agora ou fiquem aqui para receber o que vier.'"
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 120,
+        "speech_records_excluding_player": 116,
+        "director_authored": 30,
+        "share_of_speech": 0.25862068965517243,
+        "routed_same_turn": 17,
+        "carrying_redaction": 3,
+        "audible_speech_events": 32,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia: 'A seleção começa. Cooperação será medida antes de qualquer força.'"
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 0.9533,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "A Diretora Maelis conclui: 'A cooperação será medida antes de qualquer força. [indistinct] lugares estão marcados. Nenhuma equipe será anunciada enquanto o círculo não estiver plen"
+          },
+          {
+            "turn": 2,
+            "character_id": "C7",
+            "name": "Liora Celestria",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Liora responde em tom claro: 'Desafios silenciosos são para quem não tem argumentos. Se quer medir sua casta, faça isso quando houver um objetivo real.'"
+          },
+          {
+            "turn": 3,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 0.9252,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "A Diretora Maelis diz: 'Parem. Um clarim real [indistinct] que algo urgente exige atenção imediata.'"
+          },
+          {
+            "turn": 4,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Lorde Cassian Aurel levanta-se na arquibancada nobre e exige saber o conteúdo do aviso real, com tom que mistura autoridade e inquietação."
+          },
+          {
+            "turn": 6,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "Diretora Maelis [indistinct] o pergaminho ensanguentado e declara: 'A seleção é antecipada. Formem equipes agora ou fiquem aqui para receber o que vier.'"
+          },
+          {
+            "turn": 7,
+            "character_id": "C20",
+            "name": "Marta Ferrolume",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Marta grita: 'Equipamento de emergência! Um de vocês por equipe, pegue bandoleiras e escudos, não fiquem parados tão perto da entrada!'"
+          },
+          {
+            "turn": 8,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis grita sobre o sino: 'Formem equipes AGORA, pelos fundos! Garran, feche a entrada!'"
+          },
+          {
+            "turn": 10,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 0.8986,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Guard, report! What breached the wall?"
+          },
+          {
+            "turn": 11,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis grita para os alunos se moverem em direção à saída dos fundos e formarem equipes."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 128,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 128,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": []
+      }
+    },
+    {
+      "run": "drive-P1-r2",
+      "session_id": "ec84b31e",
+      "turns": 37,
+      "redaction": {
+        "occurrences": 4,
+        "records_with_marker": 4,
+        "persisted_speech_records": 2,
+        "ledger_entries": 2,
+        "ledger_viewers": 1,
+        "by_channel": {
+          "speech": {
+            "occurrences": 2,
+            "records": 2
+          },
+          "ledger_recent_memory": {
+            "occurrences": 2,
+            "records": 2
+          }
+        },
+        "evidence": [
+          {
+            "turn": 7,
+            "channel": "speech",
+            "speaker": "C4",
+            "text": "Seraphine ergue a voz para chamar a atenção de Garran, insistindo que antes de qualquer prova ao [indistinct] confirme que Link não corre risco de sangrar mais, já que ele continua"
+          },
+          {
+            "turn": 7,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran responde no [indistinct] instante, gritando que ninguém será avaliado em dupla e que os primeiros quatro que formarem linha na marca de giz serão o primeiro grupo, enquanto "
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C13",
+            "text": "T7 Seraphine disse: Seraphine ergue a voz para chamar a atenção de Garran, insistindo que antes de qualquer prova ao [indistinct] confirme que Link não corre risco de sangrar mais,"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C13",
+            "text": "T7 Garran disse: Garran responde no [indistinct] instante, gritando que ninguém será avaliado em dupla e que os primeiros quatro que formarem linha na marca de giz serão o primeiro"
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 140,
+        "speech_records_excluding_player": 136,
+        "director_authored": 32,
+        "share_of_speech": 0.23529411764705882,
+        "routed_same_turn": 23,
+        "carrying_redaction": 1,
+        "audible_speech_events": 38,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia que os dezesseis presentes formarão equipes e que seus ranks provisórios serão atribuídos conforme o desempenho de hoje."
+          },
+          {
+            "turn": 1,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Riven, em voz baixa e cortante, diz a Liora que cooperar com fracos é desperdício de tempo."
+          },
+          {
+            "turn": 1,
+            "character_id": "C5",
+            "name": "Nix Pata-Ligeira",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Nix, da lateral, brinca em voz alta que ainda bem que o rank não depende de quem sabe bajular melhor."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis, da plataforma central, declara concluído o anúncio e diz que a formação das equipes será decidida por uma dinâmica imediata no centro do salão."
+          },
+          {
+            "turn": 3,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis pede que os alunos formem um círculo no centro e aguardem a próxima instrução, enquanto seu olhar percorre cada um deles."
+          },
+          {
+            "turn": 4,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis declara que a masmorra está instável e que a seleção será antecipada, ordenando que todos se dirijam ao pátio."
+          },
+          {
+            "turn": 5,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran, da arquibancada, grita ordem para todos saírem do salão agora, antes que o teto ceda."
+          },
+          {
+            "turn": 6,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran grita que todos se afastem da parede e que a avaliação de cooperação começa agora no pátio."
+          },
+          {
+            "turn": 7,
+            "character_id": "C4",
+            "name": "Seraphine Alvor",
+            "ratio": 0.9668,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "Seraphine ergue a voz para chamar a atenção de Garran, insistindo que antes de qualquer prova ao [indistinct] confirme que Link não corre risco de sangrar mais, já que ele continua"
+          },
+          {
+            "turn": 7,
+            "character_id": "C15",
+            "name": "Oriana Cantabile",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Oriana, com tom vibrante, sugere em voz alta que a primeira etapa poderia ser transformar aquela fila em equipes de quatro pelo critério de quem está mais próximo, para não perdere"
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 135,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 138,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": []
+      }
+    },
+    {
+      "run": "drive-P1-r3",
+      "session_id": "17ec48d5",
+      "turns": 38,
+      "redaction": {
+        "occurrences": 11,
+        "records_with_marker": 11,
+        "persisted_speech_records": 4,
+        "ledger_entries": 7,
+        "ledger_viewers": 6,
+        "by_channel": {
+          "speech": {
+            "occurrences": 4,
+            "records": 4
+          },
+          "ledger_recent_memory": {
+            "occurrences": 7,
+            "records": 7
+          }
+        },
+        "evidence": [
+          {
+            "turn": 9,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A diretora completa, em tom peremptório: 'A equipe de varredura será formada por voluntários; quem se apresentar, dê um passo à [indistinct].'"
+          },
+          {
+            "turn": 26,
+            "channel": "speech",
+            "speaker": "C19",
+            "text": "Cassian, recuando em direção à porta oeste, exige em tom cortante que a Coroa seja informada antes de qualquer [indistinct]."
+          },
+          {
+            "turn": 33,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis, com a [indistinct] fincada no chão, ordena em voz alta que todos recuem para o vão norte imediatamente, um de cada vez, sem empurrar."
+          },
+          {
+            "turn": 35,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis, com a [indistinct] fincada, ordena recuo total pelo vão norte, em fila única, sem empurrar, e que os últimos cortem a corda."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C2",
+            "text": "T35 Diretora Maelis Ordan disse: A Diretora Maelis, com a [indistinct] fincada, ordena recuo total pelo vão norte, em fila única, sem empurrar, e que os últimos cortem a corda."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C17",
+            "text": "T33 Diretora Maelis Ordan disse: A Diretora Maelis, com a [indistinct] fincada no chão, ordena em voz alta que todos recuem para o vão norte imediatamente, um de cada vez, sem empu"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C3",
+            "text": "T9 Diretora Maelis Ordan disse: A diretora completa, em tom peremptório: 'A equipe de varredura será formada por voluntários; quem se apresentar, dê um passo à [indistinct].'"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C18",
+            "text": "T33 Diretora Maelis Ordan disse: A Diretora Maelis, com a [indistinct] fincada no chão, ordena em voz alta que todos recuem para o vão norte imediatamente, um de cada vez, sem empu"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C18",
+            "text": "T35 Diretora Maelis Ordan disse: A Diretora Maelis, com a [indistinct] fincada, ordena recuo total pelo vão norte, em fila única, sem empurrar, e que os últimos cortem a corda."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C10",
+            "text": "T35 Maelis disse: A Diretora Maelis, com a [indistinct] fincada, ordena recuo total pelo vão norte, em fila única, sem empurrar, e que os últimos cortem a corda."
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 140,
+        "speech_records_excluding_player": 136,
+        "director_authored": 37,
+        "share_of_speech": 0.27205882352941174,
+        "routed_same_turn": 30,
+        "carrying_redaction": 4,
+        "audible_speech_events": 41,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis declara em voz alta que a cerimônia de seleção está oficialmente aberta e que as equipes serão formadas em instantes."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia em voz alta que a cerimônia de seleção está oficialmente aberta e que as equipes serão formadas em instantes, chamando cada aluno a se posicionar em sua m"
+          },
+          {
+            "turn": 3,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A diretora anuncia em voz alta que a seleção está oficialmente aberta e ordena que todos se posicionem; ela afirma que as equipes refletem a Academia e que o mérito deve falar mais"
+          },
+          {
+            "turn": 3,
+            "character_id": "C3",
+            "name": "Mirella Valecourt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Mirella, mantendo a postura ereta, responde à provocação de Liora em tom calmo: 'que a linhagem não será tão decisiva quanto você esperava, vamos ver se seu mérito realmente supera"
+          },
+          {
+            "turn": 3,
+            "character_id": "C2",
+            "name": "Asword",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Asword, de voz alta e confiante, declara a Link que vai garantir que ninguém o subestime, mesmo que precise usar sua chama para isso, e que aceita qualquer equipe que a escola impo"
+          },
+          {
+            "turn": 4,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis, em voz alta e urgente, pergunta ao batedor 'O que houve, soldado? Responda.'"
+          },
+          {
+            "turn": 4,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "O Lorde Cassian, da galeria, exige em tom firme 'Uma explicação formal, Diretora. O que está acontecendo na masmorra?'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "O Lorde Cassian, da galeria, brada com frieza: 'Diretora, o que está acontecendo na masmorra? Uma explicação formal, já.'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran responde à diretora, sem desviar os olhos do ferido: 'Deixem o soldado respirar antes de exigir hierarquias, Diretora.'"
+          },
+          {
+            "turn": 7,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis, ainda atrás da mesa, proclama em voz alta que a seleção fica suspensa temporariamente e que o batedor será levado à enfermaria; todos permanecem no salão."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 153,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 163,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": []
+      }
+    },
+    {
+      "run": "null-P1-r1",
+      "session_id": "7fd84e9a",
+      "turns": 39,
+      "redaction": {
+        "occurrences": 5,
+        "records_with_marker": 5,
+        "persisted_speech_records": 4,
+        "ledger_entries": 1,
+        "ledger_viewers": 1,
+        "by_channel": {
+          "speech": {
+            "occurrences": 4,
+            "records": 4
+          },
+          "ledger_recent_memory": {
+            "occurrences": 1,
+            "records": 1
+          }
+        },
+        "evidence": [
+          {
+            "turn": 21,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis declara, com voz firme: 'O portão verde está selado; a equipe que hesita não avança. Os demais grupos têm um minuto para se posicionar [indistinct] de seus arcos."
+          },
+          {
+            "turn": 25,
+            "channel": "speech",
+            "speaker": "C7",
+            "text": "Liora, deslizando para o centro do grupo azul, declara que a liderança já está definida e que todos devem [indistinct] seu comando."
+          },
+          {
+            "turn": 29,
+            "channel": "speech",
+            "speaker": "C6",
+            "text": "Doran, do grupo, oferece gravar uma runa de aviso no coldre de Mirella antes da descida, querendo [indistinct] que ela tenha um alerta caso o chão indique perigo."
+          },
+          {
+            "turn": 34,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran grita que restam dez segundos e que o portão azul vai [indistinct]."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C17",
+            "text": "T25 Liora Celestria disse: Liora, deslizando para o centro do grupo azul, declara que a liderança já está definida e que todos devem [indistinct] seu comando."
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 127,
+        "speech_records_excluding_player": 123,
+        "director_authored": 36,
+        "share_of_speech": 0.2926829268292683,
+        "routed_same_turn": 18,
+        "carrying_redaction": 4,
+        "audible_speech_events": 51,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora anuncia que a formação das equipes será decidida não por duelo, mas por uma prova de cooperação dentro da masmorra, e que os ranks provisórios serão atribuídos depois da"
+          },
+          {
+            "turn": 3,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran, ainda de punho na mesa, resmunga em tom grave: 'Chega de discurso. O primeiro teste começa agora, com as placas.'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran diz em tom grave: 'Placas liberadas. Mas antes de virar, uma última coisa: a masmorra não tem salva-vidas. Cooperação não é gentileza, é sobrevivência.'"
+          },
+          {
+            "turn": 7,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran declara em voz alta: 'Equipes formadas. Leiam seus nomes e quem não gostar, azar.'"
+          },
+          {
+            "turn": 9,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran resmunga: 'Chega de teatro. Formem-se nas marcas. A masmorra espera.'"
+          },
+          {
+            "turn": 10,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran aponta para as marcas e ordena: 'Formem-se nas marcas ou fiquem para trás. A masmorra não espera ninguém.'"
+          },
+          {
+            "turn": 11,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis, com a mão erguida, anuncia: 'As equipes estão formadas. Antes de abrir os portões, uma observação: a cooperação dentro da masmorra decidirá os ranks definitivos."
+          },
+          {
+            "turn": 11,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran ordena: 'Cada equipe, seu portão. Dentro, sigam as luzes de sinalização. Nada de heroísmo individual.'"
+          },
+          {
+            "turn": 14,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran, já no limite do portão, resmunga sem se virar: 'Última chance. Entra ou fica pra trás.'"
+          },
+          {
+            "turn": 15,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Riven, já dentro do túnel, grita de volta: 'Link, sua covardia não vai te proteger aqui. Desce ou fica pra trás para sempre.'"
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 11,
+        "isolated": 0,
+        "with_others_present": 11,
+        "graph_isolated": 11,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 7,
+        "max_witnesses_clamped": 19,
+        "director_events_effective": 131,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 136,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": [
+          {
+            "turn": 18,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Link, desqualificado. Diretora, registre isso. Agora, quem desceu, que prove que sabe voltar."
+          },
+          {
+            "turn": 19,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 19,
+            "text": "Garran grita, com a mão no batente, que Link está desqualificado e que os demais sigam para seus portões."
+          },
+          {
+            "turn": 20,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 18,
+            "text": "Garran anuncia que Link está desqualificado e ordena que os outros sigam para seus portões."
+          },
+          {
+            "turn": 23,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 18,
+            "text": "Garran bate três vezes no portão fechado com o pomo de ferro e anuncia que os sessenta segundos começaram."
+          },
+          {
+            "turn": 27,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Trinta segundos, e o portão azul fecha. Quem não entrou, fica."
+          },
+          {
+            "turn": 27,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 19,
+            "text": "Garran, ainda de braço erguido, acrescenta: 'Regras são regras. Link não desceu. Próximo.'"
+          },
+          {
+            "turn": 32,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 18,
+            "text": "Garran, da entrada do portão verde, grita em direção ao salão que restam dez segundos para os portões azul e amarelo se fecharem."
+          },
+          {
+            "turn": 34,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "Agora, Link, você desce com a equipe azul ou fica de fora de vez. Dez segundos, garoto."
+          },
+          {
+            "turn": 34,
+            "type": "action",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": null,
+            "text": "encarar Link com dureza, apontando para o portão azul"
+          },
+          {
+            "turn": 34,
+            "type": "speech",
+            "speaker": "C18",
+            "verdict": "graph_isolated",
+            "zone": "entrada do portão da equipe verde",
+            "present_others": 20,
+            "same_zone": 0,
+            "zone_reachable": 0,
+            "proposed_witnesses": 18,
+            "text": "Garran grita que restam dez segundos e que o portão azul vai [indistinct]."
+          }
+        ]
+      }
+    },
+    {
+      "run": "null-P1-r2",
+      "session_id": "05e0dffc",
+      "turns": 40,
+      "redaction": {
+        "occurrences": 16,
+        "records_with_marker": 11,
+        "persisted_speech_records": 3,
+        "ledger_entries": 8,
+        "ledger_viewers": 7,
+        "by_channel": {
+          "speech": {
+            "occurrences": 4,
+            "records": 3
+          },
+          "ledger_recent_memory": {
+            "occurrences": 12,
+            "records": 8
+          }
+        },
+        "evidence": [
+          {
+            "turn": 23,
+            "channel": "speech",
+            "speaker": "C8",
+            "text": "Bruna, com um meio sorriso, diz que acha bom Noa parar de enrolar e mostrar os espelhos, senão ela [indistinct] vai dar um jeito de animar a plateia."
+          },
+          {
+            "turn": 36,
+            "channel": "speech",
+            "speaker": "C13",
+            "text": "Riven Draven [indistinct] um passo, o sabre desembainhado, e declara que finalmente chegou a vez de mostrar que treino supera herança."
+          },
+          {
+            "turn": 38,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran Holt, em tom ríspido, diz a Riven que a masmorra não [indistinct] quem [indistinct] sem ordem, e que ele deve aguardar a vez ser chamada."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C2",
+            "text": "T38 Garran disse: Garran Holt, em tom ríspido, diz a Riven que a masmorra não [indistinct] quem [indistinct] sem ordem, e que ele deve aguardar a vez ser chamada."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C7",
+            "text": "T38 Garran Holt disse: Garran Holt, em tom ríspido, diz a Riven que a masmorra não [indistinct] quem [indistinct] sem ordem, e que ele deve aguardar a vez ser chamada."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C17",
+            "text": "T36 Riven Draven disse: Riven Draven [indistinct] um passo, o sabre desembainhado, e declara que finalmente chegou a vez de mostrar que treino supera herança."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C17",
+            "text": "T38 Garran disse: Garran Holt, em tom ríspido, diz a Riven que a masmorra não [indistinct] quem [indistinct] sem ordem, e que ele deve aguardar a vez ser chamada."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C13",
+            "text": "T36 Riven Draven disse: Riven Draven [indistinct] um passo, o sabre desembainhado, e declara que finalmente chegou a vez de mostrar que treino supera herança."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C18",
+            "text": "T36 Riven Draven disse: Riven Draven [indistinct] um passo, o sabre desembainhado, e declara que finalmente chegou a vez de mostrar que treino supera herança."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C9",
+            "text": "T23 Bruna disse: Bruna, com um meio sorriso, diz que acha bom Noa parar de enrolar e mostrar os espelhos, senão ela [indistinct] vai dar um jeito de animar a plateia."
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 159,
+        "speech_records_excluding_player": 155,
+        "director_authored": 63,
+        "share_of_speech": 0.4064516129032258,
+        "routed_same_turn": 39,
+        "carrying_redaction": 3,
+        "audible_speech_events": 76,
+        "evidence": [
+          {
+            "turn": 2,
+            "character_id": "C2",
+            "name": "Asword",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Asword said that Link's portal showed precise control, more than many who brag about brute strength."
+          },
+          {
+            "turn": 2,
+            "character_id": "C7",
+            "name": "Liora Celestria",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Liora cut in with a cold remark, saying control means little when the power behind it is almost nothing."
+          },
+          {
+            "turn": 2,
+            "character_id": "C8",
+            "name": "Bruna Ferrugem",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Bruna answered in a low voice, saying that in a dungeon a well-placed tool can matter more than a flashy spell."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Director Maelis struck her bengala on the stone floor and ordered silence, reminding everyone that the selection will begin."
+          },
+          {
+            "turn": 3,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A diretora Maelis ordena silêncio e anuncia que a seleção começa agora, decidindo a sequência de avaliação individual na mesa."
+          },
+          {
+            "turn": 4,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A diretora Maelis Ordan, batendo a bengala no chão de pedra, anuncia em voz firme que a seleção individual começa agora e que as placas de nome serão viradas uma a uma na mesa cent"
+          },
+          {
+            "turn": 6,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran responde ao Lorde Cassian, dizendo que a sequência é problema dele e que o que importa é voltar vivo, não vaidade."
+          },
+          {
+            "turn": 7,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A diretora Maelis anuncia em voz alta que Bruna Ferrugem abre a avaliação individual, batendo a bengala no chão para enfatizar a ordem."
+          },
+          {
+            "turn": 7,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "O Lorde Cassian fala da plataforma, pedindo que os avaliadores registrem o tempo de cada portal para que a precisão seja documentada para a Coroa."
+          },
+          {
+            "turn": 7,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "O instrutor Garran responde a Cassian, em tom ríspido, que a sequência é responsabilidade dele e que o que importa é voltar vivo, não vaidade."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 127,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 127,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": []
+      }
+    },
+    {
+      "run": "null-P1-r3",
+      "session_id": "07218133",
+      "turns": 36,
+      "redaction": {
+        "occurrences": 5,
+        "records_with_marker": 5,
+        "persisted_speech_records": 2,
+        "ledger_entries": 3,
+        "ledger_viewers": 3,
+        "by_channel": {
+          "speech": {
+            "occurrences": 2,
+            "records": 2
+          },
+          "ledger_recent_memory": {
+            "occurrences": 3,
+            "records": 3
+          }
+        },
+        "evidence": [
+          {
+            "turn": 17,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran ordena que Liora fique [indistinct] e que todos esperem os nomes sem teatrinho, após a diretora bater a bengala duas vezes."
+          },
+          {
+            "turn": 33,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran fala em tom áspero: 'Chega de conversa. Dez minutos, e se alguém abrir a [indistinct] fora da prova, sai na mão comigo.'"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C20",
+            "text": "T17 O instrutor, um homem robusto de cabeça raspada, com dois dedos ausentes na mão esquerda. disse: Garran ordena que Liora fique [indistinct] e que todos esperem os nomes sem tea"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C16",
+            "text": "T33 Garran disse: Garran fala em tom áspero: 'Chega de conversa. Dez minutos, e se alguém abrir a [indistinct] fora da prova, sai na mão comigo.'"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C9",
+            "text": "T33 Garran disse: Garran fala em tom áspero: 'Chega de conversa. Dez minutos, e se alguém abrir a [indistinct] fora da prova, sai na mão comigo.'"
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 124,
+        "speech_records_excluding_player": 120,
+        "director_authored": 43,
+        "share_of_speech": 0.35833333333333334,
+        "routed_same_turn": 21,
+        "carrying_redaction": 2,
+        "audible_speech_events": 52,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C7",
+            "name": "Liora Celestria",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Liora responde com um riso frio, dizendo que paladinos medem coragem, não estratégia, e que por isso nunca lideram."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A diretora bate a bengala no chão uma vez, interrompendo o debate, e anuncia que a seleção começa agora."
+          },
+          {
+            "turn": 4,
+            "character_id": "C7",
+            "name": "Liora Celestria",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Liora dá um passo à frente erguendo a mão e anuncia que traz uma proposta de formação de equipe antes que a diretora prossiga."
+          },
+          {
+            "turn": 5,
+            "character_id": "C5",
+            "name": "Nix Pata-Ligeira",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Nix, com um sorriso, comenta em tom baixo o suficiente para os próximos ouvirem que Liora quer começar a guerra antes da paz."
+          },
+          {
+            "turn": 6,
+            "character_id": "C7",
+            "name": "Liora Celestria",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Liora anuncia em voz alta sua proposta de formação de equipe, erguendo a mão para a diretora."
+          },
+          {
+            "turn": 6,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A diretora diz que as propostas individuais devem ser apresentadas durante a seleção, e que agora todos devem aguardar a revelação das equipes."
+          },
+          {
+            "turn": 7,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A diretora anuncia, com firmeza, que a seleção prossegue e que novos nomes serão revelados."
+          },
+          {
+            "turn": 8,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Riven, em tom cortante, desafia Asword para quando a seleção permitir."
+          },
+          {
+            "turn": 10,
+            "character_id": "C2",
+            "name": "Asword",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Asword desafia Riven em voz alta, dizendo que verá se o aço dele é seu ou herdado."
+          },
+          {
+            "turn": 10,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A diretora interrompe duramente, ordenando silêncio e lembrando que duelos só após a seleção."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 106,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 110,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": []
+      }
+    },
+    {
+      "run": "oldcode-P1-r1",
+      "session_id": "11028536",
+      "turns": 40,
+      "redaction": {
+        "occurrences": 15,
+        "records_with_marker": 13,
+        "persisted_speech_records": 8,
+        "ledger_entries": 5,
+        "ledger_viewers": 3,
+        "by_channel": {
+          "speech": {
+            "occurrences": 9,
+            "records": 8
+          },
+          "ledger_recent_memory": {
+            "occurrences": 6,
+            "records": 5
+          }
+        },
+        "evidence": [
+          {
+            "turn": 9,
+            "channel": "speech",
+            "speaker": "C13",
+            "text": "Riven deixa escapar um riso seco e comenta, alto o bastante para ser ouvido: 'Agora até [indistinct] finge que é plateia. Que seleção ridícula.'"
+          },
+          {
+            "turn": 12,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran grita uma ordem: 'Ninguém ataca por conta própria! Formem [indistinct] de contenção atrás de Asword e Riven, agora!'"
+          },
+          {
+            "turn": 15,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis repete, com ênfase: 'Preparem-se. Amanhã, ao amanhecer, desceremos à masmorra. Não haverá segunda [indistinct].'"
+          },
+          {
+            "turn": 27,
+            "channel": "speech",
+            "speaker": "C20",
+            "text": "Marta afirma em tom acusatório que o brilho da vareta é o [indistinct] do selo e que isso não é coincidência, exigindo ver as mãos de Cael."
+          },
+          {
+            "turn": 27,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran declara que o selo foi [indistinct] e não [indistinct], e que descer agora é cair em armadilha, chamando Asword, Cael e Marta para examinar as marcas de perto."
+          },
+          {
+            "turn": 28,
+            "channel": "speech",
+            "speaker": "C20",
+            "text": "Marta ergue a vareta com um pano e diz em tom acusatório: 'Cael, a vareta tem o [indistinct] brilho do selo. Suas ferramentas forjaram os dois.'"
+          },
+          {
+            "turn": 31,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran grita [indistinct] para os alunos recuarem e para Elowen vir tratar do serviçal ferido."
+          },
+          {
+            "turn": 36,
+            "channel": "speech",
+            "speaker": "C19",
+            "text": "Lorde Cassian, da varanda, comenta em tom frio que a violação do arsenal pode ser uma cortina de fumaça para desviar a [indistinct] da sabotagem no selo."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C4",
+            "text": "T12 Um homem robusto de cabeça raspada, barba grisalha, pele marcada pelo sol e dois dedos ausentes na mão esquerda. disse: Garran grita uma ordem: 'Ninguém ataca por conta própria"
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C11",
+            "text": "T12 Homem robusto de cabeça raspada, barba grisalha, pele marcada pelo sol e dois dedos ausentes na mão esquerda. disse: Garran grita uma ordem: 'Ninguém ataca por conta própria! F"
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 159,
+        "speech_records_excluding_player": 155,
+        "director_authored": 46,
+        "share_of_speech": 0.2967741935483871,
+        "routed_same_turn": 37,
+        "carrying_redaction": 8,
+        "audible_speech_events": 55,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis sobe à mesa central e declara o início da cerimônia de seleção, ordenando que os alunos se posicionem nas marcas do piso."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis declara que a cerimônia de seleção está oficialmente aberta, e que a primeira etapa será a leitura de mana de todos os alunos."
+          },
+          {
+            "turn": 3,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran, com a testa franzida, grita para os alunos da primeira fileira: 'Alguém aí está segurando o fôlego? Isso interfere na leitura!'"
+          },
+          {
+            "turn": 4,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran anuncia em voz alta o resultado: Mirella, vinte e quatro, e ordena que o próximo aluno se prepare sem prender o fôlego."
+          },
+          {
+            "turn": 4,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Riven questiona em voz alta se a calibração da esfera está confiável, sugerindo instabilidade no artefato."
+          },
+          {
+            "turn": 4,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Lorde Cassian propõe que a próxima fileira seja medida em ordem inversa, para separar os que respiram dos que tremem por causa da própria sombra."
+          },
+          {
+            "turn": 5,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran Holt recua um passo e ordena: 'Formem linhas retas, já. O anúncio começa agora.'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Lorde Cassian, da varanda, comenta em tom calculado: 'Espero que a instabilidade da esfera não contamine o anúncio, Diretora.'"
+          },
+          {
+            "turn": 5,
+            "character_id": "C13",
+            "name": "Riven Draven",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Riven, ainda irritado, cutuca Garran: 'Se o artefato falhou conosco, como vai medir os outros? Isso é palhaçada.'"
+          },
+          {
+            "turn": 6,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Garran faz um gesto seco para Link e ordena que ele se aproxime da esfera."
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 2,
+        "isolated": 0,
+        "with_others_present": 2,
+        "graph_isolated": 0,
+        "narrowed_to_none": 2,
+        "clamped_from_proposed": 2,
+        "max_witnesses_clamped": 3,
+        "director_events_effective": 180,
+        "director_events_effective_empty_witnesses": 1,
+        "director_events_raw": 217,
+        "director_events_raw_empty_witnesses": 1,
+        "evidence": [
+          {
+            "turn": 18,
+            "type": "speech",
+            "speaker": "C20",
+            "verdict": "narrowed_to_none",
+            "zone": "Academia Real do Primeiro Sino, Salão dos Quatro Arcos",
+            "present_others": 20,
+            "same_zone": 18,
+            "zone_reachable": 18,
+            "proposed_witnesses": 1,
+            "text": "Marta Ferrolume grita do arsenal: 'Alguém venha aqui! Este selo não é dos nossos registros!'"
+          },
+          {
+            "turn": 19,
+            "type": "speech",
+            "speaker": "C20",
+            "verdict": "narrowed_to_none",
+            "zone": "Academia Real do Primeiro Sino, Salão dos Quatro Arcos",
+            "present_others": 20,
+            "same_zone": 18,
+            "zone_reachable": 18,
+            "proposed_witnesses": 3,
+            "text": "Marta continua em tom urgente: 'Mas o selo não é dos registros da Academia. E tem cheiro de contaminação nas poções da prateleira.'"
+          }
+        ]
+      }
+    },
+    {
+      "run": "oldcode-P1-r2",
+      "session_id": "a3e1ceda",
+      "turns": 39,
+      "redaction": {
+        "occurrences": 10,
+        "records_with_marker": 8,
+        "persisted_speech_records": 5,
+        "ledger_entries": 3,
+        "ledger_viewers": 3,
+        "by_channel": {
+          "speech": {
+            "occurrences": 7,
+            "records": 5
+          },
+          "ledger_recent_memory": {
+            "occurrences": 3,
+            "records": 3
+          }
+        },
+        "evidence": [
+          {
+            "turn": 5,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran responde em tom áspero: 'Quem [indistinct] nisso conhecia a rotina do depósito de Marta. Isso não é sabotagem amadora, é trilha [indistinct].'"
+          },
+          {
+            "turn": 6,
+            "channel": "speech",
+            "speaker": "C8",
+            "text": "Bruna, com o rosto tenso, responde que se a resina [indistinct] do depósito da tia, então o estojo de giz foi contaminado depois que a placa foi trocada, porque a tia Marta só guar"
+          },
+          {
+            "turn": 12,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran grita, apontando para a ala oeste, que todos devem sair agora e que ninguém volte para [indistinct]."
+          },
+          {
+            "turn": 20,
+            "channel": "speech",
+            "speaker": "C5",
+            "text": "Nix, com um sorriso torto, sugere que alguém de dentro abriu o portão para a criatura e que a Coroa pode [indistinct] mais envolvida do que parece."
+          },
+          {
+            "turn": 28,
+            "channel": "speech",
+            "speaker": "C18",
+            "text": "Garran grita dos jardins para que os flancos sejam fechados e a criatura não [indistinct] o canil."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C8",
+            "text": "T12 Garran disse: Garran grita, apontando para a ala oeste, que todos devem sair agora e que ninguém volte para [indistinct]."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C18",
+            "text": "T28 Instrutor Garran Holt disse: Garran grita dos jardins para que os flancos sejam fechados e a criatura não [indistinct] o canil."
+          },
+          {
+            "turn": 0,
+            "channel": "ledger_recent_memory",
+            "speaker": "C10",
+            "text": "T12 o instrutor Garran, um homem robusto e marcado disse: Garran grita, apontando para a ala oeste, que todos devem sair agora e que ninguém volte para [indistinct]."
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 155,
+        "speech_records_excluding_player": 151,
+        "director_authored": 43,
+        "share_of_speech": 0.2847682119205298,
+        "routed_same_turn": 30,
+        "carrying_redaction": 5,
+        "audible_speech_events": 49,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia os ranks provisórios, com Liora e Asword em A, Mirella e Bram em B, Riven e Doran em C, e os demais em D."
+          },
+          {
+            "turn": 1,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Lorde Cassian levanta-se e comenta, em tom suficiente para alcançar as primeiras fileiras, que a hierarquia da Coroa parece bem refletida nos ranks."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis conclui: \"Os ranks provisórios estão registrados. A seleção começa agora. Que cada um prove seu valor diante do Primeiro Sino.\""
+          },
+          {
+            "turn": 2,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Lorde Cassian Aurel acrescenta em tom cortante: \"E que a hierarquia da Coroa continue sendo respeitada, mesmo sob novas circunstâncias.\""
+          },
+          {
+            "turn": 3,
+            "character_id": "C14",
+            "name": "Ysara Lua-Parda",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Ysara, com o arco ainda erguido, diz em voz firme: 'Alguém trocou as placas. A equipe de D nem foi anunciada, e ela está lá, virada para baixo. Isso foi sabotagem.'"
+          },
+          {
+            "turn": 3,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Lorde Cassian, da arquibancada nobre, comenta em tom cortante: 'Então a Academia permite que alunos atirem nas próprias avaliações? Isto é uma preocupação para a Coroa.'"
+          },
+          {
+            "turn": 4,
+            "character_id": "C8",
+            "name": "Bruna Ferrugem",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "Bruna declara que a marca escura é resina de lanterna baixa, igual à da placa destruída, e que outra placa também foi adulterada."
+          },
+          {
+            "turn": 4,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis, com a bengala batendo no piso, ordena que ninguém toque nas placas e determina que a seleção será adiada até que a sabotagem seja esclarecida."
+          },
+          {
+            "turn": 4,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Lorde Cassian, em tom frio, pergunta se a Diretora pretende permitir que uma única flecha e um pedaço de resina interrompam a cerimônia da Coroa."
+          },
+          {
+            "turn": 4,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "O Instrutor Garran, da arquibancada, corta a discussão afirmando que resina de lanterna baixa não entra no salão sem ajuda de dentro, e que isso é problema de segurança, não de cer"
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 163,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 193,
+        "director_events_raw_empty_witnesses": 1,
+        "evidence": []
+      }
+    },
+    {
+      "run": "oldcode-P1-r3",
+      "session_id": "63deac61",
+      "turns": 40,
+      "redaction": {
+        "occurrences": 4,
+        "records_with_marker": 3,
+        "persisted_speech_records": 3,
+        "ledger_entries": 0,
+        "ledger_viewers": 0,
+        "by_channel": {
+          "speech": {
+            "occurrences": 4,
+            "records": 3
+          }
+        },
+        "evidence": [
+          {
+            "turn": 6,
+            "channel": "speech",
+            "speaker": "C17",
+            "text": "A Diretora Maelis anuncia que, por ordem da Coroa, a prova de eliminação será realizada no pátio de [indistinct], com início imediato, e que os detalhes serão apresentados lá."
+          },
+          {
+            "turn": 12,
+            "channel": "speech",
+            "speaker": "C19",
+            "text": "Lorde Cassian, [indistinct] o desabamento, comenta em tom seco: '[indistinct] que a Coroa escolheu um teste mais... literal.'"
+          },
+          {
+            "turn": 12,
+            "channel": "speech",
+            "speaker": "C2",
+            "text": "Asword dá um passo à frente, os fios vermelhos sob a pele ganhando brilho, e diz: 'Precisamos garantir que ninguém [indistinct] ferido. Vou ajudar.'"
+          }
+        ]
+      },
+      "director_speech": {
+        "speech_records": 156,
+        "speech_records_excluding_player": 152,
+        "director_authored": 40,
+        "share_of_speech": 0.2631578947368421,
+        "routed_same_turn": 21,
+        "carrying_redaction": 3,
+        "audible_speech_events": 45,
+        "evidence": [
+          {
+            "turn": 1,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia que, por ordem da Coroa, a seleção desta manhã será precedida por uma prova especial, cujos detalhes serão revelados em breve."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora anuncia que a ordem da Coroa altera a seleção, e que uma prova especial será realizada antes da formação das equipes."
+          },
+          {
+            "turn": 2,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora acrescenta que os detalhes serão revelados em instantes, e que todos devem aguardar as instruções no salão."
+          },
+          {
+            "turn": 3,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia que, por ordem da Coroa, a seleção desta manhã será precedida por uma prova especial, cujos detalhes serão revelados em breve."
+          },
+          {
+            "turn": 5,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia que a prova de eliminação da Coroa será realizada já na primeira parte da manhã, antes da formação das equipes."
+          },
+          {
+            "turn": 6,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 0.9593,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "A Diretora Maelis anuncia que, por ordem da Coroa, a prova de eliminação será realizada no pátio de [indistinct], com início imediato, e que os detalhes serão apresentados lá."
+          },
+          {
+            "turn": 7,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia, com voz firme, que a prova de eliminação começará imediatamente no pátio de treino e que os detalhes serão apresentados lá."
+          },
+          {
+            "turn": 8,
+            "character_id": "C17",
+            "name": "Diretora Maelis Ordan",
+            "ratio": 1.0,
+            "routed_same_turn": false,
+            "redacted": false,
+            "text": "A Diretora Maelis anuncia que a prova de eliminação começa imediatamente no pátio de treino e que todos devem segui-la."
+          },
+          {
+            "turn": 9,
+            "character_id": "C18",
+            "name": "Instrutor Garran Holt",
+            "ratio": 1.0,
+            "routed_same_turn": true,
+            "redacted": false,
+            "text": "Garran Holt solta um bufo e diz: 'A Diretora já deu a ordem. Se quiserem assistir da arquibancada, fiquem. Mas quem vai entrar na prova é vocês, não eu.'"
+          },
+          {
+            "turn": 12,
+            "character_id": "C19",
+            "name": "Lorde Cassian Aurel",
+            "ratio": 0.8571,
+            "routed_same_turn": true,
+            "redacted": true,
+            "text": "Lorde Cassian, [indistinct] o desabamento, comenta em tom seco: '[indistinct] que a Coroa escolheu um teste mais... literal.'"
+          }
+        ]
+      },
+      "empty_audience": {
+        "empty_audience_records": 0,
+        "isolated": 0,
+        "with_others_present": 0,
+        "graph_isolated": 0,
+        "narrowed_to_none": 0,
+        "clamped_from_proposed": 0,
+        "max_witnesses_clamped": 0,
+        "director_events_effective": 172,
+        "director_events_effective_empty_witnesses": 0,
+        "director_events_raw": 209,
+        "director_events_raw_empty_witnesses": 0,
+        "evidence": []
+      }
+    }
+  ]
+}

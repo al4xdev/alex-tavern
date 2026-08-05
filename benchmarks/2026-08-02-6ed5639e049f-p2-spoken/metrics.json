@@ -201,7 +201,9 @@
       "act_rewrites": 3,
       "act_rewrites_per_action": 0.075,
       "cluster_max": 3,
-      "cluster_span": 4,
+      "cluster_span": 17,
+      "cluster_count": 9,
+      "cluster_count_ge3": 1,
       "clusters": [
         {
           "turns": [
@@ -569,7 +571,9 @@
       "act_rewrites": 3,
       "act_rewrites_per_action": 0.075,
       "cluster_max": 3,
-      "cluster_span": 4,
+      "cluster_span": 12,
+      "cluster_count": 13,
+      "cluster_count_ge3": 1,
       "clusters": [
         {
           "turns": [
@@ -616,6 +620,15 @@
           "size": 2,
           "span": 6,
           "sample": "A Diretora Maelis ordena que todos cruzem a fenda agora, em fila, e que a formação das equipes seja feita no pátio por ordem de chegada."
+        },
+        {
+          "turns": [
+            22,
+            33
+          ],
+          "size": 2,
+          "span": 12,
+          "sample": "Nix, coberta de poeira, emerge da poeira do corredor desabado, tossindo."
         }
       ],
       "max_hint_repeats": 1,
@@ -923,6 +936,8 @@
       "act_rewrites_per_action": 0.0,
       "cluster_max": 5,
       "cluster_span": 25,
+      "cluster_count": 19,
+      "cluster_count_ge3": 3,
       "clusters": [
         {
           "turns": [
@@ -1304,6 +1319,8 @@
       "act_rewrites_per_action": 0.0,
       "cluster_max": 4,
       "cluster_span": 14,
+      "cluster_count": 16,
+      "cluster_count_ge3": 5,
       "clusters": [
         {
           "turns": [

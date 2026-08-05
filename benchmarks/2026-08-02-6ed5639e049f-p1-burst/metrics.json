@@ -136,6 +136,8 @@
       "act_rewrites_per_action": 0.1,
       "cluster_max": 2,
       "cluster_span": 2,
+      "cluster_count": 5,
+      "cluster_count_ge3": 0,
       "clusters": [
         {
           "turns": [
@@ -456,7 +458,9 @@
       "act_rewrites": 1,
       "act_rewrites_per_action": 0.1,
       "cluster_max": 3,
-      "cluster_span": 5,
+      "cluster_span": 15,
+      "cluster_count": 16,
+      "cluster_count_ge3": 8,
       "clusters": [
         {
           "turns": [
@@ -797,6 +801,8 @@
       "act_rewrites_per_action": 0.3,
       "cluster_max": 3,
       "cluster_span": 28,
+      "cluster_count": 13,
+      "cluster_count_ge3": 3,
       "clusters": [
         {
           "turns": [
@@ -1110,7 +1116,9 @@
       "act_rewrites": 1,
       "act_rewrites_per_action": 0.1,
       "cluster_max": 3,
-      "cluster_span": 5,
+      "cluster_span": 23,
+      "cluster_count": 14,
+      "cluster_count_ge3": 3,
       "clusters": [
         {
           "turns": [
@@ -1446,7 +1454,9 @@
       "act_rewrites": 2,
       "act_rewrites_per_action": 0.2,
       "cluster_max": 3,
-      "cluster_span": 3,
+      "cluster_span": 24,
+      "cluster_count": 13,
+      "cluster_count_ge3": 1,
       "clusters": [
         {
           "turns": [
@@ -1782,7 +1792,9 @@
       "act_rewrites": 3,
       "act_rewrites_per_action": 0.3,
       "cluster_max": 3,
-      "cluster_span": 16,
+      "cluster_span": 18,
+      "cluster_count": 15,
+      "cluster_count_ge3": 4,
       "clusters": [
         {
           "turns": [
@@ -2002,7 +2014,9 @@
       "act_rewrites": 0,
       "act_rewrites_per_action": 0.0,
       "cluster_max": 6,
-      "cluster_span": 6,
+      "cluster_span": 30,
+      "cluster_count": 22,
+      "cluster_count_ge3": 7,
       "clusters": [
         {
           "turns": [
@@ -2183,7 +2197,9 @@
       "act_rewrites": 0,
       "act_rewrites_per_action": 0.0,
       "cluster_max": 4,
-      "cluster_span": 8,
+      "cluster_span": 36,
+      "cluster_count": 22,
+      "cluster_count_ge3": 3,
       "clusters": [
         {
           "turns": [
@@ -2346,7 +2362,9 @@
       "act_rewrites": 0,
       "act_rewrites_per_action": 0.0,
       "cluster_max": 4,
-      "cluster_span": 13,
+      "cluster_span": 21,
+      "cluster_count": 18,
+      "cluster_count_ge3": 6,
       "clusters": [
         {
           "turns": [
@@ -2399,6 +2417,15 @@
           "size": 3,
           "span": 16,
           "sample": "A diretora anuncia, com firmeza, que a seleção prossegue e que novos nomes serão revelados."
+        },
+        {
+          "turns": [
+            11,
+            31
+          ],
+          "size": 2,
+          "span": 21,
+          "sample": "A diretora anuncia que a primeira equipe formada terá Seraphine Alvor e que os nomes restantes serão revelados em ordem, sem interrupções."
         }
       ],
       "max_hint_repeats": 0,
@@ -2640,7 +2667,9 @@
       "act_rewrites": 0,
       "act_rewrites_per_action": 0.0,
       "cluster_max": 4,
-      "cluster_span": 5,
+      "cluster_span": 37,
+      "cluster_count": 26,
+      "cluster_count_ge3": 8,
       "clusters": [
         {
           "turns": [
@@ -2692,6 +2721,15 @@
           "size": 3,
           "span": 3,
           "sample": "Lorde Cassian exige em tom frio que a Diretora explique a sabotagem antes que a cerimônia prossiga."
+        },
+        {
+          "turns": [
+            1,
+            37
+          ],
+          "size": 2,
+          "span": 37,
+          "sample": "A Diretora Maelis sobe à mesa central e declara o início da cerimônia de seleção, ordenando que os alunos se posicionem nas marcas do piso."
         }
       ],
       "max_hint_repeats": 4,
@@ -2953,7 +2991,9 @@
       "act_rewrites": 0,
       "act_rewrites_per_action": 0.0,
       "cluster_max": 4,
-      "cluster_span": 19,
+      "cluster_span": 23,
+      "cluster_count": 25,
+      "cluster_count_ge3": 5,
       "clusters": [
         {
           "turns": [
@@ -3006,6 +3046,15 @@
           "size": 3,
           "span": 4,
           "sample": "Garran e Ysara forçam a criatura a recuar para o leste, enquanto Mirella confirma o canil selado com a geada."
+        },
+        {
+          "turns": [
+            6,
+            28
+          ],
+          "size": 2,
+          "span": 23,
+          "sample": "A diretora Maelis bate a bengala duas vezes no piso e ordena que Garran verifique os arcos antes de qualquer conclusão, enquanto os alunos p"
         }
       ],
       "max_hint_repeats": 4,
@@ -3249,7 +3298,9 @@
       "act_rewrites": 0,
       "act_rewrites_per_action": 0.0,
       "cluster_max": 5,
-      "cluster_span": 5,
+      "cluster_span": 16,
+      "cluster_count": 30,
+      "cluster_count_ge3": 7,
       "clusters": [
         {
           "turns": [
@@ -3305,6 +3356,15 @@
           "size": 3,
           "span": 3,
           "sample": "Lorde Cassian inclina-se para a frente, um leve sorriso nos lábios, como se o anúncio fosse exatamente o que esperava."
+        },
+        {
+          "turns": [
+            25,
+            40
+          ],
+          "size": 2,
+          "span": 16,
+          "sample": "Nix se desloca agachada pelo flanco direito, posicionando-se próxima à entrada, pronta para perseguir as criaturas na masmorra."
         }
       ],
       "max_hint_repeats": 4,
