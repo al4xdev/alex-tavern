@@ -1,21 +1,26 @@
 # Task 65 — The Director must not author speech
 
-> **Status:** open, **BLOCKED ON A SCOPE DECISION as of 2026-08-05.** Still wave
-> 1, still the largest measured defect in the archive; two blind reviewers with
+> **Status:** open, **scope decided 2026-08-05, ready to implement.** Wave 1,
+> still the largest measured defect in the archive; two blind reviewers with
 > different framings — one auditing logs, one reading transcripts as fiction —
 > independently concluded it should be the first cut of the phase, and that
 > stands.
 >
-> **What does not stand is the 65a/65b split.** It was drawn on the assumption
+> **What did not stand is the 65a/65b split.** It was drawn on the assumption
 > that 64% of the channel duplicates a line that already exists. Verified against
 > the archive before implementation, the real figure is **21–42%**; the majority
 > of this channel is dialogue that exists nowhere else, and the prose renderer is
 > structurally forbidden from carrying it. See "⚠ 65a's premise did not survive
-> verification" below.
+> verification" below. Shipping the original 65a would have deleted **264–362
+> dialogue records** — exactly what Case 20's rule against buying quiet instead of
+> movement exists to prevent.
 >
-> Shipping 65a as originally written would delete **264–362 dialogue records**,
-> not the ~18% the note below estimated — which is what Case 20's rule against
-> buying quiet instead of movement exists to prevent.
+> **The fix is now one task, not two halves:** the Director stops authoring
+> persisted dialogue, and where a line is needed the character agent is routed to
+> write it. 65b's open question is answered by the same decision — see
+> "✅ The scope decision" below. What remains genuinely open is only how the
+> Director's *intent* is expressed in the schema, which is an implementation
+> question with a live-validation cost, not a design fork.
 
 ## Problem
 
@@ -146,6 +151,67 @@ the shape of the fix:
   against the archive it is roughly **+38 character calls per session (~+33%)**,
   which is the number that has to be decided before anything ships.
 
+## ✅ The scope decision — 2026-08-05, by the owner
+
+**Route the character.** When the Director wants a line voiced and there is no
+existing record to reference, the Runner calls that character's agent with the
+Director's intent as a stimulus, and persists **the line the character wrote**.
+The Director never authors persisted dialogue again.
+
+This was chosen over the cheap alternative (persist it as a narrated report by
+the Narrator, zero extra calls) with the cost on the table and the reasoning
+recorded, because the reasoning is the part that has to survive:
+
+> *"daqui a 2 anos, se lançar uma LLM de baixíssima latência e alta taxa de
+> tok/s, eu vou me arrepender e nem vou me lembrar dessa micro decisão que deixei
+> passar."*
+
+That is the right way round. **The cost here is a property of today's models; the
+compromise would be a property of the engine forever.** Latency and throughput
+have moved every year of this project's life; the role boundary in `AGENTS.md` §3
+is what made the whole of `docs/cases/21` possible to write. Trading the second
+for the first buys a temporary saving with a permanent defect.
+
+### The cost, measured rather than estimated
+
+Re-derived from the archive after the decision, because the option list quoted a
+per-session figure and a per-turn figure is what a player feels:
+
+| | |
+|---|---|
+| Director-authored speech records **per turn** | mean **1.02**, median **1**, p90 **2**, max **4** |
+| turns needing no extra call at all | **135 of 450 (30%)** |
+| character call latency | median **2,716 ms**, p90 **3,461 ms** |
+| character prompt-cache hit ratio | **50.4%** |
+
+So the typical turn costs **one extra character call**, not thirty-eight. The
+"+38 per session / +33%" figure quoted in the fork was true and misleading in the
+same breath.
+
+**And the extra calls parallelise.** The reply loop is sequential today
+(`for speaker in queue: … await self._call_character(...)`), but these events are
+all known the moment the Director returns and none of them depends on another, so
+they issue in one `asyncio.gather` — the pattern already used at
+`runner.py:1313-1317`. That turns the worst turn in the archive from four serial
+calls (~11 s) into one round trip (~3.5 s). **Gathering is part of the task, not
+an optimisation to consider later**: without it the p90 turn pays twice.
+
+### The fallback, and why it is a fallback
+
+The narrated-report option is not discarded — it becomes the **degradation path**
+for the cases routing cannot serve: a character who is not present, a routing
+call that fails, or a Director event whose subject cannot be resolved. In those
+cases the record is persisted as a Narrator report with the same audience,
+reporting the speech instead of quoting it (*"Maelis anuncia que a seleção
+começa"*), which is world-event territory and belongs to the Narrator by the
+`AGENTS.md` §3 table. What must never happen again is a record that **claims a
+character said words the character did not author**.
+
+That phrasing is also the corrected invariant. The scanner counts *speech*
+records matching Director events, so a pure relabel would drive it to zero by
+reclassification without fixing anything — noted here so nobody mistakes the
+metric for the goal.
+
 **Nothing is implemented against the section below until that fork is chosen.**
 
 ## 65a — the half with no design risk (wave 1) — SUPERSEDED, see above
@@ -163,23 +229,29 @@ is dropped with zero content loss — it was duplication.
 player-words-read-back, and the id leak; it takes most of `[indistinct]` with it
 — **and it deletes the majority of the channel's content along with them.**
 
-## 65b — the open question (wave 3)
+## 65b — ANSWERED 2026-08-05 by the scope decision above
 
 The other **36%** are for a character who was **not routed that turn**. There is
 no agent output to reference. Referencing-only deletes them — roughly **18% of
-all dialogue in the corpus**.
+all dialogue in the corpus**. *(And the verification above shows this population
+is larger than 36%: routing is not the same as restating, so most of the 64% side
+needs a producer too. 65b's case is the majority case.)*
 
 Case 20's pre-registered rule binds here: *a cut that buys quiet instead of
 movement is a failure, not a fix.* So 65b is a design question, not a cut:
 
-- have the Runner route the character for a real line when the Director wants one
-  voiced (costs a call, keeps the role boundary); or
+- ✅ **CHOSEN** — have the Runner route the character for a real line when the
+  Director wants one voiced (costs a call, keeps the role boundary);
 - let the Director emit a *stimulus* (not dialogue) that a later turn's character
-  agent may voice; or
+  agent may voice — **rejected**: it defers the line to a turn where the scene has
+  moved on, and the fact voiced to the room is what WT-09 exists to preserve;
 - accept a narrated, unattributed record — audible to witnesses, owned by no
-  speaker.
+  speaker — **kept as the degradation path only**, for events routing cannot
+  serve.
 
-**Ship 65a, then measure at the checkpoint before choosing.**
+~~Ship 65a, then measure at the checkpoint before choosing.~~ The choice was made
+before shipping instead, because the verification showed 65a could not ship in
+its original form and the two halves collapse into one decision.
 
 > **Corrected 2026-08-05.** This line used to read *"ship 65a with an `NSR`/`SIL`
 > interlock"*. That interlock does not work: `NSR` measures event volume and runs
@@ -231,11 +303,39 @@ call: matched pairs score 0.857–1.000 (median 1.000) and the nearest non-match
 the whole archive is 0.827, an empty band the scanner's constant sits inside. One
 record scores above the line unmatched, so **458 is conservative by one**.
 
+## Implementation shape, after the decision
+
+Written down so the next session does not re-derive it. Order matters: the two
+cheap deterministic items are independent of the routing work and can land first.
+
+1. **The Director's `audible_speech` stops carrying dialogue.** The event
+   declares *who speaks and what they are conveying*, not the words. This is a
+   schema + prompt change, so it is the one part that carries a live-validation
+   cost — `AGENTS.md` §6, the validated variant IS the shipped variant, and its
+   position in the prompt is part of the variant.
+2. **`_persist_audible_speech` routes instead of persisting** (`runner.py:1404`).
+   For each event, call the subject's character agent with the Director's intent
+   as the stimulus and persist that reply, keeping the event's already-clamped
+   `witness_ids` as the audience. **Issue them in one `asyncio.gather`** —
+   independent by construction, and without it the p90 turn pays two round trips.
+3. **The degradation path**, for a subject who is absent, unresolvable or whose
+   routing call fails: a Narrator record with the same audience that REPORTS the
+   speech rather than quoting it. Counted and logged, never silent.
+4. **The two deterministic guards, independent of all of the above:** no `C\d+`
+   reaches a persisted record, and an event whose language does not match the
+   session's pinned language does not persist.
+
 ## Closure evidence required
 
-- [ ] no persisted speech record's text originates from a Director-authored
-      `audible_speech` payload — the scanner from task 68, at zero
-      (`director_speech.director_authored`, **458** in P1 today);
+- [ ] no persisted record claims a character said words the character did not
+      author — the scanner from task 68 at zero
+      (`director_speech.director_authored`, **458** in P1 today), **and** the
+      scanner extended to count the degradation-path records, so the invariant
+      cannot be satisfied by reclassifying speech as narration;
+- [ ] the routing calls are gathered, not serial — asserted on a turn with more
+      than one `audible_speech` event (the archive's worst turn has four);
+- [ ] the degradation path is counted and logged every time it fires, with the
+      reason;
 - [ ] WT-09 preserved: a test where a witness who did not reply can still recall
       a fact voiced to the room on a later turn;
 - [ ] `oldcode-P1-r1` T39's id leak cannot recur — a test asserting no `C\d+`

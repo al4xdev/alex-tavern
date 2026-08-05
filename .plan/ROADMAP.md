@@ -84,14 +84,19 @@ damage disagreed, damage won.
 |---|---|
 | ~~**68** — Fix cluster reporting, then scan~~ | **✅ DONE 2026-08-05.** The span was wrong on 10 of 16 archived runs; both batteries re-scored. The three scanners ship with seeded positives and negatives and their output is archived as `immersion-scan.json`, so every wave-1 task now has a reproducible "before". Two findings changed a task: the redaction damage is **twice** what the transcripts show, because it is baked into character memory, and **31 of 33** empty audiences are the zone graph rather than the model |
 
-### Wave 1 — deterministic cuts
+### Wave 1 — close the leaks
 
-Four items, all small, all deletions or bug fixes. Nothing here builds a
-subsystem.
+Four items. **Three are small deletions or bug fixes; 65 is not, and calling this
+wave "deterministic cuts" is what let it be under-scoped in the first place.**
+Verification before implementation showed its cut would delete the majority of a
+channel rather than de-duplicate it, so it now moves a producer — the character
+agent writes the line the Director wanted voiced. That is a real change to the
+turn loop, and it is still first, because it is still the largest measured defect
+and it still subsumes parts of three other tasks.
 
 | task | why here |
 |---|---|
-| **65a** — The Director must not author speech | **28% of all speech records** in the corpus, 12/12 sessions, every cell. Largest measured defect. Both reviewers put it first, independently. **⚠ Blocked 2026-08-05 on a scope decision:** verification before implementation showed the "64% is duplication" premise is false — the safe population is 21–42%, the rest is dialogue with no other path to the reader, and the fix needs a producer rather than a deletion. See the task |
+| **65** — The Director must not author speech | **28% of all speech records** in the corpus, 12/12 sessions, every cell. Largest measured defect. Both reviewers put it first, independently. **Re-scoped 2026-08-05:** the "64% is duplication" premise was false — the safe population is 21–42% and the rest is dialogue with no other path to the reader, so the fix needs a **producer**, not a deletion. Decided: **route the character**. 65a and 65b collapse into one task |
 | **70** — The Director prompt names the protagonist | `AGENTS.md` §3 calls named exclusion a leak in as many words. Not negotiable by measurement |
 | **63** — Redaction must not reach the persisted record | Depends on 68's scanner to choose the fix, and on 65 which removes 42 of its 43 cases |
 | **67** — Zone graph integrity | Independent; the cause is the zone graph, not the model |
@@ -102,13 +107,13 @@ subsystem.
 
 Wave 1 changes the *population* that the later tasks are specified against:
 
-- **65a** removes the producer of 66's T23/T24 attribution bleed, of the id leak
+- **65** removes the producer of 66's T23/T24 attribution bleed, of the id leak
   and of the English flip;
 - **70** may resolve **64** outright — it is instructing the Director against the
   engine's primary control-return path on 33–100% of turns;
 - **67** changes which records have an audience at all, which is an input to 71.
 
-(**63** is the exception: it re-scans *inside* wave 1, immediately after 65a
+(**63** is the exception: it re-scans *inside* wave 1, immediately after 65
 lands, because its 42-of-43 dependency is what chooses its fix. It does not wait
 for the checkpoint.)
 
@@ -150,7 +155,6 @@ checkpoint; if stalls survive, it ships and its argument is confirmed.
 | task | why last |
 |---|---|
 | **66** — Identity and possession as data | Costs a schema bump; part of it disappears with 65. Inherits the phantom-cast scanner cut from 68 |
-| **65b** — WT-09 without an authored line | The genuinely open design question 65a defers |
 | **59** — Knowledge visibility | Already open. Blocked on 63 |
 | **71** — Per-viewer narration | Product question answered 2026-08-05, then **parked until 67 has shipped**. It projects narration through the zone graph, so it cannot be built on a graph that wrongly severs a sub-zone — and every cost figure it carries was measured on that same broken graph. **Its first action is a re-measurement, not a design**; if the split rate collapses on the fixed graph, the task shrinks or closes |
 
@@ -178,7 +182,7 @@ held short of a decision: the graph bugs are what produce isolated single
 characters in the first place.
 
 ```
-68 ✅ ─▶ 65a ──▶ 63     70       67
+68 ✅ ─▶ 65 ───▶ 63     70       67
                  │        │        │
                  └────────┼────────┘
                           ▼
@@ -190,7 +194,7 @@ characters in the first place.
                  69 ──▶ 64        [72 — only if stalls survive]
                   │
                   ▼
-          66     65b     59     71 (after 67)
+          66      59      71 (after 67)
 ```
 
 ## The baseline — the numbers this phase has to beat
@@ -209,7 +213,7 @@ this phase already shipped one inverted gate by skipping that step.
 > **The wave-1 rows below were re-derived by the scanners on 2026-08-05** and now
 > quote what the committed `immersion-scan.json` says, not the hand audit. The two
 > agree within a few counts everywhere they overlap (the audit had 467/1,649 for
-> 65a against the scanner's 458/1,601; 43 persisted redaction records against 42).
+> 65 against the scanner's 458/1,601; 43 persisted redaction records against 42).
 > **Where they differ, the scanner wins** — it is reproducible from committed code
 > over a committed output, which is the whole point of the phase rule that an
 > invariant which cannot be scanned offline cannot be defended.
@@ -217,7 +221,7 @@ this phase already shipped one inverted gate by skipping that step.
 | task | baseline in the archive | what "done" looks like | judged by |
 |---|---|---|---|
 | **68** | ~~`cluster_span` reported **5 / 5 / 8 / 3** on `base-r2` / `oldcode-r1` / `null-r2` / `drive-r2`; true maxima **15 / 37 / 36 / 24**~~ | **DONE 2026-08-05.** Reports maxima; **10 of 16** runs' spans were wrong, up to 5 → 37. Both batteries re-scored | unit test with a hand-built cluster set |
-| **65a** | **458 of 1,601 speech records (28.6%)** Director-authored, **12 of 12** sessions, 21.3–40.6% per session. **66%** of them are for a character routed that same turn (P2: 181/618, 29.3%, 4 of 4) | scanner at **0** | 68's scanner + blind read (did the fiction thin?) |
+| **65** | **458 of 1,601 speech records (28.6%)** Director-authored, **12 of 12** sessions, 21.3–40.6% per session. **66%** of them are for a character routed that same turn (P2: 181/618, 29.3%, 4 of 4) | scanner at **0** | 68's scanner + blind read (did the fiction thin?) |
 | **70** | named exclusion on **100% of P2 turns** (41/41, 41/41, 44/44) and **33–41% of P1** | **0** prompts naming exactly one cast id | new `prompt_contract` check, fails before / passes after |
 | **63** | **87 markers in P1, 28 in P2** — of which **42 / 15** in persisted speech records, 7 / 4 in narration, and **33 / 6** in the perspective **ledger** (`recent_memory` and `memory_summary`, never `people`). The ledger half was not in the hand audit | **0** in persisted records, prose and **all three ledger channels** | 68's channel-split scanner |
 | **67** | **33 empty-audience records across 5 of 12** sessions, **every one with other characters present**: **31** cut off by the zone graph, **2** narrowed to nothing by the Director's own list — while only **2 of 1,868** raw Director events proposed an empty witness list. Largest witness list clamped to zero: **18** | **0** for a subject co-located with others | 68's audience scanner; `base-P1-r2` T23 replayed |
