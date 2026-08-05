@@ -90,6 +90,49 @@ direction: nothing removes a character who can no longer perceive anything. The
 death itself is task 69's problem; being listed as a witness after it is this
 one's.
 
+## What 68's scanner says, 2026-08-05 — this task's diagnosis holds
+
+`benchmarks/*/immersion-scan.json`. The scanner deliberately **does not ask the
+zone graph** whether an audience should have been empty — that question is
+circular when the graph is the suspect — and classifies by whether anyone else
+was present in the scene at all:
+
+| | P1 | P2 |
+|---|---|---|
+| empty-audience records | **33** in 5 of 12 sessions | 2 in 1 of 4 |
+| …with other characters **present** | **33** | 2 |
+| …**cut off by the graph** (nobody reachable) | **31** | 2 |
+| …the graph allows a witness, the record is empty anyway | **2** | 0 |
+| raw Director events proposing an empty witness list | **2 of 1,868** | 1 of 704 |
+| largest witness list clamped to zero | **18** (`base-P1-r2`), **19** (`null-P1-r1`) | — |
+
+**Not one of the 33 is a character alone in the world**, and the T23 clamp this
+task cites is reproduced independently: eighteen proposed witnesses, zero
+persisted. The corrected attribution above — the graph, not the model — is now
+measured rather than argued.
+
+### The 2 that are not this bug
+
+`oldcode-P1-r1` T18 and T19, the only records where the graph left witnesses in
+earshot and the audience is empty anyway. Cause, from the raw log:
+
+```
+T18 audible_speech subject=C20 witness_ids=['C20']
+T19 audible_speech subject=C20 witness_ids=['C13','C18','C20']
+```
+
+At T18 the Director listed **the speaker as the only witness of their own
+shout**, and the clamp correctly removes the subject → empty. At T19 it listed
+three, one of them the speaker again and the other two out of earshot. Marta is
+standing in a hall with eighteen people who could hear her.
+
+This is the model narrowing to a bad set — which is what this task's *first
+draft* claimed was the whole cause, and the audit correctly cut it to two cases.
+It is a footnote, not a task, and **the graph fixes below will not remove it**.
+Whoever ships the "clamp deleted every proposed witness" warning gets it almost
+free: warn on an empty result whatever emptied it, and this shape shows up in the
+log the first time it happens. Do not build more for n=2.
+
 ## Direction
 
 - `zone_link_updates` **merges**, and a link naming a zone created in the same
@@ -124,7 +167,10 @@ right; the graph was wrong.
       in the same turn survives;
 - [ ] a clamp that deletes all proposed witnesses emits a counted warning;
 - [ ] 68's scanner reports zero empty-audience records for events whose subject
-      is co-located with other present characters, over a re-run cell;
+      is co-located with other present characters, over a re-run cell — the
+      `with_others_present` field, which is **31 + 2 = 33** today. A fix that only
+      moves records from `graph_isolated` to `narrowed_to_none` has not closed
+      this;
 - [ ] a character who can no longer perceive is not listed as a witness;
 - [ ] replayed against the archived `base-P1-r2`, the T23 shout keeps a non-empty
       audience.

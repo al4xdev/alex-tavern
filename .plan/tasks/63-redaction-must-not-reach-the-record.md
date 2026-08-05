@@ -98,6 +98,32 @@ So the options to weigh, with the scanner's numbers in hand:
 **Run 68's scanner first.** If the answer is "five events per session would be
 dropped", option 4 ships. If it is twenty, it does not.
 
+### 68's scanner has run — the numbers, 2026-08-05
+
+`benchmarks/*/immersion-scan.json`, defined in `benchmarks/README.md` §8.
+
+| channel | P1 (12 sessions) | P2 (4) |
+|---|---|---|
+| persisted **speech/action** records carrying a marker | **42** | **15** |
+| **narration** records carrying one | 7 | 4 |
+| **ledger** entries carrying one | **33** | **6** |
+| total occurrences | **87** | **28** |
+
+**The ledger is the part this task was under-counting.** The 49 P1 markers this
+file was written against are the ones visible in a transcript. The scanner finds
+**87**, because 38 more sit in `character_perspectives` — and not in the identity
+ledger (`people`, **zero** occurrences in the whole archive) but in
+`recent_memory` and `memory_summary`: what a character *remembers being said*.
+One mutilated public line propagates into every witness's durable memory, so the
+persisted-record count understates the reach by roughly a factor of two, and it
+survives the compaction window through `memory_summary`.
+
+That does not change which option is right, but it raises the cost of getting it
+wrong, and it adds a closure item: the ledger channels have to be re-scanned
+after the fix, not just the transcript. The drop-count question option 4 turns on
+is still unanswered — it needs a live cell, which is post-65 work by the
+sequencing above.
+
 ## Dependency on task 65
 
 **42 of the 43** persisted records carrying the marker fuzzy-match a Director
@@ -108,10 +134,12 @@ over the same counterfactual. Ship 65 first, re-scan, then size this.
 
 ## Closure evidence required
 
-- [ ] 68's channel-split scanner run over the archive **before** the fix is
-      chosen, and the chosen option justified against its numbers in this file;
+- [x] 68's channel-split scanner run over the archive **before** the fix is
+      chosen (numbers above); the chosen option still has to be justified against
+      them in this file;
 - [ ] zero `REDACTION_MARKER` in any persisted speech record and in prose;
-- [ ] zero in the live `character_perspectives` ledger;
+- [ ] zero in the live `character_perspectives` ledger — **all three sub-channels**
+      (`recent_memory`, `memory_summary`, `people`), not only the identity one;
 - [ ] the guard still works: a seeded whisper with a rare token does not reach a
       non-hearer's prompt, and a seeded thought-only token does not surface as a
       perception event — both asserted against the real builders;

@@ -129,10 +129,32 @@ the echo adds a second copy. The 36% is the feature. The number that decides 65a
 is not the 28% — it is that in the 64% case a persisted original **already
 exists**, which is parameter-free.
 
+## The scanner exists, and this is its "before" — 2026-08-05
+
+`tools/acceptance/immersion_scanners.py`, archived at
+`benchmarks/*/immersion-scan.json` and defined in `benchmarks/README.md` §8. It
+matches each persisted speech record back to the Director event in `debug.jsonl`
+that produced it, because nothing in `state.json` distinguishes the two producers
+— a re-voiced line carries `audience_origin='zone'` exactly like an ordinary one.
+
+| | P1 (12 sessions) | P2 (4) |
+|---|---|---|
+| Director-authored speech records | **458 of 1,601 (28.6%)** | **181 of 618 (29.3%)** |
+| sessions affected | **12 of 12** (21.3–40.6%) | **4 of 4** (24.5–33.1%) |
+| …for a character routed that same turn | **303 (66%)** | **132 (73%)** |
+| …carrying a redaction marker | 40 | 15 |
+
+An independent re-derivation of this task's headline number, off a second
+implementation. The threshold that separates the two producers is not a judgement
+call: matched pairs score 0.857–1.000 (median 1.000) and the nearest non-match in
+the whole archive is 0.827, an empty band the scanner's constant sits inside. One
+record scores above the line unmatched, so **458 is conservative by one**.
+
 ## Closure evidence required
 
 - [ ] no persisted speech record's text originates from a Director-authored
-      `audible_speech` payload — the scanner from task 68, at zero;
+      `audible_speech` payload — the scanner from task 68, at zero
+      (`director_speech.director_authored`, **458** in P1 today);
 - [ ] WT-09 preserved: a test where a witness who did not reply can still recall
       a fact voiced to the room on a later turn;
 - [ ] `oldcode-P1-r1` T39's id leak cannot recur — a test asserting no `C\d+`

@@ -1,8 +1,8 @@
 # Task 71 — Per-viewer narration
 
-> **Status:** open, **UNSCHEDULED — blocked on a product decision.** Found by a
-> blind narrative reviewer reading the transcripts as fiction; no metric, case or
-> task in this project had raised it.
+> **Status:** open, **UNBLOCKED 2026-08-05 — scheduled into wave 3, after 67.**
+> Found by a blind narrative reviewer reading the transcripts as fiction; no
+> metric, case or task in this project had raised it.
 >
 > This is a leak — the owner's immersion-breaker #2 — in its purest form: the
 > player is handed the god's-eye view of a scene their character is not in.
@@ -25,6 +25,59 @@
 > in writing, here.** If the answer is *"narration stays omniscient"*, this task
 > closes unbuilt and the leak becomes a documented product property. That is a
 > legitimate outcome and costs nothing to reach.
+
+## ✅ The decision — 2026-08-05, by the owner
+
+**Render per zone-cluster.** The first of the three options below: one narration
+per set of mutually-perceiving zones, each with its own audience, and the reader
+receives the cluster their controlled character is in.
+
+Recorded verbatim, because the reasoning is the part that binds: *"vai ser uma
+droga, vai dar trabalho, mas o alex tavern nunca foi feito pra ser fácil."*
+
+What the decision settles, and what it does not:
+
+- **Settled.** The game is *"your character's experience"* at the narration
+  layer. The cast-story quality survives inside a cluster — everyone who can
+  perceive each other still shares one omniscient paragraph — but a reader is no
+  longer handed a scene their character cannot reach. The two cheaper options
+  are rejected: filtering after one render risks incoherent prose, and rendering
+  only the player's zone throws away the ensemble quality the project has.
+- **Not settled, and deliberately left open:** whether a cluster holding **one
+  character who is not the player** gets its own render at all. That character
+  already learns their surroundings through perception events and memory, which
+  are per-viewer today. Folding singleton clusters is the difference between
+  1.56x and 1.21x prose calls per turn (measured below) and it is the single
+  biggest cost lever in this task. Decide it with the wave-3 numbers, not now.
+
+### Scenes do split, so the falsifier does not fire
+
+The falsifier at the bottom of this task — *"if scenes essentially never split in
+real play, the defect is rare enough to live with"* — was evaluated over the
+whole 2026-08-02 archive (16 sessions, 610 narrated turns). Clusters computed
+over each narration record's own `scene_snapshot`, under mutual perceivability.
+
+| | |
+|---|---|
+| narrated turns whose scene is split (>1 cluster) | **168 of 610 (28%)** |
+| sessions that never split | **8 of 16** |
+| sessions that split on 42–78% of turns | **5 of 16** |
+| mean clusters per narrated turn | **1.56** (worst session **3.62**, max **5**) |
+| mean clusters holding **2+ characters** | **1.21** |
+
+It is bimodal, not rare: half the sessions never split, and the ones that do,
+split constantly. That is the shape that makes the defect worth fixing — when it
+happens it happens for a third of a session, which is exactly the `base-P1-r1`
+T25–T29 reading experience described above.
+
+> ⚠ **These numbers are an upper bound, measured on the broken graph.** Task 67
+> shows `zone_moves` minting sub-zones with no inbound edge and
+> `zone_link_updates` wiping edges — and every such bug manufactures a spurious
+> singleton cluster. `base-P1-r2` is the clearest case: 18% of turns split, and
+> its splits are the same C13 sub-zone bug that produces its 10 empty-audience
+> records. **Re-measure after 67 lands**; the true split rate and the true cost
+> multiplier are both lower than the table above, by an unknown amount. This is
+> the second reason the task sits after 67, alongside the correctness one.
 
 ## Problem
 
@@ -77,10 +130,11 @@ behind it loses.** It is the same finding recorded as #1 in task 59.
 
 ## Direction
 
-The hard question is not the guard, it is the shape of the output. Options, none
-chosen:
+The hard question is not the guard, it is the shape of the output. Options —
+**the first one is the decision above**; the other two are kept because rejecting
+them is part of the record:
 
-- **Render per zone-cluster.** One narration per set of mutually-perceiving
+- **Render per zone-cluster.** ← **CHOSEN.** One narration per set of mutually-perceiving
   zones, each with its own audience list, merged for the reader according to
   which character they control. Most correct, most expensive — it multiplies
   prose calls when the scene splits.
@@ -109,7 +163,11 @@ engineering one, and this task should not pick it silently.
 
 ## Closure evidence required
 
-- [ ] the product question answered and recorded here before implementation;
+- [x] the product question answered and recorded here before implementation —
+      **per zone-cluster, 2026-08-05**, see the decision block at the top;
+- [ ] the split rate and cluster count **re-measured after task 67**, since the
+      figures in the decision block were taken on the broken graph;
+- [ ] the singleton-cluster question decided (render for a lone NPC, or fold);
 - [ ] a test with a split scene: a character in zone A does not receive narration
       describing zone B, asserted against the real builders;
 - [ ] `prose.py:50-52`'s rule becomes enforceable — a test that the renderer is

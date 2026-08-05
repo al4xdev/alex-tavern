@@ -45,8 +45,10 @@ should not write, the redaction guard mutilates public dialogue, narration has n
 per-viewer projection, and the Director's prompt names the player's character.
 
 Three of those four are scheduled below. The fourth — per-viewer narration
-(task 71) — turned out not to be an engineering decision, and is parked until it
-is answered as a product one.
+(task 71) — turned out not to be an engineering decision. It was parked until it
+was answered as a product one, which happened on 2026-08-05: **narration renders
+per zone-cluster**. It is now scheduled into wave 3, behind the zone-graph fix it
+depends on.
 
 ## How this roadmap was built, and how much to trust it
 
@@ -80,7 +82,7 @@ damage disagreed, damage won.
 
 | task | why first |
 |---|---|
-| **68** — Fix cluster reporting, then scan | ~10 lines restore a metric that already worked; every other task's counterfactual is measured with it. **Scope-cut 2026-08-05:** three scanners, not five — only the ones wave 1's closure needs |
+| ~~**68** — Fix cluster reporting, then scan~~ | **✅ DONE 2026-08-05.** The span was wrong on 10 of 16 archived runs; both batteries re-scored. The three scanners ship with seeded positives and negatives and their output is archived as `immersion-scan.json`, so every wave-1 task now has a reproducible "before". Two findings changed a task: the redaction damage is **twice** what the transcripts show, because it is baked into character memory, and **31 of 33** empty audiences are the zone graph rather than the model |
 
 ### Wave 1 — deterministic cuts
 
@@ -150,15 +152,27 @@ checkpoint; if stalls survive, it ships and its argument is confirmed.
 | **66** — Identity and possession as data | Costs a schema bump; part of it disappears with 65. Inherits the phantom-cast scanner cut from 68 |
 | **65b** — WT-09 without an authored line | The genuinely open design question 65a defers |
 | **59** — Knowledge visibility | Already open. Blocked on 63 |
+| **71** — Per-viewer narration | **Unblocked 2026-08-05.** Strictly after 67: it projects narration through the zone graph, so it cannot be built on a graph that wrongly severs a sub-zone — and its cost was sized on that same broken graph |
 
-### Unscheduled — blocked on a decision that is not engineering
+### The product decision this phase was waiting on — answered
 
-| task | what blocks it |
-|---|---|
-| **71** — Per-viewer narration | A product question: is this "a story about a cast, in which you act" or "your character's experience"? The task says so itself and says it is the owner's call. It also changes the API contract (`narration` is one string). **It does not enter a wave until the question is answered in writing.** If the answer is "narration stays omniscient", 71 closes unbuilt |
+**2026-08-05, by the owner: narration renders per zone-cluster** (task 71's first
+option). One narration per set of mutually-perceiving zones, each with its own
+audience; the reader receives the cluster their character is in. So at the
+narration layer this is *"your character's experience"*, while the ensemble
+quality survives inside a cluster.
+
+It is the most expensive of the three options and it was chosen knowing that.
+The falsifier was evaluated before scheduling it: scenes split on **168 of 610
+narrated turns (28%)** across the archive, bimodally — 8 of 16 sessions never
+split, 5 split on 42–78% of their turns. So the defect is not rare enough to live
+with, and 71 enters wave 3 rather than closing unbuilt. Full derivation, the cost
+multiplier (1.56x prose calls, 1.21x if singleton clusters fold) and the reason
+every one of those numbers is an **upper bound measured on the pre-67 graph** are
+in the task.
 
 ```
-68 ──▶ 65a ──▶ 63       70       67
+68 ✅ ─▶ 65a ──▶ 63     70       67
                  │        │        │
                  └────────┼────────┘
                           ▼
@@ -170,9 +184,7 @@ checkpoint; if stalls survive, it ships and its argument is confirmed.
                  69 ──▶ 64        [72 — only if stalls survive]
                   │
                   ▼
-          66     65b     59
-
-71 — unscheduled, blocked on a product decision
+          66     65b     59     71 (after 67)
 ```
 
 ## The baseline — the numbers this phase has to beat
@@ -184,16 +196,25 @@ Everything below is measured on the archive at engine fingerprint
 **Read `benchmarks/README.md` §7 first** — it defines every metric name used here
 (`RSR_prop`, `BOCC`, `GUARD`, `cluster_max`/`cluster_span`, `max_hint_repeats`),
 what each one can and cannot see, and which three of them ever decided anything.
-Do not gate on a metric before reading what it measures; this phase already
-shipped one inverted gate by skipping that step.
+**§8 defines the three invariant counters** that gate wave 1, archived per battery
+as `immersion-scan.json`. Do not gate on a metric before reading what it measures;
+this phase already shipped one inverted gate by skipping that step.
+
+> **The wave-1 rows below were re-derived by the scanners on 2026-08-05** and now
+> quote what the committed `immersion-scan.json` says, not the hand audit. The two
+> agree within a few counts everywhere they overlap (the audit had 467/1,649 for
+> 65a against the scanner's 458/1,601; 43 persisted redaction records against 42).
+> **Where they differ, the scanner wins** — it is reproducible from committed code
+> over a committed output, which is the whole point of the phase rule that an
+> invariant which cannot be scanned offline cannot be defended.
 
 | task | baseline in the archive | what "done" looks like | judged by |
 |---|---|---|---|
-| **68** | `cluster_span` reported **5 / 5 / 8 / 3** on `base-r2` / `oldcode-r1` / `null-r2` / `drive-r2`; true maxima **15 / 37 / 36 / 24** | reports a maximum | unit test with a hand-built cluster set |
-| **65a** | **467 of 1,649 speech records (28.3%)** Director-authored, **12 of 12** sessions, 21–40% per session. **64%** of them are for a character routed that same turn | scanner at **0** | 68's scanner + blind read (did the fiction thin?) |
+| **68** | ~~`cluster_span` reported **5 / 5 / 8 / 3** on `base-r2` / `oldcode-r1` / `null-r2` / `drive-r2`; true maxima **15 / 37 / 36 / 24**~~ | **DONE 2026-08-05.** Reports maxima; **10 of 16** runs' spans were wrong, up to 5 → 37. Both batteries re-scored | unit test with a hand-built cluster set |
+| **65a** | **458 of 1,601 speech records (28.6%)** Director-authored, **12 of 12** sessions, 21.3–40.6% per session. **66%** of them are for a character routed that same turn (P2: 181/618, 29.3%, 4 of 4) | scanner at **0** | 68's scanner + blind read (did the fiction thin?) |
 | **70** | named exclusion on **100% of P2 turns** (41/41, 41/41, 44/44) and **33–41% of P1** | **0** prompts naming exactly one cast id | new `prompt_contract` check, fails before / passes after |
-| **63** | **69 markers across 15 of 16** transcripts (49 in P1); **43** persisted records carry one, **42** via 65's channel; **6** live `character_perspectives` entries | **0** in persisted records, prose and ledger | 68's channel-split scanner |
-| **67** | **33 empty-audience records across 5 of 12** sessions — while only **2 of 1,868** raw Director events actually proposed an empty witness list | **0** for a subject co-located with others | 68's audience scanner; `base-P1-r2` T23 replayed |
+| **63** | **87 markers in P1, 28 in P2** — of which **42 / 15** in persisted speech records, 7 / 4 in narration, and **33 / 6** in the perspective **ledger** (`recent_memory` and `memory_summary`, never `people`). The ledger half was not in the hand audit | **0** in persisted records, prose and **all three ledger channels** | 68's channel-split scanner |
+| **67** | **33 empty-audience records across 5 of 12** sessions, **every one with other characters present**: **31** cut off by the zone graph, **2** narrowed to nothing by the Director's own list — while only **2 of 1,868** raw Director events proposed an empty witness list. Largest witness list clamped to zero: **18** | **0** for a subject co-located with others | 68's audience scanner; `base-P1-r2` T23 replayed |
 | **69** | ceiling restaged **T33/T34/T35**, Liora dies **T36/T37/T38**, pillar **T28/T29** (`base-P1-r2`); `cluster_max` `base` median **3**; `physical_facts` pinned at the 40-key cap in **4 of 12** runs | ceiling family does not recur **and** the T28→T29 pillar escalation still passes | fixed `cluster_max`/`cluster_span` + blind read |
 | **64** | `return_control=True` **5 of 482 turns (1%)**; controlled character routed **11 (2.3%)**; **5 of 12** sessions never returned control at all | both rates rise; 5/12 falls | direct count, one cell |
 | **72** | `time_skip_ticks` nonzero on **13 of 482 turns (2.7%)**, and **0 of 6** explicit `CLOCK SIGNAL` invitations accepted in `base-P1-r2`; 12 openings in 19 turns in `base-P1-r1` | consecutive no-net-change turns fall | blind read — a held scene and an empty one score identically to every metric here |

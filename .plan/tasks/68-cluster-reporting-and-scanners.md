@@ -1,8 +1,14 @@
 # Task 68 — Fix the cluster reporting, then scan
 
-> **Status:** open. **Wave 0** — nothing else in the immersion roadmap should
-> ship before this, because every other task's counterfactual is measured with
-> this instrument.
+> **Status: DELIVERED 2026-08-05.** **Wave 0** — nothing else in the immersion
+> roadmap should ship before this, because every other task's counterfactual is
+> measured with this instrument. What it found is at the bottom, under
+> "What the fixed instrument and the three scanners actually found"; two of the
+> findings changed a wave-1 task before it started.
+>
+> Not migrated to `closed/` yet: the convention is to move a task only when it is
+> closed **with confidence**, and this one is confirmed by the wave-1 fixes
+> reading its numbers. Close it when 63, 65 and 67 have used it.
 >
 > This task exists because an earlier version of it was **wrong**. It was
 > specified as "build a semantic judge, because the lexical family is exhausted".
@@ -129,17 +135,95 @@ evidence from the fixed instrument first.
 
 ## Closure evidence required
 
-- [ ] `cluster_span` reports a maximum; unit test with a hand-built cluster set
-      where the largest-size cluster is not the widest;
-- [ ] the whole archive re-scored, and `benchmarks/` amended where a documented
+- [x] `cluster_span` reports a maximum; unit test with a hand-built cluster set
+      where the largest-size cluster is not the widest
+      (`tests/test_repetition_metrics_clusters.py`);
+- [x] the whole archive re-scored, and `benchmarks/` amended where a documented
       number changes;
-- [ ] a note in `benchmarks/README.md` §7 recording that `cluster_span` was
+- [x] a note in `benchmarks/README.md` §7 recording that `cluster_span` was
       misreported and which decision was taken on it;
-- [ ] each of the **three** scanners has a test with a seeded positive and a
-      seeded negative;
-- [ ] the three run against the archived P1 and P2 batteries and their output is
-      committed alongside, so wave 1 has a before number;
-- [ ] `material_delta_rate` still unimplemented, with a comment pointing here.
+- [x] each of the **three** scanners has a test with a seeded positive and a
+      seeded negative (`tests/test_immersion_scanners.py`);
+- [x] the three run against the archived P1 and P2 batteries and their output is
+      committed alongside, so wave 1 has a before number
+      (`benchmarks/*/immersion-scan.json`, defined in `README.md` §8);
+- [x] `material_delta_rate` still unimplemented, with a comment pointing here.
+
+## What the fixed instrument and the three scanners actually found
+
+**Delivered 2026-08-05.** `tools/acceptance/immersion_scanners.py`, run over both
+archived batteries.
+
+**The reporting bug was real, and the re-derivation reproduces the audit exactly**
+— `base-P1-r2` 5 → **15**, `oldcode-P1-r1` 5 → **37**, `null-P1-r2` 8 → **36**,
+`drive-P1-r2` 3 → **24**. `cluster_max` never moved, because the list was already
+sorted by size; only the span was wrong. Both batteries' `metrics.json` now carry
+corrected values plus `cluster_count` and `cluster_count_ge3`.
+
+The scanners reproduce the roadmap's baseline numbers from a second, independent
+implementation — 49 P1 redaction markers in prose and records, 12 of 12 sessions
+with Director-authored speech at 21–41%, 33 empty-audience records in 5 of 12
+sessions, 2 of 1,868 raw Director events proposing an empty witness list. Three
+things they add that the baseline did not have:
+
+1. **The redaction damage is larger than the transcript count suggests, and it
+   is durable.** 87 markers in P1, not 49: the missing 38 are in the perspective
+   **ledger** — `recent_memory` and `memory_summary`, i.e. what a character
+   *remembers* someone saying. One mutilated public line propagates into every
+   witness's durable memory, which is why the persisted-record count understates
+   the reach. Task 63's channel split is now three ledger sub-channels, not one.
+2. **31 of the 33 empty-audience records are the zone graph cutting people off;
+   2 are the Director narrowing its own witness list to nothing.** The scanner
+   refuses to ask the graph whether the audience should have been empty — that
+   question is circular when the graph is the suspect — and classifies by whether
+   anyone else was *present*. It also recovers the clamped witness counts: **18**
+   in `base-P1-r2`, **19** in `null-P1-r1`. See task 67, which this confirms and
+   sharpens.
+3. **The two "narrowed to none" cases are a defect nobody had named**
+   (`oldcode-P1-r1` T18/T19): the Director listed the **speaker as the only
+   witness of their own shout**, and then three people the graph put out of
+   earshot. Two occurrences, so it is a footnote, not a task — but it is not the
+   graph bug and a fix for the graph will not remove it.
+
+**Also measured here, for task 71** (it needed a number and the machinery was
+warm): scenes split into more than one mutually-perceiving cluster on **168 of
+610 narrated turns (28%)**, bimodally — 8 of 16 sessions never split, 5 split on
+42–78% of turns. That is an **upper bound measured on the broken graph**; the
+number is recorded in task 71 with that caveat attached.
+
+### One observation worth checking at the checkpoint — NOT a gate
+
+`benchmarks/README.md` §5's headline complaint is that every metric scored
+`base-P1-r2` clean while a blind reader ranked it **worst of twelve**. Of the
+corrected cluster family, `cluster_count_ge3` is the one that does not:
+
+| run | `cluster_max` | `cluster_count_ge3` | blind rank |
+|---|---|---|---|
+| `base-P1-r2` | 3 | **8** | **12 of 12** |
+| `oldcode-P1-r1` | 4 | **8** | 11 of 12 |
+| `base-P1-r1` | 2 | 0 | 3 of 12 |
+
+`base-P1-r2` is **tied for the highest count of situations that came back three
+turns or more**, with the session the reader ranked second-worst — while
+`cluster_max` (3) puts it below the Case 20 gate and `RSR_prop` (1.7%) calls it
+the cleanest run in the battery. Against the reader's full ranking it scores
+ρ = +0.60 in the correct direction, where `RSR_prop` is −0.09 and `cluster_max`
+is +0.05.
+
+**This is an observation, not a new gate**, and it is written down here so it is
+not quietly promoted into one. n = 12, one battery, and `beat_occupancy_max`
+scores higher (+0.74) on the same ranking without anyone claiming it measures
+reading quality. The phase's rule stands: deterministic per-defect counters gate
+their own task, and narrative quality is judged by the blind read. **Re-check
+this column at the checkpoint** — if it survives a second battery, it is worth an
+argument; if it does not, it was n=12.
+
+The gate the correction was supposed to settle **survives**: Case 20 cancelled
+the durable staged-event memory on `cluster_max >= 4` AND `cluster_span >= 10` in
+both cells. With the corrected spans the span half is now satisfied nearly
+everywhere (10 of 16 runs changed, up to 5 → 37), but `base` runs at
+`cluster_max` 2 / 3 / 3, so the conjunction still fails and the cancellation
+stands — now on numbers that are right.
 
 ## Also record here: `NSR` and `SIL` are not gates
 
