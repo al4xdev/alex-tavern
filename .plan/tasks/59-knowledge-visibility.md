@@ -9,6 +9,17 @@
 > `knowledge`, but it measured four system-wide fragilities that decide how this
 > task must be built. They are in "What the repetition work changed about this
 > task"; the original shape survives, the delivery constraints are stricter.
+>
+> **Blocked on task 63 (added 2026-08-02, immersion roadmap).** Task 63 moves
+> where redaction happens — today it is applied to the Director's output against
+> a global, viewer-less token set, and it will move to the per-viewer projection.
+> The assertions below are written against `known_tokens` /
+> `hidden_thought_tokens` as they behave *now*, so writing them first means
+> writing tests against an architecture that is leaving. Finding 2 below is the
+> same mechanism seen from this side.
+>
+> Also: task 66 wants the same `SESSION_SCHEMA_VERSION` bump. Coordinate, or one
+> of the two waits. See `.plan/ROADMAP.md`.
 
 ## Problem
 
