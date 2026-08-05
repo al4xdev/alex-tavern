@@ -37,6 +37,8 @@ part of the variant.
 | 17 | [A healthy server that could not publish](./17-android-runtime-plugin-integrity-2026-07-25.md) | Android exposed three ownership defects: bridge mutation, metadata-preserving copies, and browser reload mistaken for process restart. |
 | 18 | [From embedded WebView to named application](./18-android-native-shell-mobile-evidence-2026-07-25.md) | Native identity, file selection and immersive mode shipped; measured tag geometry fixed the shared PWA without retaining failed flicker hacks. |
 | 19 | [Measuring instead of guessing](./19-pre-1.0-measurement-log-2026-07-26.md) | **Open, append-only.** Pre-1.0 measurement log: a gate failed on measurement noise, a correct fix nearly discarded by the wrong metric, and two bugs only using the product found. |
+| 20 | [Repetition: the ruler, and the "before" it reads](./20-repetition-baseline-2026-08-01.md) | The baseline written before the cut, and two corrections the data forced on its own author. Its central attribution was later overturned by 21 — read them together. |
+| 21 | [An independent review of the architecture](./21-independent-architecture-review-2026-08-02.md) | Written to attack 20, not confirm it: the worst session was restaged by the **Director**, not the prose renderer, and three defects nothing had measured — redaction mutilating public speech, the Director authoring dialogue, and no representation for "nothing happened". |
 
 ## Reading paths
 
@@ -50,6 +52,10 @@ part of the variant.
   closure, including the failed public-prior bridge. The retained substrate builds
   on subjective state from 29.2 and the delta machinery of 33b.
 - **Provider and cost**: 02 → 05 → 06 → 10.
+- **Repetition and immersion** (active): 20 measures the baseline and cuts four
+  deterministic defects; 21 audits it and overturns the central attribution. The
+  phase they open is ordered in [`.plan/ROADMAP.md`](../../.plan/ROADMAP.md), and
+  the batteries both read are archived in [`benchmarks/`](../../benchmarks/).
 
 ## Closed-task records referenced by the series
 
