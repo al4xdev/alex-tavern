@@ -368,12 +368,19 @@ _INTENT_STOPWORDS = frozenset(
         "ordena", "avisa", "todos", "todas",
     )
 )  # fmt: skip
-# The same instrument, at the same threshold, that measured this task's three
-# populations against the archive (65 "⚠ 65a's premise did not survive
-# verification"): shared content words over the smaller set. 0.5 was called
-# there "a defensible reading" of restatement, and the reading is the same one
-# here — did this sentence and that sentence carry the same fact.
-_INTENT_CARRIED_RATIO = 0.5
+# Shared content words over the smaller set: the instrument that measured this
+# task's three populations against the archive (65 "⚠ 65a's premise did not
+# survive verification"). The reading is the same one here — did this sentence
+# and that sentence carry the same fact.
+#
+# Measured 2026-08-06, two arms of 10 real replies each on the same archived
+# payloads: WITH the shipped mandate (the character was told to voice the fact)
+# and WITHOUT it (whatever overlap the scene produces on its own). Mandated
+# scored 0.39-0.79, unmandated 0.00-0.29 — an empty band 0.10 wide, and 0.34 is
+# its midpoint. It inherited 0.5, which sits ABOVE the band inside the mandated
+# cluster and cost 1 in 10 compliant replies a spurious degradation record.
+# Full derivation: .plan/reference/65-director-prompt-live-validation.md.
+_INTENT_CARRIED_RATIO = 0.34
 
 
 def _intent_words(text: str) -> set[str]:
@@ -395,11 +402,17 @@ def _carries_intent(spoken: str, intent: str) -> bool:
     nothing checkable in it and is treated as carried, because refusing it would
     send an empty fact down the degradation path forever.
 
-    This is the one threshold in the task that could NOT be measured before
-    shipping: it judges compliance with a prompt that did not exist until now,
-    so the archive has no positives for it. It is calibrated at the checkpoint
-    against `mandate_ignored` counts in ``debug.jsonl``, and the falsifier is
-    written into the task.
+    This was the one threshold in the task that could not be measured before
+    shipping, because it judges compliance with a prompt that did not exist
+    until then and the archive holds no positives for it. It is measured now:
+    the positives were BUILT by handing real Director intents to real character
+    agents through the shipped mandate, and the negatives by firing the same
+    payloads without it. Both arms and the resulting band are on the constant.
+
+    Note which error is expensive. A false negative here does not merely waste
+    a call: the caller then writes a Narrator report BESIDE the character's own
+    compliant line, so the room hears the beat twice, which is the duplication
+    this whole task exists to remove.
     """
     wanted = _intent_words(intent)
     if not wanted:

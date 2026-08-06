@@ -7,12 +7,13 @@ because the old text (*"never invent new dialogue… record only words already
 spoken in HISTORY"*) contradicts the engine that replaced it, so leaving it was
 not an option. This is the replay that closes that gap.
 
-> **The evidence corpus this ran against no longer exists on disk.**
-> `plans/artifacts/p1-archive/` was emptied at 11:47 on 2026-08-06, during this
-> session, between the runs and the write-up. `plans/` is gitignored, so git
-> cannot restore it. Everything below was extracted before it went, and the
-> numbers are recorded here rather than left as a pointer for that reason. The
-> outstanding control arm needs the corpus back.
+> **The evidence corpus briefly vanished mid-experiment.**
+> `plans/artifacts/p1-archive/` was emptied at 11:47 on 2026-08-06, between the
+> Director runs and the control arm, by the SSH sync of a machine move. It was
+> restored from the other machine the same afternoon, which is what let the
+> control arm run. `plans/` is gitignored and git could not have restored it,
+> which is why every number below is written out here rather than left as a
+> pointer to a corpus that can disappear again.
 
 ## The decision rule, pre-registered before any call
 
@@ -104,16 +105,52 @@ ratios, sorted:  0.39  0.53  0.55  0.57  0.60  0.64  0.67  0.69  0.73  0.79
 carried at the shipped 0.5:  9/10        mandate_ignored: 1/10
 ```
 
-### But 0.5 is not in an empty band, and saying so is the point
+### The negative control: there IS a band, and 0.5 was on the wrong side of it
 
-The language guard in this same task earned its threshold: 0.012 against 1.000,
-an empty band, nothing in between. **This one has no such band.** The
-distribution above is continuous from 0.39 to 0.79 with no gap, so 0.5 is a
-cost/benefit cut through a dense cluster, not a separation. It should never be
-quoted with the language guard's confidence.
+The mandate arm alone shows only one of the two error rates, so it cannot size a
+threshold. The control fired **the identical payloads with the mandate removed**
+and scored the reply against the same intent — the overlap topicality alone
+produces, since the character was never told.
 
-The single sub-threshold case is a **false positive** — a fully compliant reply
-scored below the line:
+| | mandated | unmandated control |
+|---|---|---|
+| ratios, sorted | `0.39 0.53 0.55 0.57 0.60 0.64 0.67 0.69 0.73 0.79` | `0.00 0.00 0.00 0.00 0.07 0.07 0.09 0.09 0.19 0.29` |
+| range | **0.39 – 0.79** | **0.00 – 0.29** |
+
+**The two clouds do not touch: an empty band from 0.29 to 0.39, 0.10 wide.** The
+ratio discriminates cleanly, and the pre-registered reading applies — the
+threshold belongs in the gap.
+
+**0.5 was not in the gap. It was above it, inside the mandated cluster**, which
+is precisely why it cost a compliant reply. Any threshold in `(0.29, 0.39]`
+classifies this sample perfectly: **10/10 mandated kept, 0/10 control kept.**
+Shipped at the midpoint, **0.34**.
+
+| threshold | mandated kept | control wrongly kept |
+|---|---|---|
+| 0.3 | **10/10** | **0/10** |
+| **0.34** (shipped) | **10/10** | **0/10** |
+| 0.4 | 9/10 | 0/10 |
+| 0.5 (was) | 9/10 | 0/10 |
+| 0.6 | 6/10 | 0/10 |
+
+**On the strength of this evidence:** n = 10 per arm, one scenario, one model,
+one session. The language guard in this same task was sized over 3,936 records;
+this is twenty. The band is real and the direction of the error is unambiguous,
+but 0.34 is a first calibration, not a settled constant, and the next corpus of
+real `mandate_ignored` records should re-derive it.
+
+The control replies confirm the confound is doing its job rather than being
+trivially separable — several are on the same topic and still land below the
+band, e.g. Bruna at **0.31**, *"Diretora, a braçadeira quebrou! A carga vem do
+piso, não da escada…"* against an intent about the mist's source under the
+rubble. Talking about the same crisis is not carrying the fact, and the ratio
+tells them apart.
+
+### Why the old threshold's single miss was the expensive kind
+
+The sub-threshold case under 0.5 was a **false positive** — a fully compliant
+reply scored below the line:
 
 > **intent:** *"A diretora Maelis, com a voz firme e cortante, ordena que todos
 > os alunos formem fila e caminhem em direção ao corredor leste para evacuar, e
@@ -149,29 +186,36 @@ Excluding only the subject's own name tokens from `wanted`:
 Every ratio rises (mean +0.073, minimum +0.044); sorted, they become
 `0.44 0.60 0.62 0.67 0.67 0.69 0.73 0.73 0.85 0.89`.
 
-**This is measured but NOT shipped**, deliberately. Removing tokens that cannot
-be matched makes the *measurement* honest, but it also strictly raises every
-ratio, which moves the operating point — and the cost of moving it is a
-false-negative rate this experiment cannot see, because all ten replies
-complied. Changing a discriminator while only one of its two error rates is
-observable is the move §6 exists to prevent.
+Scored under the control too, excluding the name widens the empty band from
+**0.10 to 0.13** (control tops out at 0.31, mandated starts at 0.44):
 
-### What is missing: the negative control
+| | mandated | control | band |
+|---|---|---|---|
+| denominator as shipped | 0.39 – 0.79 | 0.00 – 0.29 | **0.10** |
+| own name excluded | 0.44 – 0.89 | 0.00 – 0.31 | **0.13** |
 
-The control arm — the identical character payloads fired **without** the
-mandate, scoring whatever overlap topicality alone produces — was written and
-was blocked by the corpus loss above. Its pre-registered reading:
+**Measured, and deliberately NOT shipped.** The shipped denominator already
+separates the two arms perfectly, so the refinement buys 0.03 of band width at
+the cost of plumbing the subject's name into the discriminator at both call
+sites. The argument for doing it anyway is not this sample but generalisation:
+the bias is *proportionally larger on short intents*, which have the smallest
+denominators and therefore the noisiest ratios, and those are the ones a narrow
+band will fail on first.
 
-> If the no-mandate ratios sit clearly below the mandated ones with a gap, the
-> ratio discriminates and the threshold belongs in that gap. If the two clouds
-> overlap substantially, the ratio cannot separate *"voiced the fact"* from
-> *"happened to be talking about it"*, and no threshold rescues it — a finding
-> about the instrument, not a reason to pick a nicer number.
+**If it is ever adopted, re-derive the threshold with it** — the two are
+coupled, and the midpoint under that denominator is ≈0.375, not 0.34.
 
-Until it runs, `_INTENT_CARRIED_RATIO` stays at 0.5 with a **measured 10%
-false-positive rate on compliant case-C replies** and a known structural bias in
-its denominator. That is a great deal more than was known this morning, and less
-than a closed calibration.
+## Status
 
-It needs `plans/artifacts/p1-archive/` restored from the other machine, or any
-real session carrying character calls in the same scene as the intents.
+| | |
+|---|---|
+| Director prompt variant | **validated, shipped** |
+| `_INTENT_CARRIED_RATIO` | **calibrated 0.5 → 0.34**, band `(0.29, 0.39)`, n=10 per arm |
+| own-name exclusion | measured, **not shipped**, re-derive threshold if adopted |
+| case-C mandate mechanism | **survives its falsifier** |
+
+`plans/artifacts/p1-archive/` was restored from the other machine after the loss
+noted above, which is what let the control arm run. Raw outputs for every call
+in both experiments, plus the three harness scripts, are in
+`plans/artifacts/65-live-validation/` (gitignored, so they travel with the tree
+and not with git).

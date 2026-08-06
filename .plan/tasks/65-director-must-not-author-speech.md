@@ -469,37 +469,37 @@ Two dropped words in the shipped text (`the fact that character makes public`,
 `engine hands that brief`) were found while reading it for the replay and fixed
 **before** it ran, so the validated text is the shipped text.
 
-### ⚠ `_INTENT_CARRIED_RATIO` — one arm measured, one still owed
+### ✅ `_INTENT_CARRIED_RATIO` CALIBRATED 0.5 → 0.34 — 2026-08-06
 
-- **The falsifier does NOT fire.** 10 real character replies under the shipped
-  mandate, every one genuinely voicing the fact. The mandate is a prompt promise
-  that **wins**; case C stays and does not fall back to case A's dedicated call.
-- **But 0.5 is not in an empty band.** The ratios run `0.39 … 0.79` continuously,
-  with no gap. Unlike this task's language guard (0.012 against 1.000), this
-  threshold is a cost/benefit cut through a dense cluster and must never be
-  quoted with the language guard's confidence.
-- **The one sub-threshold case is a false positive**, a fully compliant reply
-  scored below the line. That is the expensive direction: at `runner.py:1721`
-  a false `_carries_intent` in case C emits a Narrator report *beside* the
-  character's own compliant line, so the room hears the beat twice — this task's
-  own defect, wearing the degradation path's byline.
-- **Measured cause: 10 of 10 intents name their subject, 0 of 10 replies do.**
-  Reported form always names the speaker, so the subject's own name sits
-  unmatched in the denominator of every case-C event. Excluding it lifts every
-  ratio (mean +0.073) and takes 0.6 from 6/10 to 9/10. **Measured, not shipped:**
-  it strictly raises every ratio, and the false-negative cost of moving the
-  operating point is invisible while all ten observations are compliant.
-- **Still owed: the negative control** — the same payloads fired *without* the
-  mandate, to see what overlap topicality alone produces. Written, and blocked
-  by the corpus loss below. Until it runs, 0.5 stands with a measured **10%
-  false-positive rate** on compliant case-C replies.
+Two arms of 10 real replies on the same archived payloads: **with** the shipped
+mandate, and **without** it (the overlap topicality alone produces). The archive
+had no positives for this prompt, so the positives were built rather than found.
 
-> **The evidence corpus is gone from this machine.**
-> `plans/artifacts/p1-archive/` was emptied at 11:47 on 2026-08-06, mid-session,
-> after the runs above and before the write-up. `plans/` is gitignored, so git
-> cannot restore it; it needs to come back from the other machine. The numbers
-> above were extracted before it went and are recorded in the reference doc
-> rather than left as a pointer, for exactly that reason.
+| | ratios | range |
+|---|---|---|
+| mandated | `0.39 0.53 0.55 0.57 0.60 0.64 0.67 0.69 0.73 0.79` | **0.39 – 0.79** |
+| unmandated control | `0.00 0.00 0.00 0.00 0.07 0.07 0.09 0.09 0.19 0.29` | **0.00 – 0.29** |
+
+- **The falsifier does NOT fire.** Every mandated reply voiced the fact. The
+  mandate is a prompt promise that **wins**; case C stays and does not fall back
+  to case A's dedicated call.
+- **The band is empty from 0.29 to 0.39.** Any threshold in it classifies the
+  sample perfectly (10/10 mandated kept, 0/10 control kept). Shipped at the
+  midpoint, **0.34**.
+- **0.5 was above the band, inside the mandated cluster** — which is why it cost
+  1 in 10 compliant replies a spurious record. That is the expensive direction:
+  at `runner.py:1721` a false `_carries_intent` in case C emits a Narrator report
+  *beside* the character's own compliant line, so the room hears the beat twice.
+  This task's own defect, wearing the degradation path's byline.
+- **On strength:** n=10 per arm, one scenario, one model. The language guard here
+  was sized over 3,936 records; this is twenty. The band is real and the
+  direction unambiguous, but 0.34 is a first calibration, not a settled constant.
+- **Measured, not shipped:** 10 of 10 intents name their subject and 0 of 10
+  replies do, because reported form always names the speaker. Excluding that
+  unmatchable token widens the band from 0.10 to 0.13. It buys little on this
+  sample and costs plumbing; the case for it is that the bias is proportionally
+  worse on *short* intents, which are where a narrow band fails first. **If
+  adopted, re-derive the threshold with it — the midpoint moves to ≈0.375.**
 
 ## Closure evidence required
 

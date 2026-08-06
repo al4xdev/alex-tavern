@@ -37,40 +37,48 @@ is satisfied too.
 Two dropped words in the shipped prompt were found while reading it for the
 replay and fixed **before** it ran, so the validated text is the shipped text.
 
-### The threshold: one arm measured, the control still owed
+### ✅ And the threshold is calibrated: 0.5 → 0.34
 
-`_INTENT_CARRIED_RATIO = 0.5` now has real positives — 10 character replies under
-the shipped mandate. **The falsifier does not fire:** every one voiced the fact,
-so case C stays. But:
+Two arms of 10 real replies on the same payloads — **with** the shipped mandate
+and **without** it. The archive had no positives for this prompt, so they were
+built rather than found.
 
-- **0.5 is not in an empty band.** Ratios run `0.39 … 0.79` continuously. Unlike
-  the language guard (0.012 vs 1.000), this is a cost/benefit cut through a dense
-  cluster. Do not quote it with the language guard's confidence.
-- **The one miss is a false positive**, and false positives are the expensive
-  direction: `runner.py:1721` then emits a Narrator report *beside* the
-  character's own compliant line, which is this task's own defect returning.
-- **Measured cause:** 10/10 intents name their subject, 0/10 replies do — reported
-  form always names the speaker, so the name sits unmatched in every denominator.
-  Excluding it lifts every ratio (mean +0.073). **Measured, not shipped**: it
-  moves the operating point and the false-negative cost is invisible while all
-  ten observations are compliant.
+| | range |
+|---|---|
+| mandated | **0.39 – 0.79** |
+| unmandated control | **0.00 – 0.29** |
 
-**Next, and it is blocked:** the negative control — the same payloads fired
-*without* the mandate, to see what overlap topicality alone produces. It needs the
-corpus below.
+**An empty band from 0.29 to 0.39.** The falsifier does not fire (every mandated
+reply voiced the fact, so case C stays), and **0.5 was above the band**, inside
+the mandated cluster, which is why it cost 1 in 10 compliant replies a spurious
+record. Shipped at the band's midpoint, **0.34**, where the sample classifies
+perfectly both ways.
 
-## ⚠ The evidence corpus vanished mid-session
+The expensive error here is the false negative: `runner.py:1721` then prints a
+Narrator report *beside* the character's own compliant line — this task's own
+duplication, wearing the degradation path's byline.
+
+n=10 per arm, one scenario, one model. The language guard in this task was sized
+over 3,936 records; this is twenty. **0.34 is a first calibration, not a settled
+constant** — re-derive it against real `mandate_ignored` records.
+
+Measured and *not* shipped: excluding the subject's own name from the denominator
+(10/10 intents name it, 0/10 replies do) widens the band 0.10 → 0.13. If ever
+adopted, re-derive the threshold with it; the midpoint moves to ≈0.375.
+
+## ⚠ `plans/` vanished mid-session, and was restored
 
 `plans/artifacts/p1-archive/` (16 archived sessions) was emptied at **11:47 on
-2026-08-06**, between the validation runs and the write-up. `plans/` is
-gitignored, so git cannot restore it, and it is not in the trash on this machine.
-Nothing in this session deleted it; the likely cause is the SSH sync of the
-machine move described above.
+2026-08-06**, between the Director runs and the control arm — the SSH sync of the
+machine move. Restored the same afternoon from `alex@192.168.0.100` with
+`rsync -av --ignore-existing`, which brought back `p2-archive` and
+`repetition-battery` too and left the new evidence directory untouched.
 
-**It needs to come back from the other machine.** Blocked on it: the negative
-control arm, the task-68 scanner re-run, and any re-derivation of the 3,936-record
-measurements this task rests on. The numbers already extracted are written into
-the reference doc rather than left as pointers, for exactly this reason.
+**`plans/` is gitignored: git cannot protect it.** Every number from those runs
+is therefore written out in the reference doc rather than left as a pointer.
+Raw outputs and the three harness scripts are in
+`plans/artifacts/65-live-validation/` — which has the same exposure, so treat the
+reference doc as the record of last resort.
 
 ## What task 65 actually shipped, in one paragraph
 
