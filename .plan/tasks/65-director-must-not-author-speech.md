@@ -325,6 +325,79 @@ cheap deterministic items are independent of the routing work and can land first
    reaches a persisted record, and an event whose language does not match the
    session's pinned language does not persist.
 
+### ✅ Item 4 DELIVERED — 2026-08-06
+
+`src/runner.py::_leaks_internal_id` and `::_foreign_language`, both refusing
+inside `_persist_audible_speech`. 17 tests
+(`tests/test_audible_speech_deterministic_guards.py`, plus three end-to-end in
+`tests/test_audible_speech_persistence.py`). Suite 1012 green, ruff clean. No
+provider calls were needed, as predicted.
+
+**The id guard checks membership, not shape.** `\bC\d+\b` only nominates
+candidates; a hit counts only if it is a key of `game.characters`. Matching the
+shape alone would refuse *"a carga de C4 na viga"* in a scenario where C4 is an
+explosive rather than a student — a guard that deletes real dialogue to prevent a
+leak that is not there fails this phase's own rule as surely as the leak does.
+
+**The language guard's threshold was measured, not chosen.** Scored over **all
+3,936** speech/narration/action records in the 16 archived sessions, using
+function-word markers with the cross-language collisions removed from both lists
+(`for` is an English preposition *and* the Portuguese subjunctive of *ser*; so are
+`a`, `as`, `no`, `do`, `e`):
+
+| | |
+|---|---|
+| most English-looking **Portuguese** record | **0.012** (one loanword in 263 words) |
+| the **nine** English records | **1.000**, every one |
+| records between 0.012 and 1.000 | **zero** |
+
+The threshold sits at 0.5, in an empty band. The floor of two markers is set by
+the shortest true positive (`drive-P1-r1` T10, *"Guard, report! What breached the
+wall?"*); of the 415 records carrying fewer than two markers, none scores above
+the line, so the floor costs nothing.
+
+It is deliberately narrow — it answers *"is this English in a Portuguese
+session"*, the only flip the corpus contains. Any other pinned language returns
+`False` rather than guessing, because the marker lists cannot separate a pair
+they were not built for. Extending it means measuring the new pair first.
+
+#### The finding: **all nine** English records came through this channel
+
+The task text said the language flip *"was filed against the prose renderer; it
+belongs here"*. That is now measured rather than argued. Cross-checking every
+English record against the task-68 matcher:
+
+| | |
+|---|---|
+| English records in the archive | **9** |
+| …Director-authored (score 0.899–1.000) | **9** |
+| …written by a character agent | **0** |
+| …in narration | **0** |
+
+Four in `null-P1-r2` T2, three in `base-P2-r2` T19, one each in `oldcode-P2-r2`
+T3 and `drive-P1-r1` T10. Not one character reply and not one narration record
+ever flipped language, across 3,936 records. **The channel does not merely carry
+most of the defect; it carries all of it.**
+
+#### Two things changed that were not in the plan
+
+- **Every refusal on this channel is now logged** (`log_audible_speech_drop`,
+  reasons `echo` / `whisper_leak` / `internal_id` / `foreign_language`). The two
+  pre-existing skips dropped lines silently, and a refusal here is a line the
+  reader never sees — invisible content loss is exactly what the closure list
+  below forbids for the degradation path, and there was no reason for the older
+  guards to be exempt. It also gives item 3 its logging surface for free.
+- **`tools/acceptance/drive_label_ab.py` was under-reporting.** Its `ID_RE` was
+  `\bC\d\b`, which cannot match `C10`–`C21` — and the scenario it runs against
+  has 21 characters, so it was checking a third of the cast. Widened to `\bC\d+\b`
+  (same fix applied to `tests/test_internal_ids_in_prompts.py`, whose 3-character
+  fixture made it correct today but fragile). `no_internal_ids_live.py` was
+  already right: it builds its pattern from the scenario's actual ids.
+
+**Both guards survive the rest of the task.** After routing lands they stop
+guarding the Director's prose and start guarding the routed character's, which is
+why they were worth building before the part that needs live validation.
+
 ## Closure evidence required
 
 - [ ] no persisted record claims a character said words the character did not
@@ -338,11 +411,11 @@ cheap deterministic items are independent of the routing work and can land first
       reason;
 - [ ] WT-09 preserved: a test where a witness who did not reply can still recall
       a fact voiced to the room on a later turn;
-- [ ] `oldcode-P1-r1` T39's id leak cannot recur — a test asserting no `C\d+`
-      reaches a persisted record;
+- [x] `oldcode-P1-r1` T39's id leak cannot recur — a test asserting no `C\d+`
+      reaches a persisted record *(2026-08-06)*;
 - [ ] a test that the player's own submitted line is never re-voiced back;
-- [ ] the language-flip case: a Director event in the wrong language cannot
-      become a persisted record;
+- [x] the language-flip case: a Director event in the wrong language cannot
+      become a persisted record *(2026-08-06)*;
 - [ ] a blind read of the post-65a cell against the archived pre-65a transcripts,
       same protocol, judging whether the fiction thinned;
 - [ ] 65b written up as its own decision with the three options costed, whichever

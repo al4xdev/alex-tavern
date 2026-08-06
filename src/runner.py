@@ -60,6 +60,7 @@ from src.disposition import (
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
 from src.llm.debug_log import (
+    log_audible_speech_drop,
     log_burst,
     log_command_input,
     log_command_result,
@@ -264,6 +265,85 @@ def _echoes_recent_speech(game: GameState, subject: str, spoken: str) -> bool:
         if similar_text(spoken, record.content) >= _SPEECH_ECHO_THRESHOLD:
             return True
     return False
+
+
+# Character ids are `C1`..`Cn` (`^C\d+$`). Matching the SHAPE only would refuse
+# "C4" in a scenario where C4 is a plastic explosive rather than a student, so
+# candidates are confirmed against this session's own cast.
+_INTERNAL_ID_RE = re.compile(r"\bC\d+\b")
+
+
+def _leaks_internal_id(game: GameState, spoken: str) -> bool:
+    """True when the text carries a raw character id from this session's cast.
+
+    `oldcode-P1-r1` T39 persisted *"C17 ordena que C20 permaneça com os
+    estilhaços e que C18 a acompanhe"* — three ids in one line the player could
+    read. Task 36 stripped ids from the prose and summarizer prompts, but the
+    Director legitimately receives them (it routes by id) and this channel copies
+    the Director's text into history verbatim, so it is the one path by which an
+    id still reaches the reader.
+    """
+    return any(match.group() in game.characters for match in _INTERNAL_ID_RE.finditer(spoken))
+
+
+# English vs Portuguese function words. Both lists exclude the tokens that exist
+# in BOTH languages — "for" (English preposition / Portuguese subjunctive of
+# *ser*), and "a", "as", "no", "do", "e" — because those collisions are what
+# produced the only overlap between the two populations when this was measured.
+_EN_MARKERS = frozenset(
+    (
+        "the", "and", "that", "with", "was", "were", "his", "her", "their", "they",
+        "this", "there", "would", "could", "should", "which", "while", "from",
+        "have", "has", "had", "been", "into", "about", "when", "what", "who",
+        "will", "said", "says", "she", "he", "it", "of", "to", "in", "is", "are",
+        "at", "on", "but", "not", "you", "your", "them", "then", "than",
+    )
+)  # fmt: skip
+_PT_MARKERS = frozenset(
+    (
+        "que", "de", "da", "das", "dos", "não", "uma", "um", "para", "com", "por",
+        "os", "se", "na", "nas", "nos", "ao", "aos", "ele", "ela", "eles", "elas",
+        "seu", "sua", "seus", "suas", "mas", "como", "mais", "já", "ainda",
+        "quando", "sobre", "pelo", "pela", "está", "estão", "é", "são", "foi",
+        "ser", "ter", "tem", "isso", "essa", "esse", "esta", "este", "em", "o",
+    )
+)  # fmt: skip
+_LANGUAGE_WORD_RE = re.compile(r"[a-zà-ÿ']+")
+# Measured over all 3,936 speech/narration/action records in the 16 archived
+# sessions: the two populations do not touch. The most English-looking Portuguese
+# record scores 0.012 (one loanword in 263 words); the nine English records all
+# score 1.000. The threshold sits in an empty band 82 times wider than it needs
+# to be. Two markers is the floor because the shortest true positive carries
+# exactly two ("Guard, report! What breached the wall?"), and of the 415 records
+# with fewer than two markers none scores above the line anyway.
+_LANGUAGE_FOREIGN_RATIO = 0.5
+_LANGUAGE_MIN_MARKERS = 2
+
+
+def _foreign_language(spoken: str, language: str) -> bool:
+    """True when the text reads as English under a Portuguese-pinned session.
+
+    `null-P1-r2` T2 emitted four `audible_speech` events in English — *"Asword
+    said that Link's portal showed precise control…"* — and every one of them
+    persisted. Across the whole archive **all nine** English records came through
+    this channel: zero character replies and zero narration records ever flipped.
+
+    Deliberately narrow. It answers "is this English in a Portuguese session",
+    which is what was measured and the only flip the corpus contains; it is not a
+    language identifier. Any other pinned language returns False rather than
+    guessing, because the marker lists cannot separate a pair they were not built
+    for (French *on* would read as English). Extending it means measuring the new
+    pair first, the same way this one was.
+    """
+    if "portug" not in language.strip().lower():
+        return False
+    words = _LANGUAGE_WORD_RE.findall(spoken.lower())
+    english = sum(1 for word in words if word in _EN_MARKERS)
+    local = sum(1 for word in words if word in _PT_MARKERS)
+    markers = english + local
+    if markers < _LANGUAGE_MIN_MARKERS:
+        return False
+    return english / markers >= _LANGUAGE_FOREIGN_RATIO
 
 
 def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None]:
@@ -1420,6 +1500,17 @@ class Runner:
         non-confidant is SKIPPED. A public reveal of Director canon (a name never
         whispered) carries no whisper token, so it persists.
 
+        Four refusals in all — ``echo``, ``whisper_leak``, ``internal_id`` and
+        ``foreign_language`` — and every one of them is logged. A refusal here is
+        a line the reader never sees, so a silent drop would be invisible content
+        loss; ``log_audible_speech_drop`` is what makes the channel's losses
+        countable at the checkpoint.
+
+        The last two guards are deterministic and independent of who *authors*
+        the text (task 65, item 4). They stay useful after routing lands: they
+        move from guarding the Director's prose to guarding the routed
+        character's.
+
         Called AFTER the reply loop so this turn's repliers still get it through
         perception alone, never doubled into RECENT EVENTS, and after the whisper
         records exist in history.
@@ -1432,7 +1523,19 @@ class Runner:
             if not spoken or subject not in game.characters:
                 continue
             if _echoes_recent_speech(game, subject, spoken):
-                continue  # the Director re-voiced a line that is already history
+                # the Director re-voiced a line that is already history
+                log_audible_speech_drop(game.session_id, step, subject, "echo", spoken[:160])
+                continue
+            if _leaks_internal_id(game, spoken):
+                log_audible_speech_drop(
+                    game.session_id, step, subject, "internal_id", spoken[:160]
+                )
+                continue
+            if _foreign_language(spoken, str(self.config.get("language", ""))):
+                log_audible_speech_drop(
+                    game.session_id, step, subject, "foreign_language", spoken[:160]
+                )
+                continue
             present_others = {
                 cid
                 for cid in game.scene.present_characters
@@ -1448,7 +1551,11 @@ class Runner:
                 != spoken
                 for vid in listeners
             ):
-                continue  # would leak a whisper secret to a non-confidant
+                # would leak a whisper secret to a non-confidant
+                log_audible_speech_drop(
+                    game.session_id, step, subject, "whisper_leak", spoken[:160]
+                )
+                continue
             self._append_history(
                 game, subject, spoken, "speech", step, audience=heard_by, audience_origin="zone"
             )

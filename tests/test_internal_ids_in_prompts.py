@@ -40,7 +40,7 @@ from tests.factories import make_cast, make_record, make_scene
 
 CAST = make_cast("Rui", "Marta", "Bento")
 SCENE = make_scene(characters=CAST)
-ID_RE = re.compile(r"\bC\d\b")
+ID_RE = re.compile(r"\bC\d+\b")
 
 
 def _history() -> list:

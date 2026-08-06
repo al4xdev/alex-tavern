@@ -266,6 +266,30 @@ def log_whisper_output_guard(
     )
 
 
+def log_audible_speech_drop(
+    session_id: str,
+    turn_number: int,
+    subject_id: str,
+    reason: str,
+    detail: str = "",
+) -> None:
+    """Record a Director ``audible_speech`` event that did NOT become a record.
+
+    Every refusal on this channel is a line the reader will never see, so none of
+    them may be silent (task 65). ``reason`` is one of ``echo``,
+    ``whisper_leak``, ``internal_id`` or ``foreign_language``; ``detail`` carries
+    the evidence that decided it.
+    """
+    _emit(
+        session_id,
+        "audible_speech_drop",
+        turn_number,
+        subject_id=subject_id,
+        reason=reason,
+        detail=detail,
+    )
+
+
 def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
     _emit(session_id, "undo", turn_number, removed_records=removed_records)
 

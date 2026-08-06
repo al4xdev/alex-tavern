@@ -57,7 +57,7 @@ from src.models import dict_to_game_state  # noqa: E402
 from src.prompting import recent_event_lines, stalled_scene_context  # noqa: E402
 
 REPS = int(sys.argv[1]) if len(sys.argv) > 1 else 3
-ID_RE = re.compile(r"\bC\d\b")
+ID_RE = re.compile(r"\bC\d+\b")
 
 
 def norm(text: str) -> str:
