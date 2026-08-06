@@ -366,6 +366,75 @@ def eligible_witnesses(scene: dict, characters: dict, subject_id: str) -> set[st
     }
 
 
+def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> dict:
+    """How much of the Director's witness list the clamp deleted, on every event.
+
+    **Emptiness is the extreme of this, not the defect.** ``empty_audience``
+    only sees a clamp that reached zero, and a shout heard by ONE person in a
+    hall of twenty-one is the same bug arriving one witness short of it. Read on
+    a live cell 2026-08-06: the Director proposed 21 witnesses at T31 and the
+    persisted record carried 1, while the session's ``empty_audience`` count was
+    2 and never mentioned it. A zone-graph fix could take emptiness to zero and
+    leave every one of those in place.
+
+    Non-circular for the same reason the classification above is: it never asks
+    the zone graph whether an audience was correct. It compares what the MODEL
+    proposed against what the ENGINE persisted, and both numbers exist
+    independently of the graph's opinion.
+
+    Losses are matched by ``(turn, subject)`` against zone-scoped records, so an
+    intentionally whispered record (``audience_origin`` other than ``zone``)
+    never counts as a clamp loss.
+    """
+    persisted: dict[tuple[int, str], int] = {}
+    for record in state.get("history", []):
+        if record.get("audience_origin") != "zone":
+            continue
+        audience = record.get("audience")
+        if not isinstance(audience, list):
+            continue
+        key = (int(record.get("turn_number") or 0), str(record.get("speaker")))
+        persisted[key] = max(persisted.get(key, 0), len(audience))
+
+    losses: list[dict] = []
+    for turn, event in effective:
+        if event.get("event_kind") != "audible_speech":
+            continue
+        proposed = len(event.get("witness_ids") or [])
+        if proposed <= 0:
+            continue
+        key = (turn, str(event.get("subject_id")))
+        if key not in persisted:
+            continue
+        kept = persisted[key]
+        if kept >= proposed:
+            continue
+        losses.append(
+            {
+                "turn": turn,
+                "subject": key[1],
+                "proposed": proposed,
+                "kept": kept,
+                "lost_share": round((proposed - kept) / proposed, 3),
+                "text": str(event.get("content", ""))[:160],
+            }
+        )
+
+    losses.sort(key=lambda item: (-item["lost_share"], -item["proposed"]))
+    return {
+        "clamp_matched_events": sum(
+            1
+            for turn, event in effective
+            if event.get("event_kind") == "audible_speech"
+            and (turn, str(event.get("subject_id"))) in persisted
+        ),
+        "clamp_lost_half": sum(1 for item in losses if item["lost_share"] >= 0.5),
+        "clamp_lost_most": sum(1 for item in losses if item["lost_share"] >= 0.8),
+        "clamp_worst_loss": losses[0] if losses else None,
+        "clamp_evidence": losses[:10],
+    }
+
+
 def scan_empty_audience(state: dict, records: list[dict]) -> dict:
     """Speech and action records the engine says nobody heard.
 
@@ -456,8 +525,11 @@ def scan_empty_audience(state: dict, records: list[dict]) -> dict:
     def empty_witnesses(events: list[tuple[int, dict]]) -> int:
         return sum(1 for _, event in events if event.get("witness_ids") == [])
 
+    clamp = scan_witness_clamp_loss(state, effective)
+
     return {
         "empty_audience_records": len(hits),
+        **clamp,
         "isolated": counts["isolated"],
         "with_others_present": counts["graph_isolated"] + counts["narrowed_to_none"],
         "graph_isolated": counts["graph_isolated"],

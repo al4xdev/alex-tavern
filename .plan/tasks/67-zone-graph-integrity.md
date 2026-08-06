@@ -171,6 +171,9 @@ right; the graph was wrong.
       `with_others_present` field, which is **31 + 2 = 33** today. A fix that only
       moves records from `graph_isolated` to `narrowed_to_none` has not closed
       this;
+- [ ] **`clamp_lost_half` at zero on the re-run cell** — see the section below.
+      Emptiness alone cannot close this task, because a shout heard by ONE person
+      in a hall of twenty-one is this same bug one witness short of the count;
 - [ ] a character who can no longer perceive is not listed as a witness;
 - [ ] replayed against the archived `base-P1-r2`, the T23 shout keeps a non-empty
       audience.
@@ -178,6 +181,62 @@ right; the graph was wrong.
 **The measurement that would falsify this task:** if the 33 empty-audience
 records survive after the graph fixes, the cause is elsewhere and the intersect
 is the problem after all.
+
+## ⚠ The metric was too narrow — refined 2026-08-06, before the fix
+
+A live post-65/70 cell (`34390b86`) reported **`empty_audience` = 2**, which
+looks nearly clean. Reading the transcript instead of the number:
+
+> T31 **Garran**: *"Todos para o corredor lateral agora! …"* — audience **1**
+> T31 **Nix**: *"Todo mundo pro corredor novo, agora!"* — audience **1**
+> T26 **Asword**: *"Link, eu seguro sua mão e te puxo para cá"* — audience **0**
+
+**19 of 72 scoped records (26%) reached two or fewer witnesses with 21
+characters present.** Only 2 of them were empty, so the metric this task closes
+against saw 2 and missed 17 — and the 17 are the same bug, one witness short of
+being counted. **A graph fix could take `empty_audience` to zero and leave every
+one of them in place**, which is the reclassification trap this task already
+warned about, arriving through a door the warning did not cover.
+
+### `clamp_lost_half` — added to 68's scanner
+
+For every Director `audible_speech` event, what the model **proposed** against
+what the engine **persisted**. Non-circular for the same reason the existing
+classification is: it never asks the zone graph whether an audience was right,
+it compares the model's number to the code's.
+
+| session | `with_others_present` | `clamp_lost_half` | worst |
+|---|---|---|---|
+| `base-P1-r2` | 10 | 2 | **T23 18 → 0** (this task's cited case) |
+| `null-P1-r1` | 11 | 7 | T19 19 → 0 |
+| `oldcode-P1-r3` | 0 | 3 | T14 **20 → 6** — invisible to emptiness |
+| **fresh cell** | **2** | **6** | **T31 21 → 1** |
+| archive total | — | **25** | against 14 clamped to zero |
+
+**It is strictly more informative than the empty count** and it recovers every
+case this task already cites, which is the check that it measures the same
+defect rather than a new one.
+
+### And three graph-health metrics were tried and REJECTED
+
+`deaf_occupied` (an occupied zone that can hear nothing), `unreciprocated`
+(A hears B, B does not hear A) and `edges_lost` (an edge present at turn N gone
+at N+1) were each measured per turn across all 16 archived sessions. **None
+predicts the damage:**
+
+| session | `deaf`·turns | `unrecip`·turns | empty-audience |
+|---|---|---|---|
+| `oldcode-P1-r3` | 288 | **1764** | **0** |
+| `drive-P1-r3` | 243 | 9 | **0** |
+| `base-P1-r2` | **0** | 270 | **10** |
+| `oldcode-P1-r1` | 0 | 0 | 2 |
+
+Graph damage is **exposure, not damage** — a broken edge costs nothing until
+someone speaks across it. They are recorded here so nobody re-derives them as a
+proxy; they would each be a plausible-looking dashboard number that ranks
+sessions wrong. Kept as diagnostics for *this* task's implementation (they are
+how the fresh cell's deaf main hall and `base-P1-r2`'s T20→T21 edge wipe were
+both located), not as acceptance metrics.
 
 ## ⤴ Hand-off: task 71 is waiting on this fix's numbers
 
