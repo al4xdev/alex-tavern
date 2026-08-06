@@ -1,4 +1,9 @@
-# ROADMAP — the immersion phase
+# ROADMAP — the immersion phase, on low heat
+
+*Branch: `fogo-baixo`. Named for the way you cook something that is supposed to
+take a while — slow because it is cooking properly, not slow because it is
+stuck. The distinction is the whole point of the re-review below, and it is not
+a joke about the engine's throughput: it is the acceptance criterion.*
 
 **Opened 2026-08-02.** Supersedes nothing: the previous roadmap was a single
 `ROADMAP.md` removed on 2026-07-20 in favour of distributed state, and that
@@ -49,6 +54,136 @@ Three of those four are scheduled below. The fourth — per-viewer narration
 was answered as a product one, which happened on 2026-08-05: **narration renders
 per zone-cluster**. It is now scheduled into wave 3, behind the zone-graph fix it
 depends on.
+
+## ⟳ Re-reviewed 2026-08-05 under the budget rule — what actually changed
+
+`AGENTS.md` §2 now says cost, latency and backwards compatibility are cheap and
+narrative quality is expensive. This roadmap was written before that was stated,
+and six of its decisions were made partly on the cheap resource. They were
+re-derived. **Four changed, two did not, and the two that did not matter as much
+as the four.**
+
+### 1. The checkpoint battery stops being n=3 — this is the biggest one
+
+`benchmarks/README.md` §7 says it plainly: *"`RSR_prop`, `GUARD` — cells overlap
+at n=3 — indicative only"*, and the within-`base` spread of `NSR` is **7× the
+effect a task in this phase would be asked to produce**. Half the instrument
+cannot decide anything, and **the only reason it is n=3 is that batteries cost
+provider calls.**
+
+That reason is gone. The checkpoint re-run goes to **as many replicates per cell
+as patience allows** — and patience, not money, is now the limit. This is the
+highest-value consequence of the new rule anywhere in the phase: it does not
+improve one task, it upgrades the instrument every remaining task is judged with.
+It also lets the blind read cover more sessions, which is the acceptance
+instrument for everything narrative.
+
+**Concretely:** the checkpoint's own definition changes from "re-run the P1
+battery" to "re-run it wide enough that a within-cell spread is visible", and the
+`oldcode` control cell is replicated too, or the comparison is still worth
+nothing.
+
+### 2. Task 63 stops shopping for the cheapest option
+
+63 lists four fixes and says *"run 68's scanner first — if five events per
+session would be dropped, option 4 ships; if it is twenty, it does not."* That is
+choosing an architecture by how much content the cheap version destroys.
+
+Under the rule there is nothing to shop for: **option 1, per-viewer projection,
+is the correct one and the drop path is dead.** Redaction belongs in the render
+for one viewer, never in the shared persisted record. It costs more work and
+possibly more calls, and neither is a reason.
+
+This also unblocks **task 59** earlier and more cleanly, since 59 is blocked
+precisely on redaction moving to the per-viewer projection.
+
+### 3. Task 71's singleton question was framed on the wrong axis
+
+Recorded on 2026-08-05 as *"folding singleton clusters is the difference between
+1.56x and 1.21x prose calls — the single biggest cost lever in this task."*
+**Cost lever is not a reason to decide anything here.** The question is a quality
+one and has to be re-asked as such: *does a lone character's own experience need a
+narrated paragraph, when they already receive perception events and memory?*
+
+The answer may well still be "fold" — but for being redundant, not for being
+expensive, and the distinction decides what happens when someone later asks to
+un-fold it.
+
+### 4. Task 72's gate survives; the argument for it was half wrong
+
+The gate is *"ships only if the checkpoint shows stalls survive 69"*, and that is
+a falsifier — it stands. But the roadmap justified it partly with *"it is the
+largest item in the phase"*, which is a cost argument and no longer counts. **The
+gate stays, on the falsifier alone.** If stalls survive 69, 72 ships regardless of
+its size.
+
+### What did NOT change, and must not be "revived because cost is free now"
+
+- **`material_delta_rate` stays unauthorised.** It was killed in task 68 because
+  its premise was falsified — the lexical instrument *did* see the restaging and
+  a reporting bug hid it — **not** because it was expensive. Evidence, not
+  budget. Do not resurrect it on the grounds that the semantic judge is now
+  affordable.
+- **Task 69's 40-key cap on `physical_facts` needs the two arguments separated.**
+  The cap bounds prompt growth, which was partly a cost concern (dead) and partly
+  a **model-attention** concern (very much alive — a bigger prompt is a worse
+  prompt long before it is an expensive one). 69 owns the storage decision, and it
+  must say which of the two it is optimising. "Tokens are cheap" is not a licence
+  to hand the Director an unbounded fact bag.
+
+**The general form, for whoever reads this next:** the rule makes the *cheap*
+option stop being an argument. It does not make the *expensive* option correct by
+default. Every item above still had to be argued on quality.
+
+### 5. Two new proposals the rule unlocks — and why the order does NOT change
+
+The same day, two designs became thinkable that were previously priced out
+(`.plan/backlog/74-orchestrator-agent-with-tools.md`,
+`.plan/backlog/75-post-turn-critic.md`):
+
+- **74 — an orchestrator with tools** instead of a fixed pipeline: an agent that
+  reads the situation and fires the calls it judges necessary, including *none*.
+- **75 — a critic at the end of the turn** that flags leaks or unfluent prose and
+  triggers a redo.
+
+**74 is the more serious of the two, because it is the only proposal in this
+phase with a structural answer to the phase's headline defect** — "the engine
+cannot render a turn in which nothing happens" is a property of a pipeline where
+every stage always runs. It also raises a real subsumption question: tasks **64,
+70 and part of 65** may all be symptoms of one cause, too many decisions in one
+call and a pipeline that cannot choose.
+
+**75 splits and half of it is already rejected**: leak detection belongs to the
+scanners — deterministic, testable, free — and asking a model to find what a
+regex finds converts a hard invariant into a probabilistic one. The fluency half
+survives, with a falsifier.
+
+**Neither changes the running order, and that is deliberate.** Wave 1's ordering
+is derived from *measured damage*; 74 and 75 have proposals and falsifiers, not
+measurements. Re-sequencing a phase around an unmeasured design is the exact
+failure this roadmap has now recorded three times. Worse for 74 specifically: its
+own case rests on defects that **wave 1 is about to attack**, so its evidence is
+being changed underneath it right now.
+
+What does change:
+
+1. **The checkpoint gains two questions** — did wave 1 already fix what 74 claims
+   the pipeline causes (a routed protagonist, a turn allowed to be quiet)? And
+   does an offline critic see anything the scanners do not?
+2. **Both proposals have a free offline experiment that can run BEFORE the
+   checkpoint**, without touching the engine. 74's dispatcher can be run
+   read-only over the archived turns and its *proposed* calls compared with what
+   actually happened — the ten stalled turns of `base-P1-r2` T30–T39 are the
+   direct test. 75's critic can be run over the twelve archived sessions and its
+   ranking compared against the blind reader's, which is already committed. Both
+   are pure reads over data on disk.
+3. **Wave 2's shape is now genuinely open.** If 74 survives its offline test,
+   task 64 is likely its first consumer rather than a task of its own.
+
+**These experiments are worth running, and they are not a licence to start
+building.** They cost nothing, they inform the checkpoint, and they can kill
+either proposal before it acquires momentum — which is the cheapest moment to
+kill anything.
 
 ## How this roadmap was built, and how much to trust it
 
@@ -123,7 +258,16 @@ baseline — the exact failure this project has now made twice (`main_doors`,
 
 So: **land wave 0 + wave 1, then re-run the P1 battery and the blind read, then
 re-derive.** Every wave-2 and wave-3 task is re-sized from that run before a line
-of it is designed. Tasks **64, 66 and 72** already carry falsifiers, and this
+of it is designed.
+
+> **The re-run is WIDE (added 2026-08-05).** Not three replicates per cell — as
+> many as patience allows, `oldcode` control included. n=3 was a cost compromise
+> and cost is no longer a constraint (`AGENTS.md` §2); it is also the single
+> reason `RSR_prop`, `GUARD` and `NSR` cannot decide anything, since the
+> within-cell spread is several times the effect any task here would produce. A
+> checkpoint measured at n=3 would re-derive wave 2 from an instrument this
+> phase has already documented as blind. **Widening the battery is part of the
+> checkpoint, not an optimisation of it.** Tasks **64, 66 and 72** already carry falsifiers, and this
 checkpoint is where they are evaluated — three of the phase's remaining tasks can
 legitimately close here without being built.
 
@@ -132,7 +276,7 @@ legitimately close here without being built.
 | task | why here |
 |---|---|
 | **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Owns the durable-state storage decision** (below) |
-| **64** — Return control | Depends on what 69 builds; **may be closed by 70 alone at the checkpoint** |
+| **64** — Return control | Depends on what 69 builds; **may be closed by 70 alone at the checkpoint** — and if task 74's offline test survives, 64 is likely its first consumer rather than a task of its own |
 | **72** — Commitments as first-class state | **Gated.** Ships only if the checkpoint shows stalls survive 69 — see below |
 
 **69 owns the storage decision.** Tasks 69, 72 and 66 all want durable state, and

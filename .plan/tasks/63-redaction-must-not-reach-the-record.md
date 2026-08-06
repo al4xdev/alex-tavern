@@ -95,8 +95,28 @@ So the options to weigh, with the scanner's numbers in hand:
 4. **Fail closed with a drop**, as originally proposed — only if the scanner says
    the drop count is small.
 
-**Run 68's scanner first.** If the answer is "five events per session would be
-dropped", option 4 ships. If it is twenty, it does not.
+~~**Run 68's scanner first.** If the answer is "five events per session would be
+dropped", option 4 ships. If it is twenty, it does not.~~
+
+> ## ✅ Decided 2026-08-05 — option 1, and the drop path is dead
+>
+> The paragraph above chooses an architecture by counting how much content the
+> cheap version destroys. Under `AGENTS.md` §2 there is nothing to shop for:
+> **redaction moves to the per-viewer projection and the persisted record keeps
+> its words.** More work and possibly more calls; neither is a reason.
+>
+> **Option 4 (fail closed with a drop) is rejected outright**, not deferred. A
+> dropped event is a decision removed from the story to make a guard's life
+> easier — Case 20's rule against buying quiet instead of movement, and the exact
+> shape the withdrawn `NSR` gate would have scored as an improvement.
+>
+> **Option 2 (count narration as known) still ships alongside**, because the
+> laundering asymmetry is a real defect independent of where redaction runs.
+> **Option 3 (anchor inside the event)** is now optional: it narrowed the payload
+> set to make dropping survivable, and nothing is being dropped.
+>
+> 68's scanner is still run before and after — not to choose the fix, but as the
+> before/after evidence. The numbers are in the section above.
 
 ### 68's scanner has run — the numbers, 2026-08-05
 

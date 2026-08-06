@@ -114,7 +114,13 @@ output may not.
   `base-r3`, `drive-r1`, `drive-r2`. (The archive also shows the cap is the
   *current* engine's: `oldcode-P2-r1` and `-r2` finish at 70 and 59 keys.) Closed
   transitions will live in that same bag, so measure what gets evicted **before**
-  building on it. Case 20 called fact churn "no harm observed"; a blind reviewer
+  building on it. **Separate the two arguments for the cap when you decide the
+  storage (added 2026-08-05).** It bounds prompt growth, which was partly about
+  cost — dead under `AGENTS.md` §2 — and partly about **model attention**, which
+  is very much alive: a bigger prompt is a worse prompt long before it is an
+  expensive one. This task owns the storage decision, so it has to say which of
+  the two it is optimising. *"Tokens are cheap now"* is not a licence to hand the
+  Director an unbounded fact bag. Case 20 called fact churn "no harm observed"; a blind reviewer
   argued the harm is visible and misattributed. The low-salience entries that get
   evicted are exactly the ones worth keeping.
 

@@ -74,15 +74,28 @@ What the decision settles, and what it does not:
   singleton clusters.** A cluster holding **one character who is not the player**
   probably does not need its own narration render — that character already learns
   their surroundings through perception events and memory, both of which are
-  per-viewer today, and nobody is reading their paragraph. It is the single
-  biggest cost lever here: **1.56x prose calls per turn if every cluster renders,
-  1.21x if singletons fold**, on the numbers below.
+  per-viewer today, and nobody is reading their paragraph.
 
-  It stays a leaning rather than a decision for one reason: *those numbers are
-  from the broken graph*, and the graph bugs specifically produce **isolated
-  single characters**. After 67 the singleton population is expected to shrink,
-  which cuts both ways — folding saves less, and so does not folding cost less.
-  **Confirm against the post-67 measurement, then write the decision here.**
+  > **⟳ Re-framed 2026-08-05, and the reason matters more than the answer.** This
+  > was recorded as *"the single biggest cost lever in this task — 1.56x prose
+  > calls per turn if every cluster renders, 1.21x if singletons fold."* Under
+  > `AGENTS.md` §2 **that is not a reason to decide anything.** Cost is cheap
+  > here; quality is not.
+  >
+  > So the question has to be re-asked on the right axis: **does a lone
+  > character's own experience need a narrated paragraph, when they already
+  > receive perception events and memory?** The answer may well still be *fold* —
+  > but for being **redundant**, not for being expensive. The difference decides
+  > what happens the day someone asks to un-fold it: "it was redundant" survives
+  > that conversation, "it was expensive" does not survive a faster model.
+  >
+  > The multiplier stays recorded as an observation. It is not the argument.
+
+  It stays a leaning rather than a decision for one further reason: *those
+  numbers are from the broken graph*, and the graph bugs specifically produce
+  **isolated single characters**. After 67 the singleton population is expected to
+  shrink. **Confirm against the post-67 measurement, then write the decision
+  here — on the redundancy argument, not the call count.**
 
 ### Scenes do split, so the falsifier does not fire
 

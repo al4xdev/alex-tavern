@@ -139,7 +139,15 @@ Same shape as task 69's closed transitions, applied to the social layer:
 ## Counter-argument, recorded
 
 *"This is scope creep — the phase is about repetition and leaks, and this is a
-new narrative subsystem."* Fair, and it is the largest item in the phase. But the
+new narrative subsystem."* Fair, and it is the largest item in the phase.
+
+> **Its size is no longer an argument against it (2026-08-05).** `AGENTS.md` §2
+> makes cost and effort the cheap resources here, so *"this is the biggest item"*
+> stops being a reason to gate it. **The gate stands on the falsifier alone**: if
+> the checkpoint shows stalls survive task 69, this ships, however large it is.
+> If stalls do not survive 69, it closes — also regardless of size.
+
+But the
 argument for it is not aesthetic: without it, task 69's measured success would be
 *"the ceiling stopped collapsing three times"* while the scene still does not
 move, and the failure mode becomes harder to detect — three novel things happen
