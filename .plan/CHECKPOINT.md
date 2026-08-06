@@ -5,8 +5,8 @@ working tree syncs over SSH, so `.data/` (provider key included) travels with it
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 9 commits, tree clean,
-**1038 tests green**, `ruff check` clean.
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 11 commits, tree clean,
+**1048 tests green**, `ruff check` clean.
 
 > The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
 > tooling runs bash, not the login fish, so call `.venv/bin/python` directly.
@@ -25,7 +25,9 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 9 commits, tree clean,
 | `93a8840` | **65's threshold** — 0.5 was above its own empty band, now 0.34 |
 | `1089484` | **70** — the named exclusion is deleted, and guarded |
 | `168000e` | 65's drop log stops merging two different falsifiers |
-| *(HEAD)* | **the fresh cell** — 63 falsified, 70/64 re-measured, two instruments fixed |
+| `e34adb7` | **the fresh cell** — 63 falsified, 70/64 re-measured, two instruments fixed |
+| `def9e8c` | emptiness is the extreme of the audience bug, not the bug |
+| *(HEAD)* | **67's graph fixes** — a partial link list stops deleting what it omits |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
@@ -124,6 +126,45 @@ case C back to a dedicated call — but 42 of 42 case-C events were compliant. T
 mandate won and the ruler lost. Falsifiers over a measured quantity need a clause
 that checks the measurement, and 65's now has one.
 
+## ✅ Task 67's graph fixes are in — 2026-08-06, re-run cell owed
+
+`zone_link_updates` **merges** now; an empty list is still a total seal, which is
+the only severance idiom the corpus uses (36 of 106 archived updates).
+
+Bug 1 in 67's diagnosis was **already fixed** by task 54 — `_open_new_zones` has
+given new sub-zones a reciprocal edge for a while. The live bug was bug 2 alone,
+and the compound was worse than either: that reciprocal edge could be wiped by
+`zone_link_updates` **in the same turn**.
+
+The ambiguity is real and written into the code: of 36 non-empty updates to a
+zone that already had edges, **20 only add and 16 remove at least one**, and
+reading them, some narrowings are intentional and some are collateral. Counts
+cannot separate them. Resolved on this file's own precedent — **err toward
+hearing**, since over-hearing costs realism and under-hearing costs the defect.
+Cost stated: removing one edge in a single update is no longer expressible.
+
+Two silences now log: `log_zone_link_dropped` and `log_witness_clamp`. Verified
+by replaying `base-P1-r2` T19-T23's real updates through the new code (hall keeps
+all three edges; archived run had one), pinned as a test with the data **inlined**
+because `plans/` is gitignored.
+
+## 📐 Metric validity — read this before trusting any number
+
+**`.plan/reference/metric-validity.md`** is new and is the most reusable thing
+from today. Three instruments failed a read of the actual text on 2026-08-06,
+two of them written the same day:
+
+- **`_INTENT_CARRIED_RATIO`'s empty band** was an artifact of 20 synthetic
+  replies from one scene; it vanished at n=42 on real data.
+- **`named_exclusions`** shipped with a false positive that fired 15× on fresh
+  output and **0×** on the 631-prompt archive it was validated against.
+- **`empty_audience`** counted the extreme and missed the near-miss population
+  that is 8× larger and the same defect.
+
+Plus three graph metrics measured and **rejected** — they look plausible and rank
+sessions wrong. The standing rule: *never accept a metric on the strength of its
+numbers; read the records it flagged and the records it cleared.*
+
 ## ⚠ `plans/` vanished mid-session, and was restored
 
 `plans/artifacts/p1-archive/` (16 archived sessions) was emptied at **11:47 on
@@ -183,12 +224,15 @@ per-turn audit over a finished history.
 Wave 0 ✅ (task 68). Wave 1 was **65, 70, 63, 67**. After the fresh cell:
 **65 ✅, 70 ✅, 63 falsified out, so 67 is what remains.**
 
-**67 — zone graph integrity — is next.** It is the only wave-1 item left, it is
-independent of everything shipped today, and the fresh cell shows its population
-alive: 2 records with an empty audience, both `graph_isolated`, both C2 in "alto
-da brecha, cobertura" with 20 others present and **zero** zone-reachable. That is
-the archive's finding (31 of 33 empty audiences were the zone graph, not the
-model) reproducing on the current engine.
+**67's code is shipped; its re-run cell is the only thing left in wave 1.** Run
+`python -m tools.acceptance.repetition_battery --cell base --profile P2
+--replicates 1` and check **`clamp_lost_half` and `with_others_present` both at
+zero**. The pre-fix cell (`34390b86`) is the baseline: `with_others_present` 2,
+`clamp_lost_half` **6**, worst 21 → 1.
+
+Then hand 67's numbers to **task 71**, which is parked specifically because every
+cost figure it carries was measured on the graph 67 just fixed (see 67's
+hand-off section).
 
 Wave 2: 69 (owns the durable-state interface for the phase), then 72 if its gate
 opens. 71 is parked pending 67's re-measurement. 64 is waiting on 70's
