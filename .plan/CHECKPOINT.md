@@ -5,7 +5,7 @@ working tree syncs over SSH, so `.data/` (provider key included) travels with it
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 5 commits, tree clean,
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 6 commits, tree clean,
 **1017 tests green**, `ruff check` clean.
 
 > The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
@@ -21,7 +21,8 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 5 commits, tree clean,
 | `36524a8` | **74's inventory** — the survey that falsified its own headline |
 | `6ce3924` | **65 item 4** — the two deterministic guards |
 | `36acdf0` | **65 items 1-3** — the Director rules what is said, the character writes it |
-| *(HEAD)* | **65's live validation** — the prompt variant faces a real Director |
+| `2caa203` | **65's live validation** — the prompt variant faces a real Director |
+| *(HEAD)* | **65's threshold** — 0.5 was above its own empty band, now 0.34 |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
