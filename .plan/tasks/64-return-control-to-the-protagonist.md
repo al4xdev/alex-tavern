@@ -6,8 +6,31 @@
 > one of its citations. What survives is a well-measured *problem* with no
 > validated *mechanism*, and this file says so rather than pretending otherwise.
 > **Do not design the trigger before task 70 lands and is re-measured.**
+>
+> **70 landed and was re-measured, 2026-08-06.** The gate is open, and the
+> numbers below are stale — see the box immediately after them.
 
-## The problem, measured
+## ⚠ First post-70 measurement — 2026-08-06
+
+Session `34390b86`, a 40-turn P2 base cell run with the named exclusion removed
+from the Director prompt:
+
+| | archive, WITH the exclusion | fresh cell, WITHOUT it |
+|---|---|---|
+| `return_control=True` | 5 of 482 turns (**1.0%**) | 2 of 40 (**5.0%**) |
+| controlled character routed | 11 of 482 (**2.3%**) | 1 of 40 (**2.5%**) |
+
+**Removing the instruction moved `return_control` about fivefold and left PC
+routing flat.** That is the direction task 70 hypothesised, and it means this
+task's problem statement is measured against an engine that no longer exists.
+
+**It does NOT resolve 64.** 5% is still low, both samples are tiny (2 events
+against 5), and one cell cannot re-take the number that matters most here —
+*"control never returned by either path in 5 of 12 sessions"*, which needs a
+battery. **Re-measure across several sessions before designing any trigger**,
+and treat the table below as the pre-70 baseline rather than the current state.
+
+## The problem, measured (PRE-70 — see the box above)
 
 Corpus-wide across 482 Director turns in twelve sessions:
 

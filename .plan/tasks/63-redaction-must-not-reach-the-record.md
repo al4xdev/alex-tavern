@@ -1,6 +1,11 @@
 # Task 63 — Redaction must not reach the persisted record
 
-> **Status:** open. **Wave 1**, but sequenced **after 68 and 65**: 68's scanner
+> **Status:** OUT OF WAVE 1 as of 2026-08-06 — its falsifier fired on a live
+> post-65 cell (zero in persisted speech, zero in the ledger, 3 in narration).
+> Not cancelled: re-scope it as a prose-rendering defect and rank it against the
+> rest of the backlog. See "⚠ THE FALSIFIER FIRED" below before reading on.
+>
+> Originally: **Wave 1**, sequenced **after 68 and 65**: 68's scanner
 > decides which fix is correct, and 65 removes 42 of this task's 43 cases.
 >
 > An earlier draft proposed a fix that a blind reviewer argued would make the
@@ -151,6 +156,57 @@ sequencing above.
 removes that channel. These are not two overlapping tasks — they are one
 population, and measuring them as independent wave-1 cuts would have them fight
 over the same counterfactual. Ship 65 first, re-scan, then size this.
+
+## ⚠ THE FALSIFIER FIRED — 2026-08-06, on a live post-65 cell
+
+> **The measurement that would falsify this task:** if the scanner shows the
+> marker never reaches a persisted record or the ledger after task 65 lands,
+> this is a prose-rendering cosmetic issue and drops out of wave 1.
+
+A fresh 40-turn P2 cell (`34390b86`, base, post-65 and post-70), same scenario,
+model and controls as the archive, scanned with 68's scanner:
+
+| channel | archive P1 (12) | archive P2 (4) | **fresh cell** |
+|---|---|---|---|
+| persisted **speech/action** records | 42 | 15 | **0** |
+| **ledger** entries (`recent_memory`/`memory_summary`/`people`) | 33 | 6 | **0** |
+| **narration** records | 7 | 4 | **3** |
+| total occurrences | 87 | 28 | **3** |
+
+**Both falsifier conditions are met.** Zero in persisted speech, zero in the
+live ledger — including the sub-channel this file called the under-counted part.
+Task 65 removed the producer, exactly as the dependency section predicted, and
+it took the ledger contamination with it.
+
+What remains is **3 occurrences, all in narration**, all from the same shape:
+
+- T9 — *"Garran **[indistinct]** ordem para os alunos formarem equipes"*
+- T30 — *"Garran **[indistinct]** que a parede lateral abriu uma nova saída"*
+- T31 — *"Asword … se oferece para **[indistinct]** a retaguarda com Garran"*
+
+Ordinary verbs (`dá`/`anuncia`, `cobrir`), censored out of narration. Still the
+immersion-breaker this task was written about, but **it is now a prose-rendering
+defect with no reach into any persisted record or any character's memory**,
+which is precisely the condition under which this file says the task leaves
+wave 1.
+
+### What this does to the task
+
+**63 drops out of wave 1.** Not cancelled — the marker still reaches the reader
+3 times in 40 turns, and `AGENTS.md` §2 does not tolerate that indefinitely. But
+its scale fell from 87 occurrences across two persistence channels to 3 in one
+cosmetic one, and the decided fix (option 1, per-viewer projection) was
+architecture sized against the *persistence* damage that no longer exists.
+
+**Re-scope before implementing.** The cheap remaining fix is likely **option 2
+alone** (count narration as known), which is the laundering asymmetry that makes
+prose vocabulary eligible in the first place — and the blind prose renderer
+*cannot* launder a thought it never receives, which is what made option 2 look
+risky when the guard was doing more work. Option 1's per-viewer projection is
+now a large change against a 3-occurrence cosmetic defect.
+
+*Caveat on strength:* one 40-turn cell, one scenario, one model. Zero on two
+channels is a strong signal, and 3 in narration is a small sample of a rate.
 
 ## Closure evidence required
 

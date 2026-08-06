@@ -359,6 +359,8 @@ class TestNamedExclusion:
             "Escolha alguem alem de C2 para conduzir a cena.",
             "next_speakers deve ser outro que nao C1.",
             "Prefer a speaker other than the apprentice C3 here.",
+            # "menos" still excludes when a universal precedes it.
+            "Todos menos C2 devem reagir a este beat.",
         ],
     )
     def test_other_exclusion_phrasings(self, clause: str) -> None:
@@ -378,6 +380,13 @@ class TestNamedExclusion:
             "Todos menos os feridos devem recuar para o patio.",
             # Naming the cast is not excluding anyone.
             "C1 and C2 are both present in the courtyard.",
+            # The comparative "menos", measured on a live cell 2026-08-06: this
+            # exact shape fired the guard 15 times in one 40-turn session before
+            # the pattern required a universal in front of it. A distance is not
+            # an exclusion, and the archive never happened to contain one, which
+            # is how the first version of the guard shipped with the bug.
+            "Um bloco de pedra despenca a menos de dois metros de Rui.",
+            "A fagulha salta a menos de dois metros dos pes de Marta.",
         ],
     )
     def test_ordinary_prose_is_not_an_exclusion(self, clause: str) -> None:

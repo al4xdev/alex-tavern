@@ -477,7 +477,22 @@ Two dropped words in the shipped text (`the fact that character makes public`,
 `engine hands that brief`) were found while reading it for the replay and fixed
 **before** it ran, so the validated text is the shipped text.
 
-### ✅ `_INTENT_CARRIED_RATIO` CALIBRATED 0.5 → 0.34 — 2026-08-06
+### ✅ Closed on a live cell — 2026-08-06
+
+A fresh 40-turn P2 cell (`34390b86`, base, post-65 and post-70) on the same
+scenario and model as the archive:
+
+| | archive (P2) | fresh cell |
+|---|---|---|
+| **`director_authored` speech records** | **181 of 618 (29.3%)** | **0 of 119 (0%)** |
+| redaction markers on persisted speech | 15 | **0** |
+| `audible_speech` events | — | 53 |
+| WT-09 preserved | — | yes, 33 `voiced_by_owner` + degradation path |
+
+The headline defect is at **zero on a live session**, which is the first closure
+item. The scanner is the same one that scored the archive.
+
+### ⚠ The threshold band was a synthetic artifact — corrected 2026-08-06
 
 Two arms of 10 real replies on the same archived payloads: **with** the shipped
 mandate, and **without** it (the overlap topicality alone produces). The archive
@@ -488,26 +503,41 @@ had no positives for this prompt, so the positives were built rather than found.
 | mandated | `0.39 0.53 0.55 0.57 0.60 0.64 0.67 0.69 0.73 0.79` | **0.39 – 0.79** |
 | unmandated control | `0.00 0.00 0.00 0.00 0.07 0.07 0.09 0.09 0.19 0.29` | **0.00 – 0.29** |
 
-- **The falsifier does NOT fire.** Every mandated reply voiced the fact. The
-  mandate is a prompt promise that **wins**; case C stays and does not fall back
-  to case A's dedicated call.
-- **The band is empty from 0.29 to 0.39.** Any threshold in it classifies the
-  sample perfectly (10/10 mandated kept, 0/10 control kept). Shipped at the
-  midpoint, **0.34**.
-- **0.5 was above the band, inside the mandated cluster** — which is why it cost
-  1 in 10 compliant replies a spurious record. That is the expensive direction:
-  at `runner.py:1721` a false `_carries_intent` in case C emits a Narrator report
-  *beside* the character's own compliant line, so the room hears the beat twice.
-  This task's own defect, wearing the degradation path's byline.
-- **On strength:** n=10 per arm, one scenario, one model. The language guard here
-  was sized over 3,936 records; this is twenty. The band is real and the
-  direction unambiguous, but 0.34 is a first calibration, not a settled constant.
-- **Measured, not shipped:** 10 of 10 intents name their subject and 0 of 10
-  replies do, because reported form always names the speaker. Excluding that
-  unmatchable token widens the band from 0.10 to 0.13. It buys little on this
-  sample and costs plumbing; the case for it is that the bias is proportionally
-  worse on *short* intents, which are where a narrow band fails first. **If
-  adopted, re-derive the threshold with it — the midpoint moves to ≈0.375.**
+The two-arm replay put an empty band at `(0.29, 0.39)` and shipped **0.34**. The
+live cell falsified it the same day. Of **42 case-C events, 9 were flagged
+`mandate_ignored` — and a read of all 9 finds every one compliant**, several
+nearly verbatim:
+
+> **intent:** *"Garran … ordem para os alunos **formarem** equipes de quatro
+> imediatamente e se **afastarem** da criatura"*
+> **said:** *"**Formem** equipes de quatro agora! **Afastem**-se da criatura"*
+> **scored 0.30**, below the line.
+
+- **The cause is Portuguese morphology.** Reported form — which this task's own
+  new prompt *requires* — uses infinitives and subjunctives (`formarem`,
+  `afastarem`); a speaking character uses imperatives (`formem`, `afastem`).
+  Exact token matching pairs none of them, nor the subject's own name.
+- **The clouds overlap.** Pooling the 9 verified-compliant real replies with the
+  10 synthetic ones gives **0.15–0.79** against a control of **0.00–0.29**.
+  The pre-registered reading applies: the ratio cannot separate "voiced the
+  fact" from "was talking about it", and no threshold rescues it. Stem-prefix
+  matching was tried and **widens** the overlap, because it lifts the control.
+- **So the value is damage control, not calibration.** A false negative prints a
+  Narrator report beside the character's own compliant line, which is this
+  task's founding defect; at 0.34 that fired 9 times in one session. **Shipped
+  at 0.15**, which keeps 19/19 verified-compliant replies, still refuses 8/10
+  controls, and sits on a 0.10–0.15 plateau rather than a knife-edge.
+- **The own-name exclusion stays unshipped** — it does not address the
+  morphology half, which is the larger of the two biases.
+
+**The falsifier fired and its diagnosis was wrong**, which is worth more than
+the threshold. It reads a high `mandate_ignored` rate as "the mandate is a
+prompt promise that loses" and sends case C back to a dedicated call. But
+**42 of 42 case-C events were compliant**: the mandate won and the *ruler*
+lost. Corrected falsifier, with the missing second clause:
+
+> *If `mandate_ignored` fires on a large share of case C **and a read of the
+> flagged replies confirms they missed the fact**, the mechanism is what failed.*
 
 ## Closure evidence required
 

@@ -135,7 +135,12 @@ _EXCLUSION_LEADS: tuple[str, ...] = (
     r"\bqu(?:e|em)\s+n[aã]o\s+seja\b",
     r"\balgu[eé]m\s+al[eé]m\s+de\b",
     r"\bexceto\b",
-    r"\bmenos\b",
+    # "menos" excludes only after a universal: "todos menos C1". Bare, it is the
+    # ordinary comparative, and a 40-turn session fired it 15 times on narration
+    # like "despencando a menos de dois metros de Link" - a distance, not an
+    # exclusion. Measured 2026-08-06 on a live cell; the archive never tripped
+    # it, which is why the first version of this list shipped with it bare.
+    r"\b(?:todos|todas|qualquer\s+um|qualquer\s+uma)\s+menos\b",
     r"\bevit(?:e|ar)\b",
 )
 

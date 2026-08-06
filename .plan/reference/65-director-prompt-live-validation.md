@@ -205,14 +205,86 @@ band will fail on first.
 **If it is ever adopted, re-derive the threshold with it** — the two are
 coupled, and the midpoint under that denominator is ≈0.375, not 0.34.
 
+## ⚠ A real cell falsified the band — 2026-08-06, later the same day
+
+Everything above about the threshold was derived from **20 synthetic replies on
+one scene**. A fresh 40-turn P2 cell (`34390b86`, base, post-65 and post-70)
+contradicts it, and the contradiction is the useful part.
+
+Of **42 case-C events**, 9 were logged `mandate_ignored` at the 0.34 threshold.
+**A read of all 9 finds every one compliant**, several nearly verbatim:
+
+| | |
+|---|---|
+| intent | *"Garran … ordem para os alunos **formarem** equipes de quatro imediatamente e se **afastarem** da criatura"* |
+| said | *"**Formem** equipes de quatro agora! **Afastem**-se da criatura, não encostem nos destroços!"* |
+| score | **0.30** — below the line |
+
+**The cause is Portuguese morphology.** Reported speech, which the new Director
+prompt now requires, uses infinitive and subjunctive forms (`formarem`,
+`afastarem`, `subam`); a character speaking uses the imperative (`formem`,
+`afastem`). Exact token matching pairs none of them — nor the subject's own
+name, the bias already recorded above, which reported form always states and
+direct speech never does.
+
+### The clouds overlap, so no threshold classifies both correctly
+
+Pooling the **9 verified-compliant real replies** with the 10 synthetic mandated
+ones, against the same unmandated control:
+
+| | range |
+|---|---|
+| compliant (n=19) | **0.15 – 0.79** |
+| unmandated control (n=10) | **0.00 – 0.29** |
+
+**Overlap of 0.13**, not a band. The pre-registered reading applies exactly as
+written: *"the ratio cannot separate 'voiced the fact' from 'happened to be
+talking about it', and no threshold rescues it — a finding about the instrument,
+not a reason to pick a nicer number."*
+
+Stem-prefix matching was tried as a fix for the morphology and **made it worse**
+(overlap 0.13 → 0.18), because it lifts the control's ceiling too.
+
+### So the value is chosen by which error is affordable
+
+| threshold | compliant kept | spurious duplications | control wrongly kept |
+|---|---|---|---|
+| 0.10 | 19/19 | **0** | 2/10 |
+| **0.15** (shipped) | **19/19** | **0** | **2/10** |
+| 0.20 | 16/19 | 3 | 1/10 |
+| 0.30 | 14/19 | 5 | 0/10 |
+| 0.34 (was) | 10/19 | **9** | 0/10 |
+
+A false negative is the expensive error: `_resolve_speech_intents` then prints a
+Narrator report **beside the character's own compliant line**, which is task
+65's founding defect. At 0.34 that fired on 9 of 42 case-C events in a single
+session. **Shipped at 0.15**, where 0.10-0.15 is a plateau rather than a
+knife-edge, so it is not tuned to one sample's edge.
+
+### What this says about the case-C falsifier
+
+The falsifier's trigger fired — `mandate_ignored` on 21% of case C — **and its
+diagnosis is wrong.** It reads that rate as "the mandate is a prompt promise
+that loses", which would send case C back to a dedicated call. But the mandate
+did not lose: **42 of 42 case-C events were compliant on reading.** The
+measurement lost. Falling back to a dedicated call would have spent calls to fix
+a defect that was in the ruler.
+
+**Case C stays**, and the falsifier now reads: *if `mandate_ignored` fires on a
+large share of case C **and a read of the flagged replies confirms they missed
+the fact**, the mechanism is what failed.* The second clause was missing and is
+the whole difference.
+
 ## Status
 
 | | |
 |---|---|
 | Director prompt variant | **validated, shipped** |
-| `_INTENT_CARRIED_RATIO` | **calibrated 0.5 → 0.34**, band `(0.29, 0.39)`, n=10 per arm |
-| own-name exclusion | measured, **not shipped**, re-derive threshold if adopted |
-| case-C mandate mechanism | **survives its falsifier** |
+| `_INTENT_CARRIED_RATIO` | **0.5 → 0.34 → 0.15**; the 0.34 band was a synthetic-sample artifact |
+| the ratio as an instrument | **does not separate on real data**; kept permissive by design |
+| own-name exclusion | measured, **not shipped**; would not fix the morphology half |
+| case-C mandate mechanism | **survives** — 42/42 compliant on a real cell |
+| 65's headline defect | **`director_authored` = 0 of 119 speech records**, from 29.3% in P2 |
 
 `plans/artifacts/p1-archive/` was restored from the other machine after the loss
 noted above, which is what let the control arm run. Raw outputs for every call

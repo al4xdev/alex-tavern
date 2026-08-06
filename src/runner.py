@@ -373,14 +373,31 @@ _INTENT_STOPWORDS = frozenset(
 # survive verification"). The reading is the same one here — did this sentence
 # and that sentence carry the same fact.
 #
-# Measured 2026-08-06, two arms of 10 real replies each on the same archived
-# payloads: WITH the shipped mandate (the character was told to voice the fact)
-# and WITHOUT it (whatever overlap the scene produces on its own). Mandated
-# scored 0.39-0.79, unmandated 0.00-0.29 — an empty band 0.10 wide, and 0.34 is
-# its midpoint. It inherited 0.5, which sits ABOVE the band inside the mandated
-# cluster and cost 1 in 10 compliant replies a spurious degradation record.
+# THIS RATIO DOES NOT SEPARATE, and the number below is damage control rather
+# than a calibration. Say it here because two earlier values were each picked as
+# if a band existed.
+#
+# A synthetic two-arm replay (10 mandated replies against 10 unmandated ones on
+# one scene) showed mandated 0.39-0.79 against unmandated 0.00-0.29 and an empty
+# band, which is where 0.34 came from. A real 40-turn cell then falsified it: of
+# 42 case-C events, 9 scored 0.15-0.33 and a read of all 9 finds every one
+# compliant, several nearly verbatim. Portuguese morphology is the reason -
+# reported speech says "ordena que todos FORMAREM equipes", the character says
+# "FORMEM equipes", and exact token matching pairs neither those nor the
+# subject's own name, which reported form always states and direct speech never
+# does. Pooling the real compliant replies with the synthetic ones gives
+# 0.15-0.79 against a control of 0.00-0.29: the clouds OVERLAP. Stem-prefix
+# matching was tried and widens the overlap, because it lifts the control too.
+#
+# So the value is chosen by which error is affordable, not by a band. A false
+# NEGATIVE here is the expensive one: `_resolve_speech_intents` then prints a
+# Narrator report BESIDE the character's own compliant line, which is the
+# duplication this whole task exists to remove. At 0.34 that fired on 9 of 42
+# case-C events in one session. 0.15 keeps all 19 verified-compliant replies and
+# still refuses 8 of 10 controls, and 0.10-0.15 is a plateau rather than a
+# knife-edge, so it is not tuned to one sample's edge.
 # Full derivation: .plan/reference/65-director-prompt-live-validation.md.
-_INTENT_CARRIED_RATIO = 0.34
+_INTENT_CARRIED_RATIO = 0.15
 
 
 def _intent_words(text: str) -> set[str]:
@@ -402,17 +419,14 @@ def _carries_intent(spoken: str, intent: str) -> bool:
     nothing checkable in it and is treated as carried, because refusing it would
     send an empty fact down the degradation path forever.
 
-    This was the one threshold in the task that could not be measured before
-    shipping, because it judges compliance with a prompt that did not exist
-    until then and the archive holds no positives for it. It is measured now:
-    the positives were BUILT by handing real Director intents to real character
-    agents through the shipped mandate, and the negatives by firing the same
-    payloads without it. Both arms and the resulting band are on the constant.
-
-    Note which error is expensive. A false negative here does not merely waste
-    a call: the caller then writes a Narrator report BESIDE the character's own
-    compliant line, so the room hears the beat twice, which is the duplication
-    this whole task exists to remove.
+    It is a WEAK instrument and the constant says so at length: measured on a
+    real cell, compliant replies and merely-topical ones overlap, so no
+    threshold classifies both correctly. It is kept permissive on purpose,
+    catching the reply that carries nothing of the fact rather than judging
+    paraphrase, because a false negative here does not merely waste a call: the
+    caller then writes a Narrator report BESIDE the character's own compliant
+    line, so the room hears the beat twice, which is the duplication this whole
+    task exists to remove.
     """
     wanted = _intent_words(intent)
     if not wanted:

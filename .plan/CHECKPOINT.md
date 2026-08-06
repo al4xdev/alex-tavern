@@ -5,8 +5,8 @@ working tree syncs over SSH, so `.data/` (provider key included) travels with it
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 7 commits, tree clean,
-**1034 tests green**, `ruff check` clean.
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 9 commits, tree clean,
+**1038 tests green**, `ruff check` clean.
 
 > The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
 > tooling runs bash, not the login fish, so call `.venv/bin/python` directly.
@@ -23,7 +23,9 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 7 commits, tree clean,
 | `36acdf0` | **65 items 1-3** — the Director rules what is said, the character writes it |
 | `2caa203` | **65's live validation** — the prompt variant faces a real Director |
 | `93a8840` | **65's threshold** — 0.5 was above its own empty band, now 0.34 |
-| *(HEAD)* | **70** — the named exclusion is deleted, and guarded |
+| `1089484` | **70** — the named exclusion is deleted, and guarded |
+| `168000e` | 65's drop log stops merging two different falsifiers |
+| *(HEAD)* | **the fresh cell** — 63 falsified, 70/64 re-measured, two instruments fixed |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
@@ -39,34 +41,14 @@ is satisfied too.
 Two dropped words in the shipped prompt were found while reading it for the
 replay and fixed **before** it ran, so the validated text is the shipped text.
 
-### ✅ And the threshold is calibrated: 0.5 → 0.34
+### ~~And the threshold is calibrated: 0.5 → 0.34~~ — SUPERSEDED same day
 
-Two arms of 10 real replies on the same payloads — **with** the shipped mandate
-and **without** it. The archive had no positives for this prompt, so they were
-built rather than found.
-
-| | range |
-|---|---|
-| mandated | **0.39 – 0.79** |
-| unmandated control | **0.00 – 0.29** |
-
-**An empty band from 0.29 to 0.39.** The falsifier does not fire (every mandated
-reply voiced the fact, so case C stays), and **0.5 was above the band**, inside
-the mandated cluster, which is why it cost 1 in 10 compliant replies a spurious
-record. Shipped at the band's midpoint, **0.34**, where the sample classifies
-perfectly both ways.
-
-The expensive error here is the false negative: `runner.py:1721` then prints a
-Narrator report *beside* the character's own compliant line — this task's own
-duplication, wearing the degradation path's byline.
-
-n=10 per arm, one scenario, one model. The language guard in this task was sized
-over 3,936 records; this is twenty. **0.34 is a first calibration, not a settled
-constant** — re-derive it against real `mandate_ignored` records.
-
-Measured and *not* shipped: excluding the subject's own name from the denominator
-(10/10 intents name it, 0/10 replies do) widens the band 0.10 → 0.13. If ever
-adopted, re-derive the threshold with it; the midpoint moves to ≈0.375.
+A two-arm replay of 20 synthetic replies put an empty band at `(0.29, 0.39)` and
+shipped 0.34. **The fresh cell falsified it hours later.** The threshold is now
+**0.15**, the "band" does not exist on real data, and the reasoning is under
+"Two instruments were wrong" below. Left here rather than deleted because the
+shape of the error is the useful part: a clean band over 20 replies from one
+scene was not evidence of a band.
 
 ## ✅ Task 70 delivered 2026-08-06 — the named exclusion is gone
 
@@ -94,8 +76,53 @@ Two things worth carrying forward:
 
 `named_exclusions()` now guards the shape, is swept per call by
 `tools/playtest_harness.py`, and a test asserts the two older checks cannot see
-what it catches. **Still open:** `return_control`/PC-routing re-measured on a
-fresh cell, which task 64 is waiting on.
+what it catches. **Its last closure item is now closed too** — see the fresh
+cell below, which also fixed a false positive in that very guard.
+
+## ✅ A fresh cell was run 2026-08-06 — and it moved three tasks
+
+Session `34390b86`, 40-turn P2 `base`, same scenario/model/controls as the
+archive, post-65 and post-70. `plans/artifacts/repetition-battery/base-P2-r1/`.
+
+| | archive | fresh cell |
+|---|---|---|
+| **65** `director_authored` speech records | 181/618 (**29.3%**) | **0/119 (0%)** |
+| **63** marker on persisted speech | 15 | **0** |
+| **63** marker in the live ledger | 6 | **0** |
+| **63** marker in narration | 4 | 3 |
+| **70/64** `return_control=True` | 5/482 (1.0%) | 2/40 (**5.0%**) |
+| **70/64** controlled character routed | 11/482 (2.3%) | 1/40 (2.5%) |
+
+1. **65's headline defect is at zero on a live session.** First closure item met.
+2. **63's falsifier fired** — zero in persisted speech AND zero in the ledger, so
+   by its own written rule it is *"a prose-rendering cosmetic issue and drops out
+   of wave 1"*. Not cancelled; re-scope it (option 2 alone is probably enough now,
+   option 1's architecture was sized against damage that no longer exists).
+3. **70's last item is closed** and 64's gate is open, with 64's numbers now
+   marked stale.
+
+### ⚠ Two instruments were wrong, and the cell is what found them
+
+**`named_exclusions` had a false positive that the archive could not show.**
+`\bmenos\b` matched *"despenca a menos de dois metros de Link"* — a distance, not
+an exclusion — firing 15 times in the fresh session and **zero** times across all
+631 archived prompts. Fixed to require a universal (`todos menos`). The archive
+"before" number of 371/631 is unaffected: all 371 were real blocks.
+
+**`_INTENT_CARRIED_RATIO`'s band was a synthetic artifact, and is now 0.15.**
+The 20-reply replay said `(0.29, 0.39)` was empty. The live cell flagged 9 of 42
+case-C events at 0.34, and **a read of all 9 finds every one compliant** — the
+cause is Portuguese morphology (`formarem` against `formem`), which exact token
+matching cannot pair. Pooled real+synthetic compliant replies span 0.15-0.79
+against a control of 0.00-0.29: **the clouds overlap and no threshold separates
+them.** 0.15 is damage control, not calibration, because the expensive error is
+a Narrator report printed beside a compliant line.
+
+**The lesson worth carrying:** the case-C falsifier *fired and was wrong*. It
+reads a high `mandate_ignored` rate as the mandate losing, which would have sent
+case C back to a dedicated call — but 42 of 42 case-C events were compliant. The
+mandate won and the ruler lost. Falsifiers over a measured quantity need a clause
+that checks the measurement, and 65's now has one.
 
 ## ⚠ `plans/` vanished mid-session, and was restored
 
@@ -153,15 +180,15 @@ per-turn audit over a finished history.
 
 ## Roadmap position
 
-Wave 0 ✅ (task 68). Wave 1 is **65 ✅, 70 ✅, then 63, then 67** — that is the
-ROADMAP table's order, which is the authority; the line here used to say
-"63, 67, 70, 64" and was wrong.
+Wave 0 ✅ (task 68). Wave 1 was **65, 70, 63, 67**. After the fresh cell:
+**65 ✅, 70 ✅, 63 falsified out, so 67 is what remains.**
 
-**63 is next, and it must be re-measured before it is designed.** The ROADMAP
-gates it on 65, which removed 42 of its 43 cases, and the roadmap's re-review
-already killed its option-shopping: *"option 1, per-viewer projection, is the
-correct one and the drop path is dead."* Its "before" number is stale — it was
-taken with the producer 65 just replaced still in play.
+**67 — zone graph integrity — is next.** It is the only wave-1 item left, it is
+independent of everything shipped today, and the fresh cell shows its population
+alive: 2 records with an empty audience, both `graph_isolated`, both C2 in "alto
+da brecha, cobertura" with 20 others present and **zero** zone-reachable. That is
+the archive's finding (31 of 33 empty audiences were the zone graph, not the
+model) reproducing on the current engine.
 
 Wave 2: 69 (owns the durable-state interface for the phase), then 72 if its gate
 opens. 71 is parked pending 67's re-measurement. 64 is waiting on 70's

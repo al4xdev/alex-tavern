@@ -169,9 +169,25 @@ pre-registered, and it decided nothing.
       the negative half (without an exclusion the same response routes everyone,
       so the drop is the exclusion working and not normalization eating the
       first entry);
-- [ ] `return_control` and PC-routing rates re-measured on one cell afterwards,
-      and the result written into task 64 before 64 is designed. **Still open:
-      this needs a fresh cell, not the archive.**
+- [x] `return_control` and PC-routing rates re-measured on one cell afterwards
+      *(2026-08-06, session `34390b86`, 40-turn P2 base)*:
+
+| | archive, WITH the exclusion | fresh cell, WITHOUT it |
+|---|---|---|
+| `return_control=True` | 5 of 482 Director turns (**1.0%**) | 2 of 40 (**5.0%**) |
+| controlled character routed | 11 of 482 (**2.3%**) | 1 of 40 (**2.5%**) |
+
+**`return_control` rose about fivefold; PC routing did not move.** Both samples
+are small — 2 events against 5 — so this is a direction, not a rate. What it
+does establish is that task 64 must not be designed against the archive's 1%,
+which is the reason this item existed.
+
+The controlled character still never reaches a persisted record as a speaker
+(`pc_records_in_history` = 0): the one raw routing was dropped by normalization,
+which is the mechanism working with nothing in the prompt to help it.
+
+**Handed to task 64.** The archive's "control never returned in 5 of 12
+sessions" is the number that most needs re-taking, and one cell cannot.
 
 `named_exclusions` is also swept per call by `tools/playtest_harness.py`
 alongside the other two contract checks, under the same
