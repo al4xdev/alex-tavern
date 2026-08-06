@@ -398,6 +398,77 @@ most of the defect; it carries all of it.**
 guarding the Director's prose and start guarding the routed character's, which is
 why they were worth building before the part that needs live validation.
 
+### ✅ Items 1-3 IMPLEMENTED — 2026-08-06, with the mechanism CHANGED
+
+**The written shape did not survive measurement either, for the second time in
+this task.** It said *"for each event, call the subject's character agent and
+persist that reply"*. Measured first: of the 639 Director-authored records,
+**403 (63%) are for a character who already speaks that turn.** Routing those
+separately gives the same character two records in one turn — the duplication
+this task exists to remove, re-authored in a better voice. The owner chose the
+alternative on 2026-08-06.
+
+| population | n | mechanism |
+|---|---|---|
+| **A** subject silent this turn | **209 (33%)** | one call of their own, gathered |
+| **B** intent restates their own line | **27 (4%)** | dropped as an echo |
+| **C** subject already speaks this turn | **403 (63%)** | the intent becomes a **mandate inside the call they were already making** |
+
+Case C costs **zero** extra calls and yields one record instead of two. Only
+case A adds calls: **257 of 434 turns (59%) need none**, 149 need one, 24 need
+two, 4 need three — and those issue in one `asyncio.gather`, so the archive's
+worst turn is one round trip rather than three.
+
+The plumbing was already there and pointed the wrong way: `render_events_for_viewer`
+(`perception.py:121`) already shows a character the `audible_speech` event where
+they are the subject. They read *"Nix shouts: 'the beam is pinning the fresta'"*
+as **ambient perception**, treat it as something that already happened, answer
+it — and the Director's sentence persisted beside their answer. So the fix for
+case C is not new machinery; it is moving that line out of the perception stream
+and into an obligation (`_speech_mandate_note`, `character.py`).
+
+**Two corrections found by the tests, both worth keeping in writing:**
+
+1. **Routing would have voiced the player.** The first version routed any
+   non-queued subject, and `tests/test_perception.py` caught it immediately: the
+   runner would have generated the human's own dialogue. The controlled
+   character can be neither mandated nor routed.
+2. **But refusing them outright breaks WT-09**, which the original persistence
+   test caught in turn. WT-09's founding case *is* the player's character — a
+   cipher read aloud whose content exists **only** in the Director's event, never
+   in what the human typed. So a controlled-character intent takes the
+   degradation path: the Narrator reports it, every witness can still recall it,
+   and no record claims the human said words they did not write. The other half
+   of that defect — the Director paraphrasing what the player actually submitted
+   (`base-P2-r1` T2) — never reaches there, because `_echoes_recent_speech`
+   already counts the `Player` sentinel as the same voice.
+
+**Refusals are now six, all logged** (`log_audible_speech_drop`): `echo`,
+`whisper_leak`, `internal_id`, `foreign_language`, plus the two outcomes
+`voiced_by_owner` (the mandate worked) and `mandate_ignored` / `routing_failed` /
+`player_voice` (the degradation path fired). That log **is** the calibration
+instrument for the next section.
+
+### ⚠ What is NOT validated, and must be before the checkpoint
+
+- **The Director prompt change is unvalidated live.** `AGENTS.md` §6 says the
+  validated variant is the shipped variant and its position is part of the
+  variant. The DIALOGUE OWNERSHIP rule had to change — it told the Director to
+  *"never invent new dialogue… record only words already spoken in HISTORY"*,
+  which the new engine contradicts, so leaving it was not an option. But the
+  replacement has not faced a live Director. **Run the replay before the
+  checkpoint.**
+- **`_INTENT_CARRIED_RATIO` (0.5) is the one threshold in this task that could
+  not be measured first.** It judges compliance with a prompt that did not exist
+  until today, so the archive contains no positives for it. Everything else here
+  was sized against 3,936 archived records; this was not, and saying so is
+  cheaper than pretending otherwise. Calibrate it at the checkpoint from
+  `mandate_ignored` counts in `debug.jsonl`.
+- **The falsifier for the whole case-C mechanism:** if `mandate_ignored` fires on
+  a large share of case C, the mandate is a prompt promise that loses — exactly
+  what this task says about prompt promises — and case C should fall back to
+  case A's dedicated call, at the cost the owner already accepted.
+
 ## Closure evidence required
 
 - [ ] no persisted record claims a character said words the character did not
@@ -405,15 +476,20 @@ why they were worth building before the part that needs live validation.
       (`director_speech.director_authored`, **458** in P1 today), **and** the
       scanner extended to count the degradation-path records, so the invariant
       cannot be satisfied by reclassifying speech as narration;
-- [ ] the routing calls are gathered, not serial — asserted on a turn with more
-      than one `audible_speech` event (the archive's worst turn has four);
-- [ ] the degradation path is counted and logged every time it fires, with the
-      reason;
-- [ ] WT-09 preserved: a test where a witness who did not reply can still recall
-      a fact voiced to the room on a later turn;
+- [x] the routing calls are gathered, not serial — asserted on a turn with more
+      than one `audible_speech` event (the archive's worst turn has four)
+      *(2026-08-06; asserted by overlap, not by timing — each stub call parks
+      until every call has started, which serial execution can never satisfy)*;
+- [x] the degradation path is counted and logged every time it fires, with the
+      reason *(2026-08-06)*;
+- [x] WT-09 preserved: a test where a witness who did not reply can still recall
+      a fact voiced to the room on a later turn *(2026-08-06 — the original
+      WT-09 test still passes, now through the degradation path)*;
 - [x] `oldcode-P1-r1` T39's id leak cannot recur — a test asserting no `C\d+`
       reaches a persisted record *(2026-08-06)*;
-- [ ] a test that the player's own submitted line is never re-voiced back;
+- [x] a test that the player's own submitted line is never re-voiced back
+      *(2026-08-06 — and the neighbouring case, a reveal caused BY the player
+      that they never typed, still reaches every witness)*;
 - [x] the language-flip case: a Director event in the wrong language cannot
       become a persisted record *(2026-08-06)*;
 - [ ] a blind read of the post-65a cell against the archived pre-65a transcripts,

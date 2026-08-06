@@ -156,22 +156,43 @@ async def test_whisper_narration_audible_speech_is_not_persisted(monkeypatch) ->
 # ── Task 65, item 4: the two deterministic guards, end to end ─────────────
 
 
-async def _turn_with_event(monkeypatch, content: str, config: dict) -> tuple[list, list]:  # noqa: ANN001
+async def _turn_with_event(  # noqa: ANN001
+    monkeypatch,
+    content: str,
+    config: dict,
+    *,
+    subject: str = "C2",
+    queue: list[str] | None = None,
+    reply: str | None = None,
+) -> tuple[list, list]:
     """Run one turn whose only audible_speech event carries ``content``.
+
+    ``queue`` routes characters the normal way; ``reply`` is what every called
+    character says, so a test can decide whether the mandate was honoured.
 
     Returns ``(history, drop log entries)``.
     """
+    import src.runner as runner_mod
     from src.llm.debug_log import read_entries
+    from src.models import CharacterPerspective
     from src.runner import Runner
+
+    async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return CharacterPerspective(
+            initialized_turn=kwargs.get("turn_number", 0),
+            processed_through_turn=kwargs.get("turn_number", 0),
+        )
+
+    monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
 
     async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
         return {
             "narration": "A sala escuta.",
-            "next_speakers": ["Narrator"],
+            "next_speakers": list(queue or ["Narrator"]),
             "perception_events": [
                 {
                     "event_kind": "audible_speech",
-                    "subject_id": "C2",
+                    "subject_id": subject,
                     "content": content,
                     "witness_ids": ["C1", "C3"],
                 }
@@ -179,6 +200,9 @@ async def _turn_with_event(monkeypatch, content: str, config: dict) -> tuple[lis
             "scene_update": None,
             "mood_updates": None,
         }
+
+    async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return {"speech": reply, "thought": "Penso."}
 
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {"auto_event_enabled": False, **config})
@@ -190,6 +214,7 @@ async def _turn_with_event(monkeypatch, content: str, config: dict) -> tuple[lis
             }
         )
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(runner, "_call_character", fake_character)
         monkeypatch.setattr(
             runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
         )
@@ -230,11 +255,158 @@ async def test_a_wrong_language_event_never_reaches_a_record(monkeypatch) -> Non
     assert [d for d in drops if d["reason"] == "foreign_language"], "the drop must be logged"
 
 
-@pytest.mark.asyncio
-async def test_an_ordinary_portuguese_line_still_persists(monkeypatch) -> None:  # noqa: ANN001
-    """The guards must not cost the channel its reason to exist (WT-09)."""
-    line = "Anuncia em voz alta que a selecao comeca ao terceiro sino."
-    history, drops = await _turn_with_event(monkeypatch, line, {"language": "Portuguese"})
+# ── Task 65, items 1-3: the Director rules WHAT is said, never the words ──
 
-    assert [r for r in history if "terceiro sino" in r.content]
+
+@pytest.mark.asyncio
+async def test_a_silent_subject_is_routed_and_speaks_in_their_own_words(monkeypatch) -> None:  # noqa: ANN001
+    """Case A (209 of 639 archived events): the subject says nothing this turn,
+    so they get a call of their own and THEIR line is what persists."""
+    intent = "Anuncia em voz alta que a selecao comeca ao terceiro sino."
+    own_words = "Ao terceiro sino, a selecao comeca. Ninguem se atrasa."
+    history, drops = await _turn_with_event(
+        monkeypatch, intent, {"language": "Portuguese"}, reply=own_words
+    )
+
+    assert [r for r in history if r.content == own_words and r.speaker == "C2"]
+    assert not [r for r in history if r.content == intent], "the Director's words must not persist"
     assert not drops
+
+
+@pytest.mark.asyncio
+async def test_an_owner_who_carries_the_mandate_produces_exactly_one_record(monkeypatch) -> None:  # noqa: ANN001
+    """Case C (403 of 639 — the majority): the subject already speaks this turn.
+    The intent rides along in the call they were making anyway, so the room hears
+    the beat once, in their voice, at no extra call."""
+    intent = "Anuncia em voz alta que a selecao comeca ao terceiro sino."
+    own_words = "Ao terceiro sino comeca a selecao. Fiquem prontos."
+    history, drops = await _turn_with_event(
+        monkeypatch, intent, {"language": "Portuguese"}, queue=["C2"], reply=own_words
+    )
+
+    spoken = [r for r in history if r.content_type == "speech" and r.speaker == "C2"]
+    assert len(spoken) == 1, "the same beat must not be spoken twice"
+    assert spoken[0].content == own_words
+    assert [d for d in drops if d["reason"] == "voiced_by_owner"]
+
+
+@pytest.mark.asyncio
+async def test_an_ignored_mandate_degrades_to_a_narrator_report(monkeypatch) -> None:  # noqa: ANN001
+    """The mandate is a prompt instruction, and this project's whole thesis is
+    that prompt promises lose. When the reply does not carry the fact, WT-09
+    still has to hold: the Narrator REPORTS the speech instead of the character
+    quoting words they never wrote."""
+    intent = "Anuncia em voz alta que a selecao comeca ao terceiro sino."
+    history, drops = await _turn_with_event(
+        monkeypatch,
+        intent,
+        {"language": "Portuguese"},
+        queue=["C2"],
+        reply="Nao vou carregar ninguem nessa prova.",
+    )
+
+    reports = [r for r in history if r.speaker == "Narrator" and "terceiro sino" in r.content]
+    assert reports, "the fact must still reach the witnesses"
+    assert not [r for r in history if r.content_type == "speech" and r.content == intent]
+    assert [d for d in drops if d["reason"] == "mandate_ignored"]
+
+
+@pytest.mark.asyncio
+async def test_the_players_own_character_is_never_voiced(monkeypatch) -> None:  # noqa: ANN001
+    """The runner never writes the human's dialogue, so the Narrator reports it
+    instead of the player's character appearing to say it.
+
+    Not a drop: WT-09's founding case is a cipher read aloud BY the player's
+    character whose content exists only in this event, so refusing it outright
+    would lose a fact. The other half — the Director paraphrasing what the human
+    actually typed (`base-P2-r1` T2) — is caught earlier as an echo.
+    """
+    intent = "Link responde, em tom neutro, que continua ali e concorda em seguir."
+    history, drops = await _turn_with_event(
+        monkeypatch, intent, {"language": "Portuguese"}, subject="C1", reply="nao deveria falar"
+    )
+
+    assert not [r for r in history if r.speaker == "C1" and "tom neutro" in r.content]
+    assert [r for r in history if r.speaker == "Narrator" and "tom neutro" in r.content]
+    assert [d for d in drops if d["reason"] == "player_voice"]
+
+
+@pytest.mark.asyncio
+async def test_routed_intents_are_gathered_not_serial(monkeypatch) -> None:  # noqa: ANN001
+    """The archive's worst turn carries four audible_speech events. Serially that
+    is four round trips for one beat; they are independent by construction, so
+    they issue together. Asserted by overlap, not by timing: each call parks
+    until every call has started."""
+    import asyncio
+
+    import src.runner as runner_mod
+    from src.models import CharacterPerspective
+    from src.runner import Runner
+
+    async def fake_init(client, viewer_id, characters, config, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return CharacterPerspective(
+            initialized_turn=kwargs.get("turn_number", 0),
+            processed_through_turn=kwargs.get("turn_number", 0),
+        )
+
+    monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
+
+    subjects = ["C2", "C3"]
+    gates = {"C2": "norte", "C3": "sul"}
+    started = asyncio.Event()
+    in_flight: list[str] = []
+
+    async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        return {
+            "narration": "A sala escuta.",
+            "next_speakers": ["Narrator"],
+            "perception_events": [
+                {
+                    "event_kind": "audible_speech",
+                    "subject_id": cid,
+                    "content": f"Anuncia que o portao {gates[cid]} cede ao terceiro sino.",
+                    "witness_ids": ["C1"],
+                }
+                for cid in subjects
+            ],
+            "scene_update": None,
+            "mood_updates": None,
+        }
+
+    async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+        in_flight.append(character_id)
+        if len(in_flight) == len(subjects):
+            started.set()
+        # Serial execution can never satisfy this: the first call would block
+        # forever waiting for a second that has not been issued yet.
+        await asyncio.wait_for(started.wait(), timeout=2)
+        return {
+            "speech": f"O portao {gates[character_id]} cede ao terceiro sino.",
+            "thought": "Penso.",
+        }
+
+    async with httpx.AsyncClient() as client:
+        runner = Runner(client, {"auto_event_enabled": False, "language": "Portuguese"})
+        sid = await runner.start_session(
+            {
+                "characters": dict(CHARACTERS),
+                "scene": deepcopy_scene(SCENE),
+                "controlled_character_id": "C1",
+            }
+        )
+        monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
+        monkeypatch.setattr(runner, "_call_character", fake_character)
+        monkeypatch.setattr(
+            runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
+        )
+        try:
+            await runner.player_turn(sid, speech="Observo a sala.")
+            game = await runner.get_state(sid)
+        finally:
+            await delete_session(sid)
+
+    assert game is not None
+    assert sorted(in_flight) == sorted(subjects)
+    # Persisted in the Director's order, never in completion order.
+    spoken = [r.speaker for r in game.history if r.content_type == "speech"]
+    assert [s for s in spoken if s in subjects] == subjects

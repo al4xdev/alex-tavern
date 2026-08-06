@@ -259,6 +259,32 @@ def _build_present_roster(
     )
 
 
+def _speech_mandate_note(intents: list[str]) -> str:
+    """The facts this character must voice this turn, in their own words.
+
+    Task 65. The Director may decide that something is said aloud — a verdict, a
+    name, an order — because the world needs it said. It may not decide the
+    WORDS: `AGENTS.md` §3 gives speech to the character alone. Before this note
+    existed the intent reached the character as an ordinary perception line, and
+    on 403 of 639 archived events they read it and said something else, so the
+    Director's own sentence was persisted beside theirs and the room heard the
+    same beat twice in two voices.
+
+    Stated as an obligation and placed last, where the turn instruction is.
+    """
+    if not intents:
+        return ""
+    lines = "\n".join(f"- {intent}" for intent in intents)
+    return (
+        "THE ROOM MUST HEAR THIS FROM YOU THIS TURN:\n"
+        f"{lines}\n"
+        "Say it aloud, in your own voice and your own words — not as a summary "
+        "and not as a report about yourself. Rephrase it however suits you, but "
+        "the fact itself must be unmistakable to everyone listening. You may say "
+        "more besides."
+    )
+
+
 def _build_user_prompt(
     context: str,
     history_text: str,
@@ -268,6 +294,7 @@ def _build_user_prompt(
     disposition_note: str = "",
     alignment_impulse: str = "",
     present_roster: str = "",
+    speech_mandate: str = "",
 ) -> str:
     """Put append-only history before the Character's changing state and context.
 
@@ -297,6 +324,7 @@ def _build_user_prompt(
         f"{context}\n"
         "\n"
         + (f"{whisper_note}\n\n" if whisper_note else "")
+        + (f"{speech_mandate}\n\n" if speech_mandate else "")
         + "Return your audible speech and private thought in the requested fields."
     )
 
@@ -541,6 +569,7 @@ async def act(
     viewer_perspective=None,
     dispositions=None,  # noqa: ANN001 — DispositionState | None (Task 43)
     alignment_impulse: str = "",
+    speech_intents: list[str] | None = None,
 ) -> CharacterOutput:
     """Build the Character prompt and return separate speech/thought fields.
 
@@ -566,6 +595,11 @@ async def act(
                A non-None value also injects the THIS TURN IS A WHISPER note in
                the turn prompt, so the character speaks secrets in full to its
                confidants instead of hedging.
+        speech_intents: Facts the Director ruled are said aloud by THIS character
+               this turn (task 65). They arrive as an obligation to voice, never
+               as words to copy — the Director owns whether something is said,
+               the character owns how. The runner verifies afterwards that the
+               reply carries them and falls back to a Narrator report if not.
 
     Returns:
         Nullable speech/thought fields, with at least one populated. Speech that
@@ -610,6 +644,7 @@ async def act(
                     viewer_perspective=viewer_perspective,
                 ),
                 alignment_impulse=alignment_impulse,
+                speech_mandate=_speech_mandate_note(list(speech_intents or [])),
             ),
         },
     ]

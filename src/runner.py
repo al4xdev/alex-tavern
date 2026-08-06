@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import re
+import unicodedata
 from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from functools import partial
@@ -344,6 +345,69 @@ def _foreign_language(spoken: str, language: str) -> bool:
     if markers < _LANGUAGE_MIN_MARKERS:
         return False
     return english / markers >= _LANGUAGE_FOREIGN_RATIO
+
+
+def _is_own_speech_intent(event: dict[str, Any], viewer_id: str) -> bool:
+    """True when this event is the viewer's OWN line to speak this turn."""
+    return event.get("event_kind") == "audible_speech" and event.get("subject_id") == viewer_id
+
+
+_INTENT_WORD_RE = re.compile(r"[a-zà-ÿ]+")
+# Function words and the Director's reporting verbs. Left in, they make any two
+# Portuguese sentences look related; the question here is whether the FACT
+# survived, and a fact is carried by its content words.
+_INTENT_STOPWORDS = frozenset(
+    (
+        "que", "de", "da", "das", "dos", "nao", "uma", "para", "com", "por", "os",
+        "as", "se", "na", "no", "nas", "nos", "ao", "aos", "ele", "ela", "eles",
+        "elas", "seu", "sua", "seus", "suas", "mas", "como", "mais", "ja", "ainda",
+        "quando", "sobre", "pelo", "pela", "esta", "estao", "ser", "ter", "tem",
+        "isso", "essa", "esse", "este", "em", "sao", "foi", "voz", "alta", "diz",
+        "disse", "fala", "falou", "anuncia", "anunciou", "comenta", "comentou",
+        "responde", "respondeu", "pergunta", "perguntou", "afirma", "declara",
+        "ordena", "avisa", "todos", "todas",
+    )
+)  # fmt: skip
+# The same instrument, at the same threshold, that measured this task's three
+# populations against the archive (65 "⚠ 65a's premise did not survive
+# verification"): shared content words over the smaller set. 0.5 was called
+# there "a defensible reading" of restatement, and the reading is the same one
+# here — did this sentence and that sentence carry the same fact.
+_INTENT_CARRIED_RATIO = 0.5
+
+
+def _intent_words(text: str) -> set[str]:
+    folded = unicodedata.normalize("NFD", text.lower())
+    stripped = "".join(c for c in folded if unicodedata.category(c) != "Mn")
+    return {
+        word
+        for word in _INTENT_WORD_RE.findall(stripped)
+        if len(word) > 3 and word not in _INTENT_STOPWORDS
+    }
+
+
+def _carries_intent(spoken: str, intent: str) -> bool:
+    """True when a character's line carries the fact the Director ruled aloud.
+
+    Deliberately NOT a similarity score between two sentences. The character is
+    told to rephrase, so wording is expected to diverge; what may not diverge is
+    the fact. An intent with no content words of its own ("she speaks up") has
+    nothing checkable in it and is treated as carried, because refusing it would
+    send an empty fact down the degradation path forever.
+
+    This is the one threshold in the task that could NOT be measured before
+    shipping: it judges compliance with a prompt that did not exist until now,
+    so the archive has no positives for it. It is calibrated at the checkpoint
+    against `mandate_ignored` counts in ``debug.jsonl``, and the falsifier is
+    written into the task.
+    """
+    wanted = _intent_words(intent)
+    if not wanted:
+        return True
+    if not spoken.strip():
+        return False
+    shared = wanted & _intent_words(spoken)
+    return len(shared) / len(wanted) >= _INTENT_CARRIED_RATIO
 
 
 def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None]:
@@ -822,10 +886,22 @@ class Runner:
                 narration = await self._render_and_prepare(
                     game, narrator_raw, queue, step, multi_beat=max_beats > 1
                 )
+                # The Director decides WHAT is said aloud; the character decides
+                # the words (task 65). Owners get their intent as a mandate in
+                # the call they were already making; the rest are routed after.
+                speech_intents = self._admissible_speech_intents(game, narrator_raw, step)
+                owners = set(self._callable_speakers(game, queue))
+                mandates: dict[str, list[str]] = {}
+                for event, spoken, _ in speech_intents:
+                    subject = str(event["subject_id"])
+                    if subject in owners:
+                        mandates.setdefault(subject, []).append(spoken)
                 character_responses = await self._run_speaker_queue(
-                    game, queue, narrator_raw, turn, step
+                    game, queue, narrator_raw, turn, step, intents=mandates
                 )
-                self._persist_audible_speech(game, narrator_raw, step)
+                await self._resolve_speech_intents(
+                    game, speech_intents, owners, character_responses, step
+                )
 
                 # A beat that left NO trace never happened. It reaches here when
                 # the burst's anti-repetition filter empties its events and the
@@ -1403,6 +1479,24 @@ class Runner:
             self._append_history(game, "Narrator", narration, "narration", step)
         return narration
 
+    def _callable_speakers(self, game: GameState, queue: list[str]) -> list[str]:
+        """The queue entries the runner may actually voice, in order.
+
+        Factored out because two paths need the same answer and a copy of this
+        filter that drifts would silently change WHO owns a line: the reply loop
+        calls these, and `_resolve_speech_intents` treats exactly the others as
+        needing a call of their own.
+        """
+        controlled = game.player.controlled_character_id
+        speakers: list[str] = []
+        for speaker in queue:
+            if speaker == controlled:
+                break
+            if speaker not in game.characters or speaker not in game.scene.present_characters:
+                continue
+            speakers.append(speaker)
+        return speakers
+
     async def _run_speaker_queue(
         self,
         game: GameState,
@@ -1410,6 +1504,7 @@ class Runner:
         narrator_raw: dict[str, Any],
         turn: TurnInput,
         step: int,
+        intents: dict[str, list[str]] | None = None,
     ) -> list[dict[str, Any]]:
         """Let each routed character speak, in order, seeing the previous replies.
 
@@ -1420,14 +1515,17 @@ class Runner:
         returns to the human (the runner never generates their speech). A
         whispered exchange stays whispered: when a replying character is part of
         the turn's audience, its reply keeps the same audience.
+
+        ``intents`` carries the facts the Director ruled this speaker says aloud
+        (task 65). They are handed over as an obligation to voice rather than
+        left in the perception stream, and they are REMOVED from that stream for
+        this viewer — read as ambient perception the character treats them as
+        something that already happened and answers it, which is how the same
+        beat ended up spoken twice in two voices.
         """
-        controlled = game.player.controlled_character_id
+        intents = intents or {}
         responses: list[dict[str, Any]] = []
-        for speaker in queue:
-            if speaker == controlled:
-                break
-            if speaker not in game.characters or speaker not in game.scene.present_characters:
-                continue
+        for speaker in self._callable_speakers(game, queue):
             reply_audience = (
                 turn.audience if turn.audience is not None and speaker in turn.audience else None
             )
@@ -1435,7 +1533,11 @@ class Runner:
             # Each speaker receives only the typed perception events they witness
             # (zone-clamped upstream), projected through their own identity ledger.
             ctx = render_events_for_viewer(
-                narrator_raw["perception_events"],
+                [
+                    event
+                    for event in narrator_raw["perception_events"]
+                    if not _is_own_speech_intent(event, speaker)
+                ],
                 speaker,
                 game.characters,
                 game.character_perspectives.get(speaker),
@@ -1457,7 +1559,13 @@ class Runner:
             response = await self.plugins.hooks.call_wrapped(
                 Hook.CHARACTER_CALL,
                 partial(
-                    self._call_character, game, speaker, ctx, step, reply_audience=reply_audience
+                    self._call_character,
+                    game,
+                    speaker,
+                    ctx,
+                    step,
+                    reply_audience=reply_audience,
+                    speech_intents=intents.get(speaker),
                 ),
                 {"game": game, "character_id": speaker, "turn_number": step, "runner": self},
             )
@@ -1481,40 +1589,31 @@ class Runner:
             responses.append({"character_id": speaker, **response})
         return responses
 
-    def _persist_audible_speech(
+    def _admissible_speech_intents(
         self, game: GameState, narrator_raw: dict[str, Any], step: int
-    ) -> None:
-        """Persist the Director's audible_speech events as spoken records (WT-09).
+    ) -> list[tuple[dict[str, Any], str, list[str] | None]]:
+        """The Director's audible_speech events that may still reach the room.
 
-        A fact voiced to the room — a decoded cipher, a name, a verdict — is a
-        real world event: every witness must be able to RECALL it on a later turn,
-        not only whoever happened to reply this turn. These events were rendered
-        to this turn's repliers and the prose, then discarded, so a witness who
-        did not speak never got the fact and memory (which reads history) never
-        had it. Scoped to who heard it (witness_ids), zone origin.
+        Returns ``(event, spoken, heard_by)`` for the survivors, in the
+        Director's own order. Everything refused here is refused for reasons
+        that hold whoever ends up writing the words, so the filter runs ONCE and
+        both the mandate path and the routed path consume the same list.
 
-        Leak guard: the Director sometimes re-narrates a WHISPER with a broad
-        "just audible to those nearby" scope but the secret content inside. The
-        transient render path redacts that per viewer; a persisted shared record
-        cannot, so any event whose content would hand a whisper secret to a
-        non-confidant is SKIPPED. A public reveal of Director canon (a name never
-        whispered) carries no whisper token, so it persists.
+        Four refusals, every one logged. A refusal is a line the reader never
+        sees, so a silent drop would be invisible content loss and
+        ``log_audible_speech_drop`` is what makes the channel's losses countable
+        at the checkpoint.
 
-        Four refusals in all — ``echo``, ``whisper_leak``, ``internal_id`` and
-        ``foreign_language`` — and every one of them is logged. A refusal here is
-        a line the reader never sees, so a silent drop would be invisible content
-        loss; ``log_audible_speech_drop`` is what makes the channel's losses
-        countable at the checkpoint.
-
-        The last two guards are deterministic and independent of who *authors*
-        the text (task 65, item 4). They stay useful after routing lands: they
-        move from guarding the Director's prose to guarding the routed
-        character's.
-
-        Called AFTER the reply loop so this turn's repliers still get it through
-        perception alone, never doubled into RECENT EVENTS, and after the whisper
-        records exist in history.
+        - ``echo`` — the Director re-voiced a line already in history.
+        - ``internal_id`` / ``foreign_language`` — the deterministic guards from
+          task 65 item 4.
+        - ``whisper_leak`` — the Director sometimes re-narrates a WHISPER with a
+          broad "just audible to those nearby" scope but the secret content
+          inside. The transient render path redacts that per viewer; a shared
+          record cannot, so the event is dropped whole. A public reveal of
+          Director canon carries no whisper token and survives.
         """
+        out: list[tuple[dict[str, Any], str, list[str] | None]] = []
         for event in narrator_raw["perception_events"]:
             if event.get("event_kind") != "audible_speech":
                 continue
@@ -1523,13 +1622,10 @@ class Runner:
             if not spoken or subject not in game.characters:
                 continue
             if _echoes_recent_speech(game, subject, spoken):
-                # the Director re-voiced a line that is already history
                 log_audible_speech_drop(game.session_id, step, subject, "echo", spoken[:160])
                 continue
             if _leaks_internal_id(game, spoken):
-                log_audible_speech_drop(
-                    game.session_id, step, subject, "internal_id", spoken[:160]
-                )
+                log_audible_speech_drop(game.session_id, step, subject, "internal_id", spoken[:160])
                 continue
             if _foreign_language(spoken, str(self.config.get("language", ""))):
                 log_audible_speech_drop(
@@ -1551,14 +1647,149 @@ class Runner:
                 != spoken
                 for vid in listeners
             ):
-                # would leak a whisper secret to a non-confidant
                 log_audible_speech_drop(
                     game.session_id, step, subject, "whisper_leak", spoken[:160]
                 )
                 continue
+            out.append((event, spoken, heard_by))
+        return out
+
+    async def _resolve_speech_intents(
+        self,
+        game: GameState,
+        intents: list[tuple[dict[str, Any], str, list[str] | None]],
+        owners: set[str],
+        responses: list[dict[str, Any]],
+        step: int,
+    ) -> None:
+        """Give every intent a voice that is allowed to own it (task 65).
+
+        A fact voiced to the room — a decoded cipher, a name, a verdict — is a
+        real world event, and WT-09 requires every witness to be able to RECALL
+        it later, not only whoever replied this turn. That requirement stays.
+        What changes is the producer: `AGENTS.md` §3 gives speech to the
+        character, and this channel used to persist the DIRECTOR's sentence
+        under the character's byline on 639 archived records.
+
+        Three populations, measured over the archive before this was built:
+
+        - the subject already speaks this turn (**403 of 639**). The intent was
+          handed to them as a mandate by `_run_speaker_queue`; if their reply
+          carries it, their own record is the only one there should be and
+          nothing happens here.
+        - the subject is silent this turn (**209**). They get a call of their
+          own, and every such call in a beat is issued in ONE ``gather`` — they
+          are independent by construction, and the archive's worst turn wants
+          three of them, which serially is three round trips for one beat.
+        - the intent restated a line the subject had already spoken (**27**),
+          which `_admissible_speech_intents` already dropped as an echo.
+
+        The degradation path catches what routing cannot serve: a reply that did
+        not carry the mandate, a call that failed, a subject who cannot be
+        voiced. Then the fact is persisted as a NARRATOR report of the speech
+        rather than a quote of it — world-event territory, which §3 does give the
+        Narrator — and it is counted, never silent. What must never happen again
+        is a record claiming a character said words the character did not write.
+        """
+        if not intents:
+            return
+        spoken_by: dict[str, str] = {}
+        for response in responses:
+            line = str(response.get("speech") or "")
+            if line:
+                spoken_by[str(response["character_id"])] = line
+
+        pending: list[tuple[dict[str, Any], str, list[str] | None]] = []
+        for event, spoken, heard_by in intents:
+            subject = str(event["subject_id"])
+            if subject == game.player.controlled_character_id:
+                # The runner never writes the human's dialogue, so this one can
+                # be neither mandated nor routed. It is NOT dropped: the player's
+                # own action can reveal something they never typed — WT-09's
+                # founding case is exactly that, a cipher read aloud by the
+                # player's character whose content exists only in this event. So
+                # the Narrator reports it and every witness can still recall it.
+                # The other half — the Director paraphrasing what the human
+                # actually submitted (`base-P2-r1` T2, "Link responde... que
+                # continua aqui") — never reaches here: `_echoes_recent_speech`
+                # already counts the Player sentinel as the same voice.
+                self._report_speech(game, subject, spoken, heard_by, step, "player_voice")
+                continue
+            if subject not in owners:
+                pending.append((event, spoken, heard_by))
+                continue
+            if _carries_intent(spoken_by.get(subject, ""), spoken):
+                log_audible_speech_drop(
+                    game.session_id, step, subject, "voiced_by_owner", spoken[:160]
+                )
+                continue
+            self._report_speech(game, subject, spoken, heard_by, step, "mandate_ignored")
+
+        if not pending:
+            return
+        routed = await asyncio.gather(
+            *(
+                self._route_speech_intent(game, str(event["subject_id"]), spoken, step)
+                for event, spoken, _ in pending
+            ),
+            return_exceptions=True,
+        )
+        # Persisted in the Director's order, never in completion order: the
+        # gather is a latency device and must not become a source of nondeterminism.
+        for (event, spoken, heard_by), line in zip(pending, routed, strict=True):
+            subject = str(event["subject_id"])
+            if isinstance(line, BaseException) or not line:
+                self._report_speech(game, subject, spoken, heard_by, step, "routing_failed")
+                continue
+            if not _carries_intent(line, spoken):
+                self._report_speech(game, subject, spoken, heard_by, step, "mandate_ignored")
+                continue
             self._append_history(
-                game, subject, spoken, "speech", step, audience=heard_by, audience_origin="zone"
+                game, subject, line, "speech", step, audience=heard_by, audience_origin="zone"
             )
+
+    async def _route_speech_intent(
+        self, game: GameState, subject: str, spoken: str, step: int
+    ) -> str:
+        """One character call whose only job is to voice one intent."""
+        if subject not in game.characters or subject not in game.scene.present_characters:
+            return ""
+        if subject == game.player.controlled_character_id:
+            return ""  # the runner never generates the human's speech
+        await self._ensure_perspective(game, subject, step)
+        response = await self._call_character(
+            game,
+            subject,
+            "You are about to speak to the room; nothing else has changed.",
+            step,
+            speech_intents=[spoken],
+        )
+        return str(response.get("speech") or "")
+
+    def _report_speech(
+        self,
+        game: GameState,
+        subject: str,
+        spoken: str,
+        heard_by: list[str] | None,
+        step: int,
+        reason: str,
+    ) -> None:
+        """The degradation path: the Narrator REPORTS the speech, never quotes it.
+
+        The fact still reaches every witness's memory (WT-09), and no record
+        claims the character authored words they did not write.
+        """
+        log_audible_speech_drop(game.session_id, step, subject, reason, spoken[:160])
+        self._append_history(
+            game,
+            "Narrator",
+            spoken,
+            "narration",
+            step,
+            audience=heard_by,
+            audience_origin="zone",
+        )
 
     async def _commit_beat(
         self,
@@ -2658,6 +2889,7 @@ class Runner:
         context: str,
         turn_number: int,
         reply_audience: list[str] | None = None,
+        speech_intents: list[str] | None = None,
     ) -> CharacterOutput:
         """Calls Character agent with filtered context. Returns the content."""
         return await character_act(
@@ -2676,6 +2908,7 @@ class Runner:
             viewer_perspective=game.character_perspectives.get(character_id),
             dispositions=game.dispositions,
             alignment_impulse=await self._alignment_impulse(game, character_id, turn_number),
+            speech_intents=speech_intents,
         )
 
     def _update_scene(self, game: GameState, scene_update: dict | None) -> None:
