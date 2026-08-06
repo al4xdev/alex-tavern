@@ -79,6 +79,7 @@ from src.llm.debug_log import (
     log_turn_input,
     log_unanswered_player,
     log_undo,
+    log_zone_link_dropped,
 )
 from src.llm.tokens import estimate_prompt_tokens
 from src.models import (
@@ -908,7 +909,7 @@ class Runner:
                         ),
                     )
 
-                scene_up = self._apply_canon(game, narrator_raw)
+                scene_up = self._apply_canon(game, narrator_raw, step)
                 self._apply_time_skip(game, narrator_raw, step)
                 narration = await self._render_and_prepare(
                     game, narrator_raw, queue, step, multi_beat=max_beats > 1
@@ -1352,7 +1353,9 @@ class Runner:
             burst.event_texts.extend(event["content"] for event in fresh_events)
         return narrator_raw
 
-    def _apply_canon(self, game: GameState, narrator_raw: dict[str, Any]) -> dict[str, Any] | None:
+    def _apply_canon(
+        self, game: GameState, narrator_raw: dict[str, Any], step: int = 0
+    ) -> dict[str, Any] | None:
         """Reconcile the scene BEFORE the prose renders (Task 41).
 
         The renderer must stage the reconciled scene, not the stale one: rendering
@@ -1390,10 +1393,57 @@ class Runner:
         self._open_new_zones(game, zone_moves, new_zones)
         for moved_id, zone in zone_moves.items():
             game.scene.positions[moved_id] = zone
-        for zone, audible in (narrator_raw.get("zone_link_updates") or {}).items():
-            if zone in game.scene.zones:
-                game.scene.zones[zone] = [other for other in audible if other in game.scene.zones]
+        self._apply_zone_links(game, narrator_raw.get("zone_link_updates"), step)
         return scene_up
+
+    @staticmethod
+    def _apply_zone_links(game: GameState, raw: Any, step: int) -> None:
+        """Merge audibility edges; an EMPTY list is the one way to sever (task 67).
+
+        This used to be a straight assignment, and the contract calls the value
+        "the FULL list of zones now audible from it", so a Director that names a
+        zone to ADD one edge silently deletes every other edge that zone had.
+        Measured over the archive: of 36 non-empty updates to a zone that already
+        had edges, 20 only add and 16 remove at least one - so the model uses the
+        field additively about as often as it narrows, and replace-semantics turns
+        every additive use into a wipe. `base-P1-r2` T21 is the clean case: while
+        moving a character INTO the hall it declared the hall audible to
+        `corredor leste`, which deleted the hall's edge to the rubble sub-zone
+        standing inside that same hall, and eighteen proposed witnesses became
+        zero at T23. The fresh cell 2026-08-06 did it again at T31, declaring a
+        new corridor reciprocal with the hall and wiping the hall's edges to the
+        breach where half the cast stood.
+
+        Ambiguity resolved the way `_open_new_zones` already resolves it for the
+        same trade: err toward hearing. Over-hearing costs realism; under-hearing
+        costs the defect this task exists to remove, and a zone audience is
+        `audience_origin="zone"`, which the model layer declares to be perception
+        and never a secrecy source.
+
+        The cost, stated: removing ONE edge in one update is no longer
+        expressible. A total seal is (`{"zone": []}`, which 36 of 106 archived
+        updates use), and re-linking afterwards is. That is the trade, not an
+        oversight.
+        """
+        if not isinstance(raw, dict):
+            return
+        for zone, audible in raw.items():
+            if zone not in game.scene.zones or not isinstance(audible, list):
+                continue
+            if not audible:
+                game.scene.zones[zone] = []  # the explicit seal, still honoured
+                continue
+            known = [other for other in audible if other in game.scene.zones]
+            dropped = [other for other in audible if other not in game.scene.zones]
+            if dropped:
+                # Silently discarding a link to an unknown zone is how a link to a
+                # zone created in the same turn used to vanish without a trace.
+                log_zone_link_dropped(game.session_id, step, zone, dropped)
+            merged = list(game.scene.zones[zone])
+            for other in known:
+                if other not in merged:
+                    merged.append(other)
+            game.scene.zones[zone] = merged
 
     @staticmethod
     def _open_new_zones(

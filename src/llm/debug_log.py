@@ -290,6 +290,54 @@ def log_audible_speech_drop(
     )
 
 
+def log_zone_link_dropped(
+    session_id: str,
+    turn_number: int,
+    zone: str,
+    dropped: list[str],
+) -> None:
+    """Record an audibility link naming a zone the scene does not have (task 67).
+
+    The old code filtered these out inside a list comprehension, so a link to a
+    zone that was never created went nowhere and left no trace. A missing edge is
+    invisible until somebody shouts across it several turns later.
+    """
+    _emit(
+        session_id,
+        "zone_link_dropped",
+        turn_number,
+        zone=zone,
+        dropped=list(dropped),
+    )
+
+
+def log_witness_clamp(
+    session_id: str,
+    turn_number: int,
+    subject_id: str,
+    proposed: int,
+    kept: int,
+) -> None:
+    """Record the deterministic clamp deleting most of a proposed witness list.
+
+    Task 67: a clamp that empties a witness list is a graph bug every time, and
+    it should never be silent - this is what would have surfaced the defect two
+    batteries ago. Logged for severe partial losses too, because a shout heard by
+    ONE person in a hall of twenty-one is the same bug one witness short of
+    emptiness, and the metric that only counted emptiness missed 17 of 19 such
+    records on a live cell.
+    """
+    _emit(
+        session_id,
+        "witness_clamp",
+        turn_number,
+        subject_id=subject_id,
+        proposed=proposed,
+        kept=kept,
+        lost_share=round((proposed - kept) / proposed, 3) if proposed else 0.0,
+    )
+
+
 def log_undo(session_id: str, turn_number: int, removed_records: int) -> None:
     _emit(session_id, "undo", turn_number, removed_records=removed_records)
 

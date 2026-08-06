@@ -15,6 +15,7 @@ from src.confidentiality import (
     scene_fact_secret_tokens,
 )
 from src.llm.client import call_agent, normalize_generated_text
+from src.llm.debug_log import log_witness_clamp
 from src.models import (
     Character,
     Scene,
@@ -557,6 +558,52 @@ def _build_user_prompt(
     return "\n".join(lines)
 
 
+def _proposed_witness_counts(raw_events: Any) -> list[tuple[str, int]]:
+    """``(subject, witnesses proposed)`` per audible event, before the clamp runs."""
+    if not isinstance(raw_events, list):
+        return []
+    out: list[tuple[str, int]] = []
+    for item in raw_events:
+        if not isinstance(item, dict) or item.get("event_kind") != "audible_speech":
+            continue
+        witnesses = item.get("witness_ids")
+        out.append(
+            (str(item.get("subject_id")), len(witnesses) if isinstance(witnesses, list) else 0)
+        )
+    return out
+
+
+# A clamp that deletes MOST of a witness list is a graph bug (task 67), and it
+# used to be silent. 0.5 is not a measured separation - it is a reporting floor
+# on a log nobody reads in a loop, set where a shout losing half the room starts
+# being worth a line. The scanner does the counting; this makes the turn findable
+# while the session is still live.
+_WITNESS_CLAMP_REPORT_SHARE = 0.5
+
+
+def _log_witness_clamps(
+    session_id: str,
+    turn_number: int,
+    proposed: list[tuple[str, int]],
+    clamped: list[dict[str, Any]],
+) -> None:
+    """Report an audible event whose witnesses were mostly or wholly deleted."""
+    if not session_id or not proposed:
+        return
+    kept: dict[str, int] = {}
+    for event in clamped:
+        if event.get("event_kind") != "audible_speech":
+            continue
+        subject = str(event.get("subject_id"))
+        kept[subject] = max(kept.get(subject, 0), len(event.get("witness_ids") or []))
+    for subject, count in proposed:
+        if count <= 0:
+            continue
+        survived = kept.get(subject, 0)
+        if survived <= count * (1 - _WITNESS_CLAMP_REPORT_SHARE):
+            log_witness_clamp(session_id, turn_number, subject, count, survived)
+
+
 def redact_whisper_leaks(
     context: str,
     history: list[TurnRecord],
@@ -753,9 +800,11 @@ async def narrate(
     result.setdefault("scene_update", None)
     result.setdefault("mood_updates", None)
 
+    proposed_witnesses = _proposed_witness_counts(result.get("perception_events"))
     result["perception_events"] = validate_perception_events(
         result.get("perception_events"), scene, characters
     )
+    _log_witness_clamps(session_id, turn_number, proposed_witnesses, result["perception_events"])
     raw_moves = result.get("zone_moves")
     moves: dict[str, str] = {}
     if isinstance(raw_moves, dict):

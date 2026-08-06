@@ -1,6 +1,7 @@
 # Task 67 — Zone graph integrity
 
-> **Status:** open. **Wave 1.**
+> **Status:** graph fixes SHIPPED 2026-08-06; **open pending the re-run cell.**
+> **Wave 1**, and the last item left in it.
 >
 > An earlier draft of this task named the wrong cause and prescribed a fix that
 > would have made things worse. Both are recorded below, because the wrong
@@ -159,13 +160,57 @@ right; the graph was wrong.
   ~1,300 turns, and a one-line normalizer fix. Do it in whichever validator is
   already open; it does not justify a task.
 
+## ✅ The graph fixes are IN — 2026-08-06, re-run still owed
+
+**Bug 1 was already fixed.** `_open_new_zones` (task 54, finding 1) has given a
+new sub-zone a reciprocal edge to its parent since before this task was written.
+This file's diagnosis was half stale; the surviving half is bug 2 alone, and the
+compound is worse than either: the reciprocal edge added by `_open_new_zones`
+could be **wiped by `zone_link_updates` in the same turn**.
+
+**`zone_link_updates` now merges** (`Runner._apply_zone_links`). An empty list is
+still a total seal, which is the only severance idiom the corpus actually uses
+(**36 of 106** archived updates) and it stays honoured.
+
+The ambiguity is real and is recorded rather than hidden: of 36 non-empty updates
+to a zone that already had edges, **20 only add and 16 remove at least one**, and
+reading them, some narrowings are clearly intentional (a team entering a tunnel
+loses the hall) while others are clearly collateral (T21 above). Counts cannot
+separate them. Resolved the way `_open_new_zones` already resolved the same
+trade — **err toward hearing**: over-hearing costs realism, under-hearing costs
+this defect, and a zone audience is `audience_origin="zone"`, which the model
+layer declares to be perception and never a secrecy source.
+
+**Stated cost:** removing ONE edge in a single update is no longer expressible.
+Sealing is, and re-linking afterwards is.
+
+**Two silences are now logged:** `log_zone_link_dropped` (a link naming a zone
+the scene does not have, previously discarded inside a list comprehension) and
+`log_witness_clamp` (a clamp that deletes half or more of a proposed witness
+list, previously silent — the signal that would have surfaced this two batteries
+ago).
+
+### Verified against the archive
+
+Replaying `base-P1-r2` T19-T23's real `zone_moves`/`zone_link_updates` through
+the new code: the hall keeps all three edges including the rubble sub-zone, where
+the archived run had it down to `['corredor leste']` at T21. Pinned as a
+regression test with the data **inlined**, because `plans/` is gitignored and has
+already vanished once mid-session.
+
+**Still owed: the re-run cell.** Every closure item below that says "over a
+re-run cell" is unmet until then, and `clamp_lost_half` is the one that decides.
+
 ## Closure evidence required
 
-- [ ] a test where a sub-zone opened via `zone_moves` is audible from its parent
-      without an explicit link;
-- [ ] a test that `zone_link_updates` merges, and that a link to a zone created
-      in the same turn survives;
-- [ ] a clamp that deletes all proposed witnesses emits a counted warning;
+- [x] a test where a sub-zone opened via `zone_moves` is audible from its parent
+      without an explicit link *(pre-existing, task 54)*;
+- [x] a test that `zone_link_updates` merges, and that a link to a zone created
+      in the same turn survives *(2026-08-06, plus a seal-still-wins test and a
+      log for a link naming an unknown zone)*;
+- [x] a clamp that deletes all proposed witnesses emits a counted warning
+      *(2026-08-06 — `log_witness_clamp`, and it fires on severe PARTIAL losses
+      too, because emptiness alone missed 17 of 19 on a live cell)*;
 - [ ] 68's scanner reports zero empty-audience records for events whose subject
       is co-located with other present characters, over a re-run cell — the
       `with_others_present` field, which is **31 + 2 = 33** today. A fix that only
@@ -175,8 +220,10 @@ right; the graph was wrong.
       Emptiness alone cannot close this task, because a shout heard by ONE person
       in a hall of twenty-one is this same bug one witness short of the count;
 - [ ] a character who can no longer perceive is not listed as a witness;
-- [ ] replayed against the archived `base-P1-r2`, the T23 shout keeps a non-empty
-      audience.
+- [x] replayed against the archived `base-P1-r2`, the T23 shout keeps a non-empty
+      audience *(2026-08-06, data inlined into the test)*;
+- [ ] **the re-run cell** — `clamp_lost_half` and `with_others_present` both at
+      zero. Nothing above substitutes for it.
 
 **The measurement that would falsify this task:** if the 33 empty-audience
 records survive after the graph fixes, the cause is elsewhere and the intersect
