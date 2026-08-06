@@ -5,8 +5,11 @@ working tree syncs over SSH, so `.data/` (provider key included) travels with it
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 4 commits, tree clean,
-**1016 tests green**, `ruff check` clean.
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 5 commits, tree clean,
+**1017 tests green**, `ruff check` clean.
+
+> The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
+> tooling runs bash, not the login fish, so call `.venv/bin/python` directly.
 
 > `ruff format` is NOT clean on this repo and never has been — 36 files predate
 > today's work. The gate is `ruff check`. Do not "fix" the formatting; it makes
@@ -18,67 +21,56 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 4 commits, tree clean,
 | `36524a8` | **74's inventory** — the survey that falsified its own headline |
 | `6ce3924` | **65 item 4** — the two deterministic guards |
 | `36acdf0` | **65 items 1-3** — the Director rules what is said, the character writes it |
+| *(HEAD)* | **65's live validation** — the prompt variant faces a real Director |
 
-## The one thing to do next
+## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
-**Validate the Director prompt variant live, per `AGENTS.md` §6.** It is the only
-outstanding obligation from task 65, and it is written up in
-`.plan/tasks/65-director-must-not-author-speech.md` under
-*"⚠ What is NOT validated"*.
+Evidence: `.plan/reference/65-director-prompt-live-validation.md`. Decision rule
+pre-registered before any call; both changed blocks substituted into the RECORDED
+system prompt so position is preserved; 2 real payloads × 2 variants × 4 runs.
 
-Why it matters: the DIALOGUE OWNERSHIP rule **had to change** — the old text told
-the Director *"never invent new dialogue… record only words already spoken in
-HISTORY"*, which the new engine contradicts, so leaving it was not an option. But
-§6 says the validated variant is the shipped variant, and this one has not faced
-a live Director. It is shipped and unvalidated, which is a state this project
-does not tolerate for long.
+**Quoted `audible_speech`: 5/8 (62%) under OLD, 0/11 (0%) under NEW, p = 0.0048.**
+The channel was used *more*, not less (1.38 vs 1.00 per call), so the clause that
+mattered — a Director that "wins" by abandoning the channel and breaking WT-09 —
+is satisfied too.
 
-### Method (do not skip step 0)
+Two dropped words in the shipped prompt were found while reading it for the
+replay and fixed **before** it ran, so the validated text is the shipped text.
 
-0. **Pre-register the decision rule before running.** §6 is explicit about this,
-   and this project has been burned by moving the goalposts afterwards. Suggested,
-   but write down whatever you actually commit to:
-   > *The new variant ships if, over 4 runs on the same real payload, its
-   > `audible_speech` contents carry a quoted span at a materially lower rate than
-   > the old variant, AND the count of `audible_speech` events per call does not
-   > collapse toward zero. A Director that simply stops using the channel has not
-   > fixed the defect — it has broken WT-09.*
+### The threshold: one arm measured, the control still owed
 
-   That second clause is the one that matters. It is easy to "win" this test by
-   making the Director abandon the channel, which would silently delete facts
-   witnesses need.
+`_INTENT_CARRIED_RATIO = 0.5` now has real positives — 10 character replies under
+the shipped mandate. **The falsifier does not fire:** every one voiced the fact,
+so case C stays. But:
 
-1. Take a REAL payload: an archived `director` record with ≥2 `audible_speech`
-   events. `plans/artifacts/p1-archive/base-P1-r2/sessions/*/debug.jsonl` has
-   several (T33-T35 are the ceiling-restaging turns).
-2. Build the NEW variant by substituting the two changed paragraphs into the
-   RECORDED system prompt, not by reconstructing the builder. Position is part of
-   the variant (§6, measured 2026-07-18: the same rules validated at the END
-   worked 3/3, buried in the MIDDLE failed 3/3), and substitution preserves it
-   exactly. The two changed blocks are in `src/agents/narrator.py`:
-   the `DIALOGUE OWNERSHIP:` bullet, and the `"content":` clause that now says
-   *"for audible_speech the fact being made public, in reported form, never the
-   spoken words"*.
-3. `POST {api_base}/chat/completions`, `Authorization: Bearer <key>`, body
-   `{"model","messages","response_format":{"type":"json_object"},"thinking":{"type":"disabled"}}`.
-   Provider config lives in `.data/config.json` → `providers.deepseek`
-   (`deepseek-v4-flash`, key already set). 4 runs per variant; the output is
-   stochastic, so count the RATE, never a single case.
-4. Only after the isolated call is clean does a battery make sense.
+- **0.5 is not in an empty band.** Ratios run `0.39 … 0.79` continuously. Unlike
+  the language guard (0.012 vs 1.000), this is a cost/benefit cut through a dense
+  cluster. Do not quote it with the language guard's confidence.
+- **The one miss is a false positive**, and false positives are the expensive
+  direction: `runner.py:1721` then emits a Narrator report *beside* the
+  character's own compliant line, which is this task's own defect returning.
+- **Measured cause:** 10/10 intents name their subject, 0/10 replies do — reported
+  form always names the speaker, so the name sits unmatched in every denominator.
+  Excluding it lifts every ratio (mean +0.073). **Measured, not shipped**: it
+  moves the operating point and the false-negative cost is invisible while all
+  ten observations are compliant.
 
-### And calibrate one threshold while you are there
+**Next, and it is blocked:** the negative control — the same payloads fired
+*without* the mandate, to see what overlap topicality alone produces. It needs the
+corpus below.
 
-`_INTENT_CARRIED_RATIO = 0.5` (`src/runner.py`) is the single number in task 65
-that could **not** be sized against the archive, because it judges compliance
-with a prompt that did not exist before today. Everything else in the task was
-measured over 3,936 archived records; this one was not, and the code comment says
-so. Calibrate it from `mandate_ignored` counts in `debug.jsonl` once real turns
-exist.
+## ⚠ The evidence corpus vanished mid-session
 
-**Falsifier, already written into the task:** if `mandate_ignored` fires on a
-large share of case C, the mandate is a prompt promise that loses — which is
-exactly what this task says about prompt promises — and case C falls back to
-case A's dedicated call, at a cost the owner already accepted.
+`plans/artifacts/p1-archive/` (16 archived sessions) was emptied at **11:47 on
+2026-08-06**, between the validation runs and the write-up. `plans/` is
+gitignored, so git cannot restore it, and it is not in the trash on this machine.
+Nothing in this session deleted it; the likely cause is the SSH sync of the
+machine move described above.
+
+**It needs to come back from the other machine.** Blocked on it: the negative
+control arm, the task-68 scanner re-run, and any re-derivation of the 3,936-record
+measurements this task rests on. The numbers already extracted are written into
+the reference doc rather than left as pointers, for exactly this reason.
 
 ## What task 65 actually shipped, in one paragraph
 

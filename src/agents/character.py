@@ -278,7 +278,7 @@ def _speech_mandate_note(intents: list[str]) -> str:
     return (
         "THE ROOM MUST HEAR THIS FROM YOU THIS TURN:\n"
         f"{lines}\n"
-        "Say it aloud, in your own voice and your own words — not as a summary "
+        "Say it aloud, in your own voice and your own words, not as a summary "
         "and not as a report about yourself. Rephrase it however suits you, but "
         "the fact itself must be unmistakable to everyone listening. You may say "
         "more besides."

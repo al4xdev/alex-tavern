@@ -2525,6 +2525,32 @@ class TestEdgeCases:
             assert "—" not in prompt
             assert "–" not in prompt
 
+    def test_optional_prompt_blocks_carry_no_dashes(self) -> None:
+        """The dash rule covers every block that reaches a model, not just the system ones.
+
+        The assertion above builds the three system prompts with no optional
+        block populated, so a dash inside one of the conditionally injected
+        user-prompt blocks was invisible to it. Task 65's speech mandate shipped
+        one that way.
+        """
+        from src.agents.character import _build_user_prompt, _speech_mandate_note
+
+        mandate = _speech_mandate_note(["anuncia que a selecao comeca ao terceiro sino"])
+        assert mandate
+        user_prompt = _build_user_prompt(
+            "A porta range.",
+            "Turn 1: Ola.",
+            "tense",
+            whisper_note="Sussurro ouvido so por voce.",
+            ledger_memory="Voce lembra da chave.",
+            disposition_note="Voce desconfia dele.",
+            alignment_impulse="cauteloso",
+            speech_mandate=mandate,
+        )
+        for block in (mandate, user_prompt):
+            assert "—" not in block
+            assert "–" not in block
+
     def test_append_history_deepcopy(self) -> None:
         """_append_history usa deepcopy — modificar cena posterior não afeta snapshot."""
         game = _make_test_game()

@@ -449,25 +449,57 @@ and into an obligation (`_speech_mandate_note`, `character.py`).
 `player_voice` (the degradation path fired). That log **is** the calibration
 instrument for the next section.
 
-### ⚠ What is NOT validated, and must be before the checkpoint
+### ✅ The Director prompt variant is VALIDATED — 2026-08-06
 
-- **The Director prompt change is unvalidated live.** `AGENTS.md` §6 says the
-  validated variant is the shipped variant and its position is part of the
-  variant. The DIALOGUE OWNERSHIP rule had to change — it told the Director to
-  *"never invent new dialogue… record only words already spoken in HISTORY"*,
-  which the new engine contradicts, so leaving it was not an option. But the
-  replacement has not faced a live Director. **Run the replay before the
-  checkpoint.**
-- **`_INTENT_CARRIED_RATIO` (0.5) is the one threshold in this task that could
-  not be measured first.** It judges compliance with a prompt that did not exist
-  until today, so the archive contains no positives for it. Everything else here
-  was sized against 3,936 archived records; this was not, and saying so is
-  cheaper than pretending otherwise. Calibrate it at the checkpoint from
-  `mandate_ignored` counts in `debug.jsonl`.
-- **The falsifier for the whole case-C mechanism:** if `mandate_ignored` fires on
-  a large share of case C, the mandate is a prompt promise that loses — exactly
-  what this task says about prompt promises — and case C should fall back to
-  case A's dedicated call, at the cost the owner already accepted.
+Full evidence in `.plan/reference/65-director-prompt-live-validation.md`. Two
+real archived payloads, 4 runs per variant, decision rule pre-registered before
+any call, both changed blocks substituted into the RECORDED system prompt so
+position is preserved exactly.
+
+| | quoted `audible_speech` | audible/run |
+|---|---|---|
+| OLD | **5/8 (62%)** | 1.00 |
+| **NEW** | **0/11 (0%)** | **1.38** |
+
+Fisher exact two-tailed **p = 0.0048**, and the channel was used *more*, not
+less, so the variant did not win by going quiet — the clause that mattered.
+Total `perception_events` per call is flat (5.4 vs 5.4).
+
+Two dropped words in the shipped text (`the fact that character makes public`,
+`engine hands that brief`) were found while reading it for the replay and fixed
+**before** it ran, so the validated text is the shipped text.
+
+### ⚠ `_INTENT_CARRIED_RATIO` — one arm measured, one still owed
+
+- **The falsifier does NOT fire.** 10 real character replies under the shipped
+  mandate, every one genuinely voicing the fact. The mandate is a prompt promise
+  that **wins**; case C stays and does not fall back to case A's dedicated call.
+- **But 0.5 is not in an empty band.** The ratios run `0.39 … 0.79` continuously,
+  with no gap. Unlike this task's language guard (0.012 against 1.000), this
+  threshold is a cost/benefit cut through a dense cluster and must never be
+  quoted with the language guard's confidence.
+- **The one sub-threshold case is a false positive**, a fully compliant reply
+  scored below the line. That is the expensive direction: at `runner.py:1721`
+  a false `_carries_intent` in case C emits a Narrator report *beside* the
+  character's own compliant line, so the room hears the beat twice — this task's
+  own defect, wearing the degradation path's byline.
+- **Measured cause: 10 of 10 intents name their subject, 0 of 10 replies do.**
+  Reported form always names the speaker, so the subject's own name sits
+  unmatched in the denominator of every case-C event. Excluding it lifts every
+  ratio (mean +0.073) and takes 0.6 from 6/10 to 9/10. **Measured, not shipped:**
+  it strictly raises every ratio, and the false-negative cost of moving the
+  operating point is invisible while all ten observations are compliant.
+- **Still owed: the negative control** — the same payloads fired *without* the
+  mandate, to see what overlap topicality alone produces. Written, and blocked
+  by the corpus loss below. Until it runs, 0.5 stands with a measured **10%
+  false-positive rate** on compliant case-C replies.
+
+> **The evidence corpus is gone from this machine.**
+> `plans/artifacts/p1-archive/` was emptied at 11:47 on 2026-08-06, mid-session,
+> after the runs above and before the write-up. `plans/` is gitignored, so git
+> cannot restore it; it needs to come back from the other machine. The numbers
+> above were extracted before it went and are recorded in the reference doc
+> rather than left as a pointer, for exactly that reason.
 
 ## Closure evidence required
 
