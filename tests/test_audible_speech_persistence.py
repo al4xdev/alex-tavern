@@ -312,6 +312,34 @@ async def test_an_ignored_mandate_degrades_to_a_narrator_report(monkeypatch) -> 
 
 
 @pytest.mark.asyncio
+async def test_a_routed_call_that_misses_its_intent_is_logged_apart(monkeypatch) -> None:  # noqa: ANN001
+    """Case A's miss is NOT case C's miss, and the log must not merge them.
+
+    Case C says the mandate riding into a call the character was making anyway
+    was ignored, and enough of those falsify the case-C mechanism itself,
+    sending it back to a dedicated call. This one says a call made for no other
+    purpose still came back without the fact, which indicts the intent text
+    rather than the mechanism. One reason string for both makes either
+    falsifier unreadable, and this log is the calibration instrument for
+    ``_INTENT_CARRIED_RATIO``.
+    """
+    intent = "Anuncia em voz alta que a selecao comeca ao terceiro sino."
+    history, drops = await _turn_with_event(
+        monkeypatch,
+        intent,
+        {"language": "Portuguese"},
+        subject="C2",
+        queue=["C3"],  # C2 is silent this turn, so the intent is ROUTED, not mandated
+        reply="Nao vou carregar ninguem nessa prova.",
+    )
+
+    assert [d for d in drops if d["reason"] == "routed_intent_missing"]
+    assert not [d for d in drops if d["reason"] == "mandate_ignored"]
+    # WT-09 still holds: the fact reaches the witnesses either way.
+    assert [r for r in history if r.speaker == "Narrator" and "terceiro sino" in r.content]
+
+
+@pytest.mark.asyncio
 async def test_the_players_own_character_is_never_voiced(monkeypatch) -> None:  # noqa: ANN001
     """The runner never writes the human's dialogue, so the Narrator reports it
     instead of the player's character appearing to say it.

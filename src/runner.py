@@ -1755,7 +1755,16 @@ class Runner:
                 self._report_speech(game, subject, spoken, heard_by, step, "routing_failed")
                 continue
             if not _carries_intent(line, spoken):
-                self._report_speech(game, subject, spoken, heard_by, step, "mandate_ignored")
+                # NOT "mandate_ignored". That name belongs to case C above, and
+                # the two outcomes carry different falsifiers: case C failing
+                # says the mandate riding into an existing call does not work,
+                # which sends case C back to a dedicated call; this one says a
+                # call made for no other purpose still missed its intent, which
+                # would indict the intent text rather than the mechanism.
+                # Logging both under one reason makes either falsifier
+                # unreadable, and this log is the calibration instrument for
+                # `_INTENT_CARRIED_RATIO`.
+                self._report_speech(game, subject, spoken, heard_by, step, "routed_intent_missing")
                 continue
             self._append_history(
                 game, subject, line, "speech", step, audience=heard_by, audience_origin="zone"

@@ -443,11 +443,19 @@ and into an obligation (`_speech_mandate_note`, `character.py`).
    (`base-P2-r1` T2) — never reaches there, because `_echoes_recent_speech`
    already counts the `Player` sentinel as the same voice.
 
-**Refusals are now six, all logged** (`log_audible_speech_drop`): `echo`,
-`whisper_leak`, `internal_id`, `foreign_language`, plus the two outcomes
-`voiced_by_owner` (the mandate worked) and `mandate_ignored` / `routing_failed` /
-`player_voice` (the degradation path fired). That log **is** the calibration
-instrument for the next section.
+**Refusals are now seven, all logged** (`log_audible_speech_drop`): `echo`,
+`whisper_leak`, `internal_id`, `foreign_language`, plus the outcomes
+`voiced_by_owner` (the mandate worked) and `mandate_ignored` /
+`routed_intent_missing` / `routing_failed` / `player_voice` (the degradation
+path fired). That log **is** the calibration instrument for the next section.
+
+> **Split 2026-08-06.** `mandate_ignored` used to cover both the case-C miss and
+> the case-A routed miss, and **they carry different falsifiers**, so merging
+> them made either unreadable. `mandate_ignored` now means only case C — the
+> mandate rode into a call the character was making anyway and was ignored,
+> which is what sends case C back to a dedicated call if it happens often.
+> `routed_intent_missing` means a call made for no other purpose still came back
+> without the fact, which indicts the intent text rather than the mechanism.
 
 ### ✅ The Director prompt variant is VALIDATED — 2026-08-06
 
