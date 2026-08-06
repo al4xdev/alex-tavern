@@ -421,7 +421,6 @@ def _build_user_prompt(
     forced_speaker: str | None = None,
     narrator_hint: str = "",
     extra_context: list[str] | None = None,
-    exclude_speaker: str | None = None,
     roteiro_lines: list[str] | None = None,
 ) -> str:
     """Builds the user prompt with scene, characters, and history.
@@ -528,18 +527,23 @@ def _build_user_prompt(
             lines.append(f"  {line}")
         lines.append("")
 
-    if forced_speaker is None and exclude_speaker is not None:
-        lines.append("ROUTING CONSTRAINT:")
-        # The justification used to be "they just spoke or passed", which is TRUE
-        # on the first beat and FALSE on the second beat of a burst - the same id
-        # is excluded twice while the stated reason no longer holds, and a reader
-        # resolving that contradiction can only conclude the id is special.
-        # The rule now states the dramatic reason, which is true on every beat.
-        lines.append(
-            f"  Let someone other than {exclude_speaker} carry this beat; the "
-            "scene is more interesting when attention moves."
-        )
-        lines.append("")
+    # Task 70. There used to be a ROUTING CONSTRAINT block here reading "Let
+    # someone other than {exclude_speaker} carry this beat", and exclude_speaker
+    # is always the controlled character. AGENTS.md section 3 names that exact
+    # shape - "Rotulo, ordem, campo extra, exclusao nomeada" - because a rule
+    # that separates exactly one character encodes controlled_character_id no
+    # matter how dramatic its stated reason is. Neither prompt_contract check
+    # could see it: one is phrase-based and the clause is pure craft talk, the
+    # other inspects speaker labels and this was a routing instruction.
+    #
+    # The policy did not live here anyway. Normalization below already drops the
+    # excluded id (`entry != exclude_speaker`) and falls back to ["Narrator"] if
+    # that empties the queue, so the line only stopped the Director from
+    # spending a slot the code discards. Measured 2026-08-06 on two archived P2
+    # payloads, 4 runs each: with the line and without it the Director routed
+    # the controlled character 0/8 times either way, no beat collapsed to
+    # Narrator-only in either arm, and the mean queue was 2.75 with against 2.88
+    # without. It was buying nothing that could be measured.
     if forced_speaker is not None:
         lines.append("ROUTING CONSTRAINT:")
         lines.append(f'  next_speakers is fixed as ["{forced_speaker}"].')
@@ -612,7 +616,6 @@ def build_narrator_messages(
                 forced_speaker=forced_speaker,
                 narrator_hint=narrator_hint,
                 extra_context=extra_context,
-                exclude_speaker=exclude_speaker,
                 roteiro_lines=roteiro_lines,
             ),
         },

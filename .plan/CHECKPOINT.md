@@ -5,8 +5,8 @@ working tree syncs over SSH, so `.data/` (provider key included) travels with it
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 6 commits, tree clean,
-**1017 tests green**, `ruff check` clean.
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 7 commits, tree clean,
+**1034 tests green**, `ruff check` clean.
 
 > The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
 > tooling runs bash, not the login fish, so call `.venv/bin/python` directly.
@@ -22,7 +22,8 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 6 commits, tree clean,
 | `6ce3924` | **65 item 4** — the two deterministic guards |
 | `36acdf0` | **65 items 1-3** — the Director rules what is said, the character writes it |
 | `2caa203` | **65's live validation** — the prompt variant faces a real Director |
-| *(HEAD)* | **65's threshold** — 0.5 was above its own empty band, now 0.34 |
+| `93a8840` | **65's threshold** — 0.5 was above its own empty band, now 0.34 |
+| *(HEAD)* | **70** — the named exclusion is deleted, and guarded |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
@@ -66,6 +67,35 @@ constant** — re-derive it against real `mandate_ignored` records.
 Measured and *not* shipped: excluding the subject's own name from the denominator
 (10/10 intents name it, 0/10 replies do) widens the band 0.10 → 0.13. If ever
 adopted, re-derive the threshold with it; the midpoint moves to ≈0.375.
+
+## ✅ Task 70 delivered 2026-08-06 — the named exclusion is gone
+
+The Director prompt appended *"Let someone other than C1 carry this beat"* on
+**371 of 631 archived turns (58.8%)** — 100% of every P2 cell. `exclude_speaker`
+is always the controlled character, so `AGENTS.md` §3's *"exclusão nomeada"* was
+being emitted every turn, and both existing `prompt_contract` checks were
+structurally blind to it.
+
+**The block is deleted, not reworded.** `_build_user_prompt` no longer accepts
+`exclude_speaker` at all, so the exclusion is no longer expressible in the
+prompt. It is enforced where it always actually was — `narrate`'s normalization
+at `narrator.py:750`.
+
+Two things worth carrying forward:
+
+1. **The task's suggested fix was already dead.** It proposed constraining the
+   candidate set; `narrator.py:298-303` records that as rejected with a
+   measurement (a narrowed enum → 3 straight schema failures). Read the code's
+   own comments before implementing a task's Direction section.
+2. **The clause was buying nothing.** Pre-registered 3-arm test, 2 archived P2
+   payloads × 4 runs: the Director routed the controlled character **0/8 with
+   the line and 0/8 without it**, with no beat collapsing to Narrator-only in
+   any arm. Evidence in `plans/artifacts/70-routing-constraint/`.
+
+`named_exclusions()` now guards the shape, is swept per call by
+`tools/playtest_harness.py`, and a test asserts the two older checks cannot see
+what it catches. **Still open:** `return_control`/PC-routing re-measured on a
+fresh cell, which task 64 is waiting on.
 
 ## ⚠ `plans/` vanished mid-session, and was restored
 
@@ -123,9 +153,19 @@ per-turn audit over a finished history.
 
 ## Roadmap position
 
-Wave 0 ✅ (task 68). Wave 1: **65 done bar the live validation**, then 63, 67,
-70, 64. Wave 2: 69 (owns the durable-state interface for the phase), then 72 if
-its gate opens. 71 is parked pending 67's re-measurement. 74/75 are backlog and
+Wave 0 ✅ (task 68). Wave 1 is **65 ✅, 70 ✅, then 63, then 67** — that is the
+ROADMAP table's order, which is the authority; the line here used to say
+"63, 67, 70, 64" and was wrong.
+
+**63 is next, and it must be re-measured before it is designed.** The ROADMAP
+gates it on 65, which removed 42 of its 43 cases, and the roadmap's re-review
+already killed its option-shopping: *"option 1, per-viewer projection, is the
+correct one and the drop path is dead."* Its "before" number is stale — it was
+taken with the producer 65 just replaced still in play.
+
+Wave 2: 69 (owns the durable-state interface for the phase), then 72 if its gate
+opens. 71 is parked pending 67's re-measurement. 64 is waiting on 70's
+`return_control` re-measurement, which needs a fresh cell. 74/75 are backlog and
 do **not** re-order anything.
 
 ## House rules that bit me today

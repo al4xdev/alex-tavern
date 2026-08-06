@@ -651,7 +651,11 @@ def analyze_debug_records(
     characters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Calculate deterministic signals without asking another model to judge prose."""
-    from src.prompt_contract import operator_ontology_hits, singled_out_speakers
+    from src.prompt_contract import (
+        named_exclusions,
+        operator_ontology_hits,
+        singled_out_speakers,
+    )
 
     calls = [record for record in records if isinstance(record.get("request"), dict)]
     prompts = "\n".join(
@@ -683,6 +687,7 @@ def analyze_debug_records(
     # a falsy check.
     cast = characters or None
     singled_out: list[dict[str, Any]] = []
+    excluded: list[dict[str, Any]] = []
     swept = cast is not None
     if cast is not None:
         for record in calls:
@@ -698,6 +703,18 @@ def analyze_debug_records(
                         "agent": record.get("agent"),
                         "turn_number": record.get("turn_number"),
                         "singled_out": marked,
+                    }
+                )
+            # Task 70, and per call for the same reason: the excluded party has
+            # to be named in the same clause that excludes them, which joining
+            # every prompt into one string would fabricate across boundaries.
+            steered = named_exclusions(text, cast)
+            if steered:
+                excluded.append(
+                    {
+                        "agent": record.get("agent"),
+                        "turn_number": record.get("turn_number"),
+                        "excluded": steered,
                     }
                 )
     successful = [
@@ -863,6 +880,10 @@ def analyze_debug_records(
         "structurally_singled_out": len(singled_out) if swept else None,
         "structurally_singled_out_calls": singled_out[:10],
         "structural_sweep": "ran" if swept else "skipped: no cast supplied",
+        # Task 70: a rule that steers AWAY from one named character. Same
+        # None-means-not-swept contract as the check above.
+        "named_exclusions": len(excluded) if swept else None,
+        "named_exclusion_calls": excluded[:10],
         "nested_physical_facts_outputs": nested_physical_facts,
         "second_person_narrations": second_person_narrations,
         "narrator_outputs": len(narrator_outputs),

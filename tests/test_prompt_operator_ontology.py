@@ -46,7 +46,11 @@ def _game_with_history():
     return game
 
 
-def _director_messages(game, *, exclude_controlled: bool = True) -> list[str]:
+def _director_messages(game) -> list[str]:
+    # Until task 70 this passed exclude_speaker=controlled_character_id, which is
+    # what the Runner did on every non-burst turn. That parameter is gone: the
+    # exclusion is enforced in narrate()'s normalization and is no longer
+    # expressible in the prompt at all. See TestNamedExclusion.
     return [
         narrator._build_system_prompt(list(game.characters), game.narrator_directives),
         narrator._build_user_prompt(
@@ -55,9 +59,6 @@ def _director_messages(game, *, exclude_controlled: bool = True) -> list[str]:
             game.player.controlled_character_id,
             game.history,
             story_summary=game.story_summary,
-            exclude_speaker=(
-                game.player.controlled_character_id if exclude_controlled else None
-            ),
         ),
     ]
 
@@ -300,3 +301,201 @@ class TestStructuralSingling:
             ],
         )
         assert singled_out_speakers("\n".join(stalled_scene_context(game)), cast) == []
+
+
+class TestNamedExclusion:
+    """Task 70: a rule that steers AWAY from one named character.
+
+    `AGENTS.md` §3 lists this shape by name — *"Rótulo, ordem, campo extra,
+    exclusão nomeada"*. The Director prompt shipped one for months:
+
+        ROUTING CONSTRAINT:
+          Let someone other than C1 carry this beat; the scene is more
+          interesting when attention moves.
+
+    `exclude_speaker` is always the controlled character, so the clause encoded
+    `controlled_character_id` however dramatic its stated reason. **371 of 631
+    archived Director prompts carried it** — 100% of every P2 cell, 40-55% of
+    every P1 cell. Both existing checks were structurally blind: the phrase list
+    is lexical and the clause contains none of its vocabulary, and
+    `singled_out_speakers` inspects speaker labels while this was a routing
+    instruction in another block.
+    """
+
+    def _cast(self):  # noqa: ANN202
+        from tests.factories import make_cast
+
+        return make_cast("Rui", "Marta", "Bento")
+
+    def test_the_clause_that_shipped_is_detected(self) -> None:
+        from src.prompt_contract import named_exclusions
+
+        block = (
+            "ROUTING CONSTRAINT:\n"
+            "  Let someone other than C1 carry this beat; the scene is more "
+            "interesting when attention moves.\n"
+        )
+        assert named_exclusions(block, self._cast()) == ["C1"]
+
+    def test_the_older_checks_are_blind_to_it(self) -> None:
+        """Why this guard had to exist rather than a pattern being added."""
+        from src.prompt_contract import operator_ontology_hits, singled_out_speakers
+
+        block = "  Let someone other than C1 carry this beat; the scene is more interesting."
+        assert operator_ontology_hits(block) == []
+        assert singled_out_speakers(block, self._cast()) == []
+
+    def test_the_canonical_name_form_is_caught_too(self) -> None:
+        from src.prompt_contract import named_exclusions
+
+        assert named_exclusions("Let someone other than Rui carry this beat.", self._cast()) == [
+            "C1"
+        ]
+
+    @pytest.mark.parametrize(
+        "clause",
+        [
+            "Route anyone but C3 this turn.",
+            "Escolha alguem alem de C2 para conduzir a cena.",
+            "next_speakers deve ser outro que nao C1.",
+            "Prefer a speaker other than the apprentice C3 here.",
+        ],
+    )
+    def test_other_exclusion_phrasings(self, clause: str) -> None:
+        from src.prompt_contract import named_exclusions
+
+        assert named_exclusions(clause, self._cast()) != []
+
+    @pytest.mark.parametrize(
+        "clause",
+        [
+            # Membership, not shape: R4 is not a cast id here.
+            "Take any road other than R4 to reach the pass.",
+            "Use anything except the rusted key on the third door.",
+            # The cast id belongs to the NEXT clause, not the exclusion.
+            "He arrived rather than waited, and C2 followed.",
+            "The beam fell instead of holding, and C1 shouted.",
+            "Todos menos os feridos devem recuar para o patio.",
+            # Naming the cast is not excluding anyone.
+            "C1 and C2 are both present in the courtyard.",
+        ],
+    )
+    def test_ordinary_prose_is_not_an_exclusion(self, clause: str) -> None:
+        from src.prompt_contract import named_exclusions
+
+        assert named_exclusions(clause, self._cast()) == []
+
+    def test_the_shipped_director_prompt_names_no_exclusion(self) -> None:
+        """The real builder, and the reason this task exists.
+
+        Fails against the pre-task-70 builder, which appended the ROUTING
+        CONSTRAINT block whenever ``exclude_speaker`` was set. The policy did
+        not move into the prompt's place: ``narrate`` normalization still
+        drops the excluded id deterministically.
+        """
+        from src.agents.narrator import _build_user_prompt
+        from src.prompt_contract import named_exclusions
+        from tests.factories import make_record, make_scene
+
+        cast = self._cast()
+        prompt = _build_user_prompt(
+            scene=make_scene(characters=cast),
+            characters=cast,
+            player_controlled_id="C1",
+            history=[make_record(1, "C2", "Boa noite.", "speech")],
+        )
+        assert named_exclusions(prompt, cast) == []
+        assert "ROUTING CONSTRAINT" not in prompt
+
+    @pytest.mark.asyncio
+    async def test_task_45_still_holds_without_the_prompt_line(self, monkeypatch) -> None:  # noqa: ANN001
+        """The requirement survives the clause that used to state it.
+
+        Task 45 wants the world to react before the story pulls the human back
+        in, so the controlled character stays out of ``next_speakers`` on a
+        burst's first beats. That was never the prompt's doing: ``narrate``
+        drops the excluded id during normalization. This drives the real
+        function with a Director that routes the controlled character anyway,
+        which the prompt can no longer discourage.
+        """
+        import httpx
+
+        from src.agents import narrator as narrator_mod
+        from tests.factories import make_record, make_scene
+
+        cast = self._cast()
+        scene = make_scene(characters=cast)
+
+        async def fake_call_agent(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {
+                "next_speakers": ["C1", "C2", "C3"],
+                "perception_events": [],
+            }
+
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_call_agent)
+
+        async with httpx.AsyncClient() as client:
+            result = await narrator_mod.narrate(
+                client,
+                scene,
+                cast,
+                "C1",
+                [make_record(1, "C2", "Boa noite.", "speech")],
+                {},
+                exclude_speaker="C1",
+            )
+        assert "C1" not in result["next_speakers"]
+        assert result["next_speakers"] == ["C2", "C3"]
+
+    @pytest.mark.asyncio
+    async def test_the_excluded_id_is_the_only_one_dropped(self, monkeypatch) -> None:  # noqa: ANN001
+        """Without an exclusion the same Director response routes everyone.
+
+        Guards the negative half: the drop is the exclusion doing its job, not
+        normalization quietly eating the first entry.
+        """
+        import httpx
+
+        from src.agents import narrator as narrator_mod
+        from tests.factories import make_record, make_scene
+
+        cast = self._cast()
+
+        async def fake_call_agent(client, config, messages, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
+            return {"next_speakers": ["C1", "C2", "C3"], "perception_events": []}
+
+        monkeypatch.setattr(narrator_mod, "call_agent", fake_call_agent)
+
+        async with httpx.AsyncClient() as client:
+            result = await narrator_mod.narrate(
+                client,
+                make_scene(characters=cast),
+                cast,
+                "C1",
+                [make_record(1, "C2", "Boa noite.", "speech")],
+                {},
+            )
+        assert result["next_speakers"] == ["C1", "C2", "C3"]
+
+    def test_a_forced_speaker_is_not_an_exclusion(self) -> None:
+        """The one surviving ROUTING CONSTRAINT block must stay clean.
+
+        ``forced_speaker`` names exactly one character too, but it is the
+        operator picking any character out of band, not the engine separating
+        the same one every turn, and it is a positive assignment rather than a
+        steer away from someone.
+        """
+        from src.agents.narrator import _build_user_prompt
+        from src.prompt_contract import named_exclusions
+        from tests.factories import make_record, make_scene
+
+        cast = self._cast()
+        prompt = _build_user_prompt(
+            scene=make_scene(characters=cast),
+            characters=cast,
+            player_controlled_id="C1",
+            history=[make_record(1, "C2", "Boa noite.", "speech")],
+            forced_speaker="C3",
+        )
+        assert named_exclusions(prompt, cast) == []
+        assert 'next_speakers is fixed as ["C3"]' in prompt

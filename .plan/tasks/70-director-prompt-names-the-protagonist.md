@@ -1,7 +1,13 @@
 # Task 70 — The Director prompt names the protagonist
 
-> **Status:** open. **Wave 1.** Found by a blind evidence audit of the roadmap;
-> no previous case, task or metric in this project had seen it.
+> **Status:** DELIVERED 2026-08-06, bar the task-64 re-measurement. **Wave 1.**
+> Found by a blind evidence audit of the roadmap; no previous case, task or
+> metric in this project had seen it.
+>
+> **The sections below are left as they were written**, including the line
+> numbers and the suggested Direction, because the Direction turned out to be
+> already-rejected in this repo and that is worth seeing. What shipped is in
+> "✅ DELIVERED" at the end.
 >
 > This is the one task in the phase whose **existence is not negotiable by
 > measurement**. `AGENTS.md` §3 says so explicitly, and says why.
@@ -107,19 +113,69 @@ not about what the model is proven to infer. A rule that separates exactly one
 character encodes `controlled_character_id` whether or not this week's model
 acts on it.
 
-## Closure evidence required
+## ✅ DELIVERED — 2026-08-06
 
-- [ ] no Director prompt contains a rule naming exactly one character id;
-- [ ] `prompt_contract` gains a check that catches **this shape** — a constraint
-      clause referencing a single cast id — and it fails against the current
-      prompt before the fix and passes after;
-- [ ] the scanner runs over the archived P1 and P2 prompts, before/after counts
-      recorded (before: 100% of P2 turns);
-- [ ] Task 45's requirement still holds: a test that the controlled character is
-      not routed on the first beats of a burst, expressed without a named
-      exclusion in the prompt;
+**The block is gone, not reworded.** `_build_user_prompt` no longer takes
+`exclude_speaker` at all, so the exclusion is not expressible in the Director
+prompt any more — it is enforced only where it always actually was, in
+`narrate`'s normalization (`narrator.py:750`, `entry != exclude_speaker`, with
+`["Narrator"]` as the fallback when that empties the queue).
+
+### The task's own suggested fix was already dead, with a measurement
+
+The Direction section proposes *"constrain the candidate set the model chooses
+from"*. That is exactly what `narrator.py:298-303` records as rejected: a
+narrowed enum made the provider-side validator reject responses the lenient
+normalization was built to absorb, **3 straight schema failures on a stalled
+skip turn**. So the schema was never available and the real choice was between
+prompt formulations, with code enforcing either way.
+
+### The form was chosen by measurement, per §3
+
+Decision rule pre-registered before any call. Two archived P2 payloads
+(`base-P2-r1` T13, `oldcode-P2-r1` T13), 4 runs each, three arms — **A** the
+recorded named exclusion (baseline, ineligible to ship), **B** the block
+deleted, **C** the block kept with the id removed.
+
+| variant | PC routed (raw) | Narrator-only | mean queue |
+|---|---|---|---|
+| A named exclusion | **0/8** | 0/8 | 2.75 |
+| B deleted | **0/8** | 0/8 | 2.88 |
+| C id-free block | **0/8** | 0/8 | 2.88 |
+
+**The clause was buying nothing measurable.** The Director never routed the
+controlled character even with no instruction at all, and no arm ever collapsed
+a beat to Narrator-only. Both id-free arms passed, so the pre-registered
+tie-break applied and **B shipped**, chosen by the owner.
+
+*Recorded so it is not mistaken for evidence:* arm C looked like it spread the
+cast wider on one payload (10 distinct characters against B's 4) and narrower on
+the other (4 against 5). It does not replicate at n=4 per cell, it was not
+pre-registered, and it decided nothing.
+
+### Closure evidence
+
+- [x] no Director prompt contains a rule naming exactly one character id
+      *(builder emits none on any routing path: `forced_speaker` unset, set to a
+      character, and set to `Narrator`)*;
+- [x] `prompt_contract` gains a check that catches **this shape** —
+      `named_exclusions()`, membership-not-shape like task 65's id guard, and a
+      test asserts the two older checks are **blind** to the shipped clause;
+- [x] the scanner runs over the archived P1 and P2 prompts, before/after counts
+      recorded — **before: 371/631 (58.8%)**, 100% of every P2 cell and 40–55%
+      of every P1 cell; **after: 0**;
+- [x] Task 45's requirement still holds — `narrate` is driven with a Director
+      that routes the controlled character anyway and the id is dropped, plus
+      the negative half (without an exclusion the same response routes everyone,
+      so the drop is the exclusion working and not normalization eating the
+      first entry);
 - [ ] `return_control` and PC-routing rates re-measured on one cell afterwards,
-      and the result written into task 64 before 64 is designed.
+      and the result written into task 64 before 64 is designed. **Still open:
+      this needs a fresh cell, not the archive.**
+
+`named_exclusions` is also swept per call by `tools/playtest_harness.py`
+alongside the other two contract checks, under the same
+`None`-means-not-swept contract.
 
 **The measurement that would falsify this task:** none. This is an invariant
 under `AGENTS.md` §3; measurement chooses the fix, not whether to fix.

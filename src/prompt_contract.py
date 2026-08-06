@@ -117,3 +117,74 @@ def singled_out_speakers(text: str, characters: dict) -> list[str]:
         return []
     minority = as_name if len(set(as_name)) <= len(set(as_id)) else as_id
     return sorted(set(minority))
+
+
+# A rule that steers AWAY from one named character. AGENTS.md section 3 lists
+# this shape by name - "Rotulo, ordem, campo extra, exclusao nomeada" - because
+# the engine only ever excludes one character systematically, so the clause
+# encodes controlled_character_id however dramatic its stated reason is.
+_EXCLUSION_LEADS: tuple[str, ...] = (
+    r"\b(?:someone|somebody|anyone|anybody|something)\s+other\s+than\b",
+    r"\bother\s+than\b",
+    r"\banyone\s+but\b",
+    r"\bexcept(?:ing)?\b",
+    r"\bexclud(?:e|es|ed|ing)\b",
+    r"\brather\s+than\b",
+    r"\binstead\s+of\b",
+    r"\boutr[oa]s?\s+que\s+n[aã]o\b",
+    r"\bqu(?:e|em)\s+n[aã]o\s+seja\b",
+    r"\balgu[eé]m\s+al[eé]m\s+de\b",
+    r"\bexceto\b",
+    r"\bmenos\b",
+    r"\bevit(?:e|ar)\b",
+)
+
+_COMPILED_EXCLUSION_LEADS = tuple(
+    re.compile(pattern, re.IGNORECASE) for pattern in _EXCLUSION_LEADS
+)
+
+# How far past the phrase the excluded party may be named. Long enough for
+# "someone other than the young apprentice C4", short enough that the next
+# sentence's cast mentions do not get attributed to this clause.
+_EXCLUSION_WINDOW = 48
+
+# The excluded party is named in the SAME clause as the phrase that excludes
+# them. Without this, "he arrived rather than waited, and C2 followed" reads as
+# an exclusion of C2, who is merely the subject of the next clause.
+_CLAUSE_END_RE = re.compile(r"[,;:.\n]")
+
+
+def named_exclusions(text: str, characters: dict) -> list[str]:
+    """Cast members a prompt rule steers the model away from, by name or id.
+
+    The two checks above cannot see this one. `operator_ontology_hits` is
+    phrase-based and this clause contains none of its vocabulary; the shipped
+    example read "Let someone other than C1 carry this beat; the scene is more
+    interesting when attention moves", whose stated reason is pure craft.
+    `singled_out_speakers` inspects speaker-label formatting, and this is a
+    routing instruction in a different block entirely.
+
+    Membership, not shape, decides - the same rule the internal-id guard in task
+    65 was built on. `\\b[A-Z]\\d+\\b` only nominates a candidate; it counts only
+    if it is a real cast id or name. "Take any road other than R4" in a scenario
+    where R4 is a highway must not be read as excluding a character.
+    """
+    if not characters:
+        return []
+    tokens: dict[str, str] = {}
+    for cid, character in characters.items():
+        tokens[cid] = cid
+        name = getattr(getattr(character, "mind", None), "name", None)
+        if isinstance(name, str) and name.strip():
+            tokens[name] = cid
+    found: set[str] = set()
+    for pattern in _COMPILED_EXCLUSION_LEADS:
+        for match in pattern.finditer(text):
+            window = text[match.end() : match.end() + _EXCLUSION_WINDOW]
+            boundary = _CLAUSE_END_RE.search(window)
+            if boundary is not None:
+                window = window[: boundary.start()]
+            for token, cid in tokens.items():
+                if re.search(rf"\b{re.escape(token)}\b", window):
+                    found.add(cid)
+    return sorted(found)
