@@ -81,3 +81,34 @@ Nothing above prevents the critic from running **offline over an archive**, whic
 is where it should start: same shape as the blind read, no turn-loop risk, and it
 can be compared against a ranking that already exists. If it earns its place
 there, moving it into the loop becomes an engineering question instead of a bet.
+
+## 5. A post-turn critic already exists here (surveyed 2026-08-06)
+
+Task 33b shipped one, wired into the Runner, disabled by default. See task 74 §6
+for the full inventory; what matters to *this* task:
+
+- **`src/watcher.py::audit_delta` is a per-committed-turn critic call.** It reads
+  the last turn's block against the scene before it and returns one bit —
+  did anything materially change — plus evidence, over a frozen 8-category
+  taxonomy with an explicit `none`. `runner.py:1501` calls it on every commit
+  when `watcher_enabled` is on.
+- **Its verdict already drives a bounded, deterministic response.**
+  `select_recovery_step` is pure code with a refractory window
+  (`watcher_refractory_turns = 3`), so the "one retry, counted, never a loop"
+  requirement in §3.3 has a working precedent to copy rather than invent.
+- **`tools/acceptance/watcher_abc.py --audit <sid>` already runs it offline over
+  a finished history, arm-neutral.** §4 above does not need to be built. It needs
+  to be pointed at `benchmarks/*/transcripts` and scored against
+  `benchmarks/*/blind-read.md`.
+
+And the caution in §2 gets sharper. When that critic was measured against a blind
+reader in the A/B/C battery, **the arm whose ladder fired repeatedly scored
+higher than the arm that never needed it**, contradicting the pre-registered
+prediction. A critic driving retries optimises for its own verdict; there is one
+measurement in this repo where that verdict and the reader's disagreed. §3.2 —
+*its remainder must agree with the blind reader* — is therefore not a formality.
+
+**Practical consequence: this task's first move costs nothing.** Run the existing
+audit over the twelve archived sessions, compare its per-session immobility rate
+with the blind reader's ranking, and compare its complaints against task 68's
+scanners. Both falsifiers in §3 resolve before a line of new code.

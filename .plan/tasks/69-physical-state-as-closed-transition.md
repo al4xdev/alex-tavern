@@ -124,6 +124,16 @@ output may not.
   argued the harm is visible and misattributed. The low-salience entries that get
   evicted are exactly the ones worth keeping.
 
+- **A consumer already exists for the transition state, and it is starved
+  (found 2026-08-06).** `watcher.LadderContext.promised_transition_ready` gates
+  the ladder's gentlest rung, `execute_promised_transition` — and the Runner
+  never sets it (`runner.py:2244-2248`), so it is permanently `False` and the
+  ladder skips to its most disruptive rung. `watcher.py:2236-2240` says the
+  task-40 clock "already owns" that rung, but the ladder cannot see it. When this
+  task lands, deriving that flag is close to free and turns a dead rung on. The
+  storage interface below should be shaped with that reader in mind, not only
+  with tasks 72 and 66.
+
 - **This task owns the durable-state storage decision for the phase.** Added
   2026-08-05. Tasks **72** (commitments) and **66** (possession) both want durable
   state, and 66 says outright that possession *"should reuse [69's machinery]

@@ -136,6 +136,18 @@ Same shape as task 69's closed transitions, applied to the social layer:
   reason (narrating non-response reads as padding) and must be reconciled, not
   simply deleted.
 
+  > **The engine already tried this and lost, which is evidence for this task
+  > (found 2026-08-06).** `src/watcher.py`'s recovery ladder has a rung named
+  > `RUNG_ALLOW_SILENCE` — *"tolerate one beat of silence before disrupting"*
+  > (`watcher.py:290`). When it fires, `runner.py:2250-2252` records the grace
+  > and returns `None`, and **the turn is not silent**: the Director still runs
+  > under `minItems: 1` and the prose still runs under the 150-word floor. A
+  > deliberate decision to hold still, taken by shipped code, cannot survive the
+  > three constraints above. **This task owns the only fix**, and when it lands
+  > the watcher's rung stops being decorative. Task 74 §2 originally claimed
+  > only an orchestrator could produce a quiet turn; this is why that claim was
+  > withdrawn and the capability assigned here.
+
 ## Counter-argument, recorded
 
 *"This is scope creep — the phase is about repetition and leaks, and this is a

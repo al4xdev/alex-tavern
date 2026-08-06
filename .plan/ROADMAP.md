@@ -153,6 +153,33 @@ every stage always runs. It also raises a real subsumption question: tasks **64,
 70 and part of 65** may all be symptoms of one cause, too many decisions in one
 call and a pipeline that cannot choose.
 
+> **⚠ Half of that paragraph was falsified the next day (2026-08-06), by code
+> already in the repo.** A survey of what tooling exists here found `src/watcher.py`
+> (task 33b, closed 2026-07-20): a situation-reader → dispatcher → intervention
+> chain, **wired into the Runner and disabled by `watcher_enabled=False`**. Three
+> consequences, all recorded in task 74 §6:
+>
+> 1. **The stillness argument is dead.** The ladder's third rung is
+>    `allow_silence`, and when it fires the turn is *not* silent — it suppresses
+>    the watcher's intervention, never `perception_events: minItems 1` or the
+>    150-word floor. The engine already has a decision to be quiet that cannot
+>    make a turn quiet, so the obstacle is those three constraints (**task 72**),
+>    not fixed orchestration. An orchestrator would be equally unable to be quiet.
+>    The **routing** argument — 64, 70, part of 65 — survives untouched.
+> 2. **The order argument gets stronger, from the opposite direction.** Three of
+>    the ladder's five rungs are dead code because the Runner never supplies their
+>    inputs, and those inputs are precisely what **69** (`promised_transition_ready`)
+>    and **72** (`unadjudicated_attempt`, `open_thread`) are building. Wave 2 does
+>    not merely reduce the need for 74 — it is what makes the dispatcher already
+>    in the repo work as designed. The gentle rungs are the dead ones; the
+>    disruptive rung is the one that always fires.
+> 3. **There is no tool-calling in this engine** — zero occurrences across `src/`.
+>    Every call goes through one gateway, `call_agent`, as a grammar-constrained
+>    JSON-schema call. So 74 cannot be an agent-SDK tool loop; it is a
+>    plan-returning schema call, which is *stricter* than §3 asks, because an
+>    unlisted call becomes unrepresentable at decode time rather than forbidden by
+>    a prompt.
+
 **75 splits and half of it is already rejected**: leak detection belongs to the
 scanners — deterministic, testable, free — and asking a model to find what a
 regex finds converts a hard invariant into a probabilistic one. The fluency half
@@ -177,6 +204,12 @@ What does change:
    direct test. 75's critic can be run over the twelve archived sessions and its
    ranking compared against the blind reader's, which is already committed. Both
    are pure reads over data on disk.
+   **And neither needs a harness written (2026-08-06):**
+   `tools/acceptance/watcher_abc.py --audit <sid>` already runs an arm-neutral
+   offline per-turn audit over a finished history, and
+   `replay_extract_call`/`replay_llm_call` already re-issue one recorded call with
+   an edited system prompt. Both experiments are a new prompt plus a scoring
+   script.
 3. **Wave 2's shape is now genuinely open.** If 74 survives its offline test,
    task 64 is likely its first consumer rather than a task of its own.
 
