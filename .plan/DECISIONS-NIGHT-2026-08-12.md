@@ -291,3 +291,38 @@ The defect is the routing. Fix deliberately not designed; the file names three
 shapes and says which to check first.
 
 ---
+## 11. P3 ran, and it dismissed my own confound — DECIDED
+
+Decision rule was registered before the run, against P1's control of 90.8%
+frozen adjacent turn pairs over nine sessions.
+
+**`5d60575d`: frozen 95.2% (20 of 21). Fisher p = 0.70.** Above the 82% line, so
+by the pre-registered rule the engine stalls **regardless of who pushes**, and
+the passive-profile confound I raised against task 77 is dismissed.
+
+**Reading it is where the value is.** The scene is far from static: the ceiling
+collapses, the west exit is buried, then the south, then a crack opens north.
+What never happens is anybody moving. Counting how the cast talks, per NPC line:
+
+| | P1 passive | P3 active |
+|---|---|---|
+| orders to HOLD | 9.1% | **29.7%** |
+| orders to GO | 12.0% | **25.0%** |
+
+Both double or triple, and the world obeys neither. **The room is not quiet
+because nobody asked. It is quiet with twenty people shouting instructions.**
+That is a stronger case for task 77 than the transcript it opened with.
+
+**⚠ NEEDS YOU (softened):** I asked earlier whether the passive profile was the
+wrong baseline for this phase. On this evidence it is **not** distorting the
+stall finding, so the answer is less urgent than I made it sound. P3 is still
+worth keeping, because it is the only profile that can ever answer this
+question, and it should be re-run when task 77 is actually fixed.
+
+**And I got the number wrong first.** My initial HOLD count said 46.9%; the
+pattern included `fila`, which appears in *"saídas laterais, em fila"* - an order
+to MOVE. Six of the first ten flagged lines were that. **Fourth guard of this
+shape to fail today**, and the fourth time reading the flagged lines caught it
+rather than the number looking suspicious.
+
+---
