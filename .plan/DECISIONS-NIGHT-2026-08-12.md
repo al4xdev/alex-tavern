@@ -225,11 +225,25 @@ moves. **Not run yet** — a cell was already in flight.
    thing confidently, which is this project's characteristic failure.
 
 ---
-## 8. The empty-cluster fold is verified — DECIDED
+## 8. The empty-cluster fold is verified on ONE cell, not two — CORRECTED
 
-Two post-fold cells: **zero cluster narrations rendered with no events**, against
-8 of 16 before. Cross-cluster leak 0/2 and 0/0. The mechanism works; the sample
-is small because neither session split much.
+I first reported two post-fold cells. **One of them was not post-fold.** Two
+batteries overlapped: my waiter saw the gap between replicates, called DONE, and
+I scored a session from the older run.
+
+Checked against commit times: the fold landed 19:18. `d8310b8b` (19:48) came from
+the battery launched 19:23 and **is** post-fold. `75d9f36f` (19:48) came from the
+post-76 battery launched ~18:58 and is **pre**-fold — and it produced no cluster
+narrations at all, so it carries no information either way.
+
+**So the fold rests on `d8310b8b` alone: 2 cluster narrations, 0 with zero
+events, against 8 of 16 before.** The mechanism is verified by its unit tests;
+the live evidence is one thin cell. A second post-fold replicate was still
+running when this was written.
+
+**Lesson worth keeping:** the waiter polls for `--exec-one` and a battery has no
+such child between replicates. Every "DONE" it has ever reported is suspect, and
+two of tonight's were wrong. Check the PARENT pid, not the child.
 
 ---
 ## 9. I audited task 67's own closure metrics, and they were luckier than strong
