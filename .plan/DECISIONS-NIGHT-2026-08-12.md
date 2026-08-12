@@ -187,3 +187,41 @@ faces of one thing — **the engine keeps no record of what has already been
 settled.** I have not merged them; that is a roadmap call.
 
 ---
+## 7. Every session this phase has ever measured had a passive player — ⚠ THE BIG ONE
+
+**How I found it.** Reading the protagonist's own thread. In `09aabf25` Link
+speaks **four times in thirty-nine turns**:
+
+> *"..."* / *"Prefiro só observar por enquanto."* /
+> *"Não se preocupem comigo, continuem."* / *"E agora?"*
+
+That is not a player, it is the battery's input profile — and **both profiles
+this project owns are deliberately inert.** P1 is six `skip`s out of ten, and its
+own comment says the lines are *"deliberately inert: the player observes and
+reacts without steering"*.
+
+**Why that is the big one.** It is a defensible control for measuring
+engine-driven repetition. It is the wrong control for *"the scene does not
+move"*, which is this phase's headline complaint and the thing waves 2 and 3 are
+sized against. **The engine has never been measured with a player who pushes.**
+
+It does not explain the defect away — in task 77 the NPCs do not move either and
+the Director's `zone_moves` are `null` — but every severity number this phase
+carries was taken in the condition most favourable to the defect.
+
+**What I did.** Added a **P3** profile that steers: *"Eu vou na frente. Abram
+caminho."*, *"Nao vou esperar mais. Estou entrando."*, with `action` inputs that
+take a direction. Additive only; P1 and P2 are untouched, so no existing baseline
+moves. **Not run yet** — a cell was already in flight.
+
+**⚠ NEEDS YOU:** two things.
+
+1. **Is the passive profile the right baseline for this phase at all?** If the
+   product is *"your character's experience"*, measuring it with a character who
+   never acts may be measuring the wrong game. I did not change P1 or P2, because
+   that would invalidate every number in the roadmap.
+2. **P3's lines are mine.** They are a guess at what an active player sounds
+   like. If they do not match how you actually play, they will measure the wrong
+   thing confidently, which is this project's characteristic failure.
+
+---
