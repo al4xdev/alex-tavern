@@ -136,6 +136,33 @@ components attributes the gap to whichever component you already suspect. It
 took a cell where the *other* component was at fault to notice. Two cells is the
 minimum for any metric defined as a disagreement.
 
+## The sharpest case on this page: 0.02 similarity, and a reader sees one paragraph
+
+Found 2026-08-12 by reading `c76037ff`, after task 71 shipped that morning.
+
+Its five-person cluster got sixteen narrations, eight of them with no events at
+all, so the renderer described the room instead. Consecutive pairs score **0.02**
+on sequence similarity. Every repetition instrument in this project reads that
+as two unrelated paragraphs, and every one of them is wrong: the imagery is the
+same every time.
+
+| word | small cluster | main cluster |
+|---|---|---|
+| `quietude` | **44%** | 3% |
+| `penumbra` | **50%** | 0% |
+| `halos` | **19%** | 0% |
+| `colunas` | **19%** | 0% |
+
+A stillness vocabulary the busy half of the scene never touches. The model
+varies its wording enough to defeat sequence similarity while saying the same
+thing, which is exactly the failure mode a language model should be expected to
+have and exactly the one `SequenceMatcher` cannot see.
+
+**Transferable, and it generalises past repetition:** lexical distance measures
+whether the WORDS changed. Nothing on this page measures whether anything
+HAPPENED. When those two come apart, the reader tracks the second one, and every
+instrument here tracks the first.
+
 ## Matching a NAME: the failure that keeps recurring
 
 Three times this month, in three different components, a guard matched a proper
