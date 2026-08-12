@@ -1,6 +1,11 @@
 # Task 64 — Return control to the protagonist
 
-> **Status:** open, **and deliberately under-specified**. **Wave 2, after 69.**
+> **Status:** open, **and now re-scoped by measurement.** **Wave 2, after 69.**
+> The battery this task demanded has run (2026-08-12, nine sessions): the
+> never-returned count is **5 of 12 → 0 of 9**, and reading every
+> `return_control` turn shows the Director picks the right moments and simply
+> picks few. **This is a calibration problem, not a missing mechanism** — do not
+> design a new trigger. See "The battery has run" below.
 >
 > Two blind reviewers destroyed both of this task's original trigger designs and
 > one of its citations. What survives is a well-measured *problem* with no
@@ -29,6 +34,47 @@ against 5), and one cell cannot re-take the number that matters most here —
 *"control never returned by either path in 5 of 12 sessions"*, which needs a
 battery. **Re-measure across several sessions before designing any trigger**,
 and treat the table below as the pre-70 baseline rather than the current state.
+
+## ✅ The battery has run — 2026-08-12, nine post-70 sessions
+
+323 Director turns across nine sessions (`34390b86`, `d0cc98e5`, `00997daa`,
+`b11b38dc`, `55d03896`, `21f7c4e1`, `c76037ff`, `09aabf25`, `54bcdace`).
+
+| signal | pre-70 (482 turns, 12 sessions) | **post-70 (323 turns, 9)** | |
+|---|---|---|---|
+| `return_control=True` | 5 (1.0%) | **10 (3.1%)** | p = 0.059 |
+| controlled character routed | 11 (2.3%) | **10 (3.1%)** | — |
+| either path | 16 (3.3%) | **20 (6.2%)** | p = 0.057 |
+| **sessions where control NEVER returned** | **5 of 12** | **0 of 9** | **p = 0.045** |
+
+**The number this task said needed a battery is now zero.** Every one of the
+nine sessions hands control back at least once. That was the strongest single
+statement in the problem section and it no longer describes the engine.
+
+### And the read says the trigger is not broken — it is shy
+
+Per-turn rates are still low, so the tempting conclusion is that the mechanism
+picks badly. Reading every `return_control` turn says the opposite. They are all
+the same shape, and it is the right one — a held beat with the outcome open:
+
+> **T11** *"o silêncio que se segue é espesso, como se o próprio ar aguardasse o
+> próximo movimento"* — the creature still, everyone's hand drifting to a weapon.
+> **T23** Riven steps up to the mural, blade raised, the map beginning to breathe.
+> **T24** *"a diretora … hesita por um instante, o metal tremendo na mão,
+> enquanto os alunos … recuam alguns passos"* — the threat now holds the only exit.
+
+Not one is a lull or a hand-off in the middle of somebody else's sentence. The
+Director gives the turn back exactly where a player would want it.
+
+**That reframes the task.** It was written as *"the trigger is missing or wrong"*.
+The evidence says the trigger exists, chooses well, and fires **rarely** — a
+calibration problem, not a design one. A task that designs a new mechanism would
+be replacing something that works.
+
+**Recommended re-scope:** ask why a Director that recognises these moments only
+declares them ~3% of the time. The first place to look is the contract wording
+for `return_control`, not a new trigger, and the pre-70 lesson applies directly —
+removing one sentence tripled this number without anybody designing anything.
 
 ## The problem, measured (PRE-70 — see the box above)
 
