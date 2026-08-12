@@ -7,6 +7,11 @@
 >
 > This is the phase's headline complaint, *"the scene does not move"*, caught in
 > the act with a transcript rather than a number.
+>
+> ⚠ **Two diagnoses have already been written here and falsified by their own
+> evidence.** The transcript is solid; every causal story about it so far has
+> not been. Read "The replay was run" before believing anything in the Direction
+> section, and treat this file as a well-evidenced SYMPTOM with an open cause.
 
 ## What a reader sees
 
@@ -153,6 +158,61 @@ than an engine one — which is the cheap end, and matches how task 70 moved
 **What is still unknown, and must not be guessed:** whether the Director *would*
 enact a standing order if the contract let it. That is the replay in the
 falsifier below, and it is the next thing to run.
+
+## ⚠ The replay was run, and it falsified the paragraph above
+
+`plans/artifacts/77-standing-order/`, 16 calls, decision rule pre-registered
+before any of them. Arm A is the recorded prompt verbatim; arm B rewrites rules
+2 and 3 to permit enacting an order already in force.
+
+| | enacted `zone_moves` | mean characters moved |
+|---|---|---|
+| **A** (recorded contract) | **3 of 8 (37.5%)** | 0.50 |
+| **B** (permitted to enact) | **5 of 8 (62.5%)** | 1.50 |
+
+**B does not meet its own pre-registered bar.** The gate was *at least twice the
+A rate and at least half of B's runs*; B is 1.67x. Fisher p = 0.62. **B is not
+adopted.**
+
+**And the bigger correction is to arm A.** Both payloads recorded
+`zone_moves: null` in the live session — and replayed against the *unchanged*
+contract, the Director moves people on **3 of 8 runs**. So the contract does not
+forbid enactment. It permits it, and the Director takes it about a third of the
+time.
+
+**The claim "a Director following its instructions exactly will land nobody
+anywhere" is therefore wrong**, and it is wrong in the way this project keeps
+getting things wrong: a mechanism inferred by reading code, made confident by a
+transcript that agreed with it, and never put in front of a real call until
+afterwards. The transcript is still real. Three turns, four orders, nobody
+through the gate. The cause is not prohibition.
+
+### What the replay says the cause is
+
+**Variance.** Same payload, same prompt, same model: enactment is roughly a coin
+flip weighted against moving. A three-turn stall is then just an unlucky run of a
+biased coin, which is exactly what a reader experiences as the scene refusing to
+start.
+
+That reframes the task again, and this time toward something harder than a
+prompt edit: **the engine has no memory that an order is outstanding.** Nothing
+carries "these people were told to go through the gate and have not" from one
+turn to the next, so every turn re-rolls the same coin instead of resuming a
+commitment. That is task 72's territory (commitments as first-class state), and
+77 may be evidence FOR 72 rather than a task of its own.
+
+### What is still worth keeping from arm B
+
+Reported, not deciding, and both point the same way:
+
+- B moved **three times as many characters per run** (1.50 against 0.50).
+- **Every** B destination was `salão, próximo ao portão norte` - the place the
+  standing order names. Arm A produced that too, plus one move back **into** the
+  hall, away from the gate it had just ordered everyone through.
+
+So B is directionally better and qualitatively cleaner. It is not adopted on
+n=8 per arm, and anyone who wants it must re-run it larger with the rule
+re-registered, not inherit this result.
 
 ## The measurement that would falsify this task — RUN, and it does not fire
 
