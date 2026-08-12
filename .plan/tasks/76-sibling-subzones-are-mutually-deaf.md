@@ -1,6 +1,9 @@
 # Task 76 — Sibling sub-zones are mutually deaf
 
 > **Status:** open, found 2026-08-12 while measuring task 67's last closure item.
+> **Design decided 2026-08-12 on measurement** (comma-prefix rule, see below);
+> implementation deliberately held until task 71's confirmation cell lands,
+> because changing the graph changes what that cell measures.
 > **Not** a regression from 67. It is the half of task 54's finding 1 that the
 > fix for that finding did not reach, and it has been in every session since.
 
@@ -149,11 +152,62 @@ dois metros"*, 15 false positives on a live cell, 0 on the archive). If rule 2
 is chosen it needs the same treatment: measured against the archive's real zone
 names before it ships, decoys included.
 
+## ✅ The decision — 2026-08-12, measured over 26 sessions
+
+**Rule 2, in a sharper form than the one sketched above: two zones are linked
+when they share a comma-prefix.** Not parent-name containment, which the data
+kills — `salão, flanco esquerdo` has to link to `salão, flanco direito` while
+their actual parent is named `Academia Real do Primeiro Sino, Salão dos Quatro
+Arcos`, so a containment test finds nothing.
+
+Every mutually-deaf sibling pair across all 26 sessions was collected: **63
+distinct pairs**. The prefix rule links **13** and leaves 42 alone. All 13 read:
+
+| pairs | verdict |
+|---|---|
+| `corredor, ao lado de C17` / `, parada junto à porta` / `, atrás de C17` (3 pairs) | ✅ three positions in one corridor |
+| `salão, flanco direito` / `flanco esquerdo` | ✅ the case this task opened with |
+| `zona de segurança, recuado` / `, recuado da entrada` / `, recuado do corredor A` (3) | ✅ three marks in one hall |
+| `base da brecha, ao lado de Garran` / `, escalando borda` | ✅ two spots at one breach |
+| `corredor sudeste, guiando um grupo` / `, próximo à saída` / `, com o kit` (3) | ✅ the Nix case from the audience audit |
+| `Academia Real do Primeiro Sino, Salão dos Quatro Arcos` / `, jardins leste` | ❌ a hall and a garden |
+| `Ala Leste, câmara do sino quebrado` / `, túnel de manutenção` | ❌ two rooms in one wing |
+
+**11 right, 2 wrong: 85% precision, and the two failures share a shape.** Their
+prefix is a *building* or a *wing* (`Academia Real do Primeiro Sino`, `Ala
+Leste`); every true positive's prefix is a *room* (`corredor`, `salão`, `zona de
+segurança`, `base da brecha`). That distinction is semantic and there is no
+length or word-count cut that separates them — I looked.
+
+**Ship the 2 false positives deliberately.** Task 54's doctrine decides it: a
+wrong deafness cost 12 empty audiences and a shouted warning nobody heard, while
+a wrong audibility costs no secrecy at all, because a zone audience is
+`audience_origin="zone"`, which the model layer already declares to be
+perception and never a secrecy source. Two rooms in one wing hearing each other
+is the cheap error, and `zone_link_updates` is the declared way to sever it. The
+same doctrine that inverted the default in task 54 answers this the same way.
+
+Recorded so nobody has to rediscover it: **the tempting extra condition is to
+require the prefix to be a room, and there is no way to know that from the
+string.** If this needs tightening later, the lever is the Director's contract,
+not the parser.
+
+### ⚠ Sequencing: do not implement while a task 71 cell is in flight
+
+Written 2026-08-12 while the post-71 confirmation cell was running. Changing the
+zone graph changes the cluster split, which is exactly what that cell measures,
+and §6 requires the validated variant to BE the shipped variant. This decision
+is docs-only until that cell lands and is scored.
+
 ## Closure evidence required
 
-- [ ] the design question above answered in writing, here, before implementation;
-- [ ] if rule 2: the name test measured over every zone name in the archive, with
+- [x] the design question above answered in writing, here, before implementation;
+      *(2026-08-12: the comma-prefix rule, with the doctrine argument for
+      accepting its two false positives)*;
+- [x] if rule 2: the name test measured over every zone name in the archive, with
       the false-positive population reported, not just the true-positive one;
+      *(63 mutually-deaf sibling pairs collected over 26 sessions; the rule links
+      13, of which 11 are right and 2 are wrong, and both failures are named)*;
 - [ ] the five read cases become a regression test with their real zone names;
 - [ ] the split rate re-derived with `scan_scene_splits` after the fix, against
       the post-67 baseline task 71 records;
