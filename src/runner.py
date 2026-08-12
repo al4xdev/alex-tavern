@@ -1579,7 +1579,13 @@ class Runner:
                 "narration",
                 step,
                 audience=audience,
-                audience_origin=None if cluster is None else "zone",
+                # NOT "zone", which is what `_report_speech` writes. That path
+                # also appends a Narrator-spoken `narration` record with a
+                # zone-derived audience, so the two were indistinguishable in
+                # history: one is a paragraph of prose, the other is a one-line
+                # report that a character said something. Found by reading a
+                # live session where the difference could not be recovered.
+                audience_origin=None if cluster is None else "cluster",
             )
             if cluster is None or controlled in cluster:
                 player_narration = narration

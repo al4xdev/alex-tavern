@@ -244,9 +244,11 @@ class TestTheRunnerRendersAndPersistsPerCluster:
         by_audience = {tuple(r.audience or []): r.content for r in narrations}
         assert by_audience[("C1", "C2")] == "Prosa para C1-C2."
         assert by_audience[("C3", "C4")] == "Prosa para C3-C4."
-        # Perception scoping, never a whisper secret - the same distinction the
-        # speech records already draw.
-        assert {r.audience_origin for r in narrations} == {"zone"}
+        # NOT "zone". `_report_speech` also appends a Narrator `narration`
+        # record with a zone-derived audience, and without a distinct origin the
+        # two are the same record shape - a paragraph of prose and a one-line
+        # report that somebody spoke. Caught on a live session.
+        assert {r.audience_origin for r in narrations} == {"cluster"}
 
     @pytest.mark.asyncio
     async def test_the_far_cluster_cannot_read_the_players_narration(self, monkeypatch) -> None:  # noqa: ANN001
@@ -266,6 +268,31 @@ class TestTheRunnerRendersAndPersistsPerCluster:
         assert game is not None
         narrations = [r for r in game.history if r.content_type == "narration"]
         assert {tuple(r.audience or []) for r in narrations} == {("C1", "C2"), ("C3", "C4")}
+
+
+class TestClusterProseIsDistinguishableFromASpeechReport:
+    """Found on the first live post-71 session, not in review.
+
+    `_report_speech` is the degradation path where the Narrator REPORTS a line
+    instead of quoting it, and it appends `content_type="narration"`, speaker
+    `Narrator`, `audience=heard_by`, `audience_origin="zone"`. The first version
+    of this task wrote its cluster prose with exactly those four values, so a
+    paragraph of narration and a one-line "X said something" report became the
+    same record. The live read could not tell them apart, and neither could any
+    scanner that counts the narration channel.
+    """
+
+    def test_the_two_paths_do_not_write_the_same_record_shape(self) -> None:
+        import inspect
+
+        from src.runner import Runner
+
+        report = inspect.getsource(Runner._report_speech)
+        assert 'audience_origin="zone"' in report, "the report path moved; re-check the collision"
+
+        render = inspect.getsource(Runner._render_and_prepare)
+        assert '"cluster"' in render
+        assert 'audience_origin=None if cluster is None else "zone"' not in render
 
 
 class TestSingletonFolding:
