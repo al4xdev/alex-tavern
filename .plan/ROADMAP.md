@@ -269,7 +269,33 @@ and it still subsumes parts of three other tasks.
 | **63** — Redaction must not reach the persisted record | Depends on 68's scanner to choose the fix, and on 65 which removes 42 of its 43 cases |
 | **67** — Zone graph integrity | Independent; the cause is the zone graph, not the model |
 
-### ◆ Checkpoint — re-measure before anything in wave 2 is designed
+### ◆ Checkpoint — ✅ PASSED 2026-08-12, and here is the re-derivation
+
+> **Run alone, overnight, on the owner's authorisation to re-plan without them.**
+> Every call is listed in `.plan/DECISIONS-NIGHT-2026-08-12.md`; the ones marked
+> ⚠ NEEDS YOU are mine to unmake on request.
+
+Wave 1 landed (**65** ✅, **70** ✅, **63** falsified out, **67** ✅). The battery
+re-ran: **nine post-70 sessions, 323 Director turns**, plus four post-71 cells.
+What the re-derivation changed:
+
+| task | before the checkpoint | after |
+|---|---|---|
+| **64** | *"may be closed by 70 alone"* | **not closed, and re-scoped.** Never-returned sessions 5/12 → **0/9** (p=0.045), but the rate is still ~3%. Reading all ten return-control turns: the Director picks exactly the right moments and picks few. **Calibration, not a missing mechanism** |
+| **63** | out of wave 1 as *"a prose-rendering cosmetic issue"* | **half wrong.** Re-scored over seven sessions: persisted speech 0 and ledger 0 everywhere, but **4 of the 6 surviving markers are in persisted Narrator REPORTS with audiences of 18 and 19**. Stays out of wave 1; re-scoped as durable-report damage |
+| **71** | wave 3, *"parked until 67 ships"* | **✅ CLOSED.** Built once 67 landed. Cross-cluster leak 16/29 (55%) → 3/78 (3.8%), p=9.8e-09, cost 1.278x |
+| **76** *(new)* | — | **shipped.** Sibling sub-zones were mutually deaf; 25 wrongly-denied audience entries → 20 |
+| **77** *(new)* | — | **open, cause unknown.** The room is ordered through a gate four times in three turns and nobody moves. Two diagnoses written and both falsified by their own evidence |
+| **72** | gated on *"stalls survive 69"* | **the stalls are documented (77) but 69 has not shipped**, so the gate is still not formally testable. 77's replay points at un-remembered commitments, which is 72's territory |
+| **69** | next in wave 2 | **unchanged and now genuinely next** |
+
+**⚠ The blind read was NOT blind.** The checkpoint asks for a blind reader and
+what it got was me, reading two sessions as fiction while knowing the code. That
+found real defects (77, and the empty-cluster narration that task 71 shipped
+that morning), so it was worth doing, but a reader who has never seen the engine
+is still owed and would find different things.
+
+---
 
 **Added 2026-08-05. This is the load-bearing addition to this roadmap.**
 
