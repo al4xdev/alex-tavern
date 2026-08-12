@@ -326,3 +326,31 @@ shape to fail today**, and the fourth time reading the flagged lines caught it
 rather than the number looking suspicious.
 
 ---
+## 12. A number I nearly reported as a triumph, and did not — CAUTION
+
+Live split rates by era: post-67 **27.8%**, post-71 **51.2%**, post-76 **1.3%**
+(2 of 159 narrated turns), Fisher p = 1.2e-12 for the last step.
+
+Read cold that says task 76 all but eliminated scene splitting, and it would
+have been a satisfying headline given the archive replay said 76 changed nothing.
+
+**It is not true.** `sibling_zones_linked` fired **0 times in three of the four
+post-76 sessions and 3 times in the fourth**. The rule barely ran. It cannot have
+caused a collapse from 51% to 1%.
+
+What actually differs is the Director. In three of the four post-76 sessions it
+built mutually-linked zone graphs (hall ↔ children), which are one connected
+cluster by construction; the post-71 group happened to contain the sealed-pulpit
+sessions. **That is Director behaviour varying across sessions, not code.**
+
+So: the 51.2% post-71 figure is also not a task 71 effect - 71 does not touch the
+graph. **Both of those era comparisons are confounded by which scenes the
+Director happened to seal**, and neither belongs in a summary as a result.
+
+**⚠ NEEDS YOU:** this means the split rate - the number task 71 was sized on,
+and the one I re-derived at 27.8% this morning - **swings between 1% and 51%
+across sessions on identical code.** Task 71's cost and value estimates inherit
+that spread. I did not restate them, because I do not know which end is typical
+and four sessions per era cannot tell me.
+
+---
