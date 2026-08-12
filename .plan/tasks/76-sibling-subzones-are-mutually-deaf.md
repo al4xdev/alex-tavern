@@ -93,6 +93,34 @@ So the defensible figure is **about 17 of 168 splits (10%) are sibling
 artifacts**, not 26. This is recorded because the tempting version of this
 number is the bigger one and it does not survive being read.
 
+## It is now partly hidden, which raises the priority
+
+Task 71 shipped 2026-08-12 and folds singleton clusters: a lone character who is
+not the player gets no narration render of their own, on the redundancy argument
+(they already receive per-viewer events and memory).
+
+On the first live post-71 session, `21f7c4e1`, **all ten split turns are this
+defect** — Lorde Cassian Aurel alone on `púlpito central`, addressing an assembly
+he is sealed from:
+
+```json
+{"Salão dos Quatro Arcos": ["púlpito central", "Pátio norte da Academia"],
+ "púlpito central": [], "Pátio norte da Academia": ["Salão dos Quatro Arcos"]}
+```
+
+The pulpit and the courtyard are siblings under the hall, so neither hears the
+other. The fold then fired ten times and each time denied narration to a
+character who should have been standing in the main cluster.
+
+Two consequences:
+
+1. **The symptom is now quieter, not smaller.** Before 71 the isolation showed up
+   as a spurious cluster in the split count; now it shows up as a character
+   quietly receiving nothing. That is harder to notice, not easier.
+2. **The claim "there are no singletons after 67" is dead.** It held across four
+   sessions and broke on the fifth. Anyone reasoning about singleton folding
+   should read this section first.
+
 ## The design question this task must answer first
 
 Under task 54's doctrine — err toward hearing, because a wrong deafness cost 12

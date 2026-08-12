@@ -255,9 +255,10 @@ ones, landing on exactly 108 narrated turns each side:
 
 Fisher p=1.7e-4. The rate halved but stayed above the 20% line the decision rule
 was registered against, so 71 stands. **Every singleton cluster was an
-artifact** — zero of them across four post-67 sessions — so the cost multiplier
-is 1.28x under either policy and the singleton-fold question has no population
-left to decide about. Task 76's sibling confound was checked against this sample
+artifact** — none in the four post-67 sessions scored that day — so the cost
+multiplier is 1.28x under either policy. A fifth session (`21f7c4e1`) later
+found singletons on all ten of its split turns, each one task 76's sealed
+sibling, so the population is rare and graph-shaped rather than empty. Task 76's sibling confound was checked against this sample
 rather than assumed: merging siblings changes the post-67 split count not at all
 (30 → 30).
 

@@ -6,9 +6,10 @@
 >
 > ## ✅ THE RE-MEASUREMENT HAS RUN — 2026-08-12, the task stands
 >
-> Split rate 53.7% → **27.8%** (p=1.7e-4), cost multiplier **1.28x**, and zero
-> singleton clusters across four post-67 sessions. See "The re-measurement"
-> below. The pre-67 figures further down this file are superseded; they are
+> Split rate 53.7% → **27.8%** (p=1.7e-4), cost multiplier **1.28x**, and no
+> singleton clusters in the four post-67 sessions scored that day - a fifth
+> session later found them, see the correction under "The singleton question".
+> See "The re-measurement" below. The pre-67 figures further down this file are superseded; they are
 > kept because the reasoning around them is still the reasoning.
 >
 > ## The original blocker, kept for the record
@@ -104,14 +105,21 @@ What the decision settles, and what it does not:
   shrink. **Confirm against the post-67 measurement, then write the decision
   here — on the redundancy argument, not the call count.**
 
-  > ✅ **Confirmed 2026-08-12, and it did not shrink — it vanished.** Zero
-  > singleton clusters across four post-67 sessions, against 0.740 per turn
-  > before. The prediction in this paragraph was exactly right, and it leaves
-  > nothing to decide: there is no singleton population to fold or render. The
-  > fold rule stays in as a guard against the case recurring, and the
-  > redundancy argument is the only thing holding it up, which is the footing
-  > the re-framing above asked for. **Nobody should cite 1.21x again** — the
-  > multiplier is 1.28x and it is the same number either way.
+  > ✅ **Confirmed 2026-08-12: it shrank, hard.** Zero singleton clusters across
+  > the first four post-67 sessions, against 0.740 per turn before. The
+  > prediction in this paragraph was right.
+  >
+  > **It did not vanish, and I said so for a few hours before a fifth session
+  > proved otherwise.** `21f7c4e1` carries a singleton on all ten of its split
+  > turns: a man sealed on a pulpit by task 76's sibling defect. So the
+  > population is rare and graph-shaped, the fold rule is doing real work rather
+  > than guarding an empty case, and while 76 is open **the fold is masking it** —
+  > each fold silently denies narration to someone who should not have been
+  > alone. The decision still stands on redundancy, which is the footing the
+  > re-framing asked for, and it should be revisited once 76 lands.
+  >
+  > **Nobody should cite 1.21x again** — the multiplier is 1.28x, measured, and
+  > folding can only ever reduce it.
 
 ### Scenes do split, so the falsifier does not fire
 
@@ -300,11 +308,19 @@ The single biggest cost lever in this task was *"1.56x prose calls per turn if
 every cluster renders, 1.21x if singletons fold"*, and the open closure item
 below asked for the fold decision to be made against post-67 numbers.
 
-**There are no singletons to fold.** `mean_clusters_ge2` equals `mean_clusters`
-to three decimals in all three cells, and in the P2 post-67 cell `d0cc98e5`
-(37 narrated turns, 37.8% split, `singleton_turns` **0**) as well. Four post-fix
-sessions, not one singleton cluster among them. Pre-fix there were 0.740 per
-turn.
+**There are no singletons to fold** *(in these four sessions - see the
+correction below)*. `mean_clusters_ge2` equals `mean_clusters` to three decimals
+in all three cells, and in the P2 post-67 cell `d0cc98e5` (37 narrated turns,
+37.8% split, `singleton_turns` **0**) as well. Four post-fix sessions, not one
+singleton cluster among them. Pre-fix there were 0.740 per turn.
+
+> ⚠ **Corrected 2026-08-12 by the fifth session.** `21f7c4e1` has a singleton on
+> every one of its ten split turns - a man sealed on a pulpit by task 76's
+> sibling defect. The population is not zero, it is rare and graph-shaped. The
+> cost conclusion below is unaffected (1.278x was measured on the cells that
+> have no singletons, and folding only ever reduces calls), but **"there are no
+> singletons" is not a fact about the engine**, and the fold rule is doing real
+> work rather than standing guard over an empty case.
 
 That is the spurious singleton task 71 predicted the broken graph was
 manufacturing, and 67 removed all of it. So:
@@ -408,3 +424,65 @@ majority path and that is the first thing to fix, ahead of any quality question.
 **The read is not optional and not replaceable by the length number.** Length is
 the cheap proxy; this project has now recorded four instruments that passed on
 their numbers and failed on a read (`.plan/reference/metric-validity.md`).
+
+### ✅ Result — session `21f7c4e1`, 2026-08-12
+
+**Length.** Speech reports had to be excluded first; see the defect below.
+
+| | pre-71 (3 cells) | post-71 |
+|---|---|---|
+| unsplit median chars *(the control)* | 1235 | 1275 (**+3%**) |
+| split median chars | 1170 | 1031 (**-11.9%**) |
+
+The control did not move, so nothing leaked into the majority path. The split
+drop is inside the 25% band. **Ship-as-is branch of the rule.**
+
+**The read.** Concrete, not atmospheric filler:
+
+> **T25** the east arch gives way, a slab tearing loose and sealing the entrance,
+> dust thick enough to hide the podium, fist-sized fragments hammering the floor.
+> **T27** (the shortest, 431 chars) a steel beam on loose bolts swinging over
+> crates and coiled rope — a specific hazard being set up, not a mood.
+> **T31** Marta driving the last stake, the rope rectangle, dust in the folds of
+> her leather apron.
+
+**The leak, measured before and after.** A split narration counts as leaking if
+it names a character or a zone that some reader of that record cannot perceive:
+
+| | split narrations | leaking |
+|---|---|---|
+| pre-71 `00997daa` | 20 | **14** |
+| pre-71 `b11b38dc` | 9 | **7** |
+| **post-71 `21f7c4e1`** | 10 | **0** |
+
+**21 of 29 (72%) → 0 of 10.**
+
+### ⚠ Two things the live session corrected
+
+**1. Singleton clusters are not extinct, and my "zero across four sessions" was
+too strong.** Every one of this session's ten splits is 20 people in the
+courtyard plus **one man alone on the `púlpito central`** — Lorde Cassian Aurel,
+addressing an assembly he is acoustically sealed from:
+
+```json
+{"Salão dos Quatro Arcos": ["púlpito central", "Pátio norte da Academia"],
+ "púlpito central": [], "Pátio norte da Academia": ["Salão dos Quatro Arcos"]}
+```
+
+The pulpit and the courtyard are both children of the hall, and **task 76 is
+exactly that**: siblings are never linked, so the pulpit hears nothing. So the
+singleton is a graph artifact, the fold rule fired ten times, and each time it
+denied narration to a character who should have been in the main cluster.
+
+Not a reason to drop the fold — the player is never folded and was in the
+courtyard throughout — but it means **the fold is currently masking task 76**,
+and 76 should land before anyone treats singleton folding as harmless. The
+earlier claim that the post-67 singleton population is zero holds for those four
+sessions and does not generalize.
+
+**2. Cluster prose was indistinguishable from a speech report.** `_report_speech`
+appends `content_type="narration"`, speaker `Narrator`, `audience=heard_by`,
+`audience_origin="zone"` — the exact four values the first version of this task
+wrote. The thinning measurement counted one-line speech reports as narration and
+had to be redone against the `audible_speech_drop` log. Cluster prose now carries
+`audience_origin="cluster"`, pinned by a test.
