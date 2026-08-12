@@ -7,8 +7,10 @@
 > **What it fixes:** 5 of the 25 audience entries the graph wrongly denied, in 3
 > of the 5 records. **What it does not:** the split rate, which is unchanged at
 > 168 of 610 — connected components already bridged siblings through their
-> shared parent. Two claims in this file were corrected after measuring the
-> shipped rule; both corrections are below and neither is subtle.
+> shared parent — and **siblings the Director named as places rather than as
+> sub-positions**, which a live cell then produced two more of. Three claims in
+> this file were corrected after measuring the shipped rule; all three are below
+> and none is subtle.
 > **Not** a regression from 67. It is the half of task 54's finding 1 that the
 > fix for that finding did not reach, and it has been in every session since.
 
@@ -248,9 +250,53 @@ is docs-only until that cell lands and is scored.
 - [x] the split rate re-derived with `scan_scene_splits` after the fix, against
       the post-67 baseline task 71 records; *(**unchanged, 168 of 610**, and the
       reason is structural rather than a null result - see above)*;
-- [ ] `empty_audience` and `clamp_lost_half` do not regress — this task adds
+- [x] `empty_audience` and `clamp_lost_half` do not regress — this task adds
       edges, so the risk is the opposite one: an audience that should have been
-      narrow. **Needs a post-76 cell.**
+      narrow. *(2026-08-12, cell `834f91e5`: `empty_audience` **0**,
+      `with_others_present` **0**. No wrong-edge regression: nothing got a wider
+      audience than it should have. But `clamp_lost_half_unsealed` moved **0 →
+      2**, and reading it changed what this task claims to cover - see below.)*
+
+## ⚠ The rule covers a subset of the defect, and a live cell showed the rest
+
+The post-76 cell flagged two severe clamp losses, both `C18` at 18 proposed and
+1 kept. Read:
+
+> *"Garran, da porta lateral, grita que está indo em direção ao túnel e pergunta
+> se todos estão a salvo do outro lado."*
+>
+> ```
+> Salão dos Quatro Arcos: [porta lateral do salão, escada para arcos superiores, túnel oculto]
+> porta lateral do salão: [Salão dos Quatro Arcos]
+> escada para arcos superiores: [Salão dos Quatro Arcos]
+> túnel oculto: [Salão dos Quatro Arcos]
+> ```
+>
+> Standing where everyone is: **17 in `túnel oculto`, 2 on the stairs, 1 in the
+> hall**, Garran alone at the side door.
+
+**This is exactly this task's defect** — three openings off one hall, each linked
+to the hall and none to each other, so Garran calling from the side door reaches
+one person out of twenty. **And the shipped rule does not fix it**, because none
+of those three names contains a comma. The prefix rule matches siblings that the
+Director *named* as sub-positions; it cannot see siblings it named as places.
+
+So the honest statement of what shipped:
+
+- **No regression.** 76 added no wrong edges; `empty_audience` and
+  `with_others_present` are both 0, and nothing was heard that should not have
+  been.
+- **The rule's footprint is narrower than the defect's.** It fixed 5 of the 25
+  archived wrongly-denied entries. This cell produced 2 more of the same kind
+  that it cannot reach.
+
+**⚠ This reopens the design question rather than settling it.** Candidate rule 1
+(link all siblings of a common origin) WOULD fix the case above. It was rejected
+because it also joins `duto de ventilação` to `corredor interno da passagem
+secreta` in `base-P1-r2`. Both of those judgements are defensible and the
+evidence now points both ways, so the choice belongs to the owner rather than to
+me. Task 54's doctrine favours rule 1: separation should be declared, and
+undeclared deafness is the expensive error.
 
 **The measurement that would falsify this task:** if sibling sub-zones are rare
 once the Director stops being handed a contract that invites them, this is a
