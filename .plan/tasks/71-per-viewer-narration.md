@@ -388,9 +388,11 @@ close, alive in the post-67 graph.
       not a gate: `.plan/ROADMAP.md`); *(2026-08-12: control unmoved at +3%,
       split -11.9% inside the band, and the read finds concrete prose. See "The
       thinning check")*;
-- [ ] **the residual transcript leak re-scored on a fresh cell.** 72% → 9.4%,
-      and the `IN THIS VIEW` roster that targets the remaining 9.4% has not been
-      measured. This is the only thing between the task and closed.
+- [ ] **the residual transcript leak re-scored on a fresh cell.** 72% → 9.4%
+      with the roster alone; the deterministic backstop then removes all 3
+      remaining leaks and none of the other 39 split narrations on replay. What
+      is left is an end-to-end cell, which the replay cannot substitute for
+      because it cannot see the roster and the backstop interacting.
 
 **The measurement that would falsify this task:** if scenes essentially never
 split in real play, the defect is rare enough to live with and this drops below
@@ -480,13 +482,37 @@ it names a character or a zone that some reader of that record cannot perceive:
 > > *"Marta Ferrolume, ainda de joelhos diante do corredor A, ergue a cabeça, a
 > > chave de reserva pendendo frouxa na mão"* (T18)
 >
-> **Mitigation shipped, NOT yet measured:** a scoped `IN THIS VIEW` roster naming
-> the only people whose present actions may be narrated, others being available
-> as memory but never shown acting now. It is pinned by tests, and it is a prompt
-> promise - which this project has repeatedly recorded as the weak kind of fix.
-> **The next post-71 cell must re-score this 3/32 before the item is called
-> closed.** Until then the honest statement is 72% to 9.4%, with a named cause
-> and an unverified mitigation.
+> **Fixed in two halves, and the structural half is measured.**
+>
+> The instruction half is a scoped `IN THIS VIEW` roster: the only people whose
+> present actions may be narrated, others available as memory but never shown
+> acting now. On its own that is a prompt promise, which this project has
+> recorded more than once as the weak kind of fix.
+>
+> The structural half is `_strip_offstage_actors`, a deterministic backstop that
+> drops any sentence naming a present character outside the cluster. It mirrors
+> `_strip_echoed_sentences`, which already sits beside it in `prose.py` for
+> exactly this reason, down to returning "" so the caller keeps the draft when
+> nothing survives.
+>
+> **Replayed over both post-71 sessions: it fires on all 3 known leaks and on
+> none of the other 39 split narrations.** The surviving prose stays substantial
+> (1181 → 863, 1225 → 948, 1204 → 892 characters) and reads as complete, and the
+> OTHER cluster's narration - the one Marta is actually in - is untouched at
+> full length.
+>
+> ⚠ **The first version of this guard was wrong, and the corpus hid it.** It
+> matched name tokens case-insensitively and deleted three atmospheric sentences
+> for containing *"véu"* - Portuguese for veil, and also the surname of Noa Véu,
+> who was not in them. A 9.4% false-positive rate against a 9.4% leak. That is
+> the `menos` bug of task 70 in a new costume, and it is the second time this
+> month a name guard has been validated on a corpus that did not contain its own
+> counter-example. A multi-token name now must match in full and adjacent; a
+> single-token name must match with its capital.
+>
+> Still owed: an end-to-end cell confirming the pair in live rendering. The
+> offline replay covers the backstop against real output, which is the stronger
+> half of the evidence, but it cannot see an interaction with the roster block.
 
 ### ⚠ Two things the live session corrected
 

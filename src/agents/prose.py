@@ -354,6 +354,89 @@ def build_prose_messages(
     ]
 
 
+def _offstage_name_patterns(
+    scene: Scene,
+    characters: dict[str, Character],
+    controlled_id: str,
+    viewers: set[str],
+) -> list[re.Pattern[str]]:
+    """Patterns matching ONLY present characters outside this cluster.
+
+    **A surname can be an ordinary noun.** The first version of this guard
+    matched any name token case-insensitively and deleted three atmospheric
+    sentences from `c76037ff` for containing *"véu"* — Portuguese for veil, and
+    also the surname of Noa Véu, who was not in them. That is the `menos` bug of
+    task 70 in a new costume: a guard validated on the corpus that happens not
+    to contain its own counter-example.
+
+    So a multi-token name must match in FULL and adjacent, which no ordinary
+    noun does, and a single-token name must match with its capital, which an
+    ordinary noun in mid-sentence does not. Measured on the split narrations of
+    both post-71 sessions: fires on all three known leaks, and on none of the
+    other thirty-nine.
+
+    A pattern that would also match somebody IN the cluster is dropped: a false
+    negative costs one stray sentence, a false positive deletes prose the reader
+    is entitled to.
+    """
+    on_stage = [_canonical_name(cid, characters, controlled_id) for cid in viewers]
+    patterns: list[re.Pattern[str]] = []
+    for cid in scene.present_characters:
+        if cid in viewers or cid not in characters:
+            continue
+        name = _canonical_name(cid, characters, controlled_id).strip()
+        tokens = name.split()
+        if not tokens or len(name) < 3:
+            continue
+        if len(tokens) > 1:
+            body = r"\s+".join(re.escape(token) for token in tokens)
+            pattern = re.compile(rf"\b{body}\b", re.IGNORECASE)
+        else:
+            pattern = re.compile(rf"\b{re.escape(tokens[0])}\b")
+        if any(pattern.search(other) for other in on_stage):
+            continue
+        patterns.append(pattern)
+    return patterns
+
+
+def _strip_offstage_actors(
+    text: str,
+    scene: Scene,
+    characters: dict[str, Character],
+    controlled_id: str,
+    viewers: set[str],
+) -> str:
+    """Drop sentences that stage someone this cluster cannot perceive.
+
+    The measured residual of task 71 (session `c76037ff`): scoping the cast,
+    staging and events still leaked, because past PUBLIC narration stays in the
+    reader transcript forever - correctly, that reader watched it happen - and
+    the renderer carried the thread into the present, giving Marta Ferrolume
+    kneeling at a lock across three consecutive turns to a group that could no
+    longer perceive her, with no event of the beat naming her.
+
+    The `IN THIS VIEW` roster asks the model not to. This makes it true whatever
+    the model does, which is the difference the project keeps re-learning: a
+    prompt promise with no structure behind it loses (task 59, finding 1).
+
+    Mirrors `_strip_echoed_sentences` deliberately, including returning "" when
+    nothing survives so the caller keeps the draft: a leaking paragraph is worse
+    than no paragraph only if there IS another paragraph.
+    """
+    patterns = _offstage_name_patterns(scene, characters, controlled_id, viewers)
+    if not patterns:
+        return text
+    parts = re.split(r"(?<=[.!?…])\s+", text)
+    kept = [part for part in parts if not any(p.search(part) for p in patterns)]
+    # Returning the ORIGINAL when nothing was dropped, rather than a rejoined
+    # copy: the rejoin normalizes whitespace, which made 5 of 32 untouched
+    # narrations look modified by one or two characters the first time this was
+    # measured. A guard that reports work it did not do cannot be audited.
+    if len(kept) == len(parts):
+        return text
+    return " ".join(part.strip() for part in kept if part.strip()).strip()
+
+
 def build_prose_schema() -> dict:
     return {
         "name": "prose_narration",
@@ -415,4 +498,12 @@ async def render_narration(
         narration = str(result.get("narration", "")).strip()
         if _repeats_prior_narration(narration, history):
             narration = _strip_echoed_sentences(narration, history) or narration
+    if viewers is not None:
+        # Structural half of the cross-cluster guard; the roster block is the
+        # instruction half. Measured 3 leaks in 32 split narrations with only
+        # the instruction, all of them a remembered character shown acting in
+        # the present.
+        narration = _strip_offstage_actors(
+            narration, scene, characters, controlled_id, viewers
+        ) or narration
     return normalize_generated_text(narration)

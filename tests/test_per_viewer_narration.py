@@ -296,6 +296,93 @@ class TestTheRunnerRendersAndPersistsPerCluster:
         assert {tuple(r.audience or []) for r in narrations} == {("C1", "C2"), ("C3", "C4")}
 
 
+class TestOffstageActorsAreStrippedDeterministically:
+    """The structural half of the cross-cluster guard.
+
+    The `IN THIS VIEW` roster asks the model not to stage someone the cluster
+    cannot perceive. This makes it true whatever the model does, which is the
+    difference task 59 finding 1 keeps re-teaching: a prompt promise with no
+    structure behind it loses. Mirrors `_strip_echoed_sentences`, the guard that
+    already sits beside it for the same reason.
+
+    Measured on the split narrations of both post-71 sessions: fires on all
+    three known leaks, and on none of the other thirty-nine.
+    """
+
+    CAST = make_cast("Link", "Marta Ferrolume", "Bento", "Noa Veu")
+
+    def _scene(self) -> Scene:
+        return Scene(
+            location="Salao",
+            time_of_day="Manha",
+            present_characters=["C1", "C2", "C3", "C4", "Player"],
+            physical_facts={},
+            zones={"salao": [], "deposito": []},
+            positions={"C1": "salao", "C3": "salao", "C2": "deposito", "C4": "deposito"},
+        )
+
+    def _strip(self, text: str, viewers: set[str] | None = None) -> str:
+        from src.agents.prose import _strip_offstage_actors
+
+        return _strip_offstage_actors(
+            text, self._scene(), self.CAST, "C1", viewers or {"C1", "C3"}
+        )
+
+    def test_the_measured_leak_sentence_is_removed(self) -> None:
+        """Verbatim from `c76037ff` T16, the group at the north exit."""
+        text = (
+            "Um rugido abafado brota do piso central do salao. "
+            "Marta Ferrolume, ainda de joelhos diante do corredor A, ergue a cabeca, "
+            "a chave de reserva esquecida na mao. "
+            "O tremor que se segue abre ainda mais a fresta."
+        )
+        out = self._strip(text)
+        assert "Marta Ferrolume" not in out
+        assert "Um rugido abafado brota do piso central do salao." in out
+        assert "O tremor que se segue abre ainda mais a fresta." in out
+
+    def test_a_surname_that_is_an_ordinary_noun_does_not_fire(self) -> None:
+        """The counter-example that killed the first version of this guard.
+
+        `veu` is Portuguese for veil AND the surname of Noa Veu, who is not in
+        this sentence. Matching name tokens case-insensitively deleted three
+        atmospheric sentences from a real session for containing the noun. This
+        is the `menos` bug of task 70 wearing a different hat.
+        """
+        text = (
+            "Particulas de poeira e gas dancam em espirais lentas, criando um "
+            "veu opaco que distorce os contornos das arquibancadas."
+        )
+        assert self._strip(text) == text
+
+    def test_the_capitalised_noun_still_does_not_fire_on_a_partial_name(self) -> None:
+        """A multi-token name must match in full and adjacent."""
+        text = "Um Veu de poeira cobre o chao do salao inteiro, denso e imovel."
+        assert self._strip(text) == text
+
+    def test_a_character_inside_the_cluster_is_never_stripped(self) -> None:
+        text = "Bento avanca ate a fresta e ergue a lamina, os olhos fixos na fenda."
+        assert self._strip(text) == text
+
+    def test_nothing_is_stripped_for_an_unsplit_render(self) -> None:
+        """`viewers is None` never reaches this guard, but pin the shape anyway."""
+        text = "Marta Ferrolume atravessa o salao com o martelo na mao."
+        assert self._strip(text, {"C1", "C2", "C3", "C4"}) == text
+
+    def test_an_ambiguous_name_is_left_alone(self) -> None:
+        """Two characters sharing a name means the name decides nothing."""
+        cast = make_cast("Link", "Marta Ferrolume", "Marta Ferrolume", "Nix")
+        from src.agents.prose import _strip_offstage_actors
+
+        text = "Marta Ferrolume ergue a cabeca diante da porta travada e espera."
+        assert _strip_offstage_actors(text, self._scene(), cast, "C1", {"C1", "C3"}) == text
+
+    def test_a_paragraph_that_is_entirely_offstage_returns_empty(self) -> None:
+        """The caller then keeps the draft, exactly as the echo guard does."""
+        text = "Marta Ferrolume ergue a cabeca. Marta Ferrolume solta a chave."
+        assert self._strip(text) == ""
+
+
 class TestClusterProseIsDistinguishableFromASpeechReport:
     """Found on the first live post-71 session, not in review.
 
