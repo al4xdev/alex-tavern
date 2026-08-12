@@ -187,6 +187,33 @@ transcript that agreed with it, and never put in front of a real call until
 afterwards. The transcript is still real. Three turns, four orders, nobody
 through the gate. The cause is not prohibition.
 
+### ⚠ A confound in every session this task cites
+
+Found while reading the player's own thread: in `09aabf25` the protagonist
+speaks **four times in thirty-nine turns**, and the lines are *"..."*,
+*"Prefiro só observar por enquanto"*, *"Não se preocupem comigo, continuem"*,
+*"E agora?"*.
+
+That is not a player. It is the battery's input profile, and **both profiles
+this project owns are deliberately inert** — P1 is six `skip`s out of ten, and
+its own comment says the lines are *"deliberately inert - the player observes
+and reacts without steering"*. Correct for measuring engine-driven repetition,
+and the wrong control for asking whether the world responds to somebody pushing
+it.
+
+**So every transcript in this file was produced with the only agent that has
+real agency scripted to stand still.** The defect is not thereby explained away:
+the NPCs do not move either, and the Director's own `zone_moves` are `null`. But
+the severity is measured under the condition most favourable to it, and this
+phase's headline complaint inherits the same caveat.
+
+**A `P3` profile now exists** (`repetition_battery.py`, added the same day) whose
+lines steer: *"Eu vou na frente. Abram caminho."*, *"Nao vou esperar mais. Estou
+entrando."*, with `action` inputs that take a direction. It has not been run.
+**Running it is the cheapest remaining test of this task**, and it distinguishes
+the two readings that P1 cannot: does the engine stall, or was nobody asking it
+to move?
+
 ### What the replay says the cause is
 
 **Variance.** Same payload, same prompt, same model: enactment is roughly a coin

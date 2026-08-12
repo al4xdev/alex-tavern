@@ -86,6 +86,34 @@ PROFILE_INPUTS: dict[str, list[tuple[str, str | None]]] = {
     # ECHO_PERSIST hits in every cell — the fixture duplicating itself, not the
     # engine. The metric now skips the Player sentinel as well; both fixes are
     # needed, because an input profile must not be able to author its own result.
+    #
+    # P3 added 2026-08-12, and it exists because of a gap nobody had named: BOTH
+    # existing profiles are deliberately inert, and P1 is 6 skips out of 10. So
+    # this phase's headline complaint - the scene does not move - has only ever
+    # been measured with a player scripted not to move it. That is the right
+    # control for engine-driven repetition and the wrong one for asking whether
+    # the world responds to a protagonist who pushes.
+    #
+    # The lines below STEER: they state an intention, take a direction, and ask
+    # for an outcome. Read task 77 before using this profile - a room that
+    # re-issues the same order for three turns while nobody moves is the thing
+    # P3 is built to test, and P1 cannot distinguish "the engine stalls" from
+    # "the only agent with agency was told to stand still".
+    #
+    # All DISTINCT, for the same reason P2's are: a profile that repeats itself
+    # scores its own ECHO_PERSIST hits.
+    "P3": [
+        ("speech", "Eu vou na frente. Abram caminho."),
+        ("action", "atravessar o salao em direcao a saida mais proxima"),
+        ("speech", "Quem vem comigo? Decidam agora."),
+        ("action", "empurrar a porta e olhar o que ha do outro lado"),
+        ("speech", "Nao vou esperar mais. Estou entrando."),
+        ("action", "avancar pelo corredor sem parar"),
+        ("speech", "Alguem me responde: por onde saimos?"),
+        ("action", "procurar outra passagem e chamar os que ficaram para tras"),
+        ("speech", "Chega de conversa. Sigam-me."),
+        ("action", "seguir em frente sozinho se ninguem acompanhar"),
+    ],
     "P2": [
         ("speech", "Continuo aqui."),
         ("speech", "Que seja."),
