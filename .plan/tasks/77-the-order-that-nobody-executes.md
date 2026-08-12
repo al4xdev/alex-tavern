@@ -104,11 +104,12 @@ none measured:
    position change, the fiction cannot advance past intent. Note that
    `_apply_canon` moves people only on the Director's `zone_moves`, so a
    character's own stated action is narrative text with no mechanical effect.
-2 is the one I would investigate first on the evidence above: at T33 Asword's
-   `action` field literally reads *"avançar com Link em direção ao portão norte"*
-   and his position does not change.
 3. **The prompt asks for intent rather than outcome**, so agents describe what
    they are about to do forever.
+
+**2 is the one to investigate first**, on the evidence below: at T33 Asword's
+`action` field literally reads *"avançar com Link em direção ao portão norte"*
+and his position does not change.
 
 **Do not design a fix before deciding which of these it is.** All three would
 produce identical transcripts.

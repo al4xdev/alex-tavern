@@ -41,3 +41,44 @@ that deleting one sentence tripled this number with nobody designing anything.
 redesigned regardless, say so and I will put it back.
 
 ---
+## 2. Task 77 opened — "the order that nobody executes" — DECIDED
+
+**How I found it.** By reading `09aabf25` straight through as fiction, which is
+the method that found task 71 and which no instrument here replaces.
+
+**What a reader gets**, turns 31 to 33:
+
+> The Director orders everyone into the dungeon through the north gate. Asword
+> answers *"Link, vamos atravessar juntos agora!"* The Director gives the same
+> order at T32. Garran echoes it. The Director gives it again at T33. Asword
+> repeats his line with one clause changed. **Nobody enters the gate.**
+
+**I ran the task's own falsifier rather than leaving it**, and it does not fire.
+The Director emits `zone_moves: null` at T31, T32 and T34, and its single move at
+T33 sends a character *back into the hall*. So the decision layer issues an
+instruction it never enacts. A character's `action` string — literally
+*"avançar com Link em direção ao portão norte"* — has no mechanical path to the
+world; only the Director's `zone_moves` moves anyone.
+
+**Decision.** Written up as task 77 with the mechanism **undiagnosed on purpose**
+and three candidates, because all three produce identical transcripts and
+picking one now would be guessing.
+
+**⚠ NEEDS YOU:** where this sits in the roadmap. On the reading it is the
+phase's headline complaint made concrete, which would put it above most of
+wave 2. I have not re-ordered anything.
+
+### A metric I built for it, and threw away
+
+Hypothesis: restated orders mark stalled scenes. Restated orders sit on a frozen
+scene 36 times of 39 — damning, until the control: adjacent turn pairs are frozen
+184 of 213 anyway. **Fisher p = 0.43.** Recorded in the task as
+measured-and-rejected so nobody re-derives it.
+
+The control did produce the bluntest number this project has for *"the scene does
+not move"*: **86.4% of adjacent turn pairs have no position change.** The task
+says explicitly why that must NOT be quoted as "86% static scenes" — position is
+one narrow axis, and misreading it would put a fourth entry on the
+metric-validity page.
+
+---
