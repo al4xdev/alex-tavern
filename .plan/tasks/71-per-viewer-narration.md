@@ -1,8 +1,17 @@
 # Task 71 — Per-viewer narration
 
-> **Status:** open and **UNBLOCKED 2026-08-12.** The product question was
-> answered 2026-08-05 (below); the post-67 re-measurement that gated design has
-> now run and the task stands. Ready to design. It is wave 3.
+> **Status:** ✅ **CLOSED 2026-08-12.** Narration renders per perception cluster.
+> Every closure item below is discharged, the last of them on a live cell.
+>
+> **The number:** a split narration naming someone or somewhere its reader
+> cannot perceive went from **16 of 29 (55%)** to **3 of 64 (4.7%)** pooled over
+> every post-71 session, p = 1.5e-05. Cost is **1.278x** prose calls per narrated
+> turn, concurrent, so latency does not multiply.
+>
+> Two things a later reader should not have to rediscover: the singleton
+> population is **not** empty (task 76 makes them, and the fold now masks it),
+> and the deterministic backstop's evidence is an offline replay, not the final
+> cell, which never needed it.
 >
 > ## ✅ THE RE-MEASUREMENT HAS RUN — 2026-08-12, the task stands
 >

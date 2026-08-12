@@ -279,7 +279,7 @@ collapse, a dungeon door sealed shut, each stated in the sentence that creates
 it — and in both, the people on the far side are handed narration describing the
 room they cannot see. 71's leak is alive in the post-67 graph.
 
-### Task 71 is BUILT — one measurement short of closed
+### ✅ Task 71 is CLOSED
 
 Narration now renders per perception cluster (`3e0f883`). `perception_clusters`
 groups present characters into components over MUTUAL perception; every block of
@@ -287,16 +287,15 @@ the prose prompt is scoped to the cluster; an unsplit scene takes the pre-71 pat
 **structurally** (the renderer is called with the old three-argument signature),
 which is most turns.
 
-Six of seven closure items are discharged. **The seventh is the residual leak
-re-score**, and the recipe is:
+All nine closure items are discharged. The leak, scored by
+`scan_cross_cluster_leak`: **16 of 29 (55%) → 3 of 64 (4.7%)** pooled across
+every post-71 session, p = 1.5e-05. Cost 1.278x, concurrent.
 
-```
-# per split narration, does it name a character or zone some reader of that
-# record cannot perceive?  pre-71: 21/29 (72%).  roster only: 3/32 (9.4%).
-# The deterministic backstop then removes all 3 on replay and none of 39 others.
-```
-
-Score the running cell that way. If it lands at 0, tick the item and 71 closes.
+⚠ The final cell (`09aabf25`) came back 0 of 22, and that is NOT evidence the
+deterministic backstop works: it removed nothing all session because the model
+did not leak. 0/22 against the roster-only 3/32 is p = 0.26. The backstop's
+evidence is an offline replay over the sessions that did leak - 3 fires, 0 false
+positives, 42 narrations.
 
 Two live findings worth not re-deriving:
 
