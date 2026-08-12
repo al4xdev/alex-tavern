@@ -1,12 +1,23 @@
-# Checkpoint — 2026-08-06, branch `fogo-baixo`
+# Checkpoint — 2026-08-12, branch `fogo-baixo`
 
-Hand-off for the next session. Written because the owner is moving machines; the
+Hand-off for the next session. Started 2026-08-06 for a machine move; the
 working tree syncs over SSH, so `.data/` (provider key included) travels with it.
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 11 commits, tree clean,
-**1048 tests green**, `ruff check` clean.
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 26 commits, tree clean,
+**1098 tests green**, `ruff check` clean.
+
+**Wave 1 is closed** (65 ✅, 70 ✅, 63 falsified out, 67 ✅). **Task 71 is built**
+and one measurement short of closed. **Task 76 is new**, its design is decided on
+measurement, and its implementation is deliberately held — see below.
+
+> ⏳ **If a battery is still running when you pick this up:** a post-71
+> confirmation cell was launched 2026-08-12 17:22 (`base`/`P1`, 2 replicates).
+> It is the last evidence task 71 needs. Score it with the recipe in "Task 71"
+> below. Pre-backstop sessions are backed up in
+> `/tmp/alex-tavern-battery-backup/post71-pre-backstop/`, and `plans/` is
+> gitignored, so copy anything you care about out of it.
 
 > The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
 > tooling runs bash, not the login fish, so call `.venv/bin/python` directly.
@@ -231,18 +242,19 @@ Wave 0 ✅ (task 68). Wave 1 was **65, 70, 63, 67**.
 **65 ✅, 70 ✅, 63 falsified out, 67's re-run cell passed 2026-08-12 — wave 1 is
 closed** apart from one item carried forward (below).
 
-67's verification cell (`d0cc98e5`, 37/40 turns) came back with
-**`clamp_lost_half` 6 → 0** and **`with_others_present` 2 → 0**, and after
-correcting the counter (the subject is not their own witness) there were no
-audience losses of any size at all. The pre-fix baseline `34390b86` was re-scored
-with the same corrected counter and still shows its six, worst 20 → 1. Details
-in `.plan/tasks/67-zone-graph-integrity.md`, section "The re-run cell".
+67 closed on **`clamp_lost_half_unsealed` 6 → 0 → 0** across three cells and
+`with_others_present` 2 → 0 → 0. The raw `clamp_lost_half` reads 6 → 0 → **2**,
+and the 2 are the Director proposing across a seal the fiction supports, not
+graph damage — which is why the criterion had to be sharpened mid-verification.
+Details in `.plan/tasks/67-zone-graph-integrity.md`, section "The re-run cell".
 
-**Carried out of wave 1:** 67's last closure item — *a character who can no
-longer perceive must not be listed as a witness*. It is the mirror of the bug
-just fixed (dead/departed staying in the audience rather than the living being
-clamped out) and has never been measured. It needs its own scanner pass before
-anyone claims it is absent.
+**67's last closure item was WITHDRAWN, not carried.** *"A character who can no
+longer perceive must not be listed as a witness"* was measured: 25 of 13,540
+audience entries, in 5 records. All five were read, and every one is a person
+who can plainly hear whom the graph wrongly separates — two flanks of one hall,
+two ends of one tunnel, a shout the narration says goes through a closed gate.
+Building it would have deleted 25 correct entries and silenced five shouts. The
+real cause is **task 76**.
 
 **Task 71 is unblocked — the re-measurement ran 2026-08-12 and the task
 stands.** Three post-67 `base-P1` replicates against the three archived pre-67
@@ -267,10 +279,56 @@ collapse, a dungeon door sealed shut, each stated in the sentence that creates
 it — and in both, the people on the far side are handed narration describing the
 room they cannot see. 71's leak is alive in the post-67 graph.
 
+### Task 71 is BUILT — one measurement short of closed
+
+Narration now renders per perception cluster (`3e0f883`). `perception_clusters`
+groups present characters into components over MUTUAL perception; every block of
+the prose prompt is scoped to the cluster; an unsplit scene takes the pre-71 path
+**structurally** (the renderer is called with the old three-argument signature),
+which is most turns.
+
+Six of seven closure items are discharged. **The seventh is the residual leak
+re-score**, and the recipe is:
+
+```
+# per split narration, does it name a character or zone some reader of that
+# record cannot perceive?  pre-71: 21/29 (72%).  roster only: 3/32 (9.4%).
+# The deterministic backstop then removes all 3 on replay and none of 39 others.
+```
+
+Score the running cell that way. If it lands at 0, tick the item and 71 closes.
+
+Two live findings worth not re-deriving:
+
+- **Cluster prose and a speech report were the same record.** `_report_speech`
+  writes `content_type="narration"`, speaker `Narrator`, `audience_origin="zone"`
+  — which is what 71 first wrote too. Cluster prose now uses
+  `audience_origin="cluster"`. Any measurement that counts the narration channel
+  must separate them or it counts one-line reports as prose, which mine did.
+- **The offstage-name guard's first version was wrong** and the corpus hid it: it
+  matched name tokens case-insensitively and deleted atmospheric sentences
+  containing *"véu"*, which is Portuguese for veil and also Noa Véu's surname.
+  Same shape as task 70's `menos`. Multi-token names now match in full and
+  adjacent; single-token names must match with their capital.
+
+### Task 76 — decided, held on purpose
+
+Sibling sub-zones minted from the same origin are never linked, so two flanks of
+one hall are mutually deaf. Found while measuring 67's withdrawn closure item.
+**The design is decided on measurement** (63 mutually-deaf sibling pairs over 26
+sessions; the comma-prefix rule links 13, of which 11 are right and 2 are wrong,
+both failures being a building or a wing rather than a room; ship the 2 on task
+54's doctrine that a wrong deafness is the expensive error).
+
+**Implementation is held until 71's cell lands**, because changing the graph
+changes the cluster split that cell is measuring, and §6 requires the validated
+variant to be the shipped one. Pick it up right after.
+
+### Wave 2 and the rest
+
 Wave 2: 69 (owns the durable-state interface for the phase), then 72 if its gate
-opens. 64 is waiting on 70's
-`return_control` re-measurement, which needs a fresh cell. 74/75 are backlog and
-do **not** re-order anything.
+opens. 64 is waiting on 70's `return_control` re-measurement, which needs a fresh
+cell. 74/75 are backlog and do **not** re-order anything.
 
 ## House rules that bit me today
 
