@@ -102,17 +102,22 @@ PROFILE_INPUTS: dict[str, list[tuple[str, str | None]]] = {
     #
     # All DISTINCT, for the same reason P2's are: a profile that repeats itself
     # scores its own ECHO_PERSIST hits.
+    # STRUCTURALLY IDENTICAL TO P1: four content inputs in the same positions,
+    # six skips in the same positions. A skip commits up to 6 turns and a content
+    # turn commits exactly 1, so any other shape changes session LENGTH, and
+    # length drives every recurrence number here. Only the content differs, which
+    # is the whole point: it isolates "does the player push" from everything else.
     "P3": [
         ("speech", "Eu vou na frente. Abram caminho."),
+        ("skip", None),
         ("action", "atravessar o salao em direcao a saida mais proxima"),
-        ("speech", "Quem vem comigo? Decidam agora."),
-        ("action", "empurrar a porta e olhar o que ha do outro lado"),
+        ("skip", None),
+        ("skip", None),
         ("speech", "Nao vou esperar mais. Estou entrando."),
-        ("action", "avancar pelo corredor sem parar"),
-        ("speech", "Alguem me responde: por onde saimos?"),
-        ("action", "procurar outra passagem e chamar os que ficaram para tras"),
-        ("speech", "Chega de conversa. Sigam-me."),
+        ("skip", None),
+        ("skip", None),
         ("action", "seguir em frente sozinho se ninguem acompanhar"),
+        ("skip", None),
     ],
     "P2": [
         ("speech", "Continuo aqui."),

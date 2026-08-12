@@ -209,10 +209,27 @@ phase's headline complaint inherits the same caveat.
 
 **A `P3` profile now exists** (`repetition_battery.py`, added the same day) whose
 lines steer: *"Eu vou na frente. Abram caminho."*, *"Nao vou esperar mais. Estou
-entrando."*, with `action` inputs that take a direction. It has not been run.
-**Running it is the cheapest remaining test of this task**, and it distinguishes
-the two readings that P1 cannot: does the engine stall, or was nobody asking it
-to move?
+entrando."*, with `action` inputs that take a direction. It is **structurally
+identical to P1** - four content inputs and six skips in the same positions -
+because a skip commits up to six turns and a content turn commits one, so any
+other shape changes session length and length drives every recurrence number
+here. Only the content differs.
+
+### P3 decision rule, pre-registered before the run
+
+The control is P1's own frozen rate, measured over nine sessions:
+**184 of 213 adjacent turn pairs have no position change (86.4%).**
+
+| P3 frozen rate | reading |
+|---|---|
+| **below 70%** | the stall is substantially an artifact of the passive profile. This task shrinks, and every severity number in this phase needs re-taking under P3 |
+| **70% to 82%** | the player moves the world somewhat and the engine still resists. Task stands, severity overstated |
+| **above 82%** | the engine stalls regardless of who pushes. Task stands as written and the confound above is noted and dismissed |
+
+Reported but NOT deciding: `zone_moves` non-null rate, restated-order pairs,
+narration length. And whatever the number says, **the transcript gets read** -
+a frozen rate that falls while the prose still reads as a room going nowhere
+would mean the position axis was the wrong measure, not that the task is fixed.
 
 ### What the replay says the cause is
 
