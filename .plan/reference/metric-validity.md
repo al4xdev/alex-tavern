@@ -21,6 +21,9 @@ Standing rule this page exists to enforce:
 | `clamp_lost_half` (task 67) | **superseded** | replaces emptiness-only counting, but measures Director-vs-engine disagreement, not graph damage. Use `clamp_lost_half_unsealed` |
 | `clamp_lost_half_unsealed` (task 67) | **new, trusted** | the graph-damage half alone: 6 → 0 → 0 across three cells, no crossover |
 | `named_exclusions` (task 70) | **fixed same day** | shipped with a false positive; see below |
+| `scene_clusters` / `scan_scene_splits` (task 71) | **trusted** | validated by reproducing all six of task 71's archived figures to every digit |
+| `scan_cross_cluster_leak` (task 71) | **trusted, corrected twice** | scored per reader cluster, strict name matching, prose separated from speech reports on a measured empty band |
+| `_strip_offstage_actors` (task 71) | **trusted, second version** | 3 fires, 0 false positives over 42 live narrations; the first version had 3 of each |
 | `_carries_intent` (task 65) | **weak, kept permissive** | does not separate on real data; see below |
 | `empty_audience` (task 67) | **kept, but not sufficient alone** | true positives only, and it misses the near-miss population |
 | `NSR` | **report, never gate** | ranks sessions OPPOSITE to a blind reader, Spearman +0.923 |
@@ -132,6 +135,44 @@ keeps counting, because that is damage.
 components attributes the gap to whichever component you already suspect. It
 took a cell where the *other* component was at fault to notice. Two cells is the
 minimum for any metric defined as a disagreement.
+
+## Matching a NAME: the failure that keeps recurring
+
+Three times this month, in three different components, a guard matched a proper
+name against Portuguese prose and fired on an ordinary word. It is the single
+most repeated mistake in this register, so it gets a rule rather than a third
+war story.
+
+| where | matched | actually |
+|---|---|---|
+| `named_exclusions` (task 70) | `\bmenos\b` | *"despenca **a menos de** dois metros"* — a distance |
+| `_strip_offstage_actors` (task 71) | any name token, case-insensitive | *"um **véu** opaco"* — Portuguese for veil, and Noa **Véu**'s surname |
+| `scan_cross_cluster_leak` (task 71) | first names | inflated the pre-71 leak rate from 55% to 72% |
+
+Every one passed review, and two passed a corpus. The corpus is the trap: a name
+guard validated on 631 archived prompts fired 15 times on the first fresh
+session, because the archive happened not to contain the shape.
+
+**The rule.** A guard that matches a model-authored NAME must:
+
+1. **require more than one token** where the name has more than one, matched
+   adjacent — `Marta Ferrolume` is not a word anybody writes by accident, and
+   `Marta` is;
+2. **require the capital** where the name is a single token, since an ordinary
+   noun mid-sentence does not carry one;
+3. **drop any pattern that also matches something legitimate in scope** — a
+   name shared with an on-stage character decides nothing;
+4. **be replayed over real output including the sentences it should NOT touch.**
+   The true-positive count is the cheap half. The false-positive population is
+   the evidence.
+
+Applied to `_strip_offstage_actors`, that took it from 6 fires with 3 false
+positives to 3 fires with 0, over the same 42 narrations.
+
+**And the asymmetry that decides the tuning:** for a guard that DELETES text, a
+false positive destroys prose the reader is entitled to and a false negative
+leaves one stray sentence. They are not the same cost, so when two variants
+score equally on the true positives, take the stricter one.
 
 ## The three that were measured and rejected
 
