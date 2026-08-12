@@ -27,7 +27,9 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 11 commits, tree clean,
 | `168000e` | 65's drop log stops merging two different falsifiers |
 | `e34adb7` | **the fresh cell** — 63 falsified, 70/64 re-measured, two instruments fixed |
 | `def9e8c` | emptiness is the extreme of the audience bug, not the bug |
-| *(HEAD)* | **67's graph fixes** — a partial link list stops deleting what it omits |
+| `39d0464` | **67's graph fixes** — a partial link list stops deleting what it omits |
+| `9e39a86` | the metric register: which metrics survived a read, and which did not |
+| *(HEAD)* | **67's re-run cell passes**, and the clamp metric stops blaming the speaker |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
@@ -221,21 +223,31 @@ per-turn audit over a finished history.
 
 ## Roadmap position
 
-Wave 0 ✅ (task 68). Wave 1 was **65, 70, 63, 67**. After the fresh cell:
-**65 ✅, 70 ✅, 63 falsified out, so 67 is what remains.**
+Wave 0 ✅ (task 68). Wave 1 was **65, 70, 63, 67**.
+**65 ✅, 70 ✅, 63 falsified out, 67's re-run cell passed 2026-08-12 — wave 1 is
+closed** apart from one item carried forward (below).
 
-**67's code is shipped; its re-run cell is the only thing left in wave 1.** Run
-`python -m tools.acceptance.repetition_battery --cell base --profile P2
---replicates 1` and check **`clamp_lost_half` and `with_others_present` both at
-zero**. The pre-fix cell (`34390b86`) is the baseline: `with_others_present` 2,
-`clamp_lost_half` **6**, worst 21 → 1.
+67's verification cell (`d0cc98e5`, 37/40 turns) came back with
+**`clamp_lost_half` 6 → 0** and **`with_others_present` 2 → 0**, and after
+correcting the counter (the subject is not their own witness) there were no
+audience losses of any size at all. The pre-fix baseline `34390b86` was re-scored
+with the same corrected counter and still shows its six, worst 20 → 1. Details
+in `.plan/tasks/67-zone-graph-integrity.md`, section "The re-run cell".
 
-Then hand 67's numbers to **task 71**, which is parked specifically because every
-cost figure it carries was measured on the graph 67 just fixed (see 67's
-hand-off section).
+**Carried out of wave 1:** 67's last closure item — *a character who can no
+longer perceive must not be listed as a witness*. It is the mirror of the bug
+just fixed (dead/departed staying in the audience rather than the living being
+clamped out) and has never been measured. It needs its own scanner pass before
+anyone claims it is absent.
+
+**Next: hand 67's numbers to task 71**, which is parked specifically because
+every cost figure it carries was measured on the graph 67 just fixed — split rate
+168/610 (28%), mean clusters/turn 1.56, mean clusters ≥2 chars 1.21, sessions
+never splitting 8/16. All four need re-measuring on post-fix cells before 71's
+argument stands (see 67's hand-off section).
 
 Wave 2: 69 (owns the durable-state interface for the phase), then 72 if its gate
-opens. 71 is parked pending 67's re-measurement. 64 is waiting on 70's
+opens. 64 is waiting on 70's
 `return_control` re-measurement, which needs a fresh cell. 74/75 are backlog and
 do **not** re-order anything.
 

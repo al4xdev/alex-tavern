@@ -1,7 +1,9 @@
 # Task 67 — Zone graph integrity
 
-> **Status:** graph fixes SHIPPED 2026-08-06; **open pending the re-run cell.**
-> **Wave 1**, and the last item left in it.
+> **Status:** graph fixes SHIPPED 2026-08-06; **re-run cell passed 2026-08-12**
+> (`clamp_lost_half` 6 → 0, `with_others_present` 2 → 0). One closure item is
+> still open: a character who can no longer perceive must not be listed as a
+> witness. That is the mirror failure and it has never been measured.
 >
 > An earlier draft of this task named the wrong cause and prescribed a fix that
 > would have made things worse. Both are recorded below, because the wrong
@@ -211,23 +213,72 @@ re-run cell" is unmet until then, and `clamp_lost_half` is the one that decides.
 - [x] a clamp that deletes all proposed witnesses emits a counted warning
       *(2026-08-06 — `log_witness_clamp`, and it fires on severe PARTIAL losses
       too, because emptiness alone missed 17 of 19 on a live cell)*;
-- [ ] 68's scanner reports zero empty-audience records for events whose subject
+- [x] 68's scanner reports zero empty-audience records for events whose subject
       is co-located with other present characters, over a re-run cell — the
       `with_others_present` field, which is **31 + 2 = 33** today. A fix that only
       moves records from `graph_isolated` to `narrowed_to_none` has not closed
-      this;
-- [ ] **`clamp_lost_half` at zero on the re-run cell** — see the section below.
+      this; *(2026-08-12, session `d0cc98e5`: `with_others_present` **0**, and
+      `empty_audience_records` 0 as well, so nothing merely moved between bins)*;
+- [x] **`clamp_lost_half` at zero on the re-run cell** — see the section below.
       Emptiness alone cannot close this task, because a shout heard by ONE person
       in a hall of twenty-one is this same bug one witness short of the count;
+      *(2026-08-12: **0**, against 6 on the pre-fix cell `34390b86`. Not zero at
+      the 0.5 threshold only — zero losses of ANY size, `clamp_worst_loss` None,
+      over 8 matched events)*;
 - [ ] a character who can no longer perceive is not listed as a witness;
 - [x] replayed against the archived `base-P1-r2`, the T23 shout keeps a non-empty
       audience *(2026-08-06, data inlined into the test)*;
-- [ ] **the re-run cell** — `clamp_lost_half` and `with_others_present` both at
-      zero. Nothing above substitutes for it.
+- [x] **the re-run cell** — `clamp_lost_half` and `with_others_present` both at
+      zero. Nothing above substitutes for it. *(2026-08-12, `base-P2-r1` session
+      `d0cc98e5`, 37 of 40 turns before the process was cut. See below.)*
 
 **The measurement that would falsify this task:** if the 33 empty-audience
 records survive after the graph fixes, the cause is elsewhere and the intersect
 is the problem after all.
+
+## The re-run cell — 2026-08-12
+
+`base-P2-r1`, session `d0cc98e5`, 37 of 40 turns (the process was cut short; the
+missing three turns are not worth another cell, because the metric is not near
+its threshold — it is at the floor).
+
+| | pre-fix `34390b86` | re-run `d0cc98e5` |
+|---|---|---|
+| `empty_audience_records` | 2 | **0** |
+| `with_others_present` | 2 | **0** |
+| `clamp_lost_half` | 6 | **0** |
+| `clamp_lost_most` | 5 | **0** |
+| `clamp_worst_loss` | 20 → 1 (0.95) | **none at all** |
+| `clamp_matched_events` | 14 | 8 |
+
+Both cells were re-scored with the corrected counter described below, so the
+comparison is like for like: the baseline's six severe losses are still six.
+
+### What reading the records changed
+
+The first pass showed two surviving losses, 19 → 18 and 20 → 19. Small, but the
+whole point of this task is that a small audience loss is the same defect as a
+total one, so they were read rather than waved through. Both were the same
+thing, and it was not a graph fault:
+
+> T24, subject **C11**, `witness_ids` = `[C1, C3 … C11 … C21]`
+> T10, subject **C17**, `witness_ids` = `[C1 … C17 … C21]`
+
+The Director listed **the speaker inside their own witness list**. The clamp
+drops them, correctly, and the counter read that removal as a lost witness. So
+the metric charged a ~5% audience loss to every event where the Director
+self-lists, which is common.
+
+Fixed in both places that count, so the runtime log and the scanner agree:
+`_proposed_witness_counts` (`src/agents/narrator.py`) and
+`scan_witness_clamp_loss` (`tools/acceptance/immersion_scanners.py`) now subtract
+the subject and de-duplicate. Pinned by
+`TestWitnessClampIsNeverSilent::test_the_speaker_listing_themself_is_not_a_loss`.
+
+This never mattered at the 0.5 reporting threshold — one witness out of twenty
+is nowhere near it. It mattered because `clamp_worst_loss` and `clamp_evidence`
+are what somebody reads to diagnose a real graph bug, and they were pointing at
+a non-bug. The evidence field is the product here, not the count.
 
 ## ⚠ The metric was too narrow — refined 2026-08-06, before the fix
 

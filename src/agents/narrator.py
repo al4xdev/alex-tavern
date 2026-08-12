@@ -559,17 +559,27 @@ def _build_user_prompt(
 
 
 def _proposed_witness_counts(raw_events: Any) -> list[tuple[str, int]]:
-    """``(subject, witnesses proposed)`` per audible event, before the clamp runs."""
+    """``(subject, witnesses proposed)`` per audible event, before the clamp runs.
+
+    The subject does not count as their own witness. The Director lists them
+    inside ``witness_ids`` often enough that leaving them in makes every such
+    event register a small phantom loss the moment the clamp drops them: read on
+    a live cell 2026-08-06, BOTH of the session's two remaining losses were
+    exactly this and nothing else (19 to 18, 20 to 19). That is the shape of
+    evidence somebody reads to diagnose a real graph bug, so it must not be noise.
+    """
     if not isinstance(raw_events, list):
         return []
     out: list[tuple[str, int]] = []
     for item in raw_events:
         if not isinstance(item, dict) or item.get("event_kind") != "audible_speech":
             continue
+        subject = str(item.get("subject_id"))
         witnesses = item.get("witness_ids")
-        out.append(
-            (str(item.get("subject_id")), len(witnesses) if isinstance(witnesses, list) else 0)
-        )
+        if not isinstance(witnesses, list):
+            out.append((subject, 0))
+            continue
+        out.append((subject, len({str(w) for w in witnesses} - {subject})))
     return out
 
 

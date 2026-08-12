@@ -18,6 +18,14 @@ from src.runner import Runner
 from tests.factories import make_cast, make_game, make_scene
 
 
+def narrator_counts(witness_ids: list[str], subject: str = "C2") -> int:
+    """Witnesses the runtime credits to `subject`, before the clamp runs."""
+    from src.agents import narrator as narrator_mod
+
+    raw = [{"event_kind": "audible_speech", "subject_id": subject, "witness_ids": witness_ids}]
+    return narrator_mod._proposed_witness_counts(raw)[0][1]
+
+
 def _game():
     cast = make_cast("Link", "Garran", "Maelis")
     return make_game(
@@ -218,6 +226,21 @@ class TestWitnessClampIsNeverSilent:
     def test_nothing_is_reported_when_the_clamp_keeps_everyone(self, monkeypatch) -> None:
         proposed = [f"C{i}" for i in range(3, 13)]
         assert self._clamped(monkeypatch, proposed, set(proposed)) == []
+
+    def test_the_speaker_listing_themself_is_not_a_loss(self, monkeypatch) -> None:
+        """Both surviving losses on the 2026-08-06 verification cell were this.
+
+        The Director put the subject inside its own `witness_ids`; the clamp
+        drops them, correctly, and the count read it as a 5% audience loss.
+        """
+        proposed = ["C2", *[f"C{i}" for i in range(3, 13)]]
+        seen = self._clamped(monkeypatch, proposed, set(proposed) - {"C2"})
+        assert seen == []
+        assert narrator_counts(proposed) == 10
+
+    def test_a_duplicated_witness_is_counted_once(self, monkeypatch) -> None:
+        proposed = ["C3", "C3", "C4"]
+        assert narrator_counts(proposed) == 2
 
 
 def test_the_archived_t23_shout_keeps_its_audience() -> None:

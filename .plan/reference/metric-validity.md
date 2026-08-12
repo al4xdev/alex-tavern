@@ -18,7 +18,7 @@ Standing rule this page exists to enforce:
 | `director_authored` (task 68) | **trusted** | separates on an empty band, 0.827 against 0.857, over 3,936 records; independently re-derived off a second implementation |
 | `_foreign_language` (task 65) | **trusted** | 0.012 against 1.000, nothing between, over all 3,936 records |
 | `_leaks_internal_id` (task 65) | **trusted** | membership not shape; refuses to fire on `C4` where C4 is an explosive |
-| `clamp_lost_half` (task 67) | **new, trusted** | replaces emptiness-only counting; recovers every case its task already cites |
+| `clamp_lost_half` (task 67) | **new, trusted** | replaces emptiness-only counting; recovers every case its task already cites. Corrected 2026-08-12: the subject is not their own witness |
 | `named_exclusions` (task 70) | **fixed same day** | shipped with a false positive; see below |
 | `_carries_intent` (task 65) | **weak, kept permissive** | does not separate on real data; see below |
 | `empty_audience` (task 67) | **kept, but not sufficient alone** | true positives only, and it misses the near-miss population |
@@ -82,6 +82,24 @@ never asks the suspect graph whether an audience was right.
 
 **Transferable:** when a metric counts an extreme, ask what the near-miss
 population looks like. It is usually larger and usually the same defect.
+
+### …and then over-counted, corrected 2026-08-12
+
+Widening the metric gave it a floor problem at the other end. On the verification
+cell (`d0cc98e5`) it reported two residual losses, 19 → 18 and 20 → 19. Reading
+them: in both, the Director had listed **the speaker inside their own
+`witness_ids`**, the clamp dropped them correctly, and the counter scored that
+as a lost witness.
+
+Both counters now subtract the subject and de-duplicate. The threshold was never
+affected — one in twenty is far from 0.5 — but `clamp_worst_loss` and
+`clamp_evidence` are the fields a human reads to find a real graph bug, and they
+were pointing at a non-bug. After the correction the cell has **no losses of any
+size**, and the pre-fix baseline still has its six.
+
+**Transferable:** a metric's evidence field has to survive being read even when
+its headline count is already below threshold. The count was right both times;
+the pointer was wrong.
 
 ## The three that were measured and rejected
 

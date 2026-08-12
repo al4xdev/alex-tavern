@@ -400,10 +400,13 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
     for turn, event in effective:
         if event.get("event_kind") != "audible_speech":
             continue
-        proposed = len(event.get("witness_ids") or [])
+        subject = str(event.get("subject_id"))
+        # The subject is not their own witness. Counting them makes every event
+        # where the Director self-lists show a phantom loss of one.
+        proposed = len({str(w) for w in (event.get("witness_ids") or [])} - {subject})
         if proposed <= 0:
             continue
-        key = (turn, str(event.get("subject_id")))
+        key = (turn, subject)
         if key not in persisted:
             continue
         kept = persisted[key]
