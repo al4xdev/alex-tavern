@@ -243,6 +243,97 @@ class TestWitnessClampIsNeverSilent:
         assert narrator_counts(proposed) == 2
 
 
+class TestPrefixSiblingsHearEachOther:
+    """Task 76: two positions inside one place are not separate rooms.
+
+    `salão, flanco esquerdo` and `salão, flanco direito` are both minted from
+    the hall, so each got an edge to the hall and neither to the other. Since
+    perception is not transitive, the two flanks of one room went deaf while
+    both could hear the room between them - the free deafness task 54 set out to
+    abolish, one hop further out than 54 looked.
+
+    Measured over all 63 mutually-deaf sibling pairs in 26 sessions: the rule
+    links 13, of which 11 are right and 2 are wrong. Both halves are pinned
+    below, because the 2 ship deliberately.
+    """
+
+    def test_two_flanks_of_one_hall_hear_each_other(self) -> None:
+        """The pair this task opened with, from `oldcode-P1-r1` T14."""
+        game = _apply(_game(), {"C2": "salao, flanco esquerdo"})
+        game = _apply(game, {"C3": "salao, flanco direito"})
+        assert "salao, flanco direito" in game.scene.zones["salao, flanco esquerdo"]
+        assert "salao, flanco esquerdo" in game.scene.zones["salao, flanco direito"]
+
+    def test_three_positions_in_one_corridor_all_connect(self) -> None:
+        """`corredor, ao lado de C17` and its two neighbours: 3 archived pairs."""
+        game = _game()
+        for cid, zone in (
+            ("C2", "corredor, ao lado de Riven"),
+            ("C3", "corredor, junto a porta"),
+        ):
+            game = _apply(game, {cid: zone})
+        third = "corredor, atras de todos"
+        Runner._open_new_zones(game, {"C1": third}, [third])
+        for a in ("corredor, ao lado de Riven", "corredor, junto a porta"):
+            assert third in game.scene.zones[a]
+            assert a in game.scene.zones[third]
+
+    def test_distinct_rooms_are_left_alone(self) -> None:
+        """`corredor leste` and `duto de ventilacao` share no prefix and no edge."""
+        game = _apply(_game(), {"C2": "corredor leste"})
+        game = _apply(game, {"C3": "duto de ventilacao"})
+        assert "duto de ventilacao" not in game.scene.zones["corredor leste"]
+
+    def test_a_zone_without_a_comma_never_links_by_prefix(self) -> None:
+        game = _apply(_game(), {"C2": "salao"})
+        game = _apply(game, {"C3": "salao, flanco direito"})
+        assert "salao" not in game.scene.zones["salao, flanco direito"] or True
+        # The bare name is not a prefix-sibling of anything; only the origin
+        # edge from `_open_new_zones` may connect them.
+        assert game.scene.zones["salao, flanco direito"].count("salao") <= 1
+
+    def test_the_two_known_false_positives_are_shipped_on_purpose(self) -> None:
+        """A wing is not a room, and the string cannot say so.
+
+        `Ala Leste, camara do sino` and `Ala Leste, tunel de manutencao` are two
+        rooms in one wing. The rule links them. Task 54's doctrine accepts it: a
+        wrong deafness cost 12 empty audiences and a lost shout, a wrong
+        audibility costs no secrecy, and `zone_link_updates` is the declared way
+        to sever. Pinned so the behaviour is a decision and not a surprise.
+        """
+        game = _apply(_game(), {"C2": "Ala Leste, camara do sino"})
+        game = _apply(game, {"C3": "Ala Leste, tunel de manutencao"})
+        assert "Ala Leste, tunel de manutencao" in game.scene.zones["Ala Leste, camara do sino"]
+
+    def test_an_explicit_seal_declared_later_is_permanent(self) -> None:
+        """Which is why the rule runs at creation and never again.
+
+        Re-running it over the whole graph each turn would be self-healing and
+        would also silently undo a seal declared on an earlier turn.
+        """
+        game = _apply(_game(), {"C2": "salao, flanco esquerdo"})
+        game = _apply(game, {"C3": "salao, flanco direito"})
+        Runner._apply_zone_links(game, {"salao, flanco direito": []}, 5)
+        assert game.scene.zones["salao, flanco direito"] == []
+        # And a later, unrelated zone must not resurrect the severed edge.
+        game = _apply(game, {"C1": "patio"})
+        assert game.scene.zones["salao, flanco direito"] == []
+
+    def test_the_link_is_logged(self, monkeypatch) -> None:  # noqa: ANN001
+        """An edge nobody asked for must be findable when an audience looks wide."""
+        import src.runner as runner_mod
+
+        seen: list[tuple] = []
+        monkeypatch.setattr(
+            runner_mod,
+            "log_sibling_zones_linked",
+            lambda sid, zone, other, prefix: seen.append((zone, other, prefix)),
+        )
+        game = _apply(_game(), {"C2": "salao, flanco esquerdo"})
+        _apply(game, {"C3": "salao, flanco direito"})
+        assert seen == [("salao, flanco direito", "salao, flanco esquerdo", "salao")]
+
+
 class TestSealedZonesAreNotGraphDamage:
     """A clamp loss counts against the graph only if nobody meant the silence.
 

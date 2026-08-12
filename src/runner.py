@@ -75,6 +75,7 @@ from src.llm.debug_log import (
     log_roteiro_decision,
     log_scenario_contract_warning,
     log_session_setup_change,
+    log_sibling_zones_linked,
     log_time_skip,
     log_turn_input,
     log_unanswered_player,
@@ -1481,6 +1482,50 @@ class Runner:
             for origin in audible:
                 if zone not in game.scene.zones[origin]:
                     game.scene.zones[origin].append(zone)
+            Runner._link_prefix_siblings(game, zone)
+
+    @staticmethod
+    def _link_prefix_siblings(game: GameState, zone: str) -> None:
+        """Two positions inside one place hear each other (task 76).
+
+        `salão, flanco esquerdo` and `salão, flanco direito` are both minted from
+        the hall, so each gets an edge to the hall and neither to the other —
+        and perception is not transitive, so the two flanks of one room went
+        deaf while both could hear the room between them. Nobody declared that
+        separation; it is the free deafness task 54 set out to abolish, one hop
+        further out than 54 looked.
+
+        The rule is a shared comma-prefix, measured over all 63 mutually-deaf
+        sibling pairs in 26 sessions: it links 13, of which 11 are right (three
+        positions in one corridor, the two flanks, three marks in one safety
+        zone, two spots at one breach) and 2 are wrong, both being a building or
+        a wing rather than a room. Those 2 ship, on task 54's doctrine: a wrong
+        deafness cost 12 empty audiences and a shouted warning nobody heard,
+        while a wrong audibility costs no secrecy at all, because a zone
+        audience is perception and never a secrecy source.
+
+        **Only at creation.** Running it over the whole graph every turn would
+        be self-healing and would also silently undo an explicit seal declared
+        on an earlier turn, and `zone_link_updates` is the one way to sever.
+        Linking once, when the zone appears, leaves every later seal permanent.
+        """
+        prefix = zone.split(",")[0].strip().lower()
+        if not prefix or "," not in zone:
+            return
+        for other in list(game.scene.zones):
+            if other == zone or "," not in other:
+                continue
+            if other.split(",")[0].strip().lower() != prefix:
+                continue
+            linked = False
+            if other not in game.scene.zones[zone]:
+                game.scene.zones[zone].append(other)
+                linked = True
+            if zone not in game.scene.zones[other]:
+                game.scene.zones[other].append(zone)
+                linked = True
+            if linked:
+                log_sibling_zones_linked(game.session_id, zone, other, prefix)
 
     def _apply_time_skip(self, game: GameState, narrator_raw: dict[str, Any], step: int) -> None:
         """Apply a Director-requested time compression, clamped by the code (Task 40 v2).

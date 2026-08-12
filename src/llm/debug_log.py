@@ -311,6 +311,29 @@ def log_zone_link_dropped(
     )
 
 
+def log_sibling_zones_linked(
+    session_id: str,
+    zone: str,
+    other: str,
+    prefix: str,
+) -> None:
+    """Record two positions inside one place being made mutually audible (task 76).
+
+    Logged because it is a graph edge nobody asked for. The rule is right on 11
+    of the 13 pairs it fires on across the archive, and the 2 it gets wrong are
+    shipped deliberately — so when an audience later looks too wide, this is the
+    line that says which invented edge did it.
+    """
+    _emit(
+        session_id,
+        "sibling_zones_linked",
+        0,
+        zone=zone,
+        other=other,
+        prefix=prefix,
+    )
+
+
 def log_witness_clamp(
     session_id: str,
     turn_number: int,

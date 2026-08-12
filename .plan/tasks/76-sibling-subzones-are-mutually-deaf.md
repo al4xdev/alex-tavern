@@ -1,9 +1,14 @@
 # Task 76 — Sibling sub-zones are mutually deaf
 
-> **Status:** open, found 2026-08-12 while measuring task 67's last closure item.
-> **Design decided 2026-08-12 on measurement** (comma-prefix rule, see below);
-> implementation deliberately held until task 71's confirmation cell lands,
-> because changing the graph changes what that cell measures.
+> **Status:** ✅ **SHIPPED 2026-08-12**, after task 71 closed. Sibling zones
+> sharing a comma-prefix are linked at creation, so two positions inside one
+> place hear each other.
+>
+> **What it fixes:** 5 of the 25 audience entries the graph wrongly denied, in 3
+> of the 5 records. **What it does not:** the split rate, which is unchanged at
+> 168 of 610 — connected components already bridged siblings through their
+> shared parent. Two claims in this file were corrected after measuring the
+> shipped rule; both corrections are below and neither is subtle.
 > **Not** a regression from 67. It is the half of task 54's finding 1 that the
 > fix for that finding did not reach, and it has been in every session since.
 
@@ -68,7 +73,7 @@ ordering is doing accidentally right what the graph does deliberately wrong.
 That is not a defence of the ordering. It means **the two defects have been
 masking each other**, and fixing either one alone makes the symptom worse.
 
-## Cost: it inflates task 71
+## ~~Cost: it inflates task 71~~ — superseded, see "What this task actually fixes"
 
 Task 71's split rate is the count of narrated turns whose scene is more than one
 mutually-perceiving cluster. Recomputing the archive with sibling zones made
@@ -96,33 +101,62 @@ So the defensible figure is **about 17 of 168 splits (10%) are sibling
 artifacts**, not 26. This is recorded because the tempting version of this
 number is the bigger one and it does not survive being read.
 
-## It is now partly hidden, which raises the priority
+## ⚠ I attributed a case to this task that does not belong to it
 
-Task 71 shipped 2026-08-12 and folds singleton clusters: a lone character who is
-not the player gets no narration render of their own, on the redundancy argument
-(they already receive per-viewer events and memory).
+Corrected 2026-08-12, same day, after implementing the fix and checking whether
+it would have helped.
 
-On the first live post-71 session, `21f7c4e1`, **all ten split turns are this
-defect** — Lorde Cassian Aurel alone on `púlpito central`, addressing an assembly
-he is sealed from:
+The claim was: on the first live post-71 session `21f7c4e1`, all ten split turns
+are this defect, Lorde Cassian Aurel sealed on `púlpito central` while addressing
+an assembly. It was used to argue that task 71's singleton fold now *masks* this
+defect, and to raise the priority.
 
-```json
-{"Salão dos Quatro Arcos": ["púlpito central", "Pátio norte da Academia"],
- "púlpito central": [], "Pátio norte da Academia": ["Salão dos Quatro Arcos"]}
-```
+**It is not this defect.** Tracing the zone graph turn by turn:
 
-The pulpit and the courtyard are siblings under the hall, so neither hears the
-other. The fold then fired ten times and each time denied narration to a
-character who should have been standing in the main cluster.
+- **T10** the pulpit is created and correctly linked both ways:
+  `{"Salão dos Quatro Arcos": ["púlpito central"], "púlpito central": ["Salão dos Quatro Arcos"]}`
+- **T23** the Director issues `zone_link_updates: {"púlpito central": []}` — an
+  **explicit, declared seal**, which the engine applied exactly as designed.
 
-Two consequences:
+So Cassian is isolated because the Director said so, not because two siblings
+failed to link. `púlpito central` has no comma and no sibling; this task's rule
+would not touch it. Whether the Director *should* have sealed a pulpit in the
+middle of its own assembly is a prompt question and belongs to whichever task
+owns the Director's contract, not here.
 
-1. **The symptom is now quieter, not smaller.** Before 71 the isolation showed up
-   as a spurious cluster in the split count; now it shows up as a character
-   quietly receiving nothing. That is harder to notice, not easier.
-2. **The claim "there are no singletons after 67" is dead.** It held across four
-   sessions and broke on the fifth. Anyone reasoning about singleton folding
-   should read this section first.
+**What survives:** singleton clusters exist, and 71's fold does hide them. The
+cause is a declared seal rather than this defect, so the fold is hiding a
+Director decision the engine honoured — which is a weaker complaint than the one
+I made, and still worth someone's attention.
+
+## What this task actually fixes, measured after implementation
+
+**Not the split rate.** Re-derived over the 16 archived sessions with the rule
+applied: **168 split turns before, 168 after.** No change at all, and the reason
+is structural — `scene_clusters` takes connected components, so two flanks that
+both link to an occupied hall are *already* one cluster. Sibling deafness never
+inflated the cluster count while the parent was occupied.
+
+> The earlier estimate in this file, that roughly 17 of 168 splits (10%) are
+> sibling artifacts, came from a much broader common-neighbour heuristic that
+> merges any two zones sharing a neighbour. **It does not describe the rule that
+> shipped.** The section above it is kept because the reasoning about reading
+> versus merging is still right; the number is not.
+
+**It fixes perception, which is what the evidence was about.** Audience entries
+the graph denies, over all 26 sessions: **25 before, 20 after** — 5 fixed, in 3
+of the 5 records:
+
+| session | pair | |
+|---|---|---|
+| `oldcode-P1-r1` T14 | `salão, flanco direito` / `flanco esquerdo` | ✅ fixed |
+| `base-P2-r1` T7 | `corredor sudeste, …` two positions | ✅ fixed (2 entries) |
+| `base-P1-r1` T16 | `Ala Leste, túnel …` two ends | ✅ fixed (2 entries) |
+| `null-P1-r1` T14, T18 | gate / tunnel, gate / hall | ❌ untouched, 20 entries |
+
+The 20 that remain are a character shouting **through a closed gate**, which the
+narration states outright. They share no name prefix and are not siblings; they
+are the case task 67 examined and left alone deliberately.
 
 ## The design question this task must answer first
 
@@ -208,12 +242,15 @@ is docs-only until that cell lands and is scored.
       the false-positive population reported, not just the true-positive one;
       *(63 mutually-deaf sibling pairs collected over 26 sessions; the rule links
       13, of which 11 are right and 2 are wrong, and both failures are named)*;
-- [ ] the five read cases become a regression test with their real zone names;
-- [ ] the split rate re-derived with `scan_scene_splits` after the fix, against
-      the post-67 baseline task 71 records;
+- [x] the five read cases become a regression test with their real zone names;
+      *(`TestPrefixSiblingsHearEachOther`, including the two known false
+      positives pinned as deliberate)*;
+- [x] the split rate re-derived with `scan_scene_splits` after the fix, against
+      the post-67 baseline task 71 records; *(**unchanged, 168 of 610**, and the
+      reason is structural rather than a null result - see above)*;
 - [ ] `empty_audience` and `clamp_lost_half` do not regress — this task adds
       edges, so the risk is the opposite one: an audience that should have been
-      narrow.
+      narrow. **Needs a post-76 cell.**
 
 **The measurement that would falsify this task:** if sibling sub-zones are rare
 once the Director stops being handed a contract that invites them, this is a
