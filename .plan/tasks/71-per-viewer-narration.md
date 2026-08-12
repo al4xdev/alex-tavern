@@ -236,6 +236,16 @@ pooling hides it; per-session split shares are reported alongside.
 | **5% to 20%** | 71 shrinks. The defect is real but rare; the singleton-fold question is decided on cost alone and the task drops below the checkpoint |
 | **> 20%** | 71 stands as written. Re-derive the cost multiplier from the post-67 mean and proceed to design |
 
+**⚠ Amendment, same day, still before scoring: a confound survives 67.** Task 76
+was found while measuring 67's last closure item: sibling sub-zones minted from
+the same origin are never linked to each other, so two flanks of one hall are
+mutually deaf. 67 did not touch this, so **the post-67 split rate is still an
+upper bound**, and reading the zone names of the archive puts the inflation at
+roughly **17 of 168 splits (10%)**. If the post-67 rate lands near a boundary in
+the table above, that is not a decision — it is a signal to do 76 first and
+measure again. Only a result clear of the boundaries by more than 10% decides
+anything today.
+
 **Not a count-only decision.** Whatever the number, the split turns get read:
 for a sample of them, does the narration actually describe two separated groups,
 and is the separation one a reader would accept as real? A split rate that

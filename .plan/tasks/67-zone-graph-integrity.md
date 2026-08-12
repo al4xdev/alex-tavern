@@ -1,9 +1,11 @@
 # Task 67 — Zone graph integrity
 
-> **Status:** graph fixes SHIPPED 2026-08-06; **re-run cell passed 2026-08-12**
-> (`clamp_lost_half` 6 → 0, `with_others_present` 2 → 0). One closure item is
-> still open: a character who can no longer perceive must not be listed as a
-> witness. That is the mirror failure and it has never been measured.
+> **Status:** ✅ **CLOSED 2026-08-12.** Graph fixes shipped 2026-08-06; the
+> re-run cell passed (`clamp_lost_half` 6 → 0, `with_others_present` 2 → 0).
+> The last closure item — the mirror failure, *a character who can no longer
+> perceive must not be listed as a witness* — was measured and **withdrawn**:
+> the population is 25 audience entries and reading all of them shows the
+> audience is right and the graph is wrong. It became **task 76**.
 >
 > An earlier draft of this task named the wrong cause and prescribed a fix that
 > would have made things worse. Both are recorded below, because the wrong
@@ -225,7 +227,19 @@ re-run cell" is unmet until then, and `clamp_lost_half` is the one that decides.
       *(2026-08-12: **0**, against 6 on the pre-fix cell `34390b86`. Not zero at
       the 0.5 threshold only — zero losses of ANY size, `clamp_worst_loss` None,
       over 8 matched events)*;
-- [ ] a character who can no longer perceive is not listed as a witness;
+- [x] ~~a character who can no longer perceive is not listed as a witness~~
+      **MEASURED AND WITHDRAWN 2026-08-12.** Building this would have been a
+      regression. Over the archive, **25 of 13,540 audience entries (0.18%), in
+      5 records of 971**, name a witness the graph says cannot perceive the
+      speaker — and reading all five, every one is a person who can plainly
+      hear, wrongly separated by the graph: two flanks of one hall, two
+      positions in one corridor, two ends of one tunnel, and a shout the
+      narration explicitly describes as going *through the closed gate*.
+      Re-clamping against the post-move graph would delete those 25 correct
+      entries and silence the five shouts. The cause is a distinct defect, now
+      **task 76** — sibling sub-zones minted from the same origin are never
+      linked to each other, so they are mutually deaf while both hear the room
+      between them. See 76 for why the two defects were masking each other;
 - [x] replayed against the archived `base-P1-r2`, the T23 shout keeps a non-empty
       audience *(2026-08-06, data inlined into the test)*;
 - [x] **the re-run cell** — `clamp_lost_half` and `with_others_present` both at
