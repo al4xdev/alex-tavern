@@ -131,7 +131,7 @@ losses sealed. Sealing is detected by **asymmetry, not emptiness** —
 `zone_link_updates` seal leaves. A zone *born* isolated is empty both ways and
 keeps counting, because that is damage.
 
-**Transferable, and the sharpest one on this page:** a metric that compares two
+**Transferable, and the sharpest one about THRESHOLDS on this page:** a metric that compares two
 components attributes the gap to whichever component you already suspect. It
 took a cell where the *other* component was at fault to notice. Two cells is the
 minimum for any metric defined as a disagreement.
