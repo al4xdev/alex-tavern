@@ -114,6 +114,46 @@ and his position does not change.
 **Do not design a fix before deciding which of these it is.** All three would
 produce identical transcripts.
 
+### ⟳ Narrowed to 3, from the code, same day
+
+Candidate 2 is **half wrong and the half that is wrong matters.** There IS a
+designed path from a character's action to the world — `runner.py:1770` says so
+outright:
+
+> *"An intent is an ATTEMPT: it becomes an action record (the existing physics —
+> resolved by the next beat's Director), never an outcome."*
+
+So the engine is not missing a mechanism. It hands the attempt to the Director
+and expects resolution. The Director then declines, and **its own contract is why**
+(`narrator.py`):
+
+> **Rule 3.** *"RESOLVE LOCALLY. Resolve the final HISTORY action only where its
+> actor currently is."* — **singular.** When sixteen students each declare
+> *"avançar para o portão"*, fifteen of those attempts are not in scope at all.
+>
+> **Rule 2.** *"Meaningful travel takes multiple beats when the fiction requires
+> it and ends only after a later explicit arrival. Never teleport someone,
+> invent a convenient connection, or skip the journey just to bring characters
+> together."*
+
+Read together, a Director following its instructions exactly will resolve one
+attempt per turn, describe only its *immediate local consequence*, and refuse to
+land anybody anywhere without "a later explicit arrival" that nothing schedules.
+**That produces the transcript in this file.** The room declares movement, the
+contract forbids skipping the journey, and no beat ever says the journey ended.
+
+This is the same shape as the 67/76 pair: **a rule written to stop the opposite
+failure.** "Never teleport someone" exists because characters used to jump across
+the map. It works. It also means nobody arrives.
+
+**So the mechanism is candidate 3**, and the fix is a contract question rather
+than an engine one — which is the cheap end, and matches how task 70 moved
+`return_control` threefold by deleting one sentence.
+
+**What is still unknown, and must not be guessed:** whether the Director *would*
+enact a standing order if the contract let it. That is the replay in the
+falsifier below, and it is the next thing to run.
+
 ## The measurement that would falsify this task — RUN, and it does not fire
 
 > If the Director's `zone_moves` do advance the scene on the turns following
