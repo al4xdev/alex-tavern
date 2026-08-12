@@ -82,3 +82,43 @@ one narrow axis, and misreading it would put a fourth entry on the
 metric-validity page.
 
 ---
+## 3. Task 77's mechanism: I wrote a diagnosis, tested it, and it was wrong — DECIDED
+
+**What I claimed** (committed `2f076bc`, ~2h before this): the Director's own
+contract forbids enactment. Rule 3 resolves only *"the final HISTORY action"*,
+rule 2 says travel *"ends only after a later explicit arrival"*, so a Director
+obeying its instructions lands nobody anywhere.
+
+**What I did about it.** Wrote the replay the task called for, pre-registered the
+decision rule, fired 16 calls. Arm A = recorded contract verbatim; arm B =
+rules 2 and 3 rewritten to permit enacting an order already in force.
+
+| | enacted `zone_moves` | mean moved |
+|---|---|---|
+| A (recorded) | **3 of 8 (37.5%)** | 0.50 |
+| B (permitted) | **5 of 8 (62.5%)** | 1.50 |
+
+**Both results are negative, and the second one is against me.**
+
+1. **B fails its own gate** (needed 2x, got 1.67x; Fisher p = 0.62). Not adopted.
+2. **Arm A moves people 3 of 8 times on the exact payloads that recorded
+   `null`.** So the contract permits enactment; the Director simply takes it
+   about a third of the time. My diagnosis was wrong.
+
+**Decision.** Task 77 keeps the transcript (it is solid: three turns, four
+orders, nobody through the gate) and now carries an **open cause** with a
+warning at the top that two diagnoses have already been falsified in it. The
+replay points at **variance** rather than prohibition — nothing in the engine
+remembers an order is outstanding, so every turn re-rolls a biased coin instead
+of resuming a commitment.
+
+**⚠ NEEDS YOU:** on that reading, **77 may be evidence FOR task 72 (commitments
+as first-class state) rather than a task of its own.** I have not merged them.
+That is a roadmap call and it is yours.
+
+**Kept but not acted on:** arm B moved 3x as many characters per run, and every
+destination it produced was the place the order names, while arm A also produced
+one move back *into* the hall it had just ordered everyone out of. Directionally
+better, not adoptable at n=8 per arm.
+
+---
