@@ -243,6 +243,60 @@ class TestWitnessClampIsNeverSilent:
         assert narrator_counts(proposed) == 2
 
 
+class TestSealedZonesAreNotGraphDamage:
+    """A clamp loss counts against the graph only if nobody meant the silence.
+
+    Measured 2026-08-12 across three cells: the pre-fix cell's six severe losses
+    are all unsealed, and both post-fix losses are sealed, with no crossover.
+    `clamp_lost_half` alone reads 6 -> 0 -> 2 and looks like a partial
+    regression; the unsealed count reads 6 -> 0 -> 0, which is what actually
+    happened.
+    """
+
+    def _scene(self, zones: dict, positions: dict) -> dict:
+        return {"zones": zones, "positions": positions}
+
+    def test_a_declared_seal_is_recognised_by_its_asymmetry(self) -> None:
+        """`00997daa` T19: Garran behind the collapse, the hall still lists him."""
+        from tools.acceptance.immersion_scanners import subject_zone_is_sealed
+
+        scene = self._scene(
+            {"salao": ["corredor da ala norte", "patio"], "corredor da ala norte": []},
+            {"C18": "corredor da ala norte"},
+        )
+        assert subject_zone_is_sealed(scene, "C18") is True
+
+    def test_a_zone_born_isolated_is_not_a_seal(self) -> None:
+        """`_open_new_zones` writes [] when the mover has no recorded origin.
+
+        Empty in both directions. That is graph damage and must keep counting.
+        """
+        from tools.acceptance.immersion_scanners import subject_zone_is_sealed
+
+        scene = self._scene({"salao": [], "torre": []}, {"C18": "torre"})
+        assert subject_zone_is_sealed(scene, "C18") is False
+
+    def test_an_ordinary_connected_zone_is_not_a_seal(self) -> None:
+        from tools.acceptance.immersion_scanners import subject_zone_is_sealed
+
+        scene = self._scene(
+            {"salao": ["sacada"], "sacada": ["salao"]}, {"C18": "sacada"}
+        )
+        assert subject_zone_is_sealed(scene, "C18") is False
+
+    def test_an_unplaced_subject_is_not_a_seal(self) -> None:
+        from tools.acceptance.immersion_scanners import subject_zone_is_sealed
+
+        assert subject_zone_is_sealed(self._scene({"salao": []}, {}), "C18") is False
+
+    def test_a_self_loop_does_not_count_as_somebody_listening(self) -> None:
+        """Only ANOTHER zone listing it proves a later, deliberate severance."""
+        from tools.acceptance.immersion_scanners import subject_zone_is_sealed
+
+        scene = self._scene({"torre": []}, {"C18": "torre"})
+        assert subject_zone_is_sealed(scene, "C18") is False
+
+
 def test_the_archived_t23_shout_keeps_its_audience() -> None:
     """Task 67's cited case, replayed: `base-P1-r2` T19-T23.
 

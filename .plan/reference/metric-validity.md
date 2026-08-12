@@ -18,7 +18,8 @@ Standing rule this page exists to enforce:
 | `director_authored` (task 68) | **trusted** | separates on an empty band, 0.827 against 0.857, over 3,936 records; independently re-derived off a second implementation |
 | `_foreign_language` (task 65) | **trusted** | 0.012 against 1.000, nothing between, over all 3,936 records |
 | `_leaks_internal_id` (task 65) | **trusted** | membership not shape; refuses to fire on `C4` where C4 is an explosive |
-| `clamp_lost_half` (task 67) | **new, trusted** | replaces emptiness-only counting; recovers every case its task already cites. Corrected 2026-08-12: the subject is not their own witness |
+| `clamp_lost_half` (task 67) | **superseded** | replaces emptiness-only counting, but measures Director-vs-engine disagreement, not graph damage. Use `clamp_lost_half_unsealed` |
+| `clamp_lost_half_unsealed` (task 67) | **new, trusted** | the graph-damage half alone: 6 → 0 → 0 across three cells, no crossover |
 | `named_exclusions` (task 70) | **fixed same day** | shipped with a false positive; see below |
 | `_carries_intent` (task 65) | **weak, kept permissive** | does not separate on real data; see below |
 | `empty_audience` (task 67) | **kept, but not sufficient alone** | true positives only, and it misses the near-miss population |
@@ -100,6 +101,37 @@ size**, and the pre-fix baseline still has its six.
 **Transferable:** a metric's evidence field has to survive being read even when
 its headline count is already below threshold. The count was right both times;
 the pointer was wrong.
+
+### …and then measured the wrong thing, split 2026-08-12
+
+A second post-fix cell (`00997daa`) came back with `clamp_lost_half` = **2**
+where the first had 0. On the pre-registered criterion that is a partial
+regression, and the honest reading of one cell at 0 and another at 2 is that
+n=1 had closed the task too early.
+
+Reading the two: both are a character **behind an explicitly sealed zone** —
+Garran on the far side of the collapse the narration describes — with the
+Director proposing nineteen courtyard witnesses across the seal and the clamp
+correctly cutting it to one. The engine is right. The Director over-proposed.
+
+So the metric never measured graph damage. It measures **disagreement between
+the Director and the engine**, and that has two causes:
+
+1. the graph is wrong — 67's actual defect;
+2. the Director ignores a correct seal — a prompt-side issue, arguably not a
+   defect at all.
+
+`clamp_lost_half_unsealed` counts only cause 1, and across three cells reads
+**6 → 0 → 0** with no crossover: every pre-fix loss unsealed, both post-fix
+losses sealed. Sealing is detected by **asymmetry, not emptiness** —
+`zones[Z] == []` while another zone still lists Z, which is the residue a
+`zone_link_updates` seal leaves. A zone *born* isolated is empty both ways and
+keeps counting, because that is damage.
+
+**Transferable, and the sharpest one on this page:** a metric that compares two
+components attributes the gap to whichever component you already suspect. It
+took a cell where the *other* component was at fault to notice. Two cells is the
+minimum for any metric defined as a disagreement.
 
 ## The three that were measured and rejected
 

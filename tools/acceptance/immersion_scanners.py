@@ -366,6 +366,29 @@ def eligible_witnesses(scene: dict, characters: dict, subject_id: str) -> set[st
     }
 
 
+def subject_zone_is_sealed(scene: dict, subject_id: str) -> bool:
+    """Was the subject's zone severed on purpose, or was it born cut off?
+
+    `zones[Z] == []` means Z hears nothing, and it arrives two ways that a
+    clamp-loss count must not treat alike:
+
+    * **a declared seal** — `zone_link_updates` naming Z with an empty list, the
+      one way to sever, used by 36 of 106 archived updates. Some OTHER zone
+      still lists Z as audible, because sealing Z's outbound edges does not
+      touch the inbound ones. That asymmetry is the fingerprint.
+    * **born isolated** — `_open_new_zones` writes `[]` when the mover has no
+      recorded origin (pinned by `test_a_mover_with_no_recorded_origin_...`).
+      Nothing links to Z in either direction, and that IS graph damage.
+
+    So the asymmetry, not the emptiness, is what says "somebody meant this".
+    """
+    zones = scene.get("zones") or {}
+    zone = (scene.get("positions") or {}).get(subject_id)
+    if zone is None or zones.get(zone) != []:
+        return False
+    return any(zone in (audible or []) for other, audible in zones.items() if other != zone)
+
+
 def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> dict:
     """How much of the Director's witness list the clamp deleted, on every event.
 
@@ -387,6 +410,7 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
     never counts as a clamp loss.
     """
     persisted: dict[tuple[int, str], int] = {}
+    snapshots: dict[tuple[int, str], dict] = {}
     for record in state.get("history", []):
         if record.get("audience_origin") != "zone":
             continue
@@ -395,6 +419,7 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
             continue
         key = (int(record.get("turn_number") or 0), str(record.get("speaker")))
         persisted[key] = max(persisted.get(key, 0), len(audience))
+        snapshots.setdefault(key, record.get("scene_snapshot") or {})
 
     losses: list[dict] = []
     for turn, event in effective:
@@ -419,11 +444,14 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
                 "proposed": proposed,
                 "kept": kept,
                 "lost_share": round((proposed - kept) / proposed, 3),
+                "sealed": subject_zone_is_sealed(snapshots.get(key) or {}, subject),
                 "text": str(event.get("content", ""))[:160],
             }
         )
 
     losses.sort(key=lambda item: (-item["lost_share"], -item["proposed"]))
+    severe = [item for item in losses if item["lost_share"] >= 0.5]
+    unsealed = [item for item in severe if not item["sealed"]]
     return {
         "clamp_matched_events": sum(
             1
@@ -431,9 +459,12 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
             if event.get("event_kind") == "audible_speech"
             and (turn, str(event.get("subject_id"))) in persisted
         ),
-        "clamp_lost_half": sum(1 for item in losses if item["lost_share"] >= 0.5),
+        "clamp_lost_half": len(severe),
+        "clamp_lost_half_unsealed": len(unsealed),
+        "clamp_lost_half_sealed": len(severe) - len(unsealed),
         "clamp_lost_most": sum(1 for item in losses if item["lost_share"] >= 0.8),
         "clamp_worst_loss": losses[0] if losses else None,
+        "clamp_worst_unsealed": unsealed[0] if unsealed else None,
         "clamp_evidence": losses[:10],
     }
 

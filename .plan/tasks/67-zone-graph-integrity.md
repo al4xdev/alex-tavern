@@ -1,7 +1,8 @@
 # Task 67 — Zone graph integrity
 
-> **Status:** ✅ **CLOSED 2026-08-12.** Graph fixes shipped 2026-08-06; the
-> re-run cell passed (`clamp_lost_half` 6 → 0, `with_others_present` 2 → 0).
+> **Status:** ✅ **CLOSED 2026-08-12.** Graph fixes shipped 2026-08-06; two
+> post-fix cells pass on `clamp_lost_half_unsealed` (6 → 0 → 0) and on
+> `with_others_present` (2 → 0 → 0).
 > The last closure item — the mirror failure, *a character who can no longer
 > perceive must not be listed as a witness* — was measured and **withdrawn**:
 > the population is 25 audience entries and reading all of them shows the
@@ -224,9 +225,11 @@ re-run cell" is unmet until then, and `clamp_lost_half` is the one that decides.
 - [x] **`clamp_lost_half` at zero on the re-run cell** — see the section below.
       Emptiness alone cannot close this task, because a shout heard by ONE person
       in a hall of twenty-one is this same bug one witness short of the count;
-      *(2026-08-12: **0**, against 6 on the pre-fix cell `34390b86`. Not zero at
-      the 0.5 threshold only — zero losses of ANY size, `clamp_worst_loss` None,
-      over 8 matched events)*;
+      *(2026-08-12, and the criterion had to be sharpened to survive a second
+      cell: **`clamp_lost_half_unsealed` = 0 on BOTH post-fix cells, against 6
+      pre-fix**. Raw `clamp_lost_half` is 0 and 2, and reading the 2 shows them
+      to be the Director proposing across a seal the fiction supports, not graph
+      damage)*;
 - [x] ~~a character who can no longer perceive is not listed as a witness~~
       **MEASURED AND WITHDRAWN 2026-08-12.** Building this would have been a
       regression. Over the archive, **25 of 13,540 audience entries (0.18%), in
@@ -256,17 +259,57 @@ is the problem after all.
 missing three turns are not worth another cell, because the metric is not near
 its threshold — it is at the floor).
 
-| | pre-fix `34390b86` | re-run `d0cc98e5` |
-|---|---|---|
-| `empty_audience_records` | 2 | **0** |
-| `with_others_present` | 2 | **0** |
-| `clamp_lost_half` | 6 | **0** |
-| `clamp_lost_most` | 5 | **0** |
-| `clamp_worst_loss` | 20 → 1 (0.95) | **none at all** |
-| `clamp_matched_events` | 14 | 8 |
+A **second** post-fix session, `00997daa` (`base-P1-r1`, 38 turns), was scored
+afterwards and is included here. It matters: on `clamp_lost_half` alone the two
+post-fix cells disagree, and the disagreement is what produced the refinement
+below.
 
-Both cells were re-scored with the corrected counter described below, so the
+| | pre-fix `34390b86` | `d0cc98e5` | `00997daa` |
+|---|---|---|---|
+| `empty_audience_records` | 2 | **0** | **0** |
+| `with_others_present` | 2 | **0** | **0** |
+| `clamp_lost_half` | 6 | **0** | 2 |
+| **`clamp_lost_half_unsealed`** | **6** | **0** | **0** |
+| `clamp_lost_most` | 5 | **0** | 1 |
+| `clamp_worst_loss` | 20 → 1 (0.95) | none | 19 → 1 (0.95) |
+| `clamp_matched_events` | 14 | 8 | 37 |
+
+All three were scored with the corrected counter described below, so the
 comparison is like for like: the baseline's six severe losses are still six.
+
+### The two post-fix cells disagreed, and the second one was right
+
+`d0cc98e5` gave `clamp_lost_half` = 0 and closure was written against it. Then
+`00997daa` gave **2**, which on the pre-registered criterion is a partial
+regression. Reading both:
+
+> **T19**, C18 in `corredor da ala norte`, 19 proposed, 1 kept:
+> *"Afastem-se dessa fenda agora e preparem as armas!"*
+> **T28**, C8 in the same corridor, 18 proposed, 5 kept.
+>
+> Graph: `{"Salao": ["corredor da ala norte", "patio"], "corredor da ala norte": []}`
+
+The corridor is **explicitly sealed** — Garran is behind the collapse the T16
+narration describes. The Director proposed nineteen courtyard witnesses across
+that seal and the clamp correctly cut it to one. **The engine is right and the
+Director over-proposed.**
+
+So `clamp_lost_half` does not measure graph damage. It measures *disagreement
+between the Director and the engine*, which has two causes, and only one of them
+is an engine bug:
+
+1. **the graph is wrong** — the pre-fix cause, 67's actual defect;
+2. **the Director ignores a seal that is correct** — a prompt-side issue, and
+   arguably not a defect at all.
+
+`clamp_lost_half_unsealed` counts only cause 1. Across the three cells it reads
+**6 → 0 → 0** with no crossover: every pre-fix loss is unsealed, both post-fix
+losses are sealed. That is the number this task closes on.
+
+"Sealed" is detected by **asymmetry, not emptiness** — `zones[Z] == []` while
+some other zone still lists Z, which is what a `zone_link_updates` seal leaves
+behind. A zone *born* isolated (`_open_new_zones` with no recorded origin) is
+empty in both directions and keeps counting as damage, because it is damage.
 
 ### What reading the records changed
 
