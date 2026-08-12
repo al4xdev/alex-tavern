@@ -122,3 +122,68 @@ one move back *into* the hall it had just ordered everyone out of. Directionally
 better, not adoptable at n=8 per arm.
 
 ---
+## 4. Task 71 shipped a defect this morning; I found it tonight by reading — FIXED
+
+**What I read.** `c76037ff`, the five-person cluster. Sixteen narrations, and
+**eight had no events at all**, so the renderer described the room instead:
+
+| word | small cluster | main cluster |
+|---|---|---|
+| `quietude` | **44%** | 3% |
+| `penumbra` | **50%** | 0% |
+| `halos` | **19%** | 0% |
+
+**The number that makes this worth your time:** consecutive pairs score **0.02**
+on sequence similarity. Every repetition guard in this project reads that as two
+unrelated paragraphs. A reader sees one paragraph four times. The model varies
+its wording enough to defeat `SequenceMatcher` while saying the same thing.
+
+**Decision.** A cluster with no events of its own is no longer rendered. The
+rule already existed one level up — the burst path refuses to narrate a beat
+with no novel events, and its comment gives the exact reason ("a null recap
+turn"). The player's cluster is still never folded.
+
+On the metric-validity page as the sharpest case there: *lexical distance
+measures whether the words changed; nothing here measures whether anything
+happened.*
+
+---
+## 5. Task 76's last item closed — no regression, smaller footprint than claimed
+
+The post-76 cell shows `empty_audience` 0 and `with_others_present` 0, so 76
+added no wrong edges. But `clamp_lost_half_unsealed` went **0 → 2**, and reading
+it matters more than the count:
+
+> Garran calls from `porta lateral do salão` asking if everyone is safe. **17
+> people are in `túnel oculto`, 2 on the stairs, 1 in the hall.** All three zones
+> link to the hall, none to each other, so he reaches one person out of twenty.
+
+That is 76's own defect, and **the shipped rule cannot touch it** — none of those
+names contains a comma. The prefix rule catches siblings the Director named as
+sub-positions and is blind to siblings it named as places.
+
+**⚠ NEEDS YOU — this reopens 76's design question.** Candidate rule 1 (link all
+siblings of a common origin) would fix the case above. I rejected it earlier
+because it also joins a ventilation duct to a secret passage in `base-P1-r2`.
+The evidence now points both ways. **Task 54's doctrine favours rule 1**
+(separation must be declared; undeclared deafness is the expensive error), and
+on that doctrine I would switch — but it widens audibility across the whole
+engine and that is your call, not mine.
+
+---
+## 6. Task 69 re-measured post-wave-1 — it survives — INFORMATIONAL
+
+The checkpoint requires re-measuring before designing. Over the nine post-70
+sessions: **97 of 987 Director physical/observation events (9.8%) are
+re-proposed within three turns** at similarity ≥ 0.6. Top case 0.94 —
+*"Doran golpeia a base de uma pedra caída e uma runa se acende"* at T26, T27
+**and** T28.
+
+So 69's evidence is not a pre-wave-1 artifact and the task is real as written.
+
+**Worth noticing:** 69 ("the ceiling collapses three times"), 77 ("the order is
+given four times and never executed") and 72 (commitments as state) are three
+faces of one thing — **the engine keeps no record of what has already been
+settled.** I have not merged them; that is a roadmap call.
+
+---
