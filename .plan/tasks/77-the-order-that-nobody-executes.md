@@ -231,6 +231,39 @@ narration length. And whatever the number says, **the transcript gets read** -
 a frozen rate that falls while the prose still reads as a room going nowhere
 would mean the position axis was the wrong measure, not that the task is fixed.
 
+### P3 result, first replicate — the confound is DISMISSED, and it made the task worse
+
+`5d60575d`, 23 turns. **Frozen rate 95.2% (20 of 21 adjacent pairs)** against the
+P1 control's 90.8% over nine sessions. Above the 82% line, so by the rule
+registered above: **the engine stalls regardless of who pushes.** Fisher p=0.70,
+i.e. no detectable improvement, not even a trend.
+
+Reading it is where it gets interesting. **The scene is not static at all** - the
+ceiling collapses, the west exit is buried, then the south, then a crack opens
+north. Plenty happens. What does not happen is anybody moving.
+
+Counting how the cast talks, per NPC speech line:
+
+| | P1 passive (6 sessions) | P3 active (1 session) |
+|---|---|---|
+| orders to HOLD (*"recuem"*, *"ninguém se move"*, *"contra a parede"*) | 9.1% | **29.7%** |
+| orders to GO (*"avancem"*, *"sigam"*, *"saída norte"*) | 12.0% | **25.0%** |
+
+**Both roughly double or triple. The world obeys neither.** An active player does
+not unstick the scene; it makes the cast far more directive and leaves the
+position graph exactly as frozen.
+
+That is a stronger statement of this task than the original transcript gave,
+because it removes the obvious alternative explanation. The room is not quiet
+because nobody asked. It is quiet with twenty people shouting instructions.
+
+⚠ **n=1 for P3**, and a second replicate was running when this was written.
+⚠ **My first cut of the HOLD count said 46.9%** and was wrong: the pattern
+included `fila`, which appears in *"saídas laterais, em fila"* - an order to MOVE
+with a queueing qualifier. Six of the first ten flagged lines were that. Fourth
+name-style guard to fail this way in one day; see
+`.plan/reference/metric-validity.md`.
+
 ### What the replay says the cause is
 
 **Variance.** Same payload, same prompt, same model: enactment is roughly a coin
