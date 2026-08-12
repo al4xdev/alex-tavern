@@ -29,7 +29,11 @@ Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 11 commits, tree clean,
 | `def9e8c` | emptiness is the extreme of the audience bug, not the bug |
 | `39d0464` | **67's graph fixes** — a partial link list stops deleting what it omits |
 | `9e39a86` | the metric register: which metrics survived a read, and which did not |
-| *(HEAD)* | **67's re-run cell passes**, and the clamp metric stops blaming the speaker |
+| `bb70047` | **67's re-run cell passes**, and the clamp metric stops blaming the speaker |
+| `e0d052d` | the split rate becomes an instrument instead of a lost script |
+| `adbd370` | 67's mirror failure withdrawn; the graph was the guilty party (task 76) |
+| `8be8c06` | a clamp loss is only a graph bug if nobody meant the silence |
+| *(HEAD)* | **71's re-measurement** — the task stands, and every singleton was an artifact |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
@@ -240,11 +244,27 @@ just fixed (dead/departed staying in the audience rather than the living being
 clamped out) and has never been measured. It needs its own scanner pass before
 anyone claims it is absent.
 
-**Next: hand 67's numbers to task 71**, which is parked specifically because
-every cost figure it carries was measured on the graph 67 just fixed — split rate
-168/610 (28%), mean clusters/turn 1.56, mean clusters ≥2 chars 1.21, sessions
-never splitting 8/16. All four need re-measuring on post-fix cells before 71's
-argument stands (see 67's hand-off section).
+**Task 71 is unblocked — the re-measurement ran 2026-08-12 and the task
+stands.** Three post-67 `base-P1` replicates against the three archived pre-67
+ones, landing on exactly 108 narrated turns each side:
+
+| | split | mean clusters | singletons/turn |
+|---|---|---|---|
+| pre-67 | 58/108 (53.7%) | 2.352 | **0.740** |
+| post-67 | 30/108 (27.8%) | 1.278 | **0.000** |
+
+Fisher p=1.7e-4. The rate halved but stayed above the 20% line the decision rule
+was registered against, so 71 stands. **Every singleton cluster was an
+artifact** — zero of them across four post-67 sessions — so the cost multiplier
+is 1.28x under either policy and the singleton-fold question has no population
+left to decide about. Task 76's sibling confound was checked against this sample
+rather than assumed: merging siblings changes the post-67 split count not at all
+(30 → 30).
+
+The splits that remain were read, not just counted: a corridor buried by a
+collapse, a dungeon door sealed shut, each stated in the sentence that creates
+it — and in both, the people on the far side are handed narration describing the
+room they cannot see. 71's leak is alive in the post-67 graph.
 
 Wave 2: 69 (owns the durable-state interface for the phase), then 72 if its gate
 opens. 64 is waiting on 70's

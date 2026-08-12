@@ -1,10 +1,17 @@
 # Task 71 — Per-viewer narration
 
-> **Status:** open. The product question is **ANSWERED** (2026-08-05, below), and
-> the task is **PARKED until task 67 has shipped** — deliberately, by the owner,
-> on the same day the answer was given. It is wave 3.
+> **Status:** open and **UNBLOCKED 2026-08-12.** The product question was
+> answered 2026-08-05 (below); the post-67 re-measurement that gated design has
+> now run and the task stands. Ready to design. It is wave 3.
 >
-> ## ⛔ DO NOT DESIGN THIS TASK UNTIL THE RE-MEASUREMENT BELOW HAS RUN
+> ## ✅ THE RE-MEASUREMENT HAS RUN — 2026-08-12, the task stands
+>
+> Split rate 53.7% → **27.8%** (p=1.7e-4), cost multiplier **1.28x**, and zero
+> singleton clusters across four post-67 sessions. See "The re-measurement"
+> below. The pre-67 figures further down this file are superseded; they are
+> kept because the reasoning around them is still the reasoning.
+>
+> ## The original blocker, kept for the record
 >
 > Every cost figure in this file was taken on the **pre-67 zone graph**, which is
 > known to be broken in two ways that each **manufacture a spurious cluster**
@@ -96,6 +103,15 @@ What the decision settles, and what it does not:
   **isolated single characters**. After 67 the singleton population is expected to
   shrink. **Confirm against the post-67 measurement, then write the decision
   here — on the redundancy argument, not the call count.**
+
+  > ✅ **Confirmed 2026-08-12, and it did not shrink — it vanished.** Zero
+  > singleton clusters across four post-67 sessions, against 0.740 per turn
+  > before. The prediction in this paragraph was exactly right, and it leaves
+  > nothing to decide: there is no singleton population to fold or render. The
+  > fold rule stays in as a guard against the case recurring, and the
+  > redundancy argument is the only thing holding it up, which is the footing
+  > the re-framing above asked for. **Nobody should cite 1.21x again** — the
+  > multiplier is 1.28x and it is the same number either way.
 
 ### Scenes do split, so the falsifier does not fire
 
@@ -254,16 +270,82 @@ is still an artifact, just a subtler one. This clause exists because the case-C
 falsifier in task 65 fired with a diagnosis that reading the flagged replies
 showed to be wrong.
 
+## ✅ The re-measurement — 2026-08-12. The task STANDS.
+
+Three post-67 `base-P1` replicates against the three archived pre-67 ones. The
+two groups land on **exactly 108 narrated turns each**, which is luck, but it
+makes the comparison as close to paired as this instrument gets.
+
+| | narrated | split | mean clusters | clusters ≥2 | **singletons/turn** |
+|---|---|---|---|---|---|
+| **pre-67** pooled | 108 | **58 (53.7%)** | 2.352 | 1.611 | **0.740** |
+| **post-67** pooled | 108 | **30 (27.8%)** | 1.278 | 1.278 | **0.000** |
+
+Per session, post-67: 20/38 (52.6%), 10/34 (29.4%), 0/36 (0%). Bimodality
+survives the fix — one session never splits at all.
+
+Fisher exact, 58/108 against 30/108: **p = 1.7e-4**. The split rate genuinely
+halved.
+
+**Verdict against the pre-registered rule: 27.8% is above the 20% line, so the
+task stands as written.** The amendment required a result clear of the
+boundary by more than the sibling confound, and that check was run rather than
+argued: recomputing the post-67 cells with sibling zones made mutually audible
+changes the split count **not at all** (30 → 30). Task 76's confound is real in
+the archive and absent from this sample, so it does not touch this decision.
+
+### The singleton question is answered, and it dissolves
+
+The single biggest cost lever in this task was *"1.56x prose calls per turn if
+every cluster renders, 1.21x if singletons fold"*, and the open closure item
+below asked for the fold decision to be made against post-67 numbers.
+
+**There are no singletons to fold.** `mean_clusters_ge2` equals `mean_clusters`
+to three decimals in all three cells, and in the P2 post-67 cell `d0cc98e5`
+(37 narrated turns, 37.8% split, `singleton_turns` **0**) as well. Four post-fix
+sessions, not one singleton cluster among them. Pre-fix there were 0.740 per
+turn.
+
+That is the spurious singleton task 71 predicted the broken graph was
+manufacturing, and 67 removed all of it. So:
+
+- **the cost multiplier is 1.28x**, and it is 1.28x under either policy;
+- **the fold-or-render decision no longer has a population to decide about.**
+  Keep the fold rule anyway as a cheap guard, but it is not a cost lever and
+  must not be sold as one.
+
+### The splits that remain are real
+
+Required by the rule above, and not skippable. Read across the three cells:
+
+> **r1 T16-T20** — 19 in `pátio central`, 2 in `corredor da ala norte`. The T16
+> narration describes a mass of stone burying the return corridor. The split is
+> stable for five turns.
+> **r2 T24-T25** — 19 in the hall, 2 in `corredor da masmorra`. Garran drives
+> his shoulder into the dungeon door and it seals with a final click.
+
+Both are separations the fiction states outright, in the sentence that creates
+them. And in both, the two people on the far side are handed narration
+describing the room they cannot see — which is the leak this task exists to
+close, alive in the post-67 graph.
+
+**The falsifier at the bottom of this file does not fire.**
+
 ## Closure evidence required
 
 - [x] the product question answered and recorded here before implementation —
       **per zone-cluster, 2026-08-05**, see the decision block at the top;
-- [ ] **⛔ BLOCKING, do this first:** the split rate and cluster count
+- [x] **⛔ BLOCKING, do this first:** the split rate and cluster count
       **re-measured on the post-67 graph**. Every figure in this file is a
       pre-67 upper bound. If the rate collapses, re-size or close the task
-      instead of building it;
-- [ ] the singleton-cluster question decided against those numbers — the leaning
+      instead of building it; *(2026-08-12: 53.7% → **27.8%**, p=1.7e-4. It
+      halved but did not collapse, and stays above the 20% line the rule was
+      registered against)*;
+- [x] the singleton-cluster question decided against those numbers — the leaning
       is **fold**, and it needs the post-67 population to be confirmed;
+      *(2026-08-12: **the population is empty.** Zero singleton clusters across
+      four post-67 sessions, against 0.740 per turn pre-fix. Keep the fold rule
+      as a cheap guard; it is not a cost lever)*;
 - [ ] a test with a split scene: a character in zone A does not receive narration
       describing zone B, asserted against the real builders;
 - [ ] `prose.py:50-52`'s rule becomes enforceable — a test that the renderer is
