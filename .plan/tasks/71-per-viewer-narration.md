@@ -453,20 +453,31 @@ drop is inside the 25% band. **Ship-as-is branch of the rule.**
 > **T31** Marta driving the last stake, the rope rectangle, dust in the folds of
 > her leather apron.
 
-**The leak, measured before and after.** A split narration counts as leaking if
-it names a character or a zone that some reader of that record cannot perceive:
+**The leak, measured before and after** by `scan_cross_cluster_leak`, checked in
+alongside the split scanner for the same reason the split scanner was: the first
+version of this count was an ad-hoc script. A split narration leaks if it names a
+character, or the zone a character stands in, that some reader of that record
+cannot perceive - scored **per reader cluster**, because asking "can anybody
+reach this" answers yes for each half of a split scene and finds nothing.
 
 | | split narrations | leaking |
 |---|---|---|
 | pre-71 `00997daa` | 20 | **14** |
-| pre-71 `b11b38dc` | 9 | **7** |
-| **post-71 `21f7c4e1`** | 10 | **0** |
+| pre-71 `b11b38dc` | 9 | **2** |
+| pre-71 `55d03896` | 0 | 0 |
+| post-71 `21f7c4e1` | 10 | **0** |
+| post-71 `c76037ff` | 32 | **3** |
 
-**21 of 29 (72%) → 0 of 10.**
+**16 of 29 (55%) → 3 of 42 (7.1%).**
 
-> ⚠ **And then replicate 2 found the residual, 2026-08-12.** `c76037ff`, scored
-> the same way: **3 leaks of 32 split narrations (9.4%)**. Not zero. n=1 was
-> optimistic here exactly as it was for the clamp metric this morning.
+> ⚠ **The 72% I first reported was too high.** The ad-hoc script matched first
+> names, so it counted `b11b38dc` at 7 rather than 2. Strict matching - a
+> multi-token name must appear in full and adjacent - is the same discipline the
+> guard needed after `véu`, and it is the instrument's number that stands.
+
+> ⚠ **And then replicate 2 found the residual, 2026-08-12.** `c76037ff`: **3
+> leaks of 32 split narrations (9.4%)**. Not zero. n=1 was optimistic here
+> exactly as it was for the clamp metric this morning.
 >
 > All three are the same character on consecutive turns. Marta Ferrolume is in
 > `depósito de ferramentas`; the reader cluster is at `próximo à saída norte`;
@@ -482,7 +493,9 @@ it names a character or a zone that some reader of that record cannot perceive:
 > > *"Marta Ferrolume, ainda de joelhos diante do corredor A, ergue a cabeça, a
 > > chave de reserva pendendo frouxa na mão"* (T18)
 >
-> **Fixed in two halves, and the structural half is measured.**
+> **Fixed in two halves, and the structural half is measured.** The residual is
+> **3 of 42 split narrations (7.1%)** with the roster alone, down from 16 of 29
+> (55%) before the task.
 >
 > The instruction half is a scoped `IN THIS VIEW` roster: the only people whose
 > present actions may be narrated, others available as memory but never shown

@@ -14,7 +14,11 @@ matching the numbers already written in that task to every digit it reports.
 
 from __future__ import annotations
 
-from tools.acceptance.immersion_scanners import scan_scene_splits, scene_clusters
+from tools.acceptance.immersion_scanners import (
+    scan_cross_cluster_leak,
+    scan_scene_splits,
+    scene_clusters,
+)
 
 CHARACTERS = {f"C{i}": {"name": f"C{i}"} for i in range(1, 6)}
 
@@ -119,3 +123,93 @@ class TestScanSceneSplits:
         report = scan_scene_splits({"characters": CHARACTERS, "history": []})
         assert report["narrated_turns"] == 0
         assert report["split_share"] is None
+
+
+class TestCrossClusterLeakScan:
+    """Task 71's defect counted by checked-in code, for the same reason.
+
+    Reproduces the live sessions it was built from: `21f7c4e1` 0 of 10 and
+    `c76037ff` 3 of 32, the residual that sent the guard back for a
+    deterministic backstop.
+    """
+
+    CAST = {
+        "C1": {"mind": {"name": "Link"}},
+        "C2": {"mind": {"name": "Marta Ferrolume"}},
+        "C3": {"mind": {"name": "Bento"}},
+        "C4": {"mind": {"name": "Noa Veu"}},
+    }
+
+    def _state(self, content: str, audience: list[str] | None) -> dict:
+        return {
+            "characters": self.CAST,
+            "history": [
+                {
+                    "content_type": "narration",
+                    "turn_number": 1,
+                    "content": content,
+                    "audience": audience,
+                    "scene_snapshot": {
+                        "present_characters": ["C1", "C2", "C3", "C4"],
+                        "positions": {
+                            "C1": "salao",
+                            "C3": "salao",
+                            "C2": "deposito",
+                            "C4": "deposito",
+                        },
+                        "zones": {"salao": [], "deposito": []},
+                    },
+                }
+            ],
+        }
+
+    def _pad(self, text: str) -> str:
+        return text + " " + "A pedra range sob o peso do silencio prolongado. " * 5
+
+    def test_a_scoped_narration_naming_an_unreachable_character_leaks(self) -> None:
+        report = scan_cross_cluster_leak(
+            self._state(self._pad("Marta Ferrolume ergue a cabeca."), ["C1", "C3"])
+        )
+        assert report["split_narrations"] == 1
+        assert report["leaking"] == 1
+
+    def test_a_scoped_narration_about_its_own_cluster_does_not(self) -> None:
+        report = scan_cross_cluster_leak(
+            self._state(self._pad("Bento avanca ate a fresta."), ["C1", "C3"])
+        )
+        assert report["leaking"] == 0
+
+    def test_a_public_narration_on_a_split_scene_leaks(self) -> None:
+        """The pre-71 engine by construction: one paragraph, two halves.
+
+        Counting over all readers at once would answer "somebody can reach
+        this" for each half and find nothing. It is scored per reader cluster.
+        """
+        report = scan_cross_cluster_leak(
+            self._state(self._pad("Marta Ferrolume ergue a cabeca."), None)
+        )
+        assert report["leaking"] == 1
+
+    def test_a_surname_that_is_an_ordinary_noun_does_not_count(self) -> None:
+        """`veu` is Portuguese for veil and also Noa Veu's surname.
+
+        The ad-hoc script this scanner replaced matched first names and put the
+        pre-71 rate at 21 of 29; strict matching puts it at 16 of 29. The
+        difference is entirely this class of false positive.
+        """
+        report = scan_cross_cluster_leak(
+            self._state(self._pad("Um veu de poeira cobre o chao."), ["C1", "C3"])
+        )
+        assert report["leaking"] == 0
+
+    def test_a_one_line_speech_report_is_not_scored_as_prose(self) -> None:
+        """`_report_speech` writes narration records too; length separates them."""
+        report = scan_cross_cluster_leak(
+            self._state("Marta Ferrolume diz algo.", ["C1", "C3"])
+        )
+        assert report["split_narrations"] == 0
+
+    def test_an_unsplit_scene_is_not_scored(self) -> None:
+        state = self._state(self._pad("Marta Ferrolume ergue a cabeca."), None)
+        state["history"][0]["scene_snapshot"]["zones"] = {}
+        assert scan_cross_cluster_leak(state)["split_narrations"] == 0

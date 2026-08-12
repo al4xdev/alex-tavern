@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -619,6 +620,116 @@ def scene_clusters(scene: dict, characters: dict) -> list[list[str]]:
     for cid in present:
         groups.setdefault(find(cid), []).append(cid)
     return sorted(groups.values(), key=lambda g: (-len(g), g[0]))
+
+
+# Reports run to at most 188 characters and rendered prose starts at 254, over
+# six sessions separated against each one's `audible_speech_drop` log. The band
+# is empty and this sits inside it.
+_PROSE_MIN_CHARS = 200
+
+
+def _offstage_patterns(names: list[str], on_stage: list[str]) -> list[re.Pattern[str]]:
+    """Mirror of `src.agents.prose._offstage_name_patterns`, over plain names.
+
+    Same discipline and for the same measured reason: a multi-token name must
+    match in full and adjacent, a single-token name must match with its capital.
+    Matching name tokens case-insensitively reads *"véu"* (Portuguese for veil)
+    as Noa Véu, and the first version of BOTH the guard and this scorer did.
+    """
+    patterns: list[re.Pattern[str]] = []
+    for name in names:
+        tokens = name.split()
+        if not tokens or len(name) < 3:
+            continue
+        if len(tokens) > 1:
+            body = r"\s+".join(re.escape(token) for token in tokens)
+            pattern = re.compile(rf"\b{body}\b", re.IGNORECASE)
+        else:
+            pattern = re.compile(rf"\b{re.escape(tokens[0])}\b")
+        if any(pattern.search(other) for other in on_stage):
+            continue
+        patterns.append(pattern)
+    return patterns
+
+
+def scan_cross_cluster_leak(state: dict) -> dict:
+    """Task 71's defect, counted: narration naming what its reader cannot reach.
+
+    A split-scene narration LEAKS when it names a present character, or the zone
+    a present character stands in, that some reader of that record cannot
+    perceive. Readers are the record's ``audience``, or everyone present when it
+    is public — which is why the pre-71 engine leaks by construction: one
+    omniscient paragraph went to a scene with two halves.
+
+    **Speech reports are excluded by length, and the threshold is measured.**
+    `_report_speech` also writes `content_type` "narration", so a naive count
+    reads a one-line "X said something" as prose. Over six sessions, separating
+    the two against each session's `audible_speech_drop` log: reports run to at
+    most **188** characters and prose starts at **254**. The band between them is
+    empty, and 200 sits inside it. Task 71's `audience_origin="cluster"` marks
+    the distinction going forward, but sessions recorded before that fix exist
+    and this scanner has to read them too.
+    """
+    characters = state.get("characters") or {}
+    names = {
+        cid: str(((characters.get(cid) or {}).get("mind") or {}).get("name") or cid)
+        for cid in characters
+    }
+    total = 0
+    leaks: list[dict] = []
+    for record in state.get("history", []):
+        if record.get("content_type") != "narration":
+            continue
+        content = str(record.get("content") or "")
+        if len(content) < _PROSE_MIN_CHARS:
+            continue
+        scene = record.get("scene_snapshot") or {}
+        clusters = scene_clusters(scene, characters)
+        if len(clusters) < 2:
+            continue
+        total += 1
+        audience = record.get("audience")
+        present = [cid for cid in scene.get("present_characters") or [] if cid in characters]
+        readers = list(audience) if audience is not None else present
+        positions = scene.get("positions") or {}
+        # Per READER CLUSTER, not over all readers at once. A public record goes
+        # to every cluster, and asking "can somebody reach this" would answer yes
+        # for each half of a split scene and find nothing - which is exactly the
+        # leak the pre-71 engine had by construction.
+        named: list[str] = []
+        for group in clusters:
+            if not set(group) & set(readers):
+                continue
+            unreachable = [
+                cid
+                for cid in present
+                if cid not in group
+                and not any(can_perceive(scene, member, cid) for member in group)
+            ]
+            if not unreachable:
+                continue
+            patterns = _offstage_patterns(
+                [names[cid] for cid in unreachable],
+                [names[cid] for cid in group if cid in names],
+            )
+            named += [p.pattern for p in patterns if p.search(content)]
+            zones = {positions.get(cid) for cid in unreachable}
+            zones -= {positions.get(cid) for cid in group}
+            named += [zone for zone in zones if zone and zone in content]
+        if named:
+            leaks.append(
+                {
+                    "turn": int(record.get("turn_number") or 0),
+                    "named": sorted(set(named))[:4],
+                    "text": content[:160],
+                }
+            )
+    return {
+        "split_narrations": total,
+        "leaking": len(leaks),
+        "leak_share": round(len(leaks) / total, 4) if total else None,
+        "leak_evidence": leaks[:8],
+    }
 
 
 def scan_scene_splits(state: dict) -> dict:
