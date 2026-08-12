@@ -388,11 +388,12 @@ close, alive in the post-67 graph.
       not a gate: `.plan/ROADMAP.md`); *(2026-08-12: control unmoved at +3%,
       split -11.9% inside the band, and the read finds concrete prose. See "The
       thinning check")*;
-- [ ] **the residual transcript leak re-scored on a fresh cell.** 72% → 9.4%
-      with the roster alone; the deterministic backstop then removes all 3
-      remaining leaks and none of the other 39 split narrations on replay. What
-      is left is an end-to-end cell, which the replay cannot substitute for
-      because it cannot see the roster and the backstop interacting.
+- [x] **the residual transcript leak re-scored on a fresh cell.**
+      *(2026-08-12, `09aabf25`: **0 of 22 split narrations**, both halves live.
+      The task's headline is 16/29 (55%) → 3/64 (4.7%) pooled, p=1.5e-05. The
+      backstop removed nothing in this cell because the model did not leak in
+      it, so its own evidence stays the offline replay: 3 fires, 0 false
+      positives, over 42 narrations.)*
 
 **The measurement that would falsify this task:** if scenes essentially never
 split in real play, the defect is rare enough to live with and this drops below
@@ -523,9 +524,30 @@ reach this" answers yes for each half of a split scene and finds nothing.
 > counter-example. A multi-token name now must match in full and adjacent; a
 > single-token name must match with its capital.
 >
-> Still owed: an end-to-end cell confirming the pair in live rendering. The
-> offline replay covers the backstop against real output, which is the stronger
-> half of the evidence, but it cannot see an interaction with the roster block.
+> **The end-to-end cell ran (`09aabf25`, 38 turns, both halves live: 26 of 46
+> prose calls carried the roster, 22 records carry `audience_origin="cluster"`).
+> Result: 22 split narrations, ZERO leaking.**
+>
+> ⚠ **It does not demonstrate the backstop.** Comparing every persisted
+> narration against the model's raw prose in `debug.jsonl`, the backstop
+> **removed nothing all session** — the model simply did not leak this time. So
+> the cell confirms the pipeline and the roster; the backstop's evidence remains
+> the offline replay against the sessions that *did* leak.
+>
+> And the honest statistics, since the temptation is to read 0/22 as the pair
+> working:
+>
+> | variant | split narrations | leaking | |
+> |---|---|---|---|
+> | pre-71 | 29 | **16 (55%)** | |
+> | roster only | 42 | **3 (7.1%)** | vs pre-71 **p = 1.5e-05** |
+> | roster + backstop | 22 | **0** | vs roster only **p = 0.26** |
+>
+> The first comparison is the task's result and it is overwhelming. **The second
+> is not significant** and must not be quoted as if it were: 0 of 22 is what a
+> 7% rate looks like a quarter of the time. Pooled across every post-71 session,
+> the observed leak is **3 of 64 (4.7%)**, and the backstop removes exactly those
+> 3 on replay while touching none of the other 61.
 
 ### ⚠ Two things the live session corrected
 
