@@ -101,7 +101,24 @@ def test_redaction_marker_is_counted_per_channel():
     state = _state(
         [
             _record(1, "C2", f"As portas {REDACTION_MARKER} abertas."),
-            _record(1, "Narrator", f"A sala segue {REDACTION_MARKER}.", content_type="narration"),
+            _record(
+                1,
+                "Narrator",
+                "A sala segue em silencio, e a poeira desce devagar sobre as bancadas "
+                "vazias enquanto o eco do sino se desfaz entre as colunas de pedra "
+                f"clara, deixando no ar apenas o cheiro {REDACTION_MARKER} de enxofre "
+                "que ninguem ali consegue nomear com alguma seguranca.",
+                content_type="narration",
+            ),
+            # `_report_speech` persists a Narrator REPORT as a narration record.
+            # A marker there is durable damage witnessed by the room, not a
+            # cosmetic render, and task 63's falsifier could not see it.
+            _record(
+                1,
+                "Narrator",
+                f"Garran {REDACTION_MARKER} que a parede lateral abriu uma saida.",
+                content_type="narration",
+            ),
             _record(2, "C3", f"empurrar a {REDACTION_MARKER} para o lado", content_type="action"),
         ],
         character_perspectives={
@@ -115,16 +132,19 @@ def test_redaction_marker_is_counted_per_channel():
 
     result = scan_redaction(state)
 
-    assert result["occurrences"] == 4
+    assert result["occurrences"] == 5
     assert result["persisted_speech_records"] == 2, "speech and action are both durable records"
     assert result["ledger_entries"] == 1
     assert result["ledger_viewers"] == 1
     assert set(result["by_channel"]) == {
         "speech",
         "narration",
+        "narration_report",
         "action",
         "ledger_recent_memory",
     }
+    assert result["by_channel"]["narration"]["occurrences"] == 1
+    assert result["by_channel"]["narration_report"]["occurrences"] == 1
 
 
 def test_a_clean_session_scores_zero():

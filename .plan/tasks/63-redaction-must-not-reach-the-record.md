@@ -1,9 +1,12 @@
 # Task 63 — Redaction must not reach the persisted record
 
 > **Status:** OUT OF WAVE 1 as of 2026-08-06 — its falsifier fired on a live
-> post-65 cell (zero in persisted speech, zero in the ledger, 3 in narration).
-> Not cancelled: re-scope it as a prose-rendering defect and rank it against the
-> rest of the backlog. See "⚠ THE FALSIFIER FIRED" below before reading on.
+> post-65 cell (zero in persisted speech, zero in the ledger, 3 in narration),
+> and the verdict held when re-scored over seven sessions on 2026-08-12.
+> **Not cancelled, and NOT a prose-only defect:** four of the six surviving
+> markers are in persisted Narrator REPORTS with audiences of 18 and 19, which
+> the falsifier's `content_type == "speech"` test could not see. Read
+> "⚠ THE FALSIFIER FIRED" and then the correction under it before reading on.
 >
 > Originally: **Wave 1**, sequenced **after 68 and 65**: 68's scanner
 > decides which fix is correct, and 65 removes 42 of this task's 43 cases.
@@ -189,6 +192,50 @@ immersion-breaker this task was written about, but **it is now a prose-rendering
 defect with no reach into any persisted record or any character's memory**,
 which is precisely the condition under which this file says the task leaves
 wave 1.
+
+## ⚠ Correction 2026-08-12 — "cosmetic" was half wrong
+
+Re-scored over **seven** post-65 sessions rather than one. The falsifier's
+verdict holds and holds hard: **persisted speech 0 and ledger 0 in every one of
+the seven.** Six markers survive in total, roughly one per 40-turn session.
+
+But the sentence above — *"a prose-rendering defect with no reach into any
+persisted record"* — is wrong for **four of those six**, and the reason is a
+record-shape blindness rather than a new defect:
+
+| session | channel | audience |
+|---|---|---|
+| `34390b86` T9, T30, T31 | **report** | none, 19, 1 |
+| `00997daa` T9 | **report** | 18 |
+| `d0cc98e5` T21 | prose | public |
+| `c76037ff` T27 | prose | 16 |
+
+`_report_speech` — task 65's own degradation path, where the Narrator REPORTS a
+line instead of quoting it — persists as a `content_type="narration"` record
+**with an audience**. So four of the six markers sit in durable records that 18
+or 19 characters witnessed. The falsifier asked about `content_type == "speech"`
+and could not see them.
+
+That is the same blindness that cost task 71 a measurement on the same day, in
+the same record type, and it is now fixed in the instrument: `scan_redaction`
+splits `narration` from `narration_report`.
+
+### What this does to the re-scope
+
+**Still out of wave 1** — six occurrences across seven sessions is a genuinely
+low rate, and nothing reaches the ledger. But re-scope it as **"redaction
+reaching persisted Narrator reports"**, not as a cosmetic render:
+
+- the fix has to cover `_report_speech`'s content, which the prose-only framing
+  would have skipped entirely;
+- and there is a cheaper option than any in this file. The redaction runs over
+  the Director's `audible_speech` content, and that content is **already headed
+  for a character agent** in the normal path. A report is what happens when that
+  fails. Redacting the report at the point of persistence, rather than redacting
+  every perception event globally in `narrate()`, would leave prose alone.
+
+**Do not re-scope it as prose-only.** That is the reading this correction exists
+to stop.
 
 ### What this does to the task
 

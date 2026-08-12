@@ -66,6 +66,11 @@ from tools.acceptance.repetition_metrics import load_session, sim
 DIRECTOR_SPEECH_TAU = 0.85
 
 _SPOKEN_TYPES = ("speech", "action")
+
+# Reports run to at most 188 characters and rendered prose starts at 254, over
+# six sessions separated against each one's `audible_speech_drop` log. The band
+# is empty and this sits inside it.
+_PROSE_MIN_CHARS = 200
 _PLAYER = "Player"
 
 
@@ -161,6 +166,21 @@ def _ledger_texts(perspective: dict) -> list[tuple[str, str, str]]:
     return out
 
 
+def _is_speech_report(record: dict) -> bool:
+    """A Narrator REPORT of a line, not rendered prose, on a narration record.
+
+    `_report_speech` and task 71's cluster prose both write `content_type`
+    "narration" with an audience. Post-71 the cluster records carry
+    ``audience_origin="cluster"`` and settle it outright; older sessions need the
+    length band, which is measured rather than picked (see `_PROSE_MIN_CHARS`).
+    """
+    if record.get("audience") is None:
+        return len(str(record.get("content") or "")) < _PROSE_MIN_CHARS
+    if record.get("audience_origin") == "cluster":
+        return False
+    return len(str(record.get("content") or "")) < _PROSE_MIN_CHARS
+
+
 def scan_redaction(state: dict) -> dict:
     """``REDACTION_MARKER`` occurrences, split by the channel it landed in.
 
@@ -170,6 +190,15 @@ def scan_redaction(state: dict) -> dict:
     forever after, or baked into a character's durable ledger entry for another
     character. Those three call for different fixes, which is why task 63 blocks
     on this number rather than on a total.
+
+    **The ``narration`` channel is split into ``narration`` and
+    ``narration_report``**, added 2026-08-12. `_report_speech` persists the
+    Narrator REPORTING a line as a `content_type` "narration" record with an
+    audience, so a marker there is not a cosmetic render at all: it is a durable
+    record that 18 or 19 characters witnessed. Four of the six markers surviving
+    across seven post-65 sessions are in reports, and task 63's falsifier could
+    not see them because it asks about `content_type == "speech"`. The same
+    record-shape blindness cost task 71 a measurement on the same day.
     """
     channels: dict[str, dict[str, Any]] = {}
     evidence: list[dict] = []
@@ -186,6 +215,8 @@ def scan_redaction(state: dict) -> dict:
         if not count:
             continue
         channel = str(record.get("content_type") or "?")
+        if channel == "narration" and _is_speech_report(record):
+            channel = "narration_report"
         hit(channel, count)
         evidence.append(
             {
@@ -620,12 +651,6 @@ def scene_clusters(scene: dict, characters: dict) -> list[list[str]]:
     for cid in present:
         groups.setdefault(find(cid), []).append(cid)
     return sorted(groups.values(), key=lambda g: (-len(g), g[0]))
-
-
-# Reports run to at most 188 characters and rendered prose starts at 254, over
-# six sessions separated against each one's `audible_speech_drop` log. The band
-# is empty and this sits inside it.
-_PROSE_MIN_CHARS = 200
 
 
 def _offstage_patterns(names: list[str], on_stage: list[str]) -> list[re.Pattern[str]]:
