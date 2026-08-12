@@ -398,6 +398,33 @@ def eligible_witnesses(scene: dict, characters: dict, subject_id: str) -> set[st
     }
 
 
+def _loss_was_declared(scene: dict, subject_id: str, dropped: set[str]) -> bool:
+    """Did somebody MEAN this silence, on either side of it?
+
+    Third correction to this test in one day, and the shape of the misses is
+    worth more than the fix. It began as "the subject's zone is empty", which
+    could not tell a declared seal from a zone born isolated. Asymmetry fixed
+    that. Then a live cell produced the mirror case: the Director sealed the
+    HALL (`"Salão dos Quatro Arcos": []`) and a character in the west passage
+    shouted to twenty people. The speaker's zone is perfectly healthy; it is the
+    LISTENERS who were told to hear nothing, and checking only the speaker read
+    a declared seal as graph damage.
+
+    So the question is asked from both ends: the loss is declared if the subject
+    stands in a sealed zone, or if every witness the clamp dropped stands in one.
+
+    ⚠ **A metric that has needed three repairs in a day should be read with
+    suspicion, not confidence.** Each repair was correct and each was found by
+    reading a flagged case rather than by the number looking wrong, which means
+    the number has never once announced its own errors.
+    """
+    if subject_zone_is_sealed(scene, subject_id):
+        return True
+    if not dropped:
+        return False
+    return all(subject_zone_is_sealed(scene, cid) for cid in dropped)
+
+
 def subject_zone_is_sealed(scene: dict, subject_id: str) -> bool:
     """Was the subject's zone severed on purpose, or was it born cut off?
 
@@ -443,6 +470,7 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
     """
     persisted: dict[tuple[int, str], int] = {}
     snapshots: dict[tuple[int, str], dict] = {}
+    kept_ids: dict[tuple[int, str], set[str]] = {}
     for record in state.get("history", []):
         if record.get("audience_origin") != "zone":
             continue
@@ -452,6 +480,7 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
         key = (int(record.get("turn_number") or 0), str(record.get("speaker")))
         persisted[key] = max(persisted.get(key, 0), len(audience))
         snapshots.setdefault(key, record.get("scene_snapshot") or {})
+        kept_ids.setdefault(key, {str(cid) for cid in audience})
 
     losses: list[dict] = []
     for turn, event in effective:
@@ -476,7 +505,13 @@ def scan_witness_clamp_loss(state: dict, effective: list[tuple[int, dict]]) -> d
                 "proposed": proposed,
                 "kept": kept,
                 "lost_share": round((proposed - kept) / proposed, 3),
-                "sealed": subject_zone_is_sealed(snapshots.get(key) or {}, subject),
+                "sealed": _loss_was_declared(
+                    snapshots.get(key) or {},
+                    subject,
+                    {str(w) for w in (event.get("witness_ids") or [])}
+                    - (kept_ids.get(key) or set())
+                    - {subject},
+                ),
                 "text": str(event.get("content", ""))[:160],
             }
         )

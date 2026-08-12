@@ -19,13 +19,13 @@ Standing rule this page exists to enforce:
 | `_foreign_language` (task 65) | **trusted** | 0.012 against 1.000, nothing between, over all 3,936 records |
 | `_leaks_internal_id` (task 65) | **trusted** | membership not shape; refuses to fire on `C4` where C4 is an explosive |
 | `clamp_lost_half` (task 67) | **superseded** | replaces emptiness-only counting, but measures Director-vs-engine disagreement, not graph damage. Use `clamp_lost_half_unsealed` |
-| `clamp_lost_half_unsealed` (task 67) | **new, trusted** | the graph-damage half alone: 6 → 0 → 0 across three cells, no crossover |
+| `clamp_lost_half_unsealed` (task 67) | **REPORT, DO NOT GATE** | needed three repairs in one day, each found by reading a flagged case and never by the number looking wrong. Reads 5 / 0,0,0,0 / 0,4,0,0 / 2,0,0 across twelve cells |
 | `named_exclusions` (task 70) | **fixed same day** | shipped with a false positive; see below |
 | `scene_clusters` / `scan_scene_splits` (task 71) | **trusted** | validated by reproducing all six of task 71's archived figures to every digit |
 | `scan_cross_cluster_leak` (task 71) | **trusted, corrected twice** | scored per reader cluster, strict name matching, prose separated from speech reports on a measured empty band |
 | `_strip_offstage_actors` (task 71) | **trusted, second version** | 3 fires, 0 false positives over 42 live narrations; the first version had 3 of each |
 | `_carries_intent` (task 65) | **weak, kept permissive** | does not separate on real data; see below |
-| `empty_audience` (task 67) | **kept, but not sufficient alone** | true positives only, and it misses the near-miss population |
+| `empty_audience` (task 67) | **REPORT, DO NOT GATE** | also cannot tell a DECLARED seal from graph damage: it filed seven turns of a man on a deliberately sealed pulpit as `graph_isolated` |
 | `NSR` | **report, never gate** | ranks sessions OPPOSITE to a blind reader, Spearman +0.923 |
 | `SIL` | **report, never gate** | 0.0 in 18 of 18 runs; structurally impossible, see below |
 | `deaf_occupied`, `unreciprocated`, `edges_lost` | **REJECTED** | measured, do not predict damage; see below |

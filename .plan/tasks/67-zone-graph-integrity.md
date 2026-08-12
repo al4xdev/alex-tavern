@@ -1,8 +1,11 @@
 # Task 67 — Zone graph integrity
 
-> **Status:** ✅ **CLOSED 2026-08-12.** Graph fixes shipped 2026-08-06; two
-> post-fix cells pass on `clamp_lost_half_unsealed` (6 → 0 → 0) and on
-> `with_others_present` (2 → 0 → 0).
+> **Status:** ✅ **CLOSED 2026-08-12** — but see the audit note directly below;
+> the closure metrics turned out to be weaker than they looked, and two later
+> cells would not have passed them.
+>
+> Graph fixes shipped 2026-08-06; the two verification cells passed on
+> `clamp_lost_half_unsealed` (6 → 0 → 0) and `with_others_present` (2 → 0 → 0).
 > The last closure item — the mirror failure, *a character who can no longer
 > perceive must not be listed as a witness* — was measured and **withdrawn**:
 > the population is 25 audience entries and reading all of them shows the
@@ -12,6 +15,32 @@
 > would have made things worse. Both are recorded below, because the wrong
 > version was plausible and will be re-proposed by anyone who reads only the
 > transcripts.
+
+## ⚠ Audit of this task's own closure metrics — 2026-08-12, later the same day
+
+Ten more sessions were scored after this task closed. Both closure metrics moved,
+and neither movement is a graph regression:
+
+| era | `empty_audience` / `with_others_present` | `clamp_lost_half_unsealed` |
+|---|---|---|
+| pre-67 (`34390b86`) | 2 / 2 | 5 |
+| post-67, 4 cells | **0 / 0** everywhere | **0** everywhere |
+| post-71, 4 cells | **7, 0, 7, 0** | 0, 4, 0, 0 |
+| post-76, 3 cells | 0 / 0 everywhere | 2, 0, 0 |
+
+**The 7s are one man on a sealed pulpit** (`21f7c4e1`, C19, seven consecutive
+turns) and the 4 is the same class. The Director declared the seal, the engine
+honoured it, the clamp emptied the audience correctly — and `empty_audience`
+files all of it under `graph_isolated`, which reads as "the zone graph broke".
+
+So both metrics **cannot distinguish declared isolation from graph damage**, and
+this task's closure rested on two cells where that distinction happened not to
+arise. The graph fixes themselves are still right: the T21 wipe replay, the merge
+semantics and the sibling work all stand on their own tests. But **the closure
+NUMBERS were luckier than they were strong**, and anyone citing "0 across the
+board" should cite the table above instead.
+
+The routed-into-silence behaviour underneath the 7s is now **task 78**.
 
 ## The symptom
 

@@ -225,3 +225,55 @@ moves. **Not run yet** — a cell was already in flight.
    thing confidently, which is this project's characteristic failure.
 
 ---
+## 8. The empty-cluster fold is verified — DECIDED
+
+Two post-fold cells: **zero cluster narrations rendered with no events**, against
+8 of 16 before. Cross-cluster leak 0/2 and 0/0. The mechanism works; the sample
+is small because neither session split much.
+
+---
+## 9. I audited task 67's own closure metrics, and they were luckier than strong
+
+Scoring twelve cells rather than the two 67 closed on:
+
+| era | `empty_audience` / `with_others_present` | `clamp_lost_half_unsealed` |
+|---|---|---|
+| pre-67 | 2 / 2 | 5 |
+| post-67, 4 cells | **0 / 0** | **0** |
+| post-71, 4 cells | **7, 0, 7, 0** | 0, 4, 0, 0 |
+| post-76, 3 cells | 0 / 0 | 2, 0, 0 |
+
+**None of the movement is a graph regression.** The 7s are one man on a
+deliberately sealed pulpit; the 4 and the 2 are the same class. Every layer did
+its job and the metrics filed it as `graph_isolated`, which reads as "the zone
+graph broke".
+
+**Decision.** Both metrics are downgraded to **REPORT, DO NOT GATE** in the
+register, and task 67 now carries the table with an explicit note that its
+closure *numbers* were luckier than they were strong. **The graph fixes
+themselves still stand** on their own tests — the T21 wipe replay, the merge
+semantics, the sibling work — so I did not reopen the task.
+
+`clamp_lost_half_unsealed` needed **three repairs in one day**, and every one was
+found by reading a flagged case. The number has never once announced its own
+error. That is the argument for the downgrade, more than any single miss.
+
+---
+## 10. Task 78 opened — a man addressing a room that cannot hear him
+
+`21f7c4e1` T24-T30: Lorde Cassian is sealed on the pulpit and **the Director
+routes him to speak on seven consecutive turns**, every record with
+`audience: []`, twenty people in front of him.
+
+Measured over twelve sessions: 13 of 1,255 speech records (1.0%) go to an empty
+audience, **10 of them in runs of three or more by one character.** Rare per
+record, and when it happens it lasts a third of a scene.
+
+The Director's own rule 5 says to route only characters "with a concrete event
+they personally witnessed". A sealed man witnessed nothing.
+
+**Not** task 67 and **not** task 76: the seal was declared and correctly applied.
+The defect is the routing. Fix deliberately not designed; the file names three
+shapes and says which to check first.
+
+---
