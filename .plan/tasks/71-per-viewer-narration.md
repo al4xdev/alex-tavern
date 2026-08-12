@@ -398,11 +398,11 @@ close, alive in the post-67 graph.
       split -11.9% inside the band, and the read finds concrete prose. See "The
       thinning check")*;
 - [x] **the residual transcript leak re-scored on a fresh cell.**
-      *(2026-08-12, `09aabf25`: **0 of 22 split narrations**, both halves live.
-      The task's headline is 16/29 (55%) → 3/64 (4.7%) pooled, p=1.5e-05. The
-      backstop removed nothing in this cell because the model did not leak in
-      it, so its own evidence stays the offline replay: 3 fires, 0 false
-      positives, over 42 narrations.)*
+      *(2026-08-12, two cells `09aabf25` and `54bcdace`: **0 of 36 split
+      narrations**, both halves live. The task's headline is 16/29 (55%) →
+      3/78 (3.8%) pooled, p=9.8e-09. The backstop removed nothing in either
+      cell because the model did not leak in them, so its own evidence stays
+      the offline replay: 3 fires, 0 false positives, over 42 narrations.)*
 
 **The measurement that would falsify this task:** if scenes essentially never
 split in real play, the defect is rare enough to live with and this drops below
@@ -546,17 +546,23 @@ reach this" answers yes for each half of a split scene and finds nothing.
 > And the honest statistics, since the temptation is to read 0/22 as the pair
 > working:
 >
-> | variant | split narrations | leaking | |
-> |---|---|---|---|
-> | pre-71 | 29 | **16 (55%)** | |
-> | roster only | 42 | **3 (7.1%)** | vs pre-71 **p = 1.5e-05** |
-> | roster + backstop | 22 | **0** | vs roster only **p = 0.26** |
+> | variant | sessions | split narrations | leaking | |
+> |---|---|---|---|---|
+> | pre-71 | 2 | 29 | **16 (55%)** | |
+> | roster only | 2 | 42 | **3 (7.1%)** | |
+> | roster + backstop | 2 | 36 | **0** | vs roster only **p = 0.25** |
+> | **all post-71** | 4 | 78 | **3 (3.8%)** | vs pre-71 **p = 9.8e-09** |
 >
-> The first comparison is the task's result and it is overwhelming. **The second
-> is not significant** and must not be quoted as if it were: 0 of 22 is what a
-> 7% rate looks like a quarter of the time. Pooled across every post-71 session,
-> the observed leak is **3 of 64 (4.7%)**, and the backstop removes exactly those
-> 3 on replay while touching none of the other 61.
+> The last row is the task's result and it is overwhelming. **The
+> roster-versus-backstop comparison is not significant** and must not be quoted
+> as if it were: 0 of 36 is an ordinary draw from a 7% rate.
+>
+> **The backstop has never fired in production.** Across both cells that carry
+> it, 36 narrations, it removed nothing — checked by diffing every persisted
+> narration against the model's raw prose in `debug.jsonl`. Its entire evidence
+> is the offline replay over the sessions that did leak: 3 fires, 0 false
+> positives, 42 narrations. That is real evidence and it is not the same thing
+> as having watched it work.
 
 ### ⚠ Two things the live session corrected
 

@@ -288,14 +288,15 @@ the prose prompt is scoped to the cluster; an unsplit scene takes the pre-71 pat
 which is most turns.
 
 All nine closure items are discharged. The leak, scored by
-`scan_cross_cluster_leak`: **16 of 29 (55%) → 3 of 64 (4.7%)** pooled across
-every post-71 session, p = 1.5e-05. Cost 1.278x, concurrent.
+`scan_cross_cluster_leak`: **16 of 29 (55%) → 3 of 78 (3.8%)** pooled across
+four post-71 sessions, p = 9.8e-09. Cost 1.278x, concurrent.
 
-⚠ The final cell (`09aabf25`) came back 0 of 22, and that is NOT evidence the
-deterministic backstop works: it removed nothing all session because the model
-did not leak. 0/22 against the roster-only 3/32 is p = 0.26. The backstop's
-evidence is an offline replay over the sessions that did leak - 3 fires, 0 false
-positives, 42 narrations.
+⚠ **The deterministic backstop has never fired in production.** Both cells that
+carry it came back 0 (22 and 14 narrations), and diffing every persisted
+narration against the model's raw prose shows it removed nothing — the model
+simply did not leak in them. 0/36 against the roster-only 3/42 is p = 0.25. Its
+evidence is an offline replay over the sessions that did leak: 3 fires, 0 false
+positives, 42 narrations. Real, and not the same as having watched it work.
 
 Two live findings worth not re-deriving:
 
