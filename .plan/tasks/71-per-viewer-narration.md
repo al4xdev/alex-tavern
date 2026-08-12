@@ -208,6 +208,42 @@ engineering one, and this task should not pick it silently.
   per-viewer, the redaction question changes shape — a projected narration can be
   redacted per viewer without mutilating a shared record.
 
+## The re-measurement — decision rule, pre-registered 2026-08-12
+
+Written before any post-67 cell was scored. The cells were already running when
+this was written, and no result had been read.
+
+**Instrument.** `scan_scene_splits` / `scene_clusters` in
+`tools/acceptance/immersion_scanners.py`, checked in on 2026-08-12 specifically
+so the before and the after come from the same code. The ad-hoc script that
+produced the table above no longer exists. Validation: run over the 16 archived
+sessions it returns **610 narrated turns, 168 split, 1.562 clusters per turn,
+1.202 holding 2+, 8 of 16 never splitting, worst session 3.625, max 5** — every
+figure in the table above, to every digit the table reports. Pinned by
+`tests/test_scene_clusters.py`.
+
+**Comparison.** `base` / `P1` post-67 against the archived `base-P1-r1..r3`,
+which is the same cell and profile. Pre-67 baseline for that cell alone:
+**58 of 108 narrated turns split (53.7%)**, per-session 21/29, 7/39, 30/40.
+Pooling across cells is not the test, because the population is bimodal and
+pooling hides it; per-session split shares are reported alongside.
+
+**Decision rule.**
+
+| post-67 `base-P1` split share | verdict |
+|---|---|
+| **< 5%**, and mean clusters/turn < 1.05 | the falsifier at the bottom of this task FIRES. Scenes essentially never split once the graph is right; 71 closes unbuilt and the leak becomes a documented product property |
+| **5% to 20%** | 71 shrinks. The defect is real but rare; the singleton-fold question is decided on cost alone and the task drops below the checkpoint |
+| **> 20%** | 71 stands as written. Re-derive the cost multiplier from the post-67 mean and proceed to design |
+
+**Not a count-only decision.** Whatever the number, the split turns get read:
+for a sample of them, does the narration actually describe two separated groups,
+and is the separation one a reader would accept as real? A split rate that
+survives the graph fix but is made of separations the fiction does not support
+is still an artifact, just a subtler one. This clause exists because the case-C
+falsifier in task 65 fired with a diagnosis that reading the flagged replies
+showed to be wrong.
+
 ## Closure evidence required
 
 - [x] the product question answered and recorded here before implementation —

@@ -554,6 +554,96 @@ def scan_empty_audience(state: dict, records: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def scene_clusters(scene: dict, characters: dict) -> list[list[str]]:
+    """Present characters grouped into sets that can all perceive each other.
+
+    Connected components over the MUTUAL perception relation: an edge exists
+    only where each of the pair can perceive the other. A one-way edge does not
+    join a component, because task 71 renders one narration per cluster and a
+    one-way edge would hand the deaf side a narration written for the side that
+    can hear.
+
+    Sorted by size then by first member, so the output is stable to compare
+    across runs.
+    """
+    present = [
+        cid for cid in scene.get("present_characters") or [] if not characters or cid in characters
+    ]
+    parent = {cid: cid for cid in present}
+
+    def find(cid: str) -> str:
+        while parent[cid] != cid:
+            parent[cid] = parent[parent[cid]]
+            cid = parent[cid]
+        return cid
+
+    for i, a in enumerate(present):
+        for b in present[i + 1 :]:
+            if can_perceive(scene, a, b) and can_perceive(scene, b, a):
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    parent[ra] = rb
+
+    groups: dict[str, list[str]] = {}
+    for cid in present:
+        groups.setdefault(find(cid), []).append(cid)
+    return sorted(groups.values(), key=lambda g: (-len(g), g[0]))
+
+
+def scan_scene_splits(state: dict) -> dict:
+    """Task 71's cost lever: how often a narrated turn's scene is not one room.
+
+    Every figure in task 71 was measured on the pre-67 zone graph, where BOTH
+    known bugs manufacture a spurious singleton cluster, so all of them were
+    upper bounds of unknown tightness. This is the instrument that re-derives
+    them; it was an ad-hoc script the first time and is checked in now so the
+    before and after are computed by the same code.
+
+    Clusters are taken from each narration record's own ``scene_snapshot``,
+    which is the scene as it stood when that narration was written, not the
+    end-of-session graph.
+    """
+    characters = state.get("characters") or {}
+    per_turn: list[dict] = []
+    for record in state.get("history", []):
+        if record.get("content_type") != "narration":
+            continue
+        scene = record.get("scene_snapshot") or {}
+        clusters = scene_clusters(scene, characters)
+        if not clusters:
+            continue
+        per_turn.append(
+            {
+                "turn": int(record.get("turn_number") or 0),
+                "clusters": len(clusters),
+                "clusters_ge2": sum(1 for group in clusters if len(group) >= 2),
+                "singletons": sum(1 for group in clusters if len(group) == 1),
+                "present": sum(len(group) for group in clusters),
+            }
+        )
+
+    narrated = len(per_turn)
+    if not narrated:
+        return {
+            "narrated_turns": 0,
+            "split_turns": 0,
+            "split_share": None,
+            "mean_clusters": None,
+            "mean_clusters_ge2": None,
+            "max_clusters": 0,
+            "singleton_turns": 0,
+        }
+    return {
+        "narrated_turns": narrated,
+        "split_turns": sum(1 for t in per_turn if t["clusters"] > 1),
+        "split_share": round(sum(1 for t in per_turn if t["clusters"] > 1) / narrated, 4),
+        "mean_clusters": round(sum(t["clusters"] for t in per_turn) / narrated, 3),
+        "mean_clusters_ge2": round(sum(t["clusters_ge2"] for t in per_turn) / narrated, 3),
+        "max_clusters": max(t["clusters"] for t in per_turn),
+        "singleton_turns": sum(1 for t in per_turn if t["singletons"]),
+    }
+
+
 @dataclass
 class ScanReport:
     session_id: str
@@ -561,6 +651,7 @@ class ScanReport:
     redaction: dict = field(default_factory=dict)
     director_speech: dict = field(default_factory=dict)
     empty_audience: dict = field(default_factory=dict)
+    scene_splits: dict = field(default_factory=dict)
 
 
 def scan(session_id: str, root: Path | None = None) -> ScanReport:
@@ -572,6 +663,7 @@ def scan(session_id: str, root: Path | None = None) -> ScanReport:
         redaction=scan_redaction(state),
         director_speech=scan_director_speech(state, records),
         empty_audience=scan_empty_audience(state, records),
+        scene_splits=scan_scene_splits(state),
     )
 
 
