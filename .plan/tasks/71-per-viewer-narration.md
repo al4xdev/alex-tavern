@@ -4,14 +4,15 @@
 > Every closure item below is discharged, the last of them on a live cell.
 >
 > **The number:** a split narration naming someone or somewhere its reader
-> cannot perceive went from **16 of 29 (55%)** to **3 of 64 (4.7%)** pooled over
-> every post-71 session, p = 1.5e-05. Cost is **1.278x** prose calls per narrated
+> cannot perceive went from **16 of 29 (55%)** to **3 of 78 (3.8%)** pooled over
+> four post-71 sessions, p = 9.8e-09. Cost is **1.278x** prose calls per narrated
 > turn, concurrent, so latency does not multiply.
 >
-> Two things a later reader should not have to rediscover: the singleton
-> population is **not** empty (task 76 makes them, and the fold now masks it),
-> and the deterministic backstop's evidence is an offline replay, not the final
-> cell, which never needed it.
+> Two things a later reader should not have to rediscover. The singleton
+> population is **not** empty — but the case that proved it is a Director-declared
+> seal, **not** task 76's sibling defect, which is a correction made after
+> implementing 76 and checking. And the deterministic backstop has never fired in
+> production; its evidence is an offline replay over the sessions that did leak.
 >
 > ## ✅ THE RE-MEASUREMENT HAS RUN — 2026-08-12, the task stands
 >
@@ -120,12 +121,16 @@ What the decision settles, and what it does not:
   >
   > **It did not vanish, and I said so for a few hours before a fifth session
   > proved otherwise.** `21f7c4e1` carries a singleton on all ten of its split
-  > turns: a man sealed on a pulpit by task 76's sibling defect. So the
-  > population is rare and graph-shaped, the fold rule is doing real work rather
-  > than guarding an empty case, and while 76 is open **the fold is masking it** —
-  > each fold silently denies narration to someone who should not have been
-  > alone. The decision still stands on redundancy, which is the footing the
-  > re-framing asked for, and it should be revisited once 76 lands.
+  > turns, and `54bcdace` on all fourteen of its. So the population is rare but
+  > real, and the fold rule is doing work rather than guarding an empty case.
+  >
+  > ⚠ **I then blamed the wrong cause.** The pulpit singleton is not task 76's
+  > sibling defect: the zone was created correctly linked at T10 and the Director
+  > sealed it outright at T23 with `zone_link_updates: {"púlpito central": []}`.
+  > The engine honoured a declared seal. So the fold is hiding a **Director
+  > decision**, not a graph bug — a weaker complaint than the one I made, and
+  > still worth someone's attention, because a lone character receiving no
+  > narration at all is invisible until you go looking.
   >
   > **Nobody should cite 1.21x again** — the multiplier is 1.28x, measured, and
   > folding can only ever reduce it.

@@ -5,19 +5,17 @@ working tree syncs over SSH, so `.data/` (provider key included) travels with it
 
 ## Where things stand
 
-Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 26 commits, tree clean,
-**1098 tests green**, `ruff check` clean.
+Branch **`fogo-baixo`** (off `master` at `ee89bf4`), 34 commits, tree clean,
+**1111 tests green**, `ruff check` clean.
 
-**Wave 1 is closed** (65 ✅, 70 ✅, 63 falsified out, 67 ✅). **Task 71 is built**
-and one measurement short of closed. **Task 76 is new**, its design is decided on
-measurement, and its implementation is deliberately held — see below.
+**Wave 1 is closed** (65 ✅, 70 ✅, 63 falsified out, 67 ✅). **Task 71 is CLOSED.**
+**Task 76 is SHIPPED**, with one closure item still owed — a post-76 cell showing
+`empty_audience` and `clamp_lost_half_unsealed` do not regress, since 76 adds
+edges and the risk runs the other way.
 
-> ⏳ **If a battery is still running when you pick this up:** a post-71
-> confirmation cell was launched 2026-08-12 17:22 (`base`/`P1`, 2 replicates).
-> It is the last evidence task 71 needs. Score it with the recipe in "Task 71"
-> below. Pre-backstop sessions are backed up in
-> `/tmp/alex-tavern-battery-backup/post71-pre-backstop/`, and `plans/` is
-> gitignored, so copy anything you care about out of it.
+> Sessions are backed up under `/tmp/alex-tavern-battery-backup/` (`post67-pre71/`
+> and `post71-pre-backstop/`). `plans/` is gitignored and has vanished once, so
+> copy out anything you intend to compare against.
 
 > The venv did not survive the machine move. `uv sync` rebuilds it; the Bash
 > tooling runs bash, not the login fish, so call `.venv/bin/python` directly.
@@ -44,7 +42,14 @@ measurement, and its implementation is deliberately held — see below.
 | `e0d052d` | the split rate becomes an instrument instead of a lost script |
 | `adbd370` | 67's mirror failure withdrawn; the graph was the guilty party (task 76) |
 | `8be8c06` | a clamp loss is only a graph bug if nobody meant the silence |
-| *(HEAD)* | **71's re-measurement** — the task stands, and every singleton was an artifact |
+| `9cfa077` | **71's re-measurement** — the task stands, and the singletons were artifacts |
+| `3e0f883` | **71 built** — narration renders per perception cluster |
+| `4106ae6` | the roster alone leaked; a deterministic backstop for it |
+| `48ee574` | the cross-cluster leak becomes an instrument, and drops the 72% |
+| `3c75b2b` | three name guards failed the same way, so it gets a rule |
+| `6f97d77` | **63 re-scored** over seven sessions; "cosmetic" was half wrong |
+| `82f314a` | **71 closed** |
+| *(HEAD)* | **76 shipped** — two positions inside one place hear each other |
 
 ## ✅ Done 2026-08-06 — the Director prompt variant is validated
 
