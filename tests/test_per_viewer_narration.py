@@ -222,7 +222,25 @@ class TestTheRunnerRendersAndPersistsPerCluster:
         monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            return director_beat(next_speakers=["Narrator"])
+            # An event reaching EACH cluster, or the events-fold below suppresses
+            # the far one and these tests stop testing the split.
+            return director_beat(
+                next_speakers=["Narrator"],
+                perception_events=[
+                    {
+                        "event_kind": "observation",
+                        "subject_id": "C1",
+                        "content": "Uma tocha cai no salao.",
+                        "witness_ids": ["C3"],
+                    },
+                    {
+                        "event_kind": "observation",
+                        "subject_id": "C2",
+                        "content": "O teto do corredor racha.",
+                        "witness_ids": ["C4"],
+                    },
+                ],
+            )
 
         calls: list[set[str] | None] = []
 
@@ -431,3 +449,59 @@ class TestSingletonFolding:
         """Folding it hands the one human reader an empty turn."""
         game = make_game(characters=CAST, scene=self._lone("C4"), controlled="C4")
         assert Runner._narration_clusters(game) == [{"C1", "C2"}, {"C4"}]
+
+
+class TestAClusterWithNothingHappeningIsNotRendered:
+    """Found by reading `c76037ff`, not by any counter.
+
+    Its five-person cluster received sixteen narrations and eight of them had
+    zero scoped events. What came back was the same room every time: `quietude`
+    in 44% of them against 3% of the main cluster's, `penumbra` 50% against 0%,
+    `halos` 19% against 0%. Consecutive ones score **0.02** on sequence
+    similarity, so no repetition guard can see it, and a reader sees one
+    paragraph four times over.
+
+    The burst path already refuses to narrate a beat with no novel events, and
+    its comment gives the reason exactly: the atmospheric fallback "would only
+    re-describe the standing tableau (a null recap turn)". This applies the same
+    rule per cluster.
+    """
+
+    EVENT_FOR_HALL = {
+        "event_kind": "observation",
+        "subject_id": "C1",
+        "content": "Uma tocha cai no salao.",
+        "witness_ids": ["C2"],
+    }
+
+    def _game(self, controlled: str = "C1"):  # noqa: ANN202
+        return make_game(characters=CAST, scene=_split_scene(), controlled=controlled)
+
+    def test_a_cluster_with_no_events_is_folded(self) -> None:
+        clusters = Runner._narration_clusters(self._game(), [self.EVENT_FOR_HALL])
+        assert clusters == [{"C1", "C2"}]
+
+    def test_a_cluster_with_its_own_event_still_renders(self) -> None:
+        corridor = {
+            "event_kind": "observation",
+            "subject_id": "C3",
+            "content": "O teto do corredor racha.",
+            "witness_ids": ["C4"],
+        }
+        clusters = Runner._narration_clusters(self._game(), [self.EVENT_FOR_HALL, corridor])
+        assert clusters == [{"C1", "C2"}, {"C3", "C4"}]
+
+    def test_the_player_is_rendered_even_with_nothing_happening(self) -> None:
+        """Silence is honest for the room; an empty turn is not, for the reader."""
+        corridor_only = {
+            "event_kind": "observation",
+            "subject_id": "C3",
+            "content": "O teto do corredor racha.",
+            "witness_ids": ["C4"],
+        }
+        clusters = Runner._narration_clusters(self._game("C1"), [corridor_only])
+        assert {"C1", "C2"} in clusters
+
+    def test_omitting_the_events_argument_folds_nothing(self) -> None:
+        """Callers that predate this branch keep their behaviour."""
+        assert Runner._narration_clusters(self._game()) == [{"C1", "C2"}, {"C3", "C4"}]

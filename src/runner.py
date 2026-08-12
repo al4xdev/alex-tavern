@@ -1593,7 +1593,7 @@ class Runner:
                 *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids)
             )
             return ""
-        clusters = self._narration_clusters(game)
+        clusters = self._narration_clusters(game, narrator_raw["perception_events"])
         # An unsplit scene calls the renderer with exactly the pre-71 signature.
         # Not merely for tidiness: it keeps every injected renderer that predates
         # this task working, and makes "the majority of turns are untouched" a
@@ -1637,7 +1637,9 @@ class Runner:
         return player_narration
 
     @staticmethod
-    def _narration_clusters(game: GameState) -> list[set[str] | None]:
+    def _narration_clusters(
+        game: GameState, events: list[dict[str, Any]] | None = None
+    ) -> list[set[str] | None]:
         """Who each narration render is for, in append order (task 71).
 
         ``[None]`` — the whole scene, one public record, the pre-71 behaviour
@@ -1652,18 +1654,42 @@ class Runner:
         ZERO across four live sessions, so this branch is a guard against the
         shape returning, not a saving.
 
-        The controlled character's cluster is NEVER folded, whatever its size.
-        Folding it would hand the one human reader an empty turn, which is a
-        worse failure than the leak this task closes.
+        **A cluster with no events of its own is folded too.** Same rule the
+        burst path above already applies to a whole beat, and the comment there
+        names the reason: the atmospheric fallback only re-describes the
+        standing tableau, which is a null recap turn.
+
+        Read on `c76037ff`, which is what put this branch here: the five-person
+        cluster received sixteen narrations and **eight of them had zero scoped
+        events**. What came back was the same room, over and over -
+        ``quietude`` in 44% of them against 3% of the main cluster's, ``penumbra``
+        50% against 0%, ``halos`` 19% against 0%. Sequence similarity between
+        consecutive ones is **0.02**, so no repetition guard here can see it; a
+        reader sees one paragraph four times. Nothing was happening to those
+        five people, and the honest render of that is silence.
+
+        The controlled character's cluster is NEVER folded, whatever its size and
+        whether or not it has events. Folding it would hand the one human reader
+        an empty turn, which is a worse failure than the leak this task closes.
         """
         clusters = perception_clusters(game.scene, game.characters)
         if len(clusters) <= 1:
             return [None]
         controlled = game.player.controlled_character_id
+
+        def has_events(cluster: list[str]) -> bool:
+            if events is None:
+                return True
+            members = set(cluster)
+            return any(
+                members & (set(event.get("witness_ids") or []) | {event.get("subject_id")})
+                for event in events
+            )
+
         return [
             set(cluster)
             for cluster in clusters
-            if len(cluster) > 1 or controlled in cluster
+            if controlled in cluster or (len(cluster) > 1 and has_events(cluster))
         ]
 
     def _callable_speakers(self, game: GameState, queue: list[str]) -> list[str]:
