@@ -374,3 +374,37 @@ close, alive in the post-67 graph.
 **The measurement that would falsify this task:** if scenes essentially never
 split in real play, the defect is rare enough to live with and this drops below
 task 66.
+
+## The thinning check — decision rule, pre-registered 2026-08-12
+
+Written before the post-71 cell was launched. The last closure item is *"narration
+must not get thinner, only correctly scoped"*, and it is the one this
+implementation could plausibly fail, because the scoping cuts four things out of
+the prompt at once: cast, staging, transcript and events.
+
+**The risk, stated as a mechanism.** A cluster of two gets a prompt naming two
+characters, one zone, and only the events they witnessed. If that is too little
+material, the renderer falls back on generic atmosphere — the
+*"Nothing new happens; render a short atmospheric beat"* shape — and the reader
+trades a leak for filler. That would be a worse product than the leak.
+
+**Comparison.** A post-71 `base-P1` cell against the three post-67 pre-71 cells
+already scored (`00997daa`, `b11b38dc`, `55d03896`). Same cell, same profile,
+same graph — the ONLY difference is this task's code, which is what makes it a
+clean read.
+
+**Decision rule.**
+
+| observation on split turns | verdict |
+|---|---|
+| median narration length within **25%** of pre-71, and a read finds the prose concrete | ship as is |
+| length holds but the read finds generic atmosphere where the pre-71 turn was concrete | **relax the transcript scoping first**, not the events: the events are the leak, the transcript is context |
+| median length drops **more than 25%** | the cluster prompt is under-fed; revisit before this task closes |
+
+**Unsplit turns are the control.** They take the pre-71 path structurally, so
+their narration length must be unchanged. If it moved, something leaked into the
+majority path and that is the first thing to fix, ahead of any quality question.
+
+**The read is not optional and not replaceable by the length number.** Length is
+the cheap proxy; this project has now recorded four instruments that passed on
+their numbers and failed on a read (`.plan/reference/metric-validity.md`).
