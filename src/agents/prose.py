@@ -316,12 +316,32 @@ def build_prose_messages(
     ] or ["  - Nothing new happens; render a short atmospheric beat."]
     staging = _staging_lines(scene, characters, controlled_id, viewers)
     staging_block = "\n".join(staging) + "\n\n" if staging else ""
+    # Measured leak, session `c76037ff` 2026-08-12: scoping the cast, staging and
+    # events is not enough, because the TRANSCRIPT reintroduces the other half.
+    # Narration rendered while the scene was still whole is `audience=None` and
+    # therefore visible to every cluster forever - correctly, the reader did see
+    # it happen. The renderer then continued that thread into the PRESENT, giving
+    # Marta Ferrolume kneeling at a lock in three consecutive turns to a group
+    # that could no longer perceive her, with no event of this beat mentioning
+    # her at all. Remembering her is right; narrating what she is doing now is
+    # not, and the roster is the line that says which is which.
+    roster_block = ""
+    if viewers is not None:
+        roster = ", ".join(
+            sorted(_canonical_name(cid, characters, controlled_id) for cid in viewers)
+        )
+        roster_block = (
+            "IN THIS VIEW (the only people whose PRESENT actions you may narrate; "
+            "others may be remembered as past events, never shown acting now):\n"
+            f"  {roster}\n\n"
+        )
     user = (
         f"SCENE: {scene.location} | {scene.time_of_day}\n"
         f"PHYSICAL FACTS: {json.dumps(scene.physical_facts, ensure_ascii=False)}\n"
         "CAST (visible appearance only):\n"
         + "\n".join(cast_lines)
         + "\n\n"
+        + roster_block
         + staging_block
         + "READER TRANSCRIPT (oldest to newest):\n"
         + "\n".join(transcript)

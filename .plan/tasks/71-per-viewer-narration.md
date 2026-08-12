@@ -383,9 +383,14 @@ close, alive in the post-67 graph.
       to the cluster mean, which confirms the singleton fold saves nothing
       because there are no singletons. Clusters render concurrently in the
       existing `asyncio.gather`, so wall-clock latency does not multiply)*;
-- [ ] narration must not get thinner, only correctly scoped — judged by a blind
+- [x] narration must not get thinner, only correctly scoped — judged by a blind
       read, since `NSR` cannot see this (it counts stimuli, not narration, and is
-      not a gate: `.plan/ROADMAP.md`).
+      not a gate: `.plan/ROADMAP.md`); *(2026-08-12: control unmoved at +3%,
+      split -11.9% inside the band, and the read finds concrete prose. See "The
+      thinning check")*;
+- [ ] **the residual transcript leak re-scored on a fresh cell.** 72% → 9.4%,
+      and the `IN THIS VIEW` roster that targets the remaining 9.4% has not been
+      measured. This is the only thing between the task and closed.
 
 **The measurement that would falsify this task:** if scenes essentially never
 split in real play, the defect is rare enough to live with and this drops below
@@ -456,6 +461,32 @@ it names a character or a zone that some reader of that record cannot perceive:
 | **post-71 `21f7c4e1`** | 10 | **0** |
 
 **21 of 29 (72%) → 0 of 10.**
+
+> ⚠ **And then replicate 2 found the residual, 2026-08-12.** `c76037ff`, scored
+> the same way: **3 leaks of 32 split narrations (9.4%)**. Not zero. n=1 was
+> optimistic here exactly as it was for the clamp metric this morning.
+>
+> All three are the same character on consecutive turns. Marta Ferrolume is in
+> `depósito de ferramentas`; the reader cluster is at `próximo à saída norte`;
+> `can_perceive` is **False in both directions**, so these are real leaks and not
+> a detector artifact. The prompt was checked directly: cast, staging and events
+> were all scoped correctly and **no event of the beat names her**.
+>
+> The vector is the **reader transcript**. Narration rendered while the scene was
+> still whole carries `audience=None` and stays visible to every cluster forever,
+> which is correct - that reader did watch her come in. The renderer then carried
+> the thread into the PRESENT and gave her current, invented action:
+>
+> > *"Marta Ferrolume, ainda de joelhos diante do corredor A, ergue a cabeça, a
+> > chave de reserva pendendo frouxa na mão"* (T18)
+>
+> **Mitigation shipped, NOT yet measured:** a scoped `IN THIS VIEW` roster naming
+> the only people whose present actions may be narrated, others being available
+> as memory but never shown acting now. It is pinned by tests, and it is a prompt
+> promise - which this project has repeatedly recorded as the weak kind of fix.
+> **The next post-71 cell must re-score this 3/32 before the item is called
+> closed.** Until then the honest statement is 72% to 9.4%, with a named cause
+> and an unverified mitigation.
 
 ### ⚠ Two things the live session corrected
 

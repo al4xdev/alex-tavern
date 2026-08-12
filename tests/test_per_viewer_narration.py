@@ -168,6 +168,32 @@ class TestTheProsePromptIsScopedToOneCluster:
         assert "Marta" not in user
         assert "(story opening)" in user
 
+    def test_the_roster_names_only_this_cluster(self) -> None:
+        """The residual leak, session `c76037ff`: the transcript reintroduced her.
+
+        Scoping cast, staging and events was not enough. Narration rendered
+        while the scene was still whole is `audience=None`, so it stays visible
+        to every cluster - correctly, that reader did see it happen - and the
+        renderer continued the thread into the present, showing Marta kneeling
+        at a lock for three consecutive turns to a group that could no longer
+        perceive her, with no event of the beat naming her.
+        """
+        user = self._user({"C3", "C4"})
+        line = next(line for line in user.split("\n") if "IN THIS VIEW" in line)
+        roster = user.split("IN THIS VIEW")[1].split("\n")[1]
+        assert "Bento" in roster and "Nix" in roster
+        assert "Marta" not in roster
+        assert "PRESENT actions" in line
+
+    def test_an_unsplit_scene_gets_no_roster_block(self) -> None:
+        """It would be a lie there: everyone present is in the one cluster."""
+        assert "IN THIS VIEW" not in self._user(None)
+
+    def test_the_roster_carries_no_dashes(self) -> None:
+        """House rule: prompts may not contain em or en dashes."""
+        user = self._user({"C3", "C4"})
+        assert "—" not in user and "–" not in user
+
     def test_an_event_reaching_both_clusters_is_narrated_to_both(self) -> None:
         """A tremor everyone feels is not a leak, and must not be filtered out."""
         quake = {
