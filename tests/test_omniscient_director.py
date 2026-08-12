@@ -128,7 +128,7 @@ class TestRunnerZoneMaterialization:
 
         prose_scenes: list[dict] = []
 
-        async def fake_prose(game, events, turn_number):  # noqa: ANN001, ANN202
+        async def fake_prose(game, events, turn_number, viewers=None):  # noqa: ANN001, ANN202
             prose_scenes.append({"location": game.scene.location, "zones": dict(game.scene.zones)})
             return "Prosa."
 

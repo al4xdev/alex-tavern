@@ -375,6 +375,21 @@ class BeatResult(BaseModel):
 
 
 class PlayerTurnResponse(BaseModel):
+    """One turn's result for the human reader.
+
+    ``narration`` stayed a single string across task 71, and the shape of the
+    contract is unchanged, but its MEANING narrowed: when the scene splits into
+    perception clusters the engine renders one narration per cluster, and this
+    field carries the one for the cluster the controlled character stands in.
+    The others are real records in history with their own ``audience``, reachable
+    through the history endpoints and subject to ``record_visible_to`` like any
+    other scoped record - they are not lost, they are simply not this reader's.
+
+    A client that wants every cluster's prose must read history rather than
+    expect a list here; that stayed out of the response deliberately, since
+    handing one reader all the clusters is the leak this task closed.
+    """
+
     narration: str | None = None
     character_responses: list[CharacterTurnEntry] = Field(default_factory=list)
     next_speakers: list[str] = Field(default_factory=list)

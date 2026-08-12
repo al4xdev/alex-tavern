@@ -346,14 +346,27 @@ close, alive in the post-67 graph.
       *(2026-08-12: **the population is empty.** Zero singleton clusters across
       four post-67 sessions, against 0.740 per turn pre-fix. Keep the fold rule
       as a cheap guard; it is not a cost lever)*;
-- [ ] a test with a split scene: a character in zone A does not receive narration
+- [x] a test with a split scene: a character in zone A does not receive narration
       describing zone B, asserted against the real builders;
-- [ ] `prose.py:50-52`'s rule becomes enforceable — a test that the renderer is
+      *(`tests/test_per_viewer_narration.py`, 21 tests. Both halves verified
+      non-vacuous by simulating the regression: un-scoping the events fails 2,
+      collapsing the cluster split fails 6)*;
+- [x] `prose.py:50-52`'s rule becomes enforceable — a test that the renderer is
       never asked to stage two mutually-imperceptible zones in one output;
-- [ ] the API contract change documented (`narration` is currently a single
-      string in the turn response);
-- [ ] cost measured: prose calls per turn before and after, on a session that
-      splits;
+      *(`test_staging_names_only_the_zones_this_cluster_stands_in`. The STAGING
+      block now lists only the zones the cluster occupies, and edges LEAVING
+      that set are dropped so the prompt cannot name an unreachable place)*;
+- [x] the API contract change documented (`narration` is currently a single
+      string in the turn response); *(there is no shape change: it stays a
+      single string and now carries the controlled character's cluster. The
+      other clusters are real history records with their own `audience`.
+      Documented on `PlayerTurnResponse` in `src/main.py`)*;
+- [x] cost measured: prose calls per turn before and after, on a session that
+      splits; *(over the three post-67 cells: 138 prose calls across 108
+      narrated turns = **1.278x**, per session 1.526x / 1.294x / 1.000x. Equal
+      to the cluster mean, which confirms the singleton fold saves nothing
+      because there are no singletons. Clusters render concurrently in the
+      existing `asyncio.gather`, so wall-clock latency does not multiply)*;
 - [ ] narration must not get thinner, only correctly scoped — judged by a blind
       read, since `NSR` cannot see this (it counts stimuli, not narration, and is
       not a gate: `.plan/ROADMAP.md`).

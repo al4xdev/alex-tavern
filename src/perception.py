@@ -56,6 +56,46 @@ def eligible_witnesses(scene: Scene, characters: dict[str, Character], subject_i
     }
 
 
+def perception_clusters(scene: Scene, characters: dict[str, Character]) -> list[list[str]]:
+    """Present characters grouped into sets that can all perceive each other.
+
+    Connected components over the MUTUAL perception relation (task 71). Mutual,
+    not one-way: a cluster gets one narration, so joining a component across a
+    one-way edge hands the deaf side prose written for the side that can hear —
+    the leak this exists to close, arriving through its own fix.
+
+    Components rather than cliques, so A-hears-B-hears-C is one narration. That
+    is deliberate and is the reason the renderer keeps being told to cut between
+    spaces: within a component, perception can still be partial.
+
+    A flat scene (no zones) is one cluster, which is what makes the split path
+    a no-op on the sessions that never split.
+
+    `tools/acceptance/immersion_scanners.scene_clusters` mirrors this over raw
+    snapshot dicts, and `tests/test_immersion_scanners.py` pins the agreement.
+    """
+    present = [cid for cid in scene.present_characters if cid in characters]
+    parent = {cid: cid for cid in present}
+
+    def find(cid: str) -> str:
+        while parent[cid] != cid:
+            parent[cid] = parent[parent[cid]]
+            cid = parent[cid]
+        return cid
+
+    for index, first in enumerate(present):
+        for second in present[index + 1 :]:
+            if can_perceive(scene, first, second) and can_perceive(scene, second, first):
+                root_a, root_b = find(first), find(second)
+                if root_a != root_b:
+                    parent[root_a] = root_b
+
+    groups: dict[str, list[str]] = {}
+    for cid in present:
+        groups.setdefault(find(cid), []).append(cid)
+    return sorted(groups.values(), key=lambda group: (-len(group), group[0]))
+
+
 def validate_perception_events(
     raw_events: Any,
     scene: Scene,

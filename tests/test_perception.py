@@ -308,7 +308,7 @@ class TestZoneScopedRecords:
             monkeypatch.setattr(
                 runner,
                 "_render_narration",
-                lambda game, events, turn_number: _fake_prose(),
+                lambda game, events, turn_number, viewers=None: _fake_prose(),
             )
             monkeypatch.setattr(runner, "_call_character", fake_character)
             await runner.player_turn(sid, speech="Declaro aberta a sessao!")
@@ -387,7 +387,7 @@ class TestEmptyPerceptionVoid:
             monkeypatch.setattr(
                 runner,
                 "_render_narration",
-                lambda game, events, turn_number: _fake_prose(),
+                lambda game, events, turn_number, viewers=None: _fake_prose(),
             )
             monkeypatch.setattr(runner, "_call_character", fake_character)
             await runner.player_turn(sid, speech="Bom dia a todos do salao!")

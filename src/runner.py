@@ -100,6 +100,7 @@ from src.models import (
 from src.perception import (
     comparable_text,
     eligible_witnesses,
+    perception_clusters,
     render_events_for_viewer,
     repeats_event_text,
     similar_text,
@@ -1547,14 +1548,72 @@ class Runner:
                 *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids)
             )
             return ""
+        clusters = self._narration_clusters(game)
+        # An unsplit scene calls the renderer with exactly the pre-71 signature.
+        # Not merely for tidiness: it keeps every injected renderer that predates
+        # this task working, and makes "the majority of turns are untouched" a
+        # property of the code rather than a claim in a doc.
+        renders = [
+            self._render_narration(game, narrator_raw["perception_events"], step)
+            if cluster is None
+            else self._render_narration(game, narrator_raw["perception_events"], step, cluster)
+            for cluster in clusters
+        ]
         render_results = await asyncio.gather(
-            self._render_narration(game, narrator_raw["perception_events"], step),
+            *renders,
             *(self._ensure_perspective(game, viewer, step) for viewer in prepare_ids),
         )
-        narration = str(render_results[0] or "")
-        if narration:
-            self._append_history(game, "Narrator", narration, "narration", step)
-        return narration
+        # Appended only after every cluster has rendered, so no cluster's prose
+        # can enter another's transcript or trip its anti-repetition guard on
+        # text its own reader will never see.
+        player_narration = ""
+        for cluster, rendered in zip(clusters, render_results[: len(clusters)], strict=False):
+            narration = str(rendered or "")
+            if not narration:
+                continue
+            audience = None if cluster is None else sorted(cluster)
+            self._append_history(
+                game,
+                "Narrator",
+                narration,
+                "narration",
+                step,
+                audience=audience,
+                audience_origin=None if cluster is None else "zone",
+            )
+            if cluster is None or controlled in cluster:
+                player_narration = narration
+        return player_narration
+
+    @staticmethod
+    def _narration_clusters(game: GameState) -> list[set[str] | None]:
+        """Who each narration render is for, in append order (task 71).
+
+        ``[None]`` — the whole scene, one public record, the pre-71 behaviour
+        byte for byte. Returned whenever the scene does not split, which after
+        task 67 is most turns and every flat-scene turn.
+
+        Otherwise one entry per perception cluster. **Singleton clusters are
+        folded**: a lone character already learns their surroundings through
+        perception events and memory, both per-viewer today, and nobody reads
+        their paragraph. That is the redundancy argument, not a cost argument -
+        `AGENTS.md` §2 - and after task 67 the singleton population measured
+        ZERO across four live sessions, so this branch is a guard against the
+        shape returning, not a saving.
+
+        The controlled character's cluster is NEVER folded, whatever its size.
+        Folding it would hand the one human reader an empty turn, which is a
+        worse failure than the leak this task closes.
+        """
+        clusters = perception_clusters(game.scene, game.characters)
+        if len(clusters) <= 1:
+            return [None]
+        controlled = game.player.controlled_character_id
+        return [
+            set(cluster)
+            for cluster in clusters
+            if len(cluster) > 1 or controlled in cluster
+        ]
 
     def _callable_speakers(self, game: GameState, queue: list[str]) -> list[str]:
         """The queue entries the runner may actually voice, in order.
@@ -2863,6 +2922,7 @@ class Runner:
         game: GameState,
         events: list[dict[str, Any]],
         turn_number: int,
+        viewers: set[str] | None = None,
     ) -> str:
         """Blind prose renderer boundary (Task 36) — injectable like the other agents."""
         return await render_narration(
@@ -2875,6 +2935,7 @@ class Runner:
             self.config,
             session_id=game.session_id,
             turn_number=turn_number,
+            viewers=viewers,
         )
 
     async def _ensure_perspective(

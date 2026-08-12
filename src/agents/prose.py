@@ -19,7 +19,14 @@ from typing import Any
 import httpx
 
 from src.llm.client import call_agent, normalize_generated_text
-from src.models import Character, Scene, TurnRecord, display_name, trim_history_by_tokens
+from src.models import (
+    Character,
+    Scene,
+    TurnRecord,
+    display_name,
+    record_visible_to,
+    trim_history_by_tokens,
+)
 
 PROSE_SYSTEM = (
     "You are the prose narrator of a roleplay story. You receive the CONFIRMED\n"
@@ -191,22 +198,43 @@ def _strip_echoed_sentences(new_text: str, history: list[TurnRecord]) -> str:
     return " ".join(p.strip() for p in kept if p.strip()).strip()
 
 
-def _staging_lines(scene: Scene, characters: dict[str, Character], controlled_id: str) -> list[str]:
+def _staging_lines(
+    scene: Scene,
+    characters: dict[str, Character],
+    controlled_id: str,
+    viewers: set[str] | None = None,
+) -> list[str]:
     """STAGING block lines for the zone graph (empty when the scene is flat).
 
     Each zone lists which other zones it can hear, which it is acoustically
     isolated from, and who is inside (canonical names) — so the renderer can
     cut between separated spaces instead of collapsing them into one room.
+
+    With ``viewers`` (task 71) only the zones that cluster stands in are staged.
+    Naming a zone the audience cannot perceive is what made the rule at the top
+    of `PROSE_SYSTEM` unfollowable: the renderer was told to cut between spaces
+    and simultaneously handed both of them with nowhere else to put the second.
     """
     if not scene.zones:
         return []
+    zones = scene.zones
+    if viewers is not None:
+        occupied = {
+            position for cid, position in scene.positions.items() if cid in viewers
+        }
+        zones = {zone: audible for zone, audible in zones.items() if zone in occupied}
+        if not zones:
+            return []
     lines = ["STAGING (zone graph; audibility is one-way as listed):"]
-    for zone, audible in scene.zones.items():
-        isolated = [z for z in scene.zones if z != zone and z not in audible]
+    for zone, audible in zones.items():
+        # An edge LEAVING the staged set names a place this audience cannot
+        # perceive, which is the same leak one level down from the zone list.
+        audible = [other for other in audible if other in zones]
+        isolated = [z for z in zones if z != zone and z not in audible]
         occupants = [
             _canonical_name(cid, characters, controlled_id)
             for cid, position in scene.positions.items()
-            if position == zone
+            if position == zone and (viewers is None or cid in viewers)
         ]
         hears = ", ".join(audible) if audible else "nothing outside itself (acoustically isolated)"
         iso = ", ".join(isolated) if isolated else "none"
@@ -223,6 +251,7 @@ def build_prose_messages(
     events: list[dict[str, Any]],
     context_max: int | None = None,
     max_tokens: int = 1024,
+    viewers: set[str] | None = None,
 ) -> list[dict]:
     """Reader-entitled inputs only.
 
@@ -233,11 +262,22 @@ def build_prose_messages(
     whispers, who perceived it), so the renderer cannot re-voice dialogue in
     narration — there is nothing loaded to re-voice. The same holds for
     ``audible_speech`` events, staged as content-free lines.
+
+    ``viewers`` (task 71) scopes every block to one perception cluster: the
+    cast, the staging, the transcript and the events. Left at ``None`` the
+    output is byte-identical to the pre-71 prompt, which is what keeps the
+    unsplit turns - the majority - on exactly the path they were on.
+
+    Scoping the TRANSCRIPT matters as much as scoping the events. A record
+    carries the audience the engine computed for it, so a line spoken in the
+    other half of a split scene is already marked unreachable; passing it in
+    anyway would let the renderer allude to it even with the events clean.
     """
     cast_lines = [
         f"  {character.mind.name}: {character.body.physical_description[:200]} | "
         f"wearing: {character.body.outfit[:120]}"
-        for character in characters.values()
+        for cid, character in characters.items()
+        if viewers is None or cid in viewers
     ]
     visible = [
         record
@@ -245,6 +285,12 @@ def build_prose_messages(
         if record.content_type in ("narration", "speech")
         or (record.content_type == "action" and record.audience is None)
     ]
+    if viewers is not None:
+        visible = [
+            record
+            for record in visible
+            if any(record_visible_to(record, viewer) for viewer in viewers)
+        ]
     if context_max is not None:
         visible = trim_history_by_tokens(visible, context_max, max_tokens)
     transcript = [
@@ -256,12 +302,19 @@ def build_prose_messages(
     # in prose produced phantom unspecified speech ("Bento diz algo para Rui")
     # and narrated the protagonist's silence. The renderer only narrates
     # NON-SPEECH events.
+    scoped_events = events
+    if viewers is not None:
+        scoped_events = [
+            event
+            for event in events
+            if viewers & (set(event.get("witness_ids") or []) | {event.get("subject_id")})
+        ]
     event_lines = [
         f"  - ({event['event_kind']}) {_stage_event_content(event, characters, controlled_id)}"
-        for event in events
+        for event in scoped_events
         if event.get("event_kind") != "audible_speech"
     ] or ["  - Nothing new happens; render a short atmospheric beat."]
-    staging = _staging_lines(scene, characters, controlled_id)
+    staging = _staging_lines(scene, characters, controlled_id, viewers)
     staging_block = "\n".join(staging) + "\n\n" if staging else ""
     user = (
         f"SCENE: {scene.location} | {scene.time_of_day}\n"
@@ -303,6 +356,7 @@ async def render_narration(
     config: dict,
     session_id: str = "",
     turn_number: int = 0,
+    viewers: set[str] | None = None,
 ) -> str:
     max_tokens = int(config.get("max_tokens_narrator", 2048))
     messages = build_prose_messages(
@@ -313,6 +367,7 @@ async def render_narration(
         events,
         context_max=config.get("context_max"),
         max_tokens=max_tokens,
+        viewers=viewers,
     )
     # Shared by the first attempt and the anti-repetition retry below.
     request_kwargs: dict[str, Any] = {
