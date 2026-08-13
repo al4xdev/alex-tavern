@@ -514,6 +514,87 @@ happened to task 77's identically-shaped replay: the recorded payload had emitte
 `zone_moves: null`, and the unchanged contract moved people on 3 of 8 replays. It
 is registered here so it cannot be presented afterwards as an insight.
 
+### ✅ RAN 2026-08-13 — VARIANCE row, as registered. And the average was hiding the finding.
+
+**A: 5 of 16 runs recurred (31%). B: 6 of 16 (38%).** A is below the 40% line, so
+by the rule registered above this is the **variance** outcome: the contract clause
+is neither credited nor blamed, and **the closed-transition thesis is untested by
+this experiment.** B was directionally *worse*, well inside noise.
+
+**The clause changed nothing and cost nothing.** Mean events per run 4.75 (A) vs
+4.94 (B), so it did not buy silence either. A rule forbidding restatement, placed
+in the same block as the rules the Director obeys, is simply not read as binding.
+
+**But the pooled 31% is an average over two different behaviours**, and the
+per-payload spread is the whole result:
+
+| payload | A | B |
+|---|---|---|
+| `834f91e5` T29 | **0/4** | 1/4 |
+| `8bd4d0f1` T38 | **0/4** | 2/4 |
+| `a3e1ceda` T22 | 1/4 | 0/4 |
+| **`d5a2ccf0` T32** | **4/4** | **3/4** |
+
+Three payloads are coin flips at best. **One re-stages every time, in both arms,
+in near-verbatim words** — A r2, A r3, B r2 and B r4 all produce *"Um projétil
+mágico sibila pelo ar e se estilhaça contra a parede atrás de Link, arrancando
+lascas de pedra"*, and A r1's variant differs by two words.
+
+That is not variance. That payload is doing something the other three are not.
+
+### What is different about `d5a2ccf0` T32 — and the next test, registered first
+
+It is the only one of the four whose prompt carries an **UPCOMING EVENT block**,
+and the block is not a world event at all:
+
+> `UPCOMING EVENT (incorporate this into your narration):`
+> `CLOCK SIGNAL: the scene has produced no material change for 2 turns; only`
+> `waiting remains. Compress time now (time_skip_ticks) unless someone is`
+> `visibly mid-action.`
+
+And the Director's contract, in `RULES:`, says of that block:
+
+> *"UPCOMING EVENT IS MANDATORY. When an UPCOMING EVENT block is present, the
+> FIRST entry of perception_events IS that event, written as a witness would
+> perceive it... It happens: it is not a suggestion, it does not wait for a
+> better moment, and **no coherence concern overrides it**."*
+
+**A CLOCK SIGNAL cannot be written as a witness would perceive it.** Nobody in
+the room can see "compress time". So the Director is handed a mandatory
+instruction to put a non-event in slot 0, and what it puts there instead is the
+most recent physical thing it has:
+
+- the re-staged projectile is **event 0** in 6 of the 8 runs;
+- `time_skip_ticks` is **0 in all 8** — the compression the signal demanded was
+  refused every single time.
+
+That second number replicates a task-72 figure from a different session and a
+different engine state: the roadmap already records **0 of 6** CLOCK SIGNAL
+invitations accepted in `base-P1-r2`. It is now 0 of 6 plus 0 of 8.
+
+**THEORY, explicitly.** Nothing above shows the block *causes* the re-staging;
+one payload with the block re-stages and three without it mostly do not, which is
+n=1 on the thing that varies.
+
+#### Registered before running, in both directions
+
+1. **Corpus control first, no inference cost.** Across the 33 sessions, compare
+   `P(UPCOMING EVENT block present | turn re-proposes a flagged event)` against
+   `P(same | every other Director turn)`. **Session as the unit.** If the two
+   rates are within a few points, this theory is dead and the deterministic
+   payload is a coincidence, recorded as measured-and-rejected.
+2. **Only if the corpus rate is elevated:** arm **C** on `d5a2ccf0` T32 — the
+   recorded prompt with the UPCOMING EVENT block **removed**, nothing else
+   changed, 8 runs. **If recurrence collapses from 4/4 to at or below 1/8, the
+   block is the cause.** If it stays high, the payload re-stages for some other
+   reason and the theory is wrong.
+
+⚠ **If this holds it is not task 69's defect at all.** A mandatory-injection
+clause that forces a non-event into slot 0 belongs to whichever task owns the
+clock (**40**) and the drive layer (**33**), and 69 would have found it rather
+than owned it. Recording that now, before the numbers arrive, so the result
+cannot be annexed to this task afterwards.
+
 ## Inherited from task 76's falsifier — a missing spatial field
 
 Measured 2026-08-13 over 33 sessions: **136 of 403 `zone_moves` (34%) send a
