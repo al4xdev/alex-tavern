@@ -50,8 +50,8 @@ taxonomy, and external evaluator. This task only extends the *generic* harness
 - [x] Harness report shows per-check and per-run token/cost columns.
 - [x] One real-LLM run of a scenario containing at least two natural-routing
   probes, with the routing outcomes and costs recorded in the run artifacts. —
-  **feito em 2026-07-27**, ver seção no fim. O cenário faltava: agora é
-  `tools/playtests/routing_probes.json`.
+  **done on 2026-07-27**, see the section at the end. The scenario was missing:
+  it is now `tools/playtests/routing_probes.json`.
 - [x] No multi-model matrix anywhere in the deliverable.
 
 > **CLOSED 2026-07-16.** Delivered: `routing_check` event (natural routing,
@@ -70,44 +70,46 @@ taxonomy, and external evaluator. This task only extends the *generic* harness
 
 ---
 
-# Run de aceitação e o que ele mediu (2026-07-27)
+# The acceptance run, and what it measured (2026-07-27)
 
-O critério exigia um run real com pelo menos duas sondas de roteamento natural.
-Ele nunca foi cumprido por um motivo simples: **o cenário não existia**. Nenhum
-arquivo em `tools/playtests/` tinha um evento `routing_check`. Escrevi
-`routing_probes.json` — três sondas, cada uma interpelando um personagem pelo
-nome e pelo conteúdo, sem `force_speaker` (o harness recusa forçar numa sonda,
-justamente porque a medida é do roteamento *natural*).
+The criterion demanded a real run with at least two natural-routing probes. It was
+never met for a simple reason: **the scenario did not exist**. No file in
+`tools/playtests/` had a `routing_check` event. I wrote `routing_probes.json` —
+three probes, each addressing a character by name and by content, with no
+`force_speaker` (the harness refuses to force inside a probe, precisely because
+the measurement is of *natural* routing).
 
-## Um erro meu que o próprio run expôs
+## A mistake of mine the run itself exposed
 
-A primeira versão tinha uma sonda esperando `C1` — **o personagem controlado**.
-O harness marcou falha de roteamento. Não era falha: a trava de agência
-(AGENTS.md §3) impede o sistema de gerar a fala do controlado, então o turno
-roteou para outro personagem, que é o comportamento correto. Uma sonda que espera
-o controlado mede o produto contra uma regra que o produto tem obrigação de
-violar. Está anotado no `description` do cenário para ninguém repetir.
+The first version had a probe expecting `C1` — **the controlled character**. The
+harness marked a routing failure. It was not a failure: the agency lock
+(AGENTS.md §3) stops the system from generating the controlled character's speech,
+so the turn routed to another character, which is the correct behaviour. A probe
+expecting the controlled character measures the product against a rule the product
+is obliged to violate. It is noted in the scenario's `description` so nobody
+repeats it.
 
-## O resultado, e ele não é confortável
+## The result, and it is not comfortable
 
-| execução | sondas válidas | rotearam certo | sem chamada de personagem |
+| run | valid probes | routed correctly | no character call |
 |---|---|---|---|
 | 1 | 2 | 2 | 0 |
-| 2 (cenário corrigido) | 3 | 1 | 2 |
+| 2 (scenario fixed) | 3 | 1 | 2 |
 
-**3 de 5 sondas válidas nas duas execuções.** Quando falha, o modo é
-`routing_no_character_call`: o Diretor responde com narração e não roteia para
-ninguém, mesmo com a fala nomeando a pessoa e fazendo uma pergunta direta a ela.
+**3 of 5 valid probes across both runs.** When it fails, the mode is
+`routing_no_character_call`: the Director answers with narration and routes to
+nobody, even with the line naming the person and asking them a direct question.
 
-Custos ficaram registrados no mesmo artefato, que era metade do ponto do critério
-(qualidade e custo do mesmo run, não de dois): execução 2 gastou 36.648 tokens de
-prompt e 4.536 de saída, com 25.472 servidos de cache.
+Costs were recorded in the same artifact, which was half the point of the criterion
+(quality and cost from the same run, not from two): run 2 spent 36,648 prompt
+tokens and 4,536 output tokens, with 25,472 served from cache.
 
-**Não re-rodei até o número ficar bom.** Duas execuções com resultados opostos na
-mesma sonda dizem que a variância é da ordem do efeito — exatamente o diagnóstico
-da task 55, e a razão de registrar 3/5 em vez de escolher a execução simpática.
+**I did not re-run until the number looked good.** Two runs with opposite results
+on the same probe say the variance is the same order as the effect — exactly task
+55's diagnosis, and the reason to record 3/5 instead of picking the flattering run.
 
-O que isso abre, e que NÃO é desta task: uma pergunta direta e nominal ficar sem
-resposta do interpelado é um defeito de experiência, não de infraestrutura de
-medição. A task 32 entrega o instrumento e o primeiro número; consertar o
-roteamento precisa de tarefa própria, com este cenário como baseline e n maior.
+What this opens, and which is NOT part of this task: a direct, by-name question
+going unanswered by the person addressed is an experience defect, not a
+measurement-infrastructure one. Task 32 delivers the instrument and the first
+number; fixing the routing needs a task of its own, with this scenario as the
+baseline and a larger n.

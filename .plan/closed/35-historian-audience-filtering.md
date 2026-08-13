@@ -33,17 +33,17 @@ all from this root.
 
 - [~] Unit test: a whispered record outside X's audience never appears in X's
   private-summarizer prompt; the confidant's prompt keeps it.
-  **SUPERADO** — ver nota de 2026-07-27.
+  **SUPERSEDED** — see the 2026-07-27 note.
 - [~] Unit test: zone-scoped records respect the same boundary.
-  **SUPERADO** — mesma nota.
+  **SUPERSEDED** — same note.
 - [x] xfailed3 full tier re-run: secret family at 0; identity rules stay green;
-  delta appended to `output29/comparison-29.3.md`. — refeito em 2026-07-27
-  (sessão `8484d749`, 24/24 turnos, provider real): **família secret = 0**;
-  ver `.plan/closed/39-ledger-memory-dimension.md`.
+  delta appended to `output29/comparison-29.3.md`. — redone on 2026-07-27
+  (session `8484d749`, 24/24 turns, real provider): **secret family = 0**;
+  see `.plan/closed/39-ledger-memory-dimension.md`.
 - [x] Existing summarizer tests stay green (world summary is narrator-side and
-  keeps seeing every non-thought record — unchanged by design). — o world
-  summary segue narrator-side; `tests/test_ledger_memory.py` e
-  `tests/test_thought_containment.py` cobrem o limite hoje.
+  keeps seeing every non-thought record — unchanged by design). — the world
+  summary stays narrator-side; `tests/test_ledger_memory.py` and
+  `tests/test_thought_containment.py` cover the boundary today.
 
 > **CLOSED 2026-07-16.** Three-layer fix in `build_private_memory_messages`:
 > record visibility (`record_visible_to` + Player→controlled ownership),
@@ -59,35 +59,34 @@ all from this root.
 
 ---
 
-# Nota de 2026-07-27: dois critérios foram superados, não cumpridos
+# Note of 2026-07-27: two criteria were superseded, not met
 
-Os dois primeiros testes unitários pediam prova sobre o **prompt do summarizer
-privado**. Esse componente não existe mais: a task 39 substituiu as notas
-privadas por memória de ledger determinística e removeu a chamada. Marcá-los como
-feitos seria mentira; deixá-los abertos sugeriria trabalho pendente que não há.
-Ficam como `[~] SUPERADO`.
+The first two unit tests demanded proof about the **private summarizer's prompt**.
+That component no longer exists: task 39 replaced private notes with deterministic
+ledger memory and removed the call. Marking them done would be a lie; leaving them
+open would suggest pending work that does not exist. They stay as
+`[~] SUPERSEDED`.
 
-O que resta do critério não sumiu junto — mudou de lugar e ficou mais forte:
+What remains of the criterion did not vanish with it — it moved, and got stronger:
 
-| garantia da 35 | onde vive hoje |
+| 35's guarantee | where it lives today |
 |---|---|
-| sussurro fora da audiência não entra no prompt de X | `tests/test_thought_containment.py` (nada além do Diretor lê pensamento) + `record_visible_to` em `_format_history_for_character` |
-| limites por zona respeitados | `tests/test_zone_audibility_default.py`, `TestRunnerZoneMaterialization` |
-| o componente não volta | `tests/test_integration.py:2035` trava a assinatura contra `build_private_memory_messages` |
+| a whisper outside the audience does not enter X's prompt | `tests/test_thought_containment.py` (nothing but the Director reads thought) + `record_visible_to` in `_format_history_for_character` |
+| zone boundaries respected | `tests/test_zone_audibility_default.py`, `TestRunnerZoneMaterialization` |
+| the component does not come back | `tests/test_integration.py:2035` locks the signature against `build_private_memory_messages` |
 
-Essa última linha é a parte que importa em revisão: quando um componente é
-removido por ser a fonte de uma classe de vazamento, o teste que sobrevive não
-deve ser sobre como ele filtrava — deve ser sobre ele **não existir**. É o que
-está lá.
+That last row is the part that matters in review: when a component is removed for
+being the source of a leak class, the surviving test should not be about how it
+filtered — it should be about it **not existing**. That is what is there.
 
-A terceira caixa era mensurável e foi medida hoje, não herdada: campanha full
-tier de 24 turnos com provider real, família secret em 0.
+The third box was measurable and was measured that day, not inherited: a full-tier
+campaign of 24 turns with the real provider, secret family at 0.
 
-> **Ressalva de reprodutibilidade (2026-07-27).** As sessões citadas nesta seção
-> foram geradas em diretório temporário e **não estão no repositório**: os números
-> não são auditáveis por terceiros nem por uma sessão futura. Foram conferidos por
-> mim no momento da execução e o método está descrito acima com detalhe suficiente
-> para ser refeito, mas quem reler deve tratá-los como *relato*, não como
-> evidência verificável. Medições que precisem valer como prova têm de escrever
-> seus artefatos em `docs/` ou `.plan/`, ou o critério deve exigir um script de
-> aceitação em `tools/acceptance/` que qualquer um rode.
+> **Reproducibility caveat (2026-07-27).** The sessions cited in this section were
+> generated in a temporary directory and **are not in the repository**: the numbers
+> are not auditable by a third party or by a future session. I checked them at the
+> time of execution and the method is described above in enough detail to be
+> redone, but whoever re-reads this should treat them as an *account*, not as
+> verifiable evidence. Measurements that need to count as proof have to write their
+> artifacts into `docs/` or `.plan/`, or the criterion must require an acceptance
+> script in `tools/acceptance/` that anyone can run.

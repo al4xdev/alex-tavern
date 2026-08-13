@@ -1,90 +1,87 @@
-# Task 56 — Debug drawer e falsos badges de whisper no frontend
+# Task 56 — The debug drawer and false whisper badges in the frontend
 
-> **Status (2026-07-26): FECHADA COM CONFIANÇA.**
-> Corrigida na branch `refactor/pre-1.0-cleanup`, com reprodução e validação em
-> browser real nos viewports desktop e mobile.
+> **Status (2026-07-26): CLOSED WITH CONFIDENCE.**
+> Fixed on branch `refactor/pre-1.0-cleanup`, with reproduction and validation in a
+> real browser at both desktop and mobile viewports.
 
-## Sintoma
+## Symptom
 
-Ao ligar o debug, o frontend mostrava:
+Turning debug on made the frontend show:
 
 ```text
 Could not load debug log: bindTranslation is not defined
 ```
 
-Depois de desligar o debug, muitos badges `🤫 whispered to ...` continuavam
-visíveis no transcript. O comportamento ocorria tanto no PC quanto no PWA
-mobile.
+After turning debug off, many `🤫 whispered to ...` badges stayed visible in the
+transcript. The behaviour occurred on the PC as well as in the mobile PWA.
 
-## Reprodução pré-correção
+## Pre-fix reproduction
 
-Playwright executado contra a sessão real `1cad8c55`:
+Playwright run against the real session `1cad8c55`:
 
-| Estado | Desktop | Mobile |
+| State | Desktop | Mobile |
 |---|---:|---:|
-| Drawer ativo após ligar debug | sim | sim |
-| Toast `bindTranslation is not defined` | sim | sim |
-| Drawer ativo após desligar debug | não | não |
-| Toggle marcado após desligar | não | não |
-| `display` do drawer após desligar | `none` | `none` |
-| Badges de whisper ainda no transcript | 16 | 16 |
+| Drawer active after turning debug on | yes | yes |
+| `bindTranslation is not defined` toast | yes | yes |
+| Drawer active after turning debug off | no | no |
+| Toggle checked after turning off | no | no |
+| Drawer `display` after turning off | `none` | `none` |
+| Whisper badges still in the transcript | 16 | 16 |
 
-O drawer não ficava preso. O que permanecia eram badges do transcript sem
-relação com o estado de debug.
+The drawer was not stuck. What remained were transcript badges unrelated to the
+debug state.
 
-## Causas confirmadas
+## Confirmed causes
 
-### Dependência perdida na extração do drawer
+### A dependency lost in the drawer extraction
 
-O commit `6319304` moveu `makeCopyBtn` para `src/static/debug-drawer.js`, mas o
-módulo importava apenas `t` e `translateDocument`. A função continuou chamando
-`bindTranslation`, gerando o erro somente quando uma entrada real do log era
-renderizada.
+Commit `6319304` moved `makeCopyBtn` into `src/static/debug-drawer.js`, but the
+module imported only `t` and `translateDocument`. The function kept calling
+`bindTranslation`, producing the error only when a real log entry was rendered.
 
-### Audience de zona rotulada como whisper
+### A zone audience labelled as a whisper
 
-`renderHistory` tratava qualquer `TurnRecord.audience != null` como whisper. O
-modelo atual também usa `audience` para percepção acústica de zonas e distingue
-a origem em `audience_origin`:
+`renderHistory` treated any `TurnRecord.audience != null` as a whisper. The current
+model also uses `audience` for acoustic zone perception, and distinguishes the
+origin in `audience_origin`:
 
-- `whisper`: audiência confidencial explícita;
-- `zone`: audiência calculada pela posição/acústica.
+- `whisper`: an explicit confidential audience;
+- `zone`: an audience computed from position/acoustics.
 
-Todos os 38 registros com audience no estado final da sessão `1cad8c55` tinham
-`audience_origin="zone"`. Por isso o frontend produzia 16 badges enormes
-listando quase todo o elenco, apesar de não haver whisper explícito.
+All 38 records with an audience in session `1cad8c55`'s final state had
+`audience_origin="zone"`. That is why the frontend produced 16 enormous badges
+listing nearly the whole cast, despite there being no explicit whisper.
 
-Isso não era vazamento do drawer nem conteúdo de debug persistente. Pensamentos
-de Character continuam reader-visible por contrato: o README define o
-transcript como apresentação literária e as fronteiras privadas valem entre os
-agentes/personagens.
+This was neither a drawer leak nor persistent debug content. Character thoughts
+remain reader-visible by contract: the README defines the transcript as literary
+presentation, and the private boundaries hold between the agents/characters.
 
-## Implementação
+## Implementation
 
-- `src/static/debug-drawer.js`: importa `bindTranslation` explicitamente.
-- `src/static/app.js`: preserva `audience_origin` no buffer e renderiza `🤫`
-  somente quando a origem é `whisper`.
-- `src/static/sw.js`: shell cache avançado de `rpt-shell-v24` para
-  `rpt-shell-v25`.
-- testes: fixam o import, incluem o drawer na varredura i18n e distinguem
-  whisper explícito de audience de zona.
+- `src/static/debug-drawer.js`: imports `bindTranslation` explicitly.
+- `src/static/app.js`: preserves `audience_origin` in the buffer and renders `🤫`
+  only when the origin is `whisper`.
+- `src/static/sw.js`: shell cache advanced from `rpt-shell-v24` to `rpt-shell-v25`.
+- tests: pin the import, include the drawer in the i18n sweep, and distinguish an
+  explicit whisper from a zone audience.
 
-Não houve mudança de backend, schema persistido, agência ou fronteira narrativa.
+There was no change to the backend, the persisted schema, agency or any narrative
+boundary.
 
-## Validação
+## Validation
 
-- Playwright Chromium real em desktop `1440x900` e mobile `393x852` com touch:
-  - ligar debug carrega o log sem toast de erro;
-  - desligar remove `active`, desmarca o toggle e resulta em `display:none`;
-  - zero erros de console;
-  - zero falsos badges de whisper na sessão real.
-- `48 passed`: frontend architecture, i18n e whisper UI.
-- `node --check` em todos os módulos de `src/static/` e adapters.
-- parsing de `src/static/index.html`.
+- Real Playwright Chromium at desktop `1440x900` and mobile `393x852` with touch:
+  - turning debug on loads the log with no error toast;
+  - turning it off removes `active`, unchecks the toggle and results in
+    `display:none`;
+  - zero console errors;
+  - zero false whisper badges in the real session.
+- `48 passed`: frontend architecture, i18n and whisper UI.
+- `node --check` on every module in `src/static/` and the adapters.
+- parsing of `src/static/index.html`.
 - `git diff --check`.
 
-## Resultado
+## Result
 
-O modo debug abre e fecha corretamente nos dois layouts, o log volta a
-renderizar, e percepção acústica de zona não aparece mais como whisper no
-transcript normal.
+Debug mode opens and closes correctly in both layouts, the log renders again, and
+acoustic zone perception no longer appears as a whisper in the normal transcript.

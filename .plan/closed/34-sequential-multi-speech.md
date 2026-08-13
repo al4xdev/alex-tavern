@@ -33,20 +33,20 @@ múltiplos personagens falarem em sequência sem o narrador").
 ## Acceptance Criteria
 
 - [x] Narrator schema/prompt emit and document `next_speakers`. —
-  `build_narrator_json_schema`; `TestValidSpeakers` em `test_integration.py`
+  `build_narrator_json_schema`; `TestValidSpeakers` in `test_integration.py`
 - [x] Normalization unit tests (unknown/dup/Narrator-terminator/cap/forced). —
   `test_valid_speakers_accepts_custom_id`, `test_valid_speakers_fallback_invalid`,
   `test_forced_narrator_collapses_queue`, `test_forced_speaker_constrains_schema_and_context_target`
 - [x] Runner test: queue of two characters produces two responses in order and
   the second character's prompt contains the first one's fresh speech. —
-  **confirmado também ao vivo em 2026-07-27**, ver seção no fim
+  **also confirmed live on 2026-07-27**, see the section at the end
 - [x] Runner test: queue stops at the controlled character without generating
   their speech. — `test_autonomous_burst.py::test_stops_when_player_is_addressed`
-  (`player_addressed`, nenhuma fala gerada para o controlado)
-- [x] Existing agency/presence/whisper guards unchanged (suite green). — suíte
-  em 918 testes; `test_absent_next_speaker_never_receives_a_character_call`
+  (`player_addressed`, no speech generated for the controlled character)
+- [x] Existing agency/presence/whisper guards unchanged (suite green). — suite
+  at 918 tests; `test_absent_next_speaker_never_receives_a_character_call`
 - [x] Real-LLM smoke run showing a multi-speaker exchange in one turn. —
-  campanha xfailed3 de 2026-07-27 (elenco de 9), ver seção no fim
+  the xfailed3 campaign of 2026-07-27 (cast of 9), see the section at the end
 
 > **CLOSED 2026-07-16** (commit ae0e001). Delivered: next_speakers queue (1-3,
 > ordered), sequential execution with fresh-history perception between
@@ -58,45 +58,44 @@ múltiplos personagens falarem em sequência sem o narrador").
 
 ---
 
-# Verificado ao vivo (2026-07-27, campanha xfailed3 `8484d749`)
+# Verified live (2026-07-27, xfailed3 campaign `8484d749`)
 
-Os dois critérios de run real ficaram em branco. Rodei a campanha de 24 turnos
-com provider real e elenco de **9 personagens** — o cenário certo para isto, ao
-contrário das sessões de 2 personagens das outras medições.
+The two real-run criteria were blank. I ran the 24-turn campaign with the real
+provider and a cast of **9 characters** — the right scenario for this, unlike the
+2-character sessions of the other measurements.
 
-**A prova sequencial.** Dois turnos dispararam duas chamadas de personagem em
-fila, e nos dois o segundo personagem recebeu a fala **fresca** do primeiro no
-próprio prompt:
+**The sequential proof.** Two turns fired two character calls in a queue, and in
+both the second character received the first one's **fresh** speech in their own
+prompt:
 
-| turno | fila | fala fresca do primeiro no prompt do segundo |
+| turn | queue | first speaker's fresh speech in the second's prompt |
 |---|---|---|
-| 19 | Dorothy → Dama do Norte | sim |
-| 23 | Watson → Dama do Norte | sim |
+| 19 | Dorothy → Dama do Norte | yes |
+| 23 | Watson → Dama do Norte | yes |
 
-## O erro de medição que isso corrigiu
+## The measurement error this corrected
 
-Minha primeira métrica contava *turnos com 2+ falantes distintos no histórico*.
-Deu 20 de 24 turnos — número lisonjeiro e **errado**. O turno 5 tem quatro
-registros de fala (Player, Van Helsing, Alice, Dama do Norte) e **uma única**
-chamada de personagem: as outras três são `audible_speech` escritas pelo Diretor
-e persistidas como fala.
+My first metric counted *turns with 2+ distinct speakers in the history*. It gave
+20 of 24 turns — a flattering number, and **wrong**. Turn 5 has four speech records
+(Player, Van Helsing, Alice, Dama do Norte) and **one single** character call: the
+other three are `audible_speech` written by the Director and persisted as speech.
 
-São dois mecanismos diferentes com a mesma aparência no histórico. O critério da
-34 é sobre a fila de chamadas, não sobre quantos nomes aparecem falando. Medido
-pelo mecanismo, o número real é 4 turnos com 2+ chamadas, dos quais 2 são fila
-genuína — os outros dois são a mesma personagem chamada duas vezes, que é
-**retry de guard**, não fila.
+Those are two different mechanisms with the same appearance in the history. Task
+34's criterion is about the call queue, not about how many names appear speaking.
+Measured by mechanism, the real number is 4 turns with 2+ calls, of which 2 are a
+genuine queue — the other two are the same character called twice, which is a
+**guard retry**, not a queue.
 
-Terceira vez esta noite que a métrica de superfície discordou do mecanismo (as
-outras: menções vs. vocativo na 54, e o filtro por nome de agente na 38). O
-padrão é consistente o bastante para virar regra: quando o critério fala de um
-mecanismo, conte o mecanismo no `debug.jsonl`, nunca o efeito no estado.
+Third time tonight that a surface metric disagreed with the mechanism (the others:
+mentions vs vocatives in 54, and the agent-name filter in 38). The pattern is
+consistent enough to become a rule: when the criterion speaks about a mechanism,
+count the mechanism in `debug.jsonl`, never its effect on the state.
 
-> **Ressalva de reprodutibilidade (2026-07-27).** As sessões citadas nesta seção
-> foram geradas em diretório temporário e **não estão no repositório**: os números
-> não são auditáveis por terceiros nem por uma sessão futura. Foram conferidos por
-> mim no momento da execução e o método está descrito acima com detalhe suficiente
-> para ser refeito, mas quem reler deve tratá-los como *relato*, não como
-> evidência verificável. Medições que precisem valer como prova têm de escrever
-> seus artefatos em `docs/` ou `.plan/`, ou o critério deve exigir um script de
-> aceitação em `tools/acceptance/` que qualquer um rode.
+> **Reproducibility caveat (2026-07-27).** The sessions cited in this section were
+> generated in a temporary directory and **are not in the repository**: the numbers
+> are not auditable by a third party or by a future session. I checked them at the
+> time of execution and the method is described above in enough detail to be
+> redone, but whoever re-reads this should treat them as an *account*, not as
+> verifiable evidence. Measurements that need to count as proof have to write their
+> artifacts into `docs/` or `.plan/`, or the criterion must require an acceptance
+> script in `tools/acceptance/` that anyone can run.
