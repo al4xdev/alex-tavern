@@ -3,10 +3,19 @@
 > **Status:** ✅ **CLOSED 2026-08-12.** Narration renders per perception cluster.
 > Every closure item below is discharged, the last of them on a live cell.
 >
-> **The number:** a split narration naming someone or somewhere its reader
-> cannot perceive went from **16 of 29 (55%)** to **3 of 78 (3.8%)** pooled over
-> four post-71 sessions, p = 9.8e-09. Cost is **1.278x** prose calls per narrated
-> turn, concurrent, so latency does not multiply.
+> **The number, restated per session** after the unit-of-analysis error was
+> found (see `.plan/reference/metric-validity.md`): a split narration naming
+> someone its reader cannot perceive runs at **70% and 22%** in the two
+> informative pre-71 sessions, and **0%, 9%, 0%, 0%** in the four post-71 ones.
+> Clean separation, and every post session at or below every pre session.
+>
+> ⚠ **The p = 9.8e-09 this file used to quote was pooled over turns and is
+> withdrawn.** With two informative sessions against four, the best an exact
+> session-level test can produce is **p = 0.13**. What supports this task is the
+> separation plus a mechanism that is unit-tested, not a significance level.
+>
+> Cost is **1.278x** prose calls per narrated turn, concurrent, so latency does
+> not multiply.
 >
 > Two things a later reader should not have to rediscover. The singleton
 > population is **not** empty — but the case that proved it is a Director-declared
@@ -306,8 +315,11 @@ makes the comparison as close to paired as this instrument gets.
 Per session, post-67: 20/38 (52.6%), 10/34 (29.4%), 0/36 (0%). Bimodality
 survives the fix — one session never splits at all.
 
-Fisher exact, 58/108 against 30/108: **p = 1.7e-4**. The split rate genuinely
-halved.
+~~Fisher exact, 58/108 against 30/108: **p = 1.7e-4**.~~ **Withdrawn
+2026-08-12**: that pooled turns across sessions. Per session the pre-67 rates are
+**72.4%, 17.9%, 75.0%** and the post-67 rates are **52.6%, 29.4%, 0%** - the
+ranges **overlap**, and with three sessions a side no test is meaningful. The
+means moved the right way and that is all this evidence supports.
 
 **Verdict against the pre-registered rule: 27.8% is above the 20% line, so the
 task stands as written.** The amendment required a result clear of the
