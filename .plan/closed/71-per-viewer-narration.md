@@ -3,6 +3,18 @@
 > **Status:** ✅ **CLOSED 2026-08-12.** Narration renders per perception cluster.
 > Every closure item below is discharged, the last of them on a live cell.
 >
+> ⚠ **CLOSED IS NOT SEALED — one pending change can re-open this task's leak.**
+> Flagged 2026-08-13, before it was written. Task 79 proposes handing the
+> Director's `scene_blocking.character_zones` to the prose renderer as staging
+> material. **That map covers every present character.** Handed over whole, the
+> renderer for cluster A would hold where cluster B's people are standing, which
+> is exactly the leak this task closed from 16/29 to 3/78.
+>
+> **It must be filtered by the same `viewers` set that already scopes the cast**
+> (`src/agents/prose.py:201,246`), and the regression test belongs in **this
+> task's suite** (`tests/test_per_viewer_narration.py`), not only in 79's. If you
+> are reviewing that change, this is the thing to check.
+>
 > **The number, restated per session** after the unit-of-analysis error was
 > found (see `.plan/reference/metric-validity.md`): a split narration naming
 > someone its reader cannot perceive runs at **70% and 22%** in the two

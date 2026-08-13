@@ -393,6 +393,78 @@ same run on the same payloads**, and payloads are drawn from the sessions at the
 `34390b86`) with the behaviour **shown to reproduce first**. Not from the 0.5%
 sessions.
 
+### ⛔ WITHDRAWN ENTIRELY, 2026-08-13 — do not rebuild it a third time
+
+The re-registration conditions above were met in the sense that better payloads
+were found (`5d60575d` T3 moves 18 characters to *"...Salão dos Quatro Arcos,
+junto à saída lateral"*; `c76037ff` T16 moves 16). **It does not matter, and the
+conditions are moot.**
+
+**The target does not exist.** Every version of this falsifier asks *"did
+positional `zone_moves` fall?"*, which requires an instrument that can classify a
+move as positional. Three independent attempts have now failed:
+
+| instrument | outcome |
+|---|---|
+| string rules over zone names | five registered false positives, latest 2x too high |
+| the Director's own `witness_ids` | dead: median witness list is **95% of the cast** |
+| a blind reader given the narration | **88% not determinable** |
+
+**The control was never the deepest problem.** Version 1 failed its clause for the
+wrong reason, version 2 was rejected for measuring the harness, and version 3
+cannot be built at all. All three are recorded here, in order, so the next person
+does not start a fourth.
+
+### What replaces it: the ship-now half is a QUALITY change, judged by a blind read
+
+**Stated plainly so nobody looks for a rate later and concludes it failed.**
+
+The half that ships without a schema bump — `narrate()` handing
+`character_zones` to the prose renderer as staging — **is not a defect fix.** It
+does not reduce a count. It gives the renderer better material: where the Director
+actually put people, instead of a zone name that no instrument can interpret.
+
+**Its acceptance instrument is the blind read**, which the roadmap already names
+as the acceptance instrument for anything narrative (*"the narrative baseline is
+the blind read, not a number"*).
+
+> **Baseline, measured 2026-08-13 and already on record:** a blind reader given a
+> turn's narration and one character's name answers *"não dá para saber"* for
+> **35 of 40** stratified cases (88%). Full method in
+> `.plan/backlog/80-the-narration-does-not-convey-space.md`.
+>
+> **Done looks like:** that share falls on a post-change cell, arms in the same
+> run, judged by the same prompt. **No `zone_moves` rate is a gate for this
+> change, and quoting one against it is a category error.**
+
+### ⚠ DESIGN REVIEW, before the ship-now half is written: it can re-open task 71's leak
+
+Raised by the owner 2026-08-13, and it is right.
+
+`scene_blocking.character_zones` maps **every present character** to a position.
+Task 71 made narration render **per perception cluster** and closed a
+cross-cluster leak from **16/29 to 3/78** on 2026-08-04. If the blocking is handed
+to the renderer whole, **the renderer for cluster A now holds where cluster B's
+people are standing** — the same leak returning through a door nobody is watching,
+inside the task that closed it.
+
+**The filter point is already there.** `build_prose_messages` and `_staging_lines`
+both take `viewers: set[str] | None` (`src/agents/prose.py:201,246`) and it
+already scopes the cast, the staging block and the transcript. `character_zones`
+must be filtered by **that same set** before it reaches the renderer, not
+afterwards and not by a separate rule.
+
+**Required before this ships:**
+
+- [ ] `character_zones` is filtered by `viewers` at the same point the cast is;
+- [ ] a test that a character in cluster B does **not** appear in cluster A's
+      staging material — **added to task 71's suite
+      (`tests/test_per_viewer_narration.py`), not only to 79's**, because that is
+      the suite whose job is to catch this and the place the next person will look;
+- [ ] `scan_cross_cluster_leak` re-run on a post-change cell against 3/78.
+
+Cheaper now than after.
+
 ## The four things to decide, before any code
 
 ### 1. What reads it, and what must be FORBIDDEN from reading it

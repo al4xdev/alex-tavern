@@ -16,7 +16,7 @@ Organized by state:
 | `ROADMAP.md` | The **current phase** (immersion), its fronts, the order they are attacked in, and **the baseline each task has to beat** | When deciding what is next, and before implementing any task |
 | `tasks/` | **Active** tasks (open or delivered-with-reservations, banner at the top) | When working |
 | `para-o-dono/` | Things waiting for **your action** (smoke tests, designs to accept) | When you return |
-| `backlog/` | Future without active work (06 RAG, 16 lore, 78 routed-into-silence, public/real persona, New Journey, S02) | When planning |
+| `backlog/` | Future without active work (06 RAG, 16 lore, 78 routed-into-silence, 80 narration-does-not-convey-space, 81 narration-vs-state, public/real persona, New Journey, S02) | When planning |
 | `reference/` | Living architecture docs (29.2 map, narrator_hint study) | When designing |
 | `closed/` | Tasks closed WITH CONFIDENCE + completed explorations | As history |
 

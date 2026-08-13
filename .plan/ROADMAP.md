@@ -455,6 +455,7 @@ this phase already shipped one inverted gate by skipping that step.
 | **64** | `return_control=True` **5 of 482 turns (1%)**; controlled character routed **11 (2.3%)**; **5 of 12** sessions never returned control at all | both rates rise; 5/12 falls | direct count, one cell |
 | **72** | `time_skip_ticks` nonzero on **13 of 482 turns (2.7%)**, and **0 of 6** explicit `CLOCK SIGNAL` invitations accepted in `base-P1-r2`; 12 openings in 19 turns in `base-P1-r1` | consecutive no-net-change turns fall | blind read — a held scene and an empty one score identically to every metric here |
 | **66** | phantom names in **4 of 16** sessions; pronoun flip n=1; the seal changes hands 5 times with **0** staged transfers | scanner at **0** | 66's cast-integrity scanner |
+| **79** | a blind reader given a turn's narration and one character's name answers **"não dá para saber" 35 of 40 times (88%)**; positional `zone_moves` **16.7%** pooled, median **5.6%**, 12 of 27 sessions at zero (a **floor** - three instruments failed to measure it) | that 88% falls on a post-change cell, arms in the same run | **the blind read.** ⚠ **Not a `zone_moves` rate** - no instrument can classify a move as positional, so quoting one against this change is a category error |
 
 **The narrative baseline is the blind read, not a number.** On this archive it
 ranked `oldcode` at **9, 10 and 11 of 12** — independent confirmation of the
