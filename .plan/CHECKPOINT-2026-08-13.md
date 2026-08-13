@@ -47,8 +47,9 @@ Every causal story written in this block was falsified by its own evidence:
 **Not one was caught by a number looking wrong. Every one was caught by reading
 records or code.** That is now seven for seven, and it is the standing method.
 
-The sixth is the first that made a task **cheaper and better aimed** rather than
-smaller: 69 no longer has to solve remembering, only binding.
+Two of the seven landed on 69 in one afternoon, and the first of them is the only
+falsification in this phase that made a task **cheaper and better aimed** rather
+than smaller: 69 no longer has to solve remembering, only binding.
 
 ---
 
@@ -63,7 +64,7 @@ to avoid.
 | order | task | why here |
 |---|---|---|
 | **1** | **79** — blocking as durable state | The only established mechanism in the phase, and the change is *stop discarding a field we already receive*. Still **docs-only** pending the owner's shape decisions. Everything else waits behind less certainty than this |
-| **2** | **69** — physical state as a closed transition | Symptom measured and stable post-wave-1; the channel is identified and provably saturated (40/40). Owns the storage model that 79 must fit |
+| **2** | **69** — physical state as a closed transition | Symptom measured and stable post-wave-1. **Its capacity story is now excluded** (17 of 18 re-proposals happen with the original still in the prompt), which narrows it: settled state must **bind the output**, not be easier to retrieve. Owns the storage model that 79 must fit. ⚠ No replay payload reliably reproduces the defect, so its fix will need a live cell |
 | **3** | **64** — return control | Re-scoped to calibration. Cheapest possible test: a contract-wording replay, which is the same lever that tripled the rate in task 70 |
 | **4** | **77** — the order nobody executes | **Demoted from first.** Real in 39% of sessions and sparse inside them, cause unknown after three attempts. **Keep observing, do not design.** It is the best-documented symptom in the phase and the least understood |
 | **5** | **78** — routed into silence | 1% of speech records. Leave until someone reads more cases |
