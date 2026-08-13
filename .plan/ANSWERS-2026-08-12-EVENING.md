@@ -260,6 +260,118 @@ The three from the first round still stand, plus:
    for reference, whether or not a p-value is attached.
 
 The authorisation stands until I say stop. Keep deciding, and keep reading
-sessions as fiction —
-that method has produced every real finding in this file and none of the
-retractions.
+sessions as fiction — that method has produced every real finding in this file
+and none of the retractions.
+
+---
+---
+
+# Round 3 — the clock, and §A
+
+## First: you did not work through a night
+
+You worked **18:56 to 21:45. Two hours and forty-nine minutes.** The day's first
+commit was 13:40. I checked the timestamps because the framing had started to
+carry weight it had not earned — the file called itself `DECISIONS-NIGHT`, the
+roadmap wrote *"run alone, overnight"*, and my own answers granted you autonomy
+*"until dawn"*. None of that was true, and I repeated it after you did without
+looking at a log that was sitting right there.
+
+Renamed to `DECISIONS-2026-08-12-EVENING.md` and
+`ANSWERS-2026-08-12-EVENING.md`, references updated, both files carry a note at
+the top saying the wrong label was there and that we both repeated it.
+
+Why it is worth a correction rather than a shrug: **twelve decisions, four
+self-corrections and three new tasks in 2h49** is a different object than the
+same list "over a night". It also explains the retraction density better —
+your corrections landed forty minutes after the claims they corrected, not the
+next day. That is a fast loop working, not a long unsupervised drift.
+
+**And the standing authorisation has no dawn in it.** Keep working now, without
+me, until I say stop. Same rule as before: reading the text outranks the
+metrics, `src/` needs an answered ⚠, task 79 stays docs-only.
+
+## §A — accepted, and it is a bigger correction than you have claimed
+
+You were right to want this asked, and the numbers do change the headline:
+
+| | pooled | per session (median / sd / range) |
+|---|---|---|
+| prefix names the origin | 34% | **15%** / 35.0pts / **0–97%** |
+| positional phrase | 12% | 0% / 19.6pts / 0–79% |
+| union | 31% | 22% / 31.5pts / 0–95% |
+
+**A median of 15% under a pooled 34% means a handful of sessions carried the
+whole claim.** *"A third of all movement in this engine is somebody crossing a
+room they are already in"* was never true of a typical session; it was true of
+the pool. An sd of 35 points on a proportion is not noise around a value, it is
+two populations.
+
+Your reading of why — **two naming conventions, not two behaviours** — is the
+right one, and `a3e1ceda` at 97% against `34390b86` at 0% is the evidence for
+it. But follow it one step further than you did:
+
+**If the difference is naming, then 0% does not mean it is not happening. It
+means the instrument cannot see it.** A session writing *"avançando em direção
+ao corredor"* may be doing exactly as much intra-room movement as one writing
+*"…, próximo ao canil"*; only the second one leaves a string a detector can
+match. So:
+
+- **31% is a lower bound, not an estimate.** Say it that way from now on.
+- The true rate is **unknown**, and no string detector over model-authored names
+  can find it, for the same reason the prefix rule cannot see siblings named as
+  places. Do not build a better regex; it is the same trap twice.
+- **The case for task 79 is unchanged, and if anything stronger.** A field that
+  exists does not care which convention the Director picked that session. That
+  is the argument for the field, and it is better than the 34% was.
+
+### The connection I want you to check before anything else
+
+Decision 12 recorded a mystery: `sibling_zones_linked` fired **0 times in three
+of four post-76 sessions and 3 times in the fourth**, and you concluded the
+prefix rule "barely ran". §A now offers a cause: **the prefix rule can only fire
+in sessions that use the comma convention, and the convention is a per-session
+coin flip.** Same shape, 0-or-many, and the same sessions would be expected to
+show it.
+
+If that holds, it is a finding in its own right and larger than either input:
+
+> **The Director's naming convention is an uncontrolled variable across
+> sessions, and every instrument this project owns that reads zone names
+> inherits it.**
+
+That would mean the shipped prefix rule is not "narrow", it is **absent in
+roughly half of sessions**, which is a different claim about task 76 than the
+one currently in its file. It would also put a fifth entry on
+`metric-validity.md`, and this one bites harder than the others: it is not a
+metric misreading its own output, it is a *fix* whose applicability depends on a
+style the engine never controls.
+
+**Check it, per session, before you touch anything else.** Cross-tabulate the
+naming convention against `sibling_zones_linked` firings on the same sessions.
+If it holds, 76's status header needs rewriting and 79 gets its strongest
+argument. If it does not, say so and drop it — it is my hypothesis, not a
+finding, and it would not be the first of mine to fail its own control.
+
+## §B and §C
+
+**§B — approved.** Task 79 exists, stays docs-only, and the shape gets agreed in
+writing before any `Scene` field.
+
+**§C was already answered in Round 2 and does not need re-answering.** P3's
+accents: no action, the difference sits far below the session-to-session noise,
+I only wanted it not to surprise anyone at the next re-run. Nothing further owed
+on it — do not spend another pass there.
+
+## What is next
+
+Order stands: check the naming-convention hypothesis above, then 77, then 69
+with 79 underneath it. And answer this before starting 77, because it changes
+the order if the answer is yes:
+
+> **Is 79 a prerequisite for 77 and 69 rather than a sibling of them?** If
+> blocking has nowhere to live, then "remember an order is outstanding" (77) and
+> "remember an event was already resolved" (69) may be running into the same
+> empty space. If they are, 79 moves to the front of wave 2 and the schedule
+> gets longer rather than shorter — which is the cheaper outcome, because the
+> alternative is building the same thing twice.
