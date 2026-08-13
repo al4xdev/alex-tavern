@@ -30,9 +30,11 @@ What it writes there, verbatim from a replay:
 "Doran Pedra-Rúnica": "ao lado de Bruna, tentando erguê-la"
 ```
 
-That is this task's question answered in the Director's own words. And
-`narrate()` pops the whole field (`src/agents/narrator.py:849`), so roughly
-**1,967 positional phrases have been thrown away across the archive.**
+~~That is this task's question answered in the Director's own words.~~
+**Withdrawn on your point 1, and you were right.** `character_zones` is in
+`required[]` and the prompt orders it, so the Director did not volunteer this. It
+was ordered to. What survives is that `narrate()` pops the whole field
+(`src/agents/narrator.py:849`), discarding everything positional inside it.
 
 ⚠ **The pre-registered replay FAILED its own clause 1** — arm B populated a new
 `blocking` key on **0 of 8 runs**. It failed because the Director already had a

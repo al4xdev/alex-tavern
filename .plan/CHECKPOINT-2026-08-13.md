@@ -13,7 +13,7 @@ sessions), and **do we know why** (a mechanism that survived a test).
 
 | task | symptom | mechanism |
 |---|---|---|
-| **79** blocking has nowhere to live | not a symptom; a **code fact** | ✅ **ESTABLISHED.** The Director writes blocking in **1188 of 1188** director calls, 8% of entries positional (median 6%, range 0-44%). `narrate()` pops the field. Both halves verified in code and in 33 sessions |
+| **79** blocking has nowhere to live | not a symptom; a **code fact** | ✅ **ESTABLISHED, and restated after the owner's correction.** **8.4%** of `character_zones` entries carry positional detail (median 6.8%, sd 7.0pts, range 0.5-25.4%) and `narrate()` discards all of it. **Audited 2026-08-13**: rule stated, 64 entries hand-read, **zero clear false positives**, undercount named and read. The old *"1188 of 1188 calls"* framing is withdrawn as tautological - it is `required[]` being honoured |
 | **69** events re-proposed | ✅ measured: **703 of 5,064** flagged over 33 sessions (13.9%; median 12.5%, sd 5.2pts) — but **43.4% of those are speech**, so 69 owns about half | ✅ **CAPACITY EXCLUDED 2026-08-13.** 17 of 18 genuine re-proposals happen with the original **still in the prompt** — one with `"parede_rompida": "true"` in the facts bag as the wall breaks again. Nothing is forgotten. The mechanism is that settled state does not bind the output |
 | **77** the order nobody executes | ✅ measured: **13 of 33 sessions (39%)**, 23 windows, median 0 | ❌ **UNKNOWN after three falsified attempts** (contract-forbids, variance, beat machinery) |
 | **64** control returns rarely | ✅ measured: never-returned **5/12 → 0/9**; rate ~3% | ~ suspected: contract wording. Untested |

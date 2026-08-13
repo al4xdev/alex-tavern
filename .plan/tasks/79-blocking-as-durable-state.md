@@ -1,14 +1,23 @@
 # Task 79 — Blocking as durable state
 
-> **Status:** open, **DOCS-ONLY** by the owner's instruction. No `Scene` field, no
-> serialization, no contract edit until the shape below is agreed in writing.
-> Task 76's graph and this schema are both frozen.
+> **Status:** open. **Decisions 1 and 2 are APPROVED by the owner (2026-08-13);
+> decision 3 is DEFERRED and decision 4 is REJECTED.** Still no `Scene` field and
+> no serialization until the deferred bump is decided. Task 76's graph stays
+> frozen.
+>
+> **Next action, and it is not code:** find replay payloads where positional
+> `zone_moves` reproduce, from the sessions at the top of the per-session range,
+> then re-register the falsifier with its control *inside* the experiment.
 >
 > **FIRST in wave 2 as of 2026-08-13.** Not because its symptom is the biggest,
-> but because it is **the only task in the phase with an established mechanism**:
-> the Director writes blocking in 1188 of 1188 director calls and `narrate()`
-> pops it. Both halves are verified in code and across 33 sessions. Every other
-> open task rests on a mechanism that is suspected or unknown.
+> but because it is **the only task in the phase with an established mechanism**,
+> which after the owner's 2026-08-13 correction is stated precisely as: **8.4% of
+> `character_zones` entries carry positional detail (audited, 64 entries hand-read,
+> a floor) and `narrate()` discards every one of them.** Every other open task
+> rests on a mechanism that is suspected or unknown.
+>
+> ⚠ **Not** *"the Director writes blocking in 1188 of 1188 calls"* — that is the
+> schema's `required[]` being honoured, and it is tautological. See the audit.
 >
 > The change is also the cheapest available: **stop discarding a field we already
 > receive.**
@@ -85,6 +94,56 @@ happening; it means the instrument cannot see it.** So 31% is a **lower bound,
 not an estimate**, the true rate is unknown, and no string detector over
 model-authored names can find it. Do not build a better regex: that is the same
 trap the prefix rule already fell into.
+
+## ✅ THE OWNER ANSWERED — 2026-08-13
+
+Full text and reasoning in `.plan/para-o-dono/79-blocking-shape.md`. Binding
+summary; the four sections below are kept as the reasoning that produced them.
+
+| decision | answer |
+|---|---|
+| **1 — readers** | ✅ **APPROVED as proposed.** Perception (`can_perceive`, `eligible_witnesses`, `perception_clusters`) **FORBIDDEN**; prose renderer **yes**; Director's prompt **yes**; character prompts **no in v1**. **Plus: the forbidden rule must be a TEST, not a comment** — *"a rule that lives only in prose is a rule the next refactor deletes without noticing"* |
+| **2 — free text or structured** | ✅ **APPROVED.** Free text keyed by character id, alongside `positions` |
+| **3 — the schema bump** | ⏸ **DEFERRED**, and it was downstream of the audit above, not of anything else |
+| **4 — the replacement falsifier** | ❌ **REJECTED as written.** See below; do not register it |
+
+### Decision 3's two corrections, recorded before anyone re-opens it
+
+- **The "additive field with a default" option is not an owner call, it is a
+  revocation.** `AGENTS.md` §2 says it outright: *"New field = new version. No
+  'additive' exception"*, because `.get(field, default)` *"is a migration in
+  disguise and it will survive forever"*. I offered it as a menu item; it is not
+  one. The owner may revoke his own rule, but it must be presented as a
+  revocation.
+- **Half the bump's cost is removable for free.** `material_delta_rate` breaks
+  only because it calls `load_game` (`repetition_metrics.py:718`); line **109** of
+  that same file already reads `state.json` directly. Move the metric onto the
+  `:109` path and a bump costs only the app's ability to reopen the 33 archived
+  sessions in the UI.
+
+### Decision 4 — the REJECTED falsifier, recorded so nobody re-derives it
+
+> ~~*"If persisting `character_zones` and showing it to the prose renderer does
+> not reduce positional `zone_moves` below the archive baseline — 31% pooled,
+> median 22% — the missing field was not the constraint."*~~
+
+**Rejected 2026-08-13, for two reasons that are both right:**
+
+1. **The control was outside the experiment.** It compares a replay against a
+   historical rate collected under different conditions. The replay condition
+   suppresses `zone_moves` on its own — **arm A emitted none in 7 of 8 runs** —
+   so beating the archive baseline would measure the harness, not the field. It
+   is the same trap that made the first pre-registered falsifier fail its clause
+   1.
+2. **There was no demonstration that the behaviour reproduces at all.** With arm A
+   at zero `zone_moves` in 7 of 8 runs there is nothing to reduce, and any result
+   is a property of the replay.
+
+**Re-register only when both hold:** the control is **arm A against arm B in the
+same run on the same payloads**, and payloads are drawn from the sessions at the
+**top** of the per-session range (`b11b38dc` at 23.8%, `4351ed30`, `21f7c4e1`,
+`34390b86`) with the behaviour **shown to reproduce first**. Not from the 0.5%
+sessions.
 
 ## The four things to decide, before any code
 
@@ -192,15 +251,114 @@ Measured over **33 recorded sessions**, unprompted, on the shipped contract:
 | | |
 |---|---|
 | Director calls carrying `character_zones` | **1188 of 1188 = 100%** |
-| entries that are positional, pooled | **1967 of 24,829 = 8%** |
-| per session | median **6%**, mean 8%, sd 9.0pts, range **0-44%**, one session at 0 |
+| entries that are positional, pooled | **2,088 of 24,829 = 8.4%** (audited; see below) |
+| per session | median **6.8%**, mean 9.0%, sd 7.0pts, range **0.5-25.4%** |
 
-**The Director already writes blocking, in every single call, and the engine
-throws it away.** ~1,967 positional phrases discarded across the archive.
+⚠ **The 100% is tautological and must not be quoted as a finding about the
+Director.** Owner, 2026-08-13: `character_zones` sits in the schema's `required[]`
+(`narrator.py:398`) and the prompt orders it — *"REQUIRED spatial draft completed
+BEFORE every other field"*. A structured-output model fills a required field 1188
+of 1188 times **by construction**. The number is true and it says only that the
+provider honours the schema. The earlier phrasing *"answered in the Director's own
+words"* is **withdrawn**: the Director did not volunteer this, it was ordered to.
+
+**The load-bearing number is the 8.4%, and the engine throws all of it away.**
 
 The replay adds one thing on top: asking explicitly raises the positional share
 **4% → 35%** between arms A and B on the same payloads. So the behaviour is
 present unprompted and improves when invited.
+
+### ✅ THE 8% AUDITED — 2026-08-13, on the owner's objection
+
+> *"1,967 of 24,829 is a judgement about model-authored free text. This project
+> has shipped a string heuristic over model-authored text twice and been wrong
+> both times. Write down: the rule, how many phrases you read by hand, and how
+> many false positives you found."*
+
+Fair, and the original number had **no stated rule at all**. One exists now
+(`plans/artifacts/79-positional-audit/classify_positional.py`), it is written in
+the file before the count, and it has a bucket for what it cannot judge:
+
+| bucket | rule | n | share |
+|---|---|---|---|
+| `NAMES_A_ZONE` | the entry **is** a zone the session declares | 17,400 | 70.1% |
+| `EXTENDS_A_ZONE` | a declared zone is its comma-prefix, plus detail | 254 | 1.0% |
+| `PREPOSITIONAL` | contains a spatial preposition phrase | 1,834 | 7.4% |
+| `UNCLASSIFIED` | **none of the above — counted as neither** | 5,341 | 21.5% |
+
+**Positional = 2,088 of 24,829 = 8.4%.** Per session median **6.8%**, sd 7.0pts,
+range 0.5-25.4%.
+
+**Hand-read: 64 entries, in both directions.** 20 `EXTENDS_A_ZONE`, 20
+`PREPOSITIONAL`, 24 newly caught after a bug fix, all systematically sampled.
+
+> **Zero clear false positives. Three marginal**, all of them movement verbs
+> (*"salão principal, recuando para a entrada"*, *"grupo oeste, recuando"*).
+
+That is better than the objection feared, and the reason is worth recording:
+**this rule matches PREPOSITIONS, which are language, not model-authored names.**
+That is a materially different instrument from the two that burned this project —
+`named_exclusions` matching *"a menos de dois metros"* and the prefix rule reading
+a wing as a room — and it is why it survives a read that they did not.
+
+#### The first cut was wrong, and the fix is why 8.4% is not 5.6%
+
+The rule as first written scored **5.6%**. Reading its misses found four
+Portuguese contractions it did not match — **"perto da", "ao lado do", "junto às",
+"sobre sua"** — in a single twenty-line sample. Fixing the article into a suffix
+group instead of a hand-enumerated list moved it to 8.4%.
+
+**That is the fourth detector in this project to fail on morphology rather than on
+meaning**, after `proxim[oa] a` missing an a-grave, `fila` inside *"em fila"*, and
+`named_exclusions`. The correction is recorded in the script.
+
+⚠ **The original 8% was right in magnitude by luck.** With no rule stated, nobody
+could have known whether it was the 5.6% version, the 8.4% version, or something
+else. Being right and being checkable are different properties.
+
+#### The undercount is real, it is READ, and one source of it is this task's own defect
+
+The 8.4% is a **floor**. Three sources of miss, each found by reading, each named:
+
+1. **`NAMES_A_ZONE` — 70.1% of all entries — 2 of 20 read are positional phrases
+   that the Director minted as a zone**, and which the rule therefore scores as
+   *"just naming a place"*:
+
+   ```
+   saída lateral, junto a Garran
+   próximo à saída norte
+   ```
+
+   **This is not a detector bug. It is task 79's defect converting its own
+   evidence into zone names.** Once a position has become a zone, no instrument
+   can tell it from a room, because at that point the engine cannot either. The
+   measurement is biased downward *by the thing it is measuring*.
+
+2. **`UNCLASSIFIED` — 21.5% — about 6 of 20 read clearly positional**, another 6
+   marginal: *"flanco oeste, observando a aranha"*, *"antecâmara, grupo oeste"*,
+   *"marcas de espera, grupo sul"*.
+
+3. **English leakage.** At least 3 of those 20 are in English — *"central floor,
+   mid"*, *"near Marta, at equipment chest"*, *"retreating with short steps, near
+   debris edge"* — while the prompt orders Brazilian Portuguese and the rule is
+   Portuguese-only. A separate small finding worth someone's attention: this field
+   leaks English that no other channel does.
+
+**Honest statement, and it is the same shape this task already reached for
+`zone_moves`: 8.4% is a lower bound, not an estimate.** The hand read says the
+true figure is materially higher; no string rule can pin it; and do not build a
+better regex, because source 1 is not reachable by one.
+
+#### What the audit does NOT change
+
+**The decision.** This task's standing argument is already *"the field is
+warranted even if the true rate is 5%, because the engine cannot distinguish a
+room from a position at all"*. The audit **strengthens that argument rather than
+the rate**: it demonstrates by hand that the instrument cannot distinguish them,
+and shows exactly why — the positional phrases become zones and disappear.
+
+**Status: MEASURED**, with a stated rule, a 64-entry hand read in both directions,
+a per-session spread, and a named, read, unquantified undercount.
 
 ### What this does to the task
 
