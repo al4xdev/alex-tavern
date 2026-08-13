@@ -32,9 +32,10 @@ straight into it. The critic protocol
 (`reference/critic-protocol.md`) makes `backlog/` the default for a new finding
 and promotion to `tasks/` an owner decision.
 
-Permanent conventions: only migrate tasks to `closed/` when closed with confidence;
-commits in English without AI trailers; curl-first method (AGENTS.md §6 — the validated
-variant IS the shipped one).
+The one convention that belongs to this folder and nowhere else: **only migrate a task
+to `closed/` when it is closed with confidence.** Everything else that governs work
+here — commit rules, the curl-first method, what is enforced by a test and what is not
+— lives in `AGENTS.md` §0 and is not restated here, so the two cannot drift apart.
 
 The project's series of scientific papers/articles lives in `docs/cases/` (its own
 index with reading paths).

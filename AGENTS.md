@@ -1,5 +1,14 @@
 # Project guidelines for agents
 
+> **New here? Read `.plan/guides/GUIDE.md` first** — it is the hour before this file:
+> read order, what each `.plan/` folder means, the house method, and the three ways an
+> agent has actually gone wrong in this repository. This file is the contract and it
+> is long; the guide is how to enter it. **Where the two disagree, this file wins.**
+>
+> This is the tool-neutral contract. `CLAUDE.md` is a pointer to it and holds no rules
+> of its own; if your tool loads a different file by default, make that one a pointer
+> too rather than a second copy.
+
 Alex Tavern is a state-driven multi-agent roleplay application. A Narrator governs the physical
 world and routes the scene; Character agents speak and think with restricted context; the Runner
 preserves human agency, persists every session and coordinates calls to LLM providers.
