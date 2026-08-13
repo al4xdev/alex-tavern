@@ -39,9 +39,27 @@ something.
 
 5. **Never match a NAME with a string heuristic.** Zone names, character names,
    place names are model-authored and follow no convention the engine controls.
-   This project shipped this failure **twice** and nearly a third time.
+   **Five false positives are registered here and three are this same failure**,
+   the most recent on 2026-08-13, written by an author who cited the earlier one
+   in the same file. Knowing the rule has not been enough.
+
+   **The operative form, because "never match a name" reads as advice about
+   proper nouns and is too weak:** *any test of the shape "is A part of B" over
+   model-authored place names is measuring a naming convention until you have
+   read the set it separates.* Substring, prefix, suffix and token overlap are
+   one trap, not four. The 2026-08-13 case scored a walk from the hall to the
+   outer courtyard as *"repositioning inside a space they never left"*, because
+   both are named `Academia Real do Primeiro Sino, <somewhere>` — and it made a
+   headline number **2x** too high for three weeks.
+
    *Corollary: when a detector scores 0%, ask whether it cannot see the thing
    before concluding the thing is absent.*
+
+   *Corollary, added 2026-08-13: **prefer a structural signal to a string one.**
+   Before writing the regex, ask what the engine already knows as data —
+   `Scene.positions` maps a character to a zone without parsing anything. A
+   string rule that agrees with a structural one is vindicated; one that
+   disagrees has found its own bug.*
 
 6. **Record measured-and-rejected.** A hypothesis that failed its control goes in
    the file with its numbers, so nobody re-derives it in a month.

@@ -119,12 +119,21 @@ checkpoint. It now carries the reordered table.
 
 ## Standing numbers, with spreads
 
+⚠ **Both spatial rows were corrected on 2026-08-13 and the old values are gone
+from this table on purpose.** `zone_moves` was **31% / median 22%** and was
+inflated about 2x by a substring test that matched at building level;
+`character_zones` was **8% / median 6% / sd 9.0 / range 0-44%** and was produced
+by a rule that had never been stated. Both corrections, with what was read to
+confirm them, are in `.plan/tasks/79-blocking-as-durable-state.md` and
+`.plan/reference/metric-validity.md`. **A table of standing numbers is the one
+place a stale figure gets quoted from**, so it carries no superseded row.
+
 | number | pooled | per session |
 |---|---|---|
 | cross-cluster narration leak (task 71) | 16/29 → 3/78 | 55%, 22% before; 0%, 9%, 0%, 0% after |
 | split rate | 27.8% post-67 | **sd 17.9pts**, range 28.6-67.3 — untrustworthy at n≤4 |
-| intra-room `zone_moves` (lower bound) | 31% | median 22%, sd 31.5pts, range 0-95% |
-| positional entries in `character_zones` | 8% | median 6%, sd 9.0pts, range 0-44% |
+| intra-room `zone_moves` (lower bound) | **16.7%** (101/606) | median **5.6%**, sd 22.0pts, range 0-79.3%, **12 of 27 sessions at zero** |
+| positional entries in `character_zones` (lower bound) | **8.4%** (2,088/24,829) | median **6.8%**, sd 7.0pts, range 0.5-25.4% |
 | beat exit conditions phrased as a position | 13% | median 16%, sd 10.3pts, range 0-36% |
 | restate-and-freeze windows | 23 total | **13/33 sessions**, median 0, max 5 |
 | frozen adjacent turn pairs | 90.8% | P3 active player: 95.2%, p = 0.70 |
