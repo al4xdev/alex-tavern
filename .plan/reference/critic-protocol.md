@@ -163,8 +163,7 @@ Carry the old status forward — *"measured, then demoted on <date> because
 
 ## Metric culture — what a critic enforces
 
-**The nine rules live in `.plan/reference/metric-validity.md`, and that is the only
-copy.** They are not review rules; they govern all measurement here, and they moved
+**The nine rules live in `.plan/guides/MEASURING.md`, and that is the only copy.** They are not review rules; they govern all measurement here, and they moved
 there on 2026-08-13 so this page and the guide cannot drift from them.
 
 A critic enforces them without needing to have read them all. The three that decide
@@ -180,7 +179,7 @@ cannot be judged without knowing whether that number is trusted.
 
 ## Where a metric may come from
 
-The three legitimate sources are listed once, in `metric-validity.md`. A critic may
+The three legitimate sources are listed once, in `.plan/guides/MEASURING.md`. A critic may
 propose any of them, and the third is the one worth naming here: **the critic's own
 judgement, stated as a metric** — *"I read six of these and could not tell them
 apart"* is a measurement, and often the best available. Report it as what it is (n,

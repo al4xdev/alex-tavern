@@ -14,9 +14,10 @@ to the project, it belongs in your own global configuration.
 1. **`AGENTS.md` §0** — the hard rules, and which of them a failing test will catch
    for you. The five marked ⚠ *prose only* are the ones this project has actually
    broken; nothing will stop you breaking them again.
-2. **`.plan/guides/GUIDE.md`** — the hour before `AGENTS.md`: read order, what each
-   `.plan/` folder means, the house method, and the three ways an agent has gone
-   wrong here. Read it in full if this is your first session in this repository.
+2. **`.plan/guides/`** — read once, end to end. `GUIDE.md` is the hour before
+   `AGENTS.md`: read order, what each `.plan/` folder means, the house method, and
+   the three ways an agent has gone wrong here. `MEASURING.md` is the nine rules
+   that govern every number produced in this repository.
 3. **`AGENTS.md`** in full, once, before your first change.
 
 Then `.plan/ROADMAP.md` for the current phase and `.plan/tasks/` for what is active.

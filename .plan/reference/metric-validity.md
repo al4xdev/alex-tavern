@@ -1,5 +1,9 @@
 # Which metrics this project trusts, and why — 2026-08-06
 
+**The register. Look up the instrument you are holding; do not read this end to
+end.** The rules it applies are one page, read once, in
+[`.plan/guides/MEASURING.md`](../guides/MEASURING.md).
+
 One page, because the same failure keeps recurring in different clothes: **a
 metric passes review, ranks sessions, and then a read of the actual text says it
 measured the wrong thing.** It happened three times on 2026-08-06 alone, to three
@@ -11,74 +15,7 @@ Standing rule this page exists to enforce:
 > flagged and the records it cleared.** A clean band, a clean count and a clean
 > rate are all reproducible under a broken ruler.
 
----
 
-## The nine rules
-
-**This is the only copy.** `AGENTS.md` §0, `.plan/guides/GUIDE.md` and
-`.plan/reference/critic-protocol.md` all point here rather than restate these, so
-they cannot drift apart. Moved here 2026-08-13 from the critic protocol, where they
-were misfiled — they govern all measurement in this project, not only review.
-
-These are not style preferences. Each one is here because it was violated and cost
-something.
-
-1. **The session is the unit.** Count per session, compare sessions. Pooling turns
-   treats one Director decision — sealing a pulpit — as seven independent
-   observations, and inflates effective n by roughly an order of magnitude.
-   *Cost: nearly every p-value in this project, withdrawn on 2026-08-12.*
-
-2. **Every headline number carries its per-session spread.** Pooled figure plus
-   median, sd and range. A pooled 34% over a median of 15% means a handful of
-   sessions carried the claim.
-   *Cost: "a third of all movement in this engine", which was never true of a
-   typical session.*
-
-3. **A new metric is not believed until it has a control.** "Restated orders sit on
-   frozen scenes 36 of 39 times" is damning until you learn adjacent turn pairs are
-   frozen 184 of 213 anyway. **Fisher p = 0.43.**
-   *Cost: nothing, because the control was run. That is the point.*
-
-4. **Pre-register the decision rule before firing.** What result would change your
-   mind, written down before the data exists. A gate invented after the numbers
-   arrive is not a gate.
-
-5. **Never match a NAME with a string heuristic.** Zone names, character names,
-   place names are model-authored and follow no convention the engine controls.
-   This project shipped this failure **twice** and nearly a third time.
-   *Corollary: when a detector scores 0%, ask whether it cannot see the thing
-   before concluding the thing is absent.*
-
-6. **Record measured-and-rejected.** A hypothesis that failed its control goes in
-   the file with its numbers, so nobody re-derives it in a month.
-
-7. **Lexical distance measures whether the words changed. Nothing measures whether
-   anything happened.** Any similarity-based guard needs a read before it is
-   trusted.
-
-8. **A metric that has never announced its own error gets REPORT, DO NOT GATE.**
-   `clamp_lost_half_unsealed` needed three repairs in one day; every one was found
-   by reading a flagged case, never by the number looking wrong.
-
-9. **A negative result is a result.** An arm that fails its own pre-registered gate
-   is not adopted, however good it looked directionally.
-
-### Where a number may come from
-
-Three sources, in order of preference:
-
-1. **An existing metric from this page** — it says which are trusted, which were
-   downgraded, and which were measured and rejected.
-2. **A new metric**, which then owes: a control, a per-session spread, a
-   pre-registered rule, and an entry here.
-3. **A reader's judgement, stated as a metric.** Legitimate and often the best
-   available. *"I read six of these and could not tell them apart"* is a
-   measurement. Report it as what it is — n, method, and the reader's own
-   uncertainty — never laundered into a percentage.
-
-Option 3 exists because of the 0.02 case. When the instruments say the paragraphs
-are unrelated and a reader says *"this is the same paragraph again"*, the reader
-wins and the number is what gets an entry below.
 
 ## The register
 

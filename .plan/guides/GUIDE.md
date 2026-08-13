@@ -3,7 +3,7 @@
 **Written 2026-08-13, for the model that inherits this repository next month.**
 Not vendor-specific. If you are a human, this works for you too.
 
-`AGENTS.md` is the contract and it is 550 lines. This page is the hour before it.
+`AGENTS.md` is the contract and it is ~550 lines. This page is the hour before it.
 
 ---
 
@@ -18,25 +18,30 @@ when the machine repeats itself or when the machinery becomes visible.
 ## The first hour, in order
 
 1. **`AGENTS.md` §0** — the hard rules and which ones a test will catch. Ten minutes.
-2. **`.plan/ROADMAP.md`** — the current phase, the waves, and the order. It is an
+2. **[`MEASURING.md`](./MEASURING.md)**, next to this file — the nine rules, and what
+   each cost when it was broken. **Second on purpose:** you will produce a number on
+   your first day, and the ruler has to arrive before you need it, not after.
+3. **`.plan/ROADMAP.md`** — the current phase, the waves, and the order. It is an
    index and an ordering argument, not a container.
-3. **`.plan/CHECKPOINT-2026-08-13.md`** — where the phase actually stands.
-4. **`.plan/reference/metric-validity.md`** — which instruments are trusted, which
-   were downgraded, and which were measured and rejected. **Read this before you
-   quote any number.**
+4. **`.plan/CHECKPOINT-2026-08-13.md`** — where the phase actually stands.
 5. **`.plan/reference/critic-protocol.md`** — how this project decides a sentence
    was worth writing.
 6. Then `AGENTS.md` in full, once, before your first change.
+
+`.plan/reference/metric-validity.md` is **not** on this list. It is the register: you
+look an instrument up in it the moment you are about to quote that instrument, and
+you never read it end to end.
 
 ## What the folders mean
 
 | folder | meaning | how to read it |
 |---|---|---|
+| `.plan/guides/` | how work is done here | **read once, end to end** |
 | `.plan/tasks/` | has a **next action** | instructions |
 | `.plan/backlog/` | real, no next action | ideas |
 | `.plan/closed/` | done | **history, not instruction** |
 | `.plan/para-o-dono/` | waiting on the owner | do not act; ask |
-| `.plan/reference/` | living architecture docs | instructions |
+| `.plan/reference/` | living architecture docs + the metric register | **consulted**, by looking up a name |
 | `docs/cases/` | the numbered article series | **history**, and the reasoning behind decisions |
 | `benchmarks/` | archived batteries + the metric glossary (§7) | evidence |
 
@@ -57,11 +62,11 @@ wrong. Five instruments in the same block reported a clean number and were wrong
 So the order is: **read the thing, form a claim, then find the number that could
 prove you wrong.** Not the reverse.
 
-The rules that carry that are the **nine in
-`.plan/reference/metric-validity.md`** — one copy, so this page cannot drift from
-it. Read them there before you quote any number; each one carries what it cost when
-it was broken. The one this guide adds, because it is about method rather than
-measurement:
+The rules that carry that are the **nine in [`MEASURING.md`](./MEASURING.md)**, next
+to this file — one copy, so this page cannot drift from it. Read them before you
+quote any number; each one carries what it cost when it was broken.
+
+The one rule this guide adds, because it is method rather than measurement:
 
 > **`curl` before you believe.** Any claim about LLM behaviour is a hypothesis until
 > a replay on a real payload confirms it — 3-4 runs, counting the rate, decision rule
@@ -76,8 +81,8 @@ measurement:
   §2). Complexity and a worse answer are what is expensive.
 - **Say "undiagnosed".** A measured symptom with an unknown cause is an honest and
   useful state. A confident mechanism where only a symptom was measured is the
-  single most damaging thing you can put in this record. (Rules 6 and 9 on the
-  validity page are the same idea applied to a number: a negative result gets
+  single most damaging thing you can put in this record. (Rules 6 and 9 in
+  `MEASURING.md` are the same idea applied to a number: a negative result gets
   written down with its numbers, not quietly dropped.)
 - **Do not commit or push without being asked**, and never write an AI authorship
   trailer (`.claude/skills/git-commit/SKILL.md`).
@@ -101,7 +106,7 @@ evidence.
   good place to spend that: the failure mode it punishes hardest is an agent that
   iterates on a symptom without ever isolating the call.
 - **A 1M context window is not permission to read everything.** `.plan/closed/` is
-  76 files and `docs/cases/` is 24; loading them as instruction is how you end up
+  around 80 files and `docs/cases/` is 24; loading them as instruction is how you end up
   reimplementing something that shipped. Read what `tasks/` points you at.
 - If Gemini is ever added as a **provider** to the engine itself (not as the coding
   agent), note that Gemini 3.x rejects `temperature`, `top_p`, `top_k` and
@@ -110,7 +115,7 @@ evidence.
 
 ## The three ways an agent has actually gone wrong here
 
-The incidents behind rules 1, 2, 5 and 7 on the validity page — kept as stories
+The incidents behind rules 1, 2, 5 and 7 in `MEASURING.md` — kept as stories
 because a rule is easy to nod at and an incident is not. Not hypotheticals. All
 three happened, and all three were expensive.
 
