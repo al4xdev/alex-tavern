@@ -644,3 +644,29 @@ The owner's worry — *"building the same thing twice"* — does not materialise
 not duplicate. **If 69's storage decision changes `physical_facts`, 79 should
 inherit that model**, which is the dependency that is real and is already
 recorded in both files.
+
+## 22. §16 CLOSED — owner-attributed, probable, not established
+
+Owner's lead: content left staged, and something restored the tree from the index
+or a stash rather than from HEAD. Timeboxed to one pass as instructed.
+
+**Stash: ruled out.** The newest stash in this repo is **2026-08-02**, ten days
+before the event, and **none of the four stashes contains a single `.plan`
+file**. A stash pop cannot have produced this revert.
+
+**Index: cannot be tested, and the mechanism is hard to reconcile.** `.git/index`
+has been rewritten by every commit since, so its mtime says nothing now. More
+substantively: `git commit` syncs the index to the new commit, and I committed
+those four files *inside* the 21:14-21:16 window, so the index held the NEW
+content immediately afterwards. A restore-from-index would have produced the
+new state, not the old one.
+
+**Recorded as the owner states it: probable, owner-attributed, not established.**
+The supporting precedent is real — `stash@{0}` is literally labelled *"popped by
+accident 2026-08-02"*, so index/stash confusion has happened in this repo before.
+What is established remains only the shape: exactly the files touched in a 2m36s
+window reverted to precisely their pre-window state, no git operation appears in
+the reflog, and no sync daemon or shared mount exists.
+
+**Not recurred.** Standing instruction if it does: stop and write it down.
+

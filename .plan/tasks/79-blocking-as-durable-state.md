@@ -59,9 +59,23 @@ it does not repeat its origin's name.
 movement is somebody repositioning inside a space they never left, and no
 name-based instrument can pin it more tightly than that.**
 
-That last clause is not a footnote. **If a parser cannot tell a room from a
-position by its name, neither can the engine** — which is the argument for the
-field, independent of the rate.
+### The standing argument for this task
+
+> **If a parser cannot tell a room from a position by its name, neither can the
+> engine.**
+
+Adopted 2026-08-13 as this task's justification, replacing the rate. It is the
+stronger claim: **the field is warranted even if the true rate is 5%**, because
+the engine cannot distinguish the two cases at all, and a field that exists does
+not care which naming convention the Director picked that session.
+
+`34390b86` settles it. It scores **0%** on every detector while writing
+*"posicionando-se entre a aranha e os alunos"* — the purest blocking in the
+corpus, invisible to the instrument. **A 0% score does not mean it is not
+happening; it means the instrument cannot see it.** So 31% is a **lower bound,
+not an estimate**, the true rate is unknown, and no string detector over
+model-authored names can find it. Do not build a better regex: that is the same
+trap the prefix rule already fell into.
 
 ## The four things to decide, before any code
 
