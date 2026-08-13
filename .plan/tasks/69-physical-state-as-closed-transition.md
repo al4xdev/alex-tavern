@@ -244,6 +244,82 @@ small to manufacture +8 points, the right size to inflate it.
 context growth, accumulated history, prompt length — and that is the one genuinely
 new thing this test produced.
 
+## The capacity test, take two — pre-registered 2026-08-13, BEFORE any result
+
+Written before the measurement runs, and the design is deliberately **not** a
+rate comparison, because the archive cannot power one.
+
+**Why not the design the section above names.** *"Compare saturated against
+non-saturated sessions at the same turn index"* is the right idea and the corpus
+will not carry it. Counted first, over the **33 distinct** sessions (the archive
+holds 49 `state.json` files because the same sessions sit in two trees; anything
+counted over paths double-counts):
+
+| | |
+|---|---|
+| sessions that reach the 40-key cap | **15** |
+| sessions that never do | 18, of which **16** are long enough to use |
+| where saturation falls | median **69%** through the session, range 0.45-0.95 |
+| peak facts, never-saturated sessions | 9 to 36 — a genuinely different population, not a near-miss |
+
+A sign test on 15 pairs needs about 12 of 15 to clear p<0.05 at this effect size.
+**That is the same wall the first test hit**, and running it again to get another
+inconclusive number would be re-deriving a known failure.
+
+### The test that does not need a p-value
+
+The capacity story makes a **mechanical** claim, not a statistical one:
+
+> the engine forgets a resolved event, so the Director re-proposes it.
+
+**Every Director prompt in this archive is recorded in `debug.jsonl`.** So the
+claim can be checked directly instead of inferred: at the moment the Director
+re-proposed an event, **was the original event still in front of it?**
+
+- **Still visible** — in `physical_facts`, in the transcript, anywhere in the
+  message — then nothing was forgotten and capacity cannot be the mechanism.
+- **No longer visible** — evicted or scrolled out — then the capacity story is
+  live and a bigger or smarter store is aimed at the right thing.
+
+The task file already contains **one** case of the first kind: at T34 of
+`base-P1-r2` the prompt carried `"câmara_oculta": "teto desabou, buraco aberto"`
+and the Director staged the ceiling falling anyway. This test asks whether that
+case is the rule or the exception.
+
+### Decision rule
+
+**Population.** Director `perception_events` flagged by the recurrence detector
+(`sim >= 0.6` against an event from the previous 3 turns) across the 33 distinct
+sessions.
+
+**Sample.** 20 flagged pairs drawn **systematically** (every k-th of the ordered
+list), so the sample is not chosen by me. Every one is read.
+
+**Each pair is classified twice**, and the first classification comes first:
+
+1. **Is it a genuine re-proposal?** The detector is REPORT-DO-NOT-GATE and has a
+   read false-positive rate of about 1 in 5 (`metric-validity.md`). Opposite
+   events sharing vocabulary, and escalations, are **not** re-proposals and are
+   excluded from the denominator.
+2. **Was the original still visible in the re-proposing prompt?** Yes / no, by
+   reading the recorded request.
+
+**The rule, both directions stated before the data exists:**
+
+| result over genuine re-proposals | conclusion |
+|---|---|
+| **≥ 70% still visible** | **capacity is NOT the mechanism.** The Director re-proposes events it can still see. A bigger or better-remembered store cannot fix it, and 69's argument must rest entirely on **constraining the output**, not on memory. The eviction bullet in "Also in scope" gets demoted to hygiene |
+| **≥ 70% no longer visible** | **capacity is live.** Forgetting precedes re-proposal, the storage decision is aimed correctly, and eviction is the first thing to instrument |
+| anything between | **inconclusive, and reported as inconclusive.** No third story invented afterwards to explain the split |
+
+**What would falsify the test itself:** if fewer than 10 of the 20 sampled pairs
+survive classification 1, the detector is too noisy to carry this and the sample
+is enlarged rather than the finding being reported on n<10.
+
+⚠ **This tests the capacity sub-story only.** Whatever it returns, the verbatim
+triples at the top of this file are still there — the ceiling still falls three
+times. This decides *why*, not *whether*.
+
 ## Inherited from task 76's falsifier — a missing spatial field
 
 Measured 2026-08-13 over 33 sessions: **136 of 403 `zone_moves` (34%) send a
