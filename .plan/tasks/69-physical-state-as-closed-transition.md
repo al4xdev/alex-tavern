@@ -7,6 +7,20 @@
 > eviction, and `09aabf25` sits at exactly 40 of 40. Whether saturation CAUSES
 > the re-proposal is untested and should be tested before anything is designed.
 >
+> ⚠ **2026-08-13, after a critic review: BOTH halves of the line above are weaker
+> than written.**
+>
+> **The symptom number is demoted, MEASURED → OBSERVED.** The 9.8% comes from an
+> `sim >= 0.6` recurrence detector that was unregistered and had never been read.
+> Reading five flagged pairs: two genuine restatements, one clear false positive
+> (*"o clarão verde continua pulsando"* against *"o clarão verde cessa de
+> repente"* — opposite events, shared vocabulary), two progressions. See
+> `.plan/reference/metric-validity.md`. **The defect is still real** — the
+> verbatim triples in this file were read, not scored — but the rate is not.
+>
+> **The capacity mechanism is UNTESTED, not excluded.** See the
+> measured-and-rejected section below.
+>
 > Originally: **Wave 2, first.** This is the residual restaging — what is
 > left after the previous phase closed every *code loop* that fed the Director
 > the same input twelve times.
@@ -182,6 +196,53 @@ nobody moves). Task 72 is the durable structure that would hold either.
 
 They are deliberately **not merged**: 77 has evidence and 72 has a design, and
 merging them would cost the evidence its own name and make 72 unfalsifiable.
+
+## Measured and rejected — the saturation test, 2026-08-13
+
+Recorded so nobody re-derives it.
+
+**Hypothesis (pre-registered):** `physical_facts` is capped at 40 keys and
+evicts, so if the engine forgets a resolved event the Director re-proposes it.
+Test: within a session, re-proposal rate AFTER the store first hits 40 should
+exceed the rate BEFORE. Paired, session as the unit.
+
+**Result:** 15 sessions, median change **+4.5 points**, up in 10 of 15,
+sign test **p = 0.302**.
+
+**Control** (identical design, splitting at each session's MIDPOINT instead):
+31 sessions, median **+8.3 points**, up in 25 of 31, **p = 0.001**.
+
+**Why this does NOT show capacity is irrelevant**, which is how I first wrote it:
+
+- The two arms are different populations. The 15 are selected for having ≥10
+  events either side of saturation, i.e. long, event-dense sessions.
+- Saturation falls at a **median 68% through a session** (range 44-94%), so the
+  saturation split IS a position split, just a later one. On a monotonic rise, a
+  later split leaves more of the rise inside the "before" arm and yields a
+  *smaller* gap. **+4.5 against +8.3 is exactly what position alone predicts.**
+- At the observed effect size a sign test on n=15 needs about 12/15 to reach
+  p<0.05. **This design could not have confirmed its own hypothesis.**
+
+**Correct status: capacity is UNTESTED.** The decisive design was not run:
+compare saturated against non-saturated sessions **at the same turn index**.
+Until that exists, do not build a storage fix on the capacity story and do not
+cite this as ruling it out.
+
+**What did survive**, and it reframes the search: re-proposal is **higher in the
+second half of a session**, median +8.3 points, 25 of 31 sessions, p = 0.001,
+session as the unit. Checked against the obvious artifact — a 3-turn lookback
+cannot fire on turn 1, so the first half is structurally depressed — by dropping
+the first three turns of every session: **+7.9 points, still 25 of 31, p =
+0.001.** Not an edge effect.
+
+⚠ Still **OBSERVED, not MEASURED**: it rests on the same unread detector, and
+baseline similarity between unrelated events (≥10 turns apart, so they cannot be
+repeats) drifts **+0.013** upward across the halves in 14 of 19 sessions. Too
+small to manufacture +8 points, the right size to inflate it.
+
+**So the mechanism to look for is position-shaped, not capacity-shaped** —
+context growth, accumulated history, prompt length — and that is the one genuinely
+new thing this test produced.
 
 ## Inherited from task 76's falsifier — a missing spatial field
 

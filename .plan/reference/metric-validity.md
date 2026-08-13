@@ -21,6 +21,7 @@ Standing rule this page exists to enforce:
 | `clamp_lost_half` (task 67) | **superseded** | replaces emptiness-only counting, but measures Director-vs-engine disagreement, not graph damage. Use `clamp_lost_half_unsealed` |
 | `clamp_lost_half_unsealed` (task 67) | **REPORT, DO NOT GATE** | needed three repairs in one day, each found by reading a flagged case and never by the number looking wrong. Reads 5 / 0,0,0,0 / 0,4,0,0 / 2,0,0 across twelve cells |
 | `named_exclusions` (task 70) | **fixed same day** | shipped with a false positive; see below |
+| event-recurrence detector, `sim >= 0.6` (task 69) | **REPORT, DO NOT GATE** | unregistered until 2026-08-13 and never read. Read 5 flagged pairs: 2 genuine restatements, 1 clear false positive, 2 progressions. Every number in task 69 is downstream of it |
 | `scene_clusters` / `scan_scene_splits` (task 71) | **trusted** | validated by reproducing all six of task 71's archived figures to every digit |
 | `scan_cross_cluster_leak` (task 71) | **trusted, corrected twice** | scored per reader cluster, strict name matching, prose separated from speech reports on a measured empty band |
 | `_strip_offstage_actors` (task 71) | **trusted, second version** | 3 fires, 0 false positives over 42 live narrations; the first version had 3 of each |
@@ -201,6 +202,45 @@ have and exactly the one `SequenceMatcher` cannot see.
 whether the WORDS changed. Nothing on this page measures whether anything
 HAPPENED. When those two come apart, the reader tracks the second one, and every
 instrument here tracks the first.
+
+## The recurrence detector that carried a whole task, unread
+
+Task 69's headline symptom - the Director re-proposing events it already
+resolved - was **9.8% of events, 97 of 987**, produced by `sim(a,b) >= 0.6` over
+events within three turns. The threshold had **no derivation, no empty band, no
+false-positive population and no entry on this page**, and nobody had read its
+hits until 2026-08-13.
+
+Read, five flagged pairs from `55d03896`:
+
+| sim | verdict on reading |
+|---|---|
+| 0.80 | ✅ genuine: *"A mesa central desaba parcialmente na fenda, revelando um duto"* twice |
+| 0.70 | ✅ genuine: the same rune re-applied, restated |
+| 0.68 | ~ the second EXTENDS the first (adds a screech) |
+| 0.66 | ~ a progression: the rune is *started*, then *completed* |
+| **0.62** | ❌ **false positive**: *"O clarão verde **continua** pulsando"* against *"O clarão verde **cessa de repente**"* - opposite events sharing vocabulary |
+
+And the 0.4-0.6 band it clears contains at least one plausible repeat (a creature
+crossing a wall, described twice at 0.41).
+
+**So the 9.8% is not a rate.** It is the output of an instrument with roughly
+half precision on a read of five, in the band where this project has already been
+burned twice. Task 69's symptom is **OBSERVED, not MEASURED**, until someone
+reads a proper sample.
+
+**One thing that partly survives**: a biased instrument applied to both halves of
+the same session can still detect a *difference*, provided the bias is constant.
+It is not quite constant - baseline similarity between unrelated events (>=10
+turns apart, so they cannot be repeats) drifts **+0.013** upward from first half
+to second, rising in 14 of 19 sessions. That is small against the 0.29-to-0.60
+gap, so it cannot manufacture the whole effect, but it is the right size to
+inflate it.
+
+**Transferable:** an instrument nobody has read is not a weaker instrument, it is
+an unknown one, and a task can be built on it for weeks. This one was found by a
+critic that had never seen the code, asking why a similarity score was standing
+in for whether anything happened.
 
 ## Matching a NAME: the failure that keeps recurring
 
