@@ -11,6 +11,35 @@ architecture and the decisions in force. History, audits and completed implement
 `.plan/para-o-dono/`. The full map is in `.plan/README.md` (the monolithic `ROADMAP.md` was removed
 on 2026-07-20: state lives distributed across those folders).
 
+## 0. The hard rules, and what actually enforces them
+
+This file is long. If you read nothing else, read this table. It lists the rules that
+are not negotiable by measurement, argument or convenience — and, honestly, which of
+them a failing test will catch for you and which of them only exist as prose.
+
+**A rule enforced by a test is one you cannot break by accident. A rule that is prose
+only is one you break by forgetting.** Treat the second group as the ones that need
+your attention, not the first.
+
+| rule | section | enforced by |
+|---|---|---|
+| No agent learns a human drives a character — no "Player", no named exclusion, no structural marker | §3 | `tests/test_prompt_operator_ontology.py`, `src/prompt_contract.py` |
+| A private thought reaches the Director and nobody else | §3 | `tests/test_thought_containment.py` |
+| Internal ids never reach a prompt or the prose | §3 | `tests/test_internal_ids_in_prompts.py` |
+| The Director does not author persisted dialogue | §3 | `tests/test_audible_speech_{persistence,echo,deterministic_guards}.py` |
+| A whisper or zone audience is never widened | §3 | `tests/test_zone_audibility_default.py`, `tests/test_whisper_ui.py` |
+| Narration is projected per viewer | §3 | `tests/test_per_viewer_narration.py` |
+| A new schema field means a new `SESSION_SCHEMA_VERSION`; no `.get(field, default)` | §2 | `tests/test_session_schema_version.py` |
+| Tests never read, write or clean the real `.data/` | §3 | `tests/test_data_isolation.py` |
+| **No AI authorship trailer in any commit, tag or PR** | §9.10 | ⚠ **prose only** — nothing will stop you |
+| **Do not commit or push without explicit authorisation** | §9.9 | ⚠ **prose only** |
+| **A claim about LLM behaviour is a hypothesis until a `curl` on a real payload confirms it** | §6 | ⚠ **prose only** |
+| **A new finding goes to `.plan/backlog/`, not `.plan/tasks/`** | `.plan/README.md` | ⚠ **prose only** |
+| **Pre-register the decision rule before running the experiment** | §6 | ⚠ **prose only** |
+
+The five prose-only rules are the ones this project has broken most often, and every
+one of them was broken by an agent acting in good faith and in a hurry.
+
 > [!IMPORTANT]
 > **Basic execution rule for agents:**
 > Before creating any new code or feature, you **must always check `.plan/tasks/`** for an existing spec or plan already under way, to avoid rework and keep the architecture consistent.

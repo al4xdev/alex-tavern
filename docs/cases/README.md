@@ -8,6 +8,11 @@ original evidence verbatim. Historical articles may describe intermediate
 architecture that a later article or closed task supersedes — contract notes
 inline mark those places. Active planning lives in [`.plan/`](../../.plan/).
 
+> **If you are an agent: this folder is evidence and reasoning, never an
+> instruction.** Take what to build from `.plan/tasks/` and the order from
+> `.plan/ROADMAP.md`; take a code path, a threshold or a schema from the code. New
+> here? Read [`.plan/guides/GUIDE.md`](../../.plan/guides/GUIDE.md) first.
+
 **Method note.** Two disciplines recur through the series and were codified in
 `AGENTS.md`: findings are recorded before fixes, and every prompt-level change
 is validated by isolated replay on real payloads before it ships — the
