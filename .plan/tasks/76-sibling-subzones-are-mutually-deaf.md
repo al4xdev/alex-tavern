@@ -356,9 +356,12 @@ a prompt bug. **It is a missing field.**
    removes its justification: the mass is in naming, not in the graph.
 2. **Do not ship a contract clause alone either.** It has nowhere to send the
    Director instead.
-3. **This belongs to task 69**, which already owns the durable-state storage
-   decision. A position-within-zone field is exactly that decision, and 69 is
-   the task that gets to make it. Cross-referenced there.
+3. **This is now task 79 — blocking as durable state**, split out of 69 by the
+   owner because it is a schema change with its own migration and closure
+   evidence. 69 keeps durable state generally. **79 also corrects the 34%
+   quoted below**: with the per-session spread and a second naming style
+   counted, the honest figure is a union of **31% pooled, median 22%, range
+   0-95%**, and no name-based instrument can pin it tighter.
 4. The shipped prefix rule **stays** - it is correct where it fires, it fired 3
    times in 4 live sessions, and it is not the thing standing between this
    engine and the defect.

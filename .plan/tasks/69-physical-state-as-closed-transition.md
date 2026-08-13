@@ -190,6 +190,9 @@ becomes an acoustic wall.
 
 Task 76 stops short here deliberately: the fix is neither its graph rule nor a
 contract clause, because the contract has nowhere to redirect the Director to.
-**This is a storage decision, and 69 owns storage.** Whatever 69 builds should
-answer: where does "by the door, three paces from Marta" live, such that it
-survives the turn and does not sever anyone's hearing?
+
+**Split out as task 79 by the owner, on size rather than ownership.** It is a
+schema change with its own migration, contract work and closure evidence, and
+inside this file it would read as one bullet and lose them. **69 keeps the
+durable-state storage decision generally; 79 answers the blocking question**, and
+whatever 79 chooses has to fit the model 69 picks.

@@ -138,3 +138,123 @@ exactly as you did.
 
 Keep reading transcripts. Four of the five real findings last night came from
 reading and none came from a counter noticing its own error.
+
+---
+---
+
+# Round 2 — answers to decisions 14, 15 and 16
+
+Checked your work against the code before writing this, not against your
+summary. The load-bearing claim verifies:
+
+- `src/models.py:81` — `Scene` carries `location`, `time_of_day`,
+  `present_characters`, `physical_facts`, `zones`, `positions`. Nothing else.
+- `src/agents/narrator.py:849` — `result.pop("scene_blocking", None)`, under a
+  comment on 847 that says *"Scratch field only"*.
+
+So "there is nowhere to put blocking except by minting a zone, and a zone is the
+unit of audibility" is a property of the data model, not an interpretation.
+1115 tests collect, the p-value sweep is clean (what remains in `.plan/` is
+strikethroughs, retraction notes, and the page explaining the error), the stale
+copies are in `/tmp/alex-tavern-worktree-conflict/`, and
+`wait_for_battery.sh` exists and watches the parent.
+
+**§5 was worth the delay.** The doctrine argument would have shipped rule 1 and
+widened audibility across the engine to fix a symptom of a missing field. The
+falsifier flipped the answer. Keep spending measurements on that kind of
+question.
+
+**Decision 14 is the best finding of the night, ahead of 76 and ahead of 77.**
+Collapsing task 54's finding 1, task 76, and the prefix rule's two false
+positives into one structural cause is the kind of consolidation that saves
+months. Note what you did NOT do with it: no rule 1, graph still frozen, prefix
+rule untouched. That restraint with a big finding in hand is the right instinct.
+
+Three things to action, then keep going.
+
+## A. The 34% is a pooled proportion — give me the per-session spread
+
+`136 of 403 zone_moves over 33 sessions` pools turns across sessions, which is
+the exact error decision 13 is about. It is much milder here, because this is a
+**descriptive** proportion and not a hypothesis test, and 34% is not going to
+collapse into nothing. But the rule you wrote three hours earlier applies to
+your own headline number too.
+
+**Report it as: 34% pooled, and the per-session distribution.** It matters for
+design, not just for hygiene: if intra-room `zone_moves` are 5% in half the
+sessions and 60% in the other half, then the behaviour is driven by something
+situational — a scene shape, a location type, one Director mood — and the new
+field has to serve that variation. If it sits near 34% in most sessions, it is
+uniform contract pressure and the field can be simpler.
+
+Same treatment for any number that becomes a headline from here: pooled figure
+plus per-session range, every time, even when there is no p-value attached.
+
+## B. Open task 79 for the missing field. Do not leave it inside 69.
+
+You handed the storage question to task 69, and 69 does own durable state, so
+the reasoning is sound. I am overruling it on size rather than on ownership.
+
+What decision 14 actually asks for is a **schema change**: a new field on
+`Scene`, its serialization, migration for sessions already on disk, the
+Director's contract taught to populate it, and every perception path taught that
+this field is NOT an audibility boundary. That is not an item inside another
+task; it is the task. Inside 69 it will be read as one bullet among several and
+lose its own closure evidence.
+
+**Open task 79 — blocking as durable state**, and give it the question you
+already wrote, verbatim:
+
+> where does *"by the door, three paces from Marta"* live, such that it survives
+> the turn and does not sever anyone's hearing?
+
+Cross-link 69 (owns durable state generally), 76 (its false positives are this),
+and 54 (its finding 1 is this). Leave 69 owning what it already owns.
+
+Same discipline as 77: **do not design the field before the shape is decided in
+writing.** At minimum the file should record, before any code:
+
+- what reads it, and what must be forbidden from reading it (perception, first);
+- whether it is free text or structured, and what the Director's contract asks
+  for;
+- what happens to sessions already saved, since 33 of them exist;
+- what the falsifier is — the measurement that would say this field is not the
+  fix after all.
+
+**Task 79 is docs-only until I have read that file.** The graph and the schema
+both stay frozen; the prefix rule stays shipped.
+
+## C. P3's accents — noted, no action
+
+You flagged that the two sessions already run used unaccented text, so a rerun
+is not byte-identical. Correct call to flag it and correct call to change it
+anyway. The difference is far below the session-to-session noise you measured
+(sd 17.9 on the split rate), so it changes nothing — I just do not want it
+turning up as a surprise when P3 is re-run after 77.
+
+## Housekeeping
+
+- `07ced08` committed `ANSWERS-NIGHT-2026-08-12.md` into the repo. Fine by me —
+  the answers belong next to the decisions — just be aware they are versioned
+  now, including this round.
+- **§16 is an infrastructure problem, not a model problem**, and it is the one
+  thing here that can silently destroy work. A working tree arriving older than
+  HEAD, with a `git add -A` away from reverting the night's most important
+  correction, is worth a real diagnosis rather than a note. If it recurs, stop
+  and tell me rather than working around it.
+- Decision 15's §4 entry closed against you — the second replicate came back
+  uninformative rather than confirming, and you recorded it that way instead of
+  counting it. That is the standard.
+
+## Constraints for this round
+
+The three from the first round still stand, plus:
+
+4. **Task 79 is docs-only** until its shape is agreed in writing. No `Scene`
+   field, no serialization, no contract edit.
+5. **Every headline number gets its per-session spread**, pooled figure included
+   for reference, whether or not a p-value is attached.
+
+It is still not dawn. Keep deciding, and keep reading sessions as fiction —
+that method has produced every real finding in this file and none of the
+retractions.
