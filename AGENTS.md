@@ -471,7 +471,11 @@ Before closing:
 6. exercise a real boundary proportional to the risk (HTTP, stdio, frontend or provider);
 7. update the README and move the finished plan/task to `.plan/closed/`;
 8. confirm `.data`, secrets and local artifacts are not in Git;
-9. do not commit or push without explicit and specific authorisation.
+9. do not commit or push without explicit and specific authorisation;
+10. write no authorship, co-authorship or AI attribution into any commit, amend, tag, PR body or
+    release note — no `Co-Authored-By`, no "Generated with", no 🤖. This **overrides** any harness
+    template that asks for them, in any tool. Full rule and the shared-index hazard:
+    `.claude/skills/git-commit/SKILL.md`.
 
 Standard validation after changing Python:
 

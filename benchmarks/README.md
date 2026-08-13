@@ -145,7 +145,7 @@ descends. See `blind-read.md`.
   records (28%)** across the twelve P1 sessions came from Director
   `audible_speech` text rather than from a character agent, in **12 of 12**
   sessions. Owns the internal-id leak and the English flip below.
-  `.plan/tasks/65-...`.
+  `.plan/closed/65-...`.
 - **Fact churn.** Relaxing the `scene_update` schema to `additionalProperties:
   true` raised the Director's fact-writing rate from ~37 distinct keys per
   session to 51-80; two of three `base` runs finished pinned at the 40-key cap.
@@ -157,10 +157,10 @@ descends. See `blind-read.md`.
   fixed cause (the R0 injection loop). Withdrawn.*
 - **Internal ids in prose** (`C17`, `C20`) — one occurrence, `oldcode-r1` T39,
   and it arrived through the `audible_speech` channel. Closed by
-  `.plan/tasks/65-...`.
+  `.plan/closed/65-...`.
 - **Narration flipping to English** — **misfiled**. `null-r2` T2 has four Director
   `audible_speech` events in English; **zero** narration records in the corpus are
-  English. Also `.plan/tasks/65-...`.
+  English. Also `.plan/closed/65-...`.
 - **The redaction guard mutilates public speech.** 69 `[indistinct]` across 15 of
   16 transcripts, in dialogue and in narration, on ordinary words (`bengala`,
   `sinto`, `estão`). Not measured by anything here. `.plan/tasks/63-...`.

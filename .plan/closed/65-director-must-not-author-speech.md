@@ -1,7 +1,22 @@
 # Task 65 — The Director must not author speech
 
-> **Status:** open, **scope decided 2026-08-05, ready to implement.** Wave 1,
-> still the largest measured defect in the archive; two blind reviewers with
+> ## ✅ CLOSED — shipped 2026-08-06
+>
+> **The banner below was stale for a week and said "ready to implement" about a
+> task that had already shipped.** Corrected 2026-08-13 during the handover sweep.
+> Evidence, in this file: *"✅ Closed on a live cell — 2026-08-06"* —
+> `director_authored` speech records **181 of 618 (29.3%) → 0 of 119 (0%)** on a
+> fresh 40-turn cell, redaction markers on persisted speech 15 → 0. In the code:
+> the `audible_speech` channel in `src/runner.py` plus
+> `tests/test_audible_speech_{persistence,echo,deterministic_guards}.py`.
+>
+> **Read the rest of this file as history, not as an instruction.** Everything
+> under the next line describes the decision as it was being made.
+
+---
+
+> **Status (historical):** open, **scope decided 2026-08-05, ready to implement.**
+> Wave 1, still the largest measured defect in the archive; two blind reviewers with
 > different framings — one auditing logs, one reading transcripts as fiction —
 > independently concluded it should be the first cut of the phase, and that
 > stands.
