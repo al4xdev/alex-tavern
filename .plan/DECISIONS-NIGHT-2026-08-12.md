@@ -319,6 +319,18 @@ stall finding, so the answer is less urgent than I made it sound. P3 is still
 worth keeping, because it is the only profile that can ever answer this
 question, and it should be re-run when task 77 is actually fixed.
 
+### ⟳ r2 landed and killed half of this entry
+
+**Kept:** frozen rate 95.2% and 89.7% against the control's 90.8%. Replicates
+cleanly. An active player does not unstick the scene, and the confound is
+dismissed on two sessions rather than one.
+
+**Withdrawn:** the containment story. HOLD was 29.7% on r1 and **11.6%** on r2
+(control 9.1%); GO was 25.0% and **4.2%** (control 12.0%). I wrote *"the room is
+quiet with twenty people shouting instructions"* from one session, an hour after
+adding a page to the register about exactly this failure. The reading was true of
+`5d60575d`. It is not a property of the engine.
+
 **And I got the number wrong first.** My initial HOLD count said 46.9%; the
 pattern included `fila`, which appears in *"saídas laterais, em fila"* - an order
 to MOVE. Six of the first ten flagged lines were that. **Fourth guard of this
@@ -352,5 +364,44 @@ and the one I re-derived at 27.8% this morning - **swings between 1% and 51%
 across sessions on identical code.** Task 71's cost and value estimates inherit
 that spread. I did not restate them, because I do not know which end is typical
 and four sessions per era cannot tell me.
+
+---
+
+## 13. The unit-of-analysis error, and what it costs — the night's most important finding
+
+Measured session-to-session variance under **identical code**, four sessions per
+group:
+
+| metric | sd | range | sessions to see a 10-point change |
+|---|---|---|---|
+| **split rate** | **17.9** | 28.6 - 67.3 | **~51 per arm** |
+| frozen-position rate | 6.1 | 81.0 - 95.5 | ~6 |
+| `return_control` rate | 3.9 | 0.0 - 8.3 | ~3 |
+| `empty_audience` | — | **0 or 7** | bimodal; one decision drives all 7 |
+
+**Nearly every test in these files pooled TURNS, including most of mine today.**
+One Director decision - sealing a pulpit - produces seven empty-audience records
+in one session; one graph shape produces thirty split narrations. The correlated
+unit is the **session**, and pooling inside it inflates the effective n by about
+an order of magnitude.
+
+**Withdrawn as a result:**
+
+- task 71's leak p = 9.8e-09. Per session it is 70%, 22% before and 0%, 9%, 0%,
+  0% after: clean separation, but two informative sessions against four cannot
+  beat **p = 0.13**. The task stands on the separation and a unit-tested
+  mechanism.
+- task 67/71's split-rate p = 1.7e-4. Per session, **72.4 / 17.9 / 75.0** before
+  and **52.6 / 29.4 / 0** after - the ranges **overlap**.
+
+**Still sound:** task 64's *"never returned in 5 of 12 sessions versus 0 of 9"*,
+because its unit already is the session.
+
+**⚠ NEEDS YOU:** this is the one that should change how you read everything
+above, and everything in `.plan/` dated before today. Nothing shipped is wrong
+because of it - the code changes stand on tests and on reading - but **the
+confidence attached to most numbers in this project is not earned**, and the
+split rate in particular cannot support any comparison at the sample sizes we
+run.
 
 ---
