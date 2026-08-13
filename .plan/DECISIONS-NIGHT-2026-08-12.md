@@ -477,3 +477,69 @@ fixing. Restored from HEAD; the stale copies are in
 
 Worth knowing because it can happen again, and a careless `git add -A` would
 have committed the regression silently.
+
+---
+# Round 2 — work against the owner's answers to 14/15/16
+
+## 17. §A — the per-session spread changed my own headline
+
+The owner asked for the spread behind "34% of `zone_moves` are intra-room". It
+was worth asking, because **the number is an artifact of naming style.**
+
+| what it counts | pooled | per session (median / sd / range) |
+|---|---|---|
+| prefix names the origin (hierarchical) | 34% | 15% / 35.0pts / 0-97% |
+| contains a positional phrase | 12% | 0% / 19.6pts / 0-79% |
+| **union** | **31%** (163/523) | **22% / 31.5pts / 0-95%** |
+
+26 sessions with ≥5 moves; quartiles 0% / 22% / 44%; **8 sessions at zero**.
+
+**The bimodality is two naming conventions for the same act, not two
+behaviours.** `a3e1ceda` scores 97% writing *"jardins leste, próximo ao canil"*.
+`34390b86` scores **0%** writing *"avançando em direção ao corredor oeste,
+posicionando-se entre a aranha e os alunos"* — the purest blocking in the corpus,
+invisible to the hierarchical metric because it does not repeat its origin's
+name.
+
+So **31% is a floor** and no name-based instrument can pin it tighter. That is
+now the argument rather than a caveat: **if a parser cannot tell a room from a
+position by its name, neither can the engine.** The case for the field does not
+depend on the rate.
+
+## 18. §B — task 79 opened, docs-only
+
+`.plan/tasks/79-blocking-as-durable-state.md`, carrying the question verbatim and
+the four decisions demanded before any code: what may read it (**perception must
+not**, or the defect is rebuilt), free text against structured, what happens to
+the 33 saved sessions, and the falsifier. Added a cheaper second falsifier that
+runs **before** any schema: replay a Director turn with a contract offering a
+blocking slot and see whether it uses it.
+
+69 now points at 79 instead of owning it; 76 and 54 cross-linked; 76's 34% line
+corrected to the union figure.
+
+## 19. §16 — the diagnosis, and I was wrong about the cause
+
+I told the owner "the SSH sync, most likely". **The evidence does not support
+that.**
+
+**Ruled out:**
+- **git** — reflog is commits only, no reset/checkout/merge/rebase; `ORIG_HEAD`
+  is from 2026-08-06, six days stale.
+- **a sync daemon** — no rsync, unison, syncthing, mutagen or sshfs process.
+- **a shared or network mount** — plain local btrfs subvolume,
+  `/dev/vdb[/rootfs_subvol]`, no snapshot directories.
+- **timing coincidence with the owner's file** — `ANSWERS` was written 21:40:33,
+  **24 minutes after** the last reverted commit (21:16:47), so it did not arrive
+  in the same event.
+
+**What is established:** exactly the files touched by four commits in a
+2m36s window (21:14:11 → 21:16:47) reverted, and to precisely the state
+immediately before that window. Nothing else in the tree moved.
+
+**Most consistent remaining explanation:** an external writer holding pre-21:14
+content and flushing it — an editor with stale buffers is the obvious candidate.
+**I cannot prove it and am not asserting it.**
+
+**Not recurred.** The tree currently matches HEAD exactly. Per the owner's
+instruction, if it happens again I stop and report rather than work around it.
