@@ -21,7 +21,7 @@ Standing rule this page exists to enforce:
 | `clamp_lost_half` (task 67) | **superseded** | replaces emptiness-only counting, but measures Director-vs-engine disagreement, not graph damage. Use `clamp_lost_half_unsealed` |
 | `clamp_lost_half_unsealed` (task 67) | **REPORT, DO NOT GATE** | needed three repairs in one day, each found by reading a flagged case and never by the number looking wrong. Reads 5 / 0,0,0,0 / 0,4,0,0 / 2,0,0 across twelve cells |
 | `named_exclusions` (task 70) | **fixed same day** | shipped with a false positive; see below |
-| event-recurrence detector, `sim >= 0.6` (task 69) | **REPORT, DO NOT GATE** | unregistered until 2026-08-13 and never read. Read 5 flagged pairs: 2 genuine restatements, 1 clear false positive, 2 progressions. Every number in task 69 is downstream of it |
+| event-recurrence detector, `sim >= 0.6` (task 69) | **REPORT, DO NOT GATE** | unregistered until 2026-08-13 and never read. Proper sample read the same day: **2 false positives in 20 (10%)**, both *same phrasing, different content* — a different fissure swallowing different people. Fine as description, not as a guard. **43.4% of its hits are `audible_speech`**, so task 69 owns only about half of its own headline |
 | `scene_clusters` / `scan_scene_splits` (task 71) | **trusted** | validated by reproducing all six of task 71's archived figures to every digit |
 | `scan_cross_cluster_leak` (task 71) | **trusted, corrected twice** | scored per reader cluster, strict name matching, prose separated from speech reports on a measured empty band |
 | `_strip_offstage_actors` (task 71) | **trusted, second version** | 3 fires, 0 false positives over 42 live narrations; the first version had 3 of each |
@@ -241,6 +241,43 @@ inflate it.
 an unknown one, and a task can be built on it for weeks. This one was found by a
 critic that had never seen the code, asking why a similarity score was standing
 in for whether anything happened.
+
+### The proper sample was read, same day — 2 false positives in 20 (10%)
+
+Systematic sample (every 35th) of all **703** flagged pairs across the **33
+distinct** sessions, each read individually:
+
+| | |
+|---|---|
+| genuine re-proposals | **18 of 20** |
+| false positives | **2 of 20 = 10%** |
+
+Better than the *"roughly half precision"* the read of five suggested, and the
+five-case estimate above is superseded rather than deleted — it was right that
+the instrument needed reading and wrong about how badly it performs.
+
+**Both misses share one shape: same phrasing, different content.**
+
+- a fissure swallows **Mirella, Liora and Lucan**; one turn later a *new* fissure
+  swallows **Cael, Ysara, Oriana and Téo** (`d0cc98e5` T28→T29);
+- **Nix** shouts to back off the fissure edge, **Bruna** shouts to fall back to
+  the arches because the fire will surround them (`5d60575d` T20→T22).
+
+Neither is a repeat. Both score high because Portuguese emergency-shouting has a
+small vocabulary. **A lexical detector cannot see that the people are different**,
+which is the same blindness as *"opposite events sharing vocabulary"*, one level
+up: it is not the words that changed, it is who they happened to.
+
+**Verdict unchanged: REPORT, DO NOT GATE.** 10% is fine for describing a corpus
+and not fine for blocking a Director's output.
+
+**And the population is not what the task using it assumed.** Of the 703 pairs,
+**43.4% are `audible_speech`** — the Director re-summarising speech — against
+24.3% `physical_outcome` and 28.6% `observation`. Task 69 is about physical
+events, so slightly more than half of its own headline number is somebody else's
+defect. Pooled recurrence over the full archive is **703/5,064 = 13.9%**, per
+session **median 12.5%, sd 5.2pts, range 4.6-24.9%** (n=31) — which is, unusually
+for this page, a spread that does **not** destroy the pooled figure.
 
 ## Matching a NAME: the failure that keeps recurring
 

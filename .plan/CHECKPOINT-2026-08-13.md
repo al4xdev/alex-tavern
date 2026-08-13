@@ -14,7 +14,7 @@ sessions), and **do we know why** (a mechanism that survived a test).
 | task | symptom | mechanism |
 |---|---|---|
 | **79** blocking has nowhere to live | not a symptom; a **code fact** | ✅ **ESTABLISHED.** The Director writes blocking in **1188 of 1188** director calls, 8% of entries positional (median 6%, range 0-44%). `narrate()` pops the field. Both halves verified in code and in 33 sessions |
-| **69** events re-proposed | ✅ measured: **97 of 987** Director events re-proposed within 3 turns (9.8%) | ~ **PARTLY.** `physical_facts` is capped at `_MAX_PHYSICAL_FACTS = 40` and evicts; `09aabf25` sits at exactly 40/40. Capacity is a code fact. Whether capacity *causes* the re-proposal is untested |
+| **69** events re-proposed | ✅ measured: **703 of 5,064** flagged over 33 sessions (13.9%; median 12.5%, sd 5.2pts) — but **43.4% of those are speech**, so 69 owns about half | ✅ **CAPACITY EXCLUDED 2026-08-13.** 17 of 18 genuine re-proposals happen with the original **still in the prompt** — one with `"parede_rompida": "true"` in the facts bag as the wall breaks again. Nothing is forgotten. The mechanism is that settled state does not bind the output |
 | **77** the order nobody executes | ✅ measured: **13 of 33 sessions (39%)**, 23 windows, median 0 | ❌ **UNKNOWN after three falsified attempts** (contract-forbids, variance, beat machinery) |
 | **64** control returns rarely | ✅ measured: never-returned **5/12 → 0/9**; rate ~3% | ~ suspected: contract wording. Untested |
 | **78** routed into silence | ✅ measured: **13 of 1,255** speech records (1%), concentrated in runs | ❌ not investigated |
@@ -36,9 +36,15 @@ Every causal story written in this block was falsified by its own evidence:
   **already fills an existing one**.
 - 76's *"the naming convention gates the rule"* — firings track opportunity 6/6;
   convention does not predict opportunity.
+- 69's *"the fact store is full, so the engine forgets"* — **17 of 18**
+  re-proposals happen with the original still in the prompt, one of them while
+  the bag says `"parede_rompida": "true"`.
 
 **Not one was caught by a number looking wrong. Every one was caught by reading
-records or code.** That is now five for five, and it is the standing method.
+records or code.** That is now six for six, and it is the standing method.
+
+The sixth is the first that made a task **cheaper and better aimed** rather than
+smaller: 69 no longer has to solve remembering, only binding.
 
 ---
 

@@ -21,6 +21,22 @@
 > **The capacity mechanism is UNTESTED, not excluded.** See the
 > measured-and-rejected section below.
 >
+> ⚠⚠ **2026-08-13, later the same day: CAPACITY IS NOW EXCLUDED, on a
+> pre-registered read.** Of 18 genuine re-proposals sampled systematically from
+> 703 flagged pairs, **17 happened while the original event was still in front of
+> the Director** — in the facts bag, in the transcript, or both. In one of them
+> the bag literally read `"parede_rompida": "true"` and the Director broke the
+> wall again. **Nothing is being forgotten.** The `_MAX_PHYSICAL_FACTS` cap is
+> real and it is not the cause; the eviction bullet below drops to hygiene.
+>
+> **The thesis of this task is unharmed and better aimed:** settled state has to
+> become **binding on the output**, not easier to retrieve. Retrieval already
+> works and is already ignored.
+>
+> ⚠ **And roughly half of this task's headline symptom belongs elsewhere.**
+> 43.4% of the flagged pairs are the Director re-summarising **speech**, not
+> restaging a physical event. 69's own half is about 8% of Director events.
+>
 > Originally: **Wave 2, first.** This is the residual restaging — what is
 > left after the previous phase closed every *code loop* that fed the Director
 > the same input twelve times.
@@ -130,7 +146,13 @@ output may not.
 - **`burst.event_texts` dies every submission** (`runner.py:1163-1169`). It only
   exists `if multi_beat`, so cross-submission re-proposal has no barrier at all.
   A durable equivalent is part of this task.
-- **`scene.physical_facts` saturation.** Re-derived from `metrics.json`
+- **`scene.physical_facts` saturation — DEMOTED TO HYGIENE 2026-08-13.** The
+  visibility read above excludes it as the mechanism: 17 of 18 re-proposals
+  happen with the original still in the prompt. Over all 33 sessions, **15 reach
+  the 40-key cap and 18 never do**, at a median 69% through the session. Measure
+  eviction if it is cheap; do not design the storage model around it, and do not
+  cite the cap as a cause. The paragraph below is kept as the sizing, not as an
+  argument. Re-derived from `metrics.json`
   2026-08-05: **4 of 12 P1 runs finished pinned at the 40-key cap** — `base-r2`,
   `base-r3`, `drive-r1`, `drive-r2`. (The archive also shows the cap is the
   *current* engine's: `oldcode-P2-r1` and `-r2` finish at 70 and 59 keys.) Closed
@@ -319,6 +341,123 @@ is enlarged rather than the finding being reported on n<10.
 ⚠ **This tests the capacity sub-story only.** Whatever it returns, the verbatim
 triples at the top of this file are still there — the ceiling still falls three
 times. This decides *why*, not *whether*.
+
+### ✅ RAN 2026-08-13 — the rule fires, and CAPACITY IS NOT THE MECHANISM
+
+**17 of 18 genuine re-proposals happened while the original was still in front
+of the Director.** The registered threshold was 70%; this is **94%**.
+
+| | |
+|---|---|
+| sampled, systematically (every 35th of 703 flagged pairs) | 20 |
+| excluded — detector false positives, read | **2** |
+| genuine re-proposals | **18** |
+| original **still visible** in the re-proposing prompt | **17** |
+| original **not visible** | **1** |
+
+The rule was registered in both directions before any of this existed, and it
+lands on the side that **removes** a justification from this task rather than
+adding one.
+
+**The strongest cases are the ones where the engine said it out loud.**
+
+- `834f91e5` T28→T29. The facts bag the Director was handed contained
+  `"parede_rompida": "true"` and `"criatura_emergiu": "true"`. It staged the
+  claws breaking the wall again.
+- `8bd4d0f1` T37→T38 — **Liora dying twice**, the case this task opens with. At
+  T37 the narration describes the mist reaching her and her collapsing, and
+  Maelis says *"Link, o portal não vai salvar Liora agora; ela se foi."* At T38
+  the Director kills her again.
+- `a3e1ceda` T21→T22. `"equipes_de_resposta": "partindo pela porta leste"` was in
+  the bag — the teams were **already leaving** — and Maelis re-issues the order.
+- `d5a2ccf0` T31→T32. `"projectile_hit": "true"`. The projectile hits again.
+
+**Nothing was forgotten in any of them.** The state channel held the fact, the
+transcript held the event, and the Director re-proposed anyway. Making the store
+bigger, or its eviction smarter, cannot reach a single one of these.
+
+### The one exception is not capacity either — it is an event that was LOST
+
+`b11b38dc` T18→T19. The Director emitted *"a diretora Maelis anuncia que a
+entrada na masmorra é imediata e que cada equipe deve atravessar o limiar em um
+minuto ou será desclassificada"* — and it **reached nothing.** No speech record
+at T18, no C17 line at all, and the T18 narration covers the mist and Garran at
+the door without a word of the announcement. At T19 the Director proposed it
+again.
+
+So the sample's only *"not visible"* case is not a memory failure. **The event
+was never enacted, so it was never there to remember.** That is task 78's shape
+(routed into silence) and task 77's (the order nobody executes), arriving from a
+third direction. Counted against this task's hypothesis anyway, because rounding
+against yourself is the only honest direction.
+
+### What this does to task 69
+
+**The thesis survives and the sub-story dies.** *"Closed transitions constrain
+the output"* is exactly what a defect where the Director can see the fact and
+re-proposes anyway needs. What dies is the idea that this is about **memory**:
+
+1. **`scene.physical_facts` saturation drops from a suspect to hygiene.** The cap
+   is real (15 of 33 sessions reach 40 keys) and it is not what is producing
+   this. Instrument eviction if it is cheap; do not design storage around it.
+2. **Do not "make the channel louder".** Already argued in this file against a
+   semantic advisory; now measured. The channel is not quiet, it is **ignored**.
+3. **The storage decision this task owns gets simpler.** It has to make settled
+   state *binding on the output*, not *retrievable*. Retrieval already works.
+
+### Recurrence, re-derived over the full archive with its spread
+
+The 9.8% at the top of this file came from a smaller corpus. Re-run over all
+**33 distinct** sessions (the archive holds 49 `state.json` files; counting over
+paths double-counts):
+
+| | pooled | per session |
+|---|---|---|
+| flagged pairs (`sim >= 0.6`, lookback 3) | **703 of 5,064 = 13.9%** | median **12.5%**, sd **5.2pts**, range 4.6-24.9%, n=31 |
+
+**This is one of the few numbers in this project whose per-session spread does
+not destroy it** — sd 5.2 points, against 17.9 for the split rate and 31.5 for
+intra-room moves. Worth saying plainly, because the standing lesson here is the
+opposite one.
+
+⚠ **But half of it is not this task's defect.** By the kind of the re-proposed
+event:
+
+| kind | share |
+|---|---|
+| `audible_speech` | **43.4%** |
+| `observation` | 28.6% |
+| `physical_outcome` | 24.3% |
+| `scene_change` | 3.3% |
+
+**43.5% of the flagged pairs are the Director re-summarising speech**, not
+restaging a physical event. This task is about physical events, so its own
+symptom is roughly **half** the headline: the physical and observational half,
+about 8% of Director events. The speech half is the same engine failure wearing
+77's clothes, and neither task should quote 13.9% as its own.
+
+### The detector gets a measured false-positive rate, at last
+
+**2 of 20 read as false positives (10%)**, against the 1-in-5 previously guessed
+from five cases. Both misses share a shape — *same phrasing, different content*:
+
+- `d0cc98e5` T28→T29: a fissure swallows **Mirella, Liora and Lucan**; one turn
+  later a *new* fissure swallows **Cael, Ysara, Oriana and Téo**. Different hole,
+  different people.
+- `5d60575d` T20→T22: **Nix** shouts to back away from the fissure edge; **Bruna**
+  shouts to fall back to the east and west arches because the fire will surround
+  them. Different speaker, different instruction.
+
+Still **REPORT, DO NOT GATE** — a 10% error rate is fine for a description and
+not fine for a guard. Logged in `.plan/reference/metric-validity.md`.
+
+**Status of this section: MEASURED for the visibility count** (n=18 genuine, read
+individually, rule pre-registered, both directions stated). **The 13.9% stays
+OBSERVED** — it is the same lexical instrument, now with a read error rate but
+still no control.
+
+⚠ **Not yet through an isolated critic.** The protocol asks for one on a claim
+that gates a design decision, and this one does.
 
 ## Inherited from task 76's falsifier — a missing spatial field
 
