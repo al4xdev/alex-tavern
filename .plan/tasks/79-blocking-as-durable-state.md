@@ -53,9 +53,53 @@ built and they disagree, because **all three measure naming style, not intent.**
 
 | what it counts | pooled | per session (median / sd / range) |
 |---|---|---|
-| destination whose prefix names the origin (hierarchical) | 34% | 15% / 35.0pts / 0-97% |
+| destination whose prefix names the origin (hierarchical) | ~~34%~~ | ~~15% / 35.0pts / 0-97%~~ |
 | destination containing a positional phrase (*"ao lado de"*) | 12% | 0% / 19.6pts / 0-79% |
-| **union of both** | **31%** (163/523) | **22% / 31.5pts / 0-95%** |
+| ~~**union of both**~~ | ~~**31%** (163/523)~~ | ~~**22% / 31.5pts / 0-95%**~~ |
+| ✅ **CORRECTED union, 2026-08-13** | **16.7%** (101/606) | **median 5.6% / sd 22.0pts / 0-79.3%**, and **12 of 27 sessions at zero** |
+
+### ⚠ The 31% was inflated about 2x, by the failure task 76 already documented
+
+**Found 2026-08-13** while looking for payloads the falsifier could run on. The
+hierarchical half tested whether the destination's first comma-segment was a
+**substring of** the origin. Every zone in this scenario is named
+`Academia Real do Primeiro Sino, <somewhere>`, so it fired on **every move
+anywhere inside the academy**:
+
+```
+from: Academia Real do Primeiro Sino, Salão dos Quatro Arcos
+  to: Academia Real do Primeiro Sino, Pátio Externo        <- a walk outdoors
+  to: Academia Real do Primeiro Sino, salão de reunião     <- a different hall
+from: Academia Real do Primeiro Sino, salão de reunião
+  to: Academia Real do Primeiro Sino, jardins leste        <- the gardens
+```
+
+One turn of `17ec48d5` scored **21 positional moves** and every one was the cast
+walking to the outer courtyard.
+
+**This is exactly the pair of false positives task 76 shipped** — a wing and a
+building read as rooms — arriving in a **new** instrument three weeks later, in a
+different file, written by someone who had read that lesson and written it down.
+The correct test is the whole origin plus a comma suffix, which is what
+`EXTENDS_A_ZONE` in the audit script does.
+
+**Read to confirm the correction, 15 of the 127 rejected entries**: all 15 are
+genuine room-to-room moves. Two of them are **origin identical to destination** —
+the Director emitting a move to where the character already stands, which is a
+small separate defect nobody has counted.
+
+**What it does to this task, stated plainly: the headline shrinks by half.**
+16.7% pooled, median **5.6%**, and 12 of 27 sessions never do it at all. That is
+a much smaller symptom than *"a third of all movement"*.
+
+**And the task is unaffected**, because it stopped resting on this number on the
+same day it was written. The standing argument below — *if a parser cannot tell a
+room from a position by its name, neither can the engine* — is now carrying the
+whole justification, and this correction is the fifth piece of evidence for it:
+**five instruments, five failures, all on names.**
+
+⚠ **16.7% is itself a floor**, for the same reason as before: a destination that
+renames its origin, or a position minted as a bare zone, still scores zero.
 
 26 sessions with at least 5 `zone_moves`. Quartiles of the union: **0% / 22% /
 44%**, and **8 of 26 sessions sit at zero**.

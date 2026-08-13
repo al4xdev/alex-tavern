@@ -281,6 +281,41 @@ for this page, a spread that does **not** destroy the pooled figure.
 
 ## Matching a NAME: the failure that keeps recurring
 
+### ⚠ It recurred again on 2026-08-13, in a NEW instrument, written after this page
+
+**The fifth.** Task 79's hierarchical detector asked whether a destination's first
+comma-segment was a **substring of** the origin. Every zone in the scenario is
+named `Academia Real do Primeiro Sino, <somewhere>`, so it scored **every move
+anywhere inside the academy** as *"repositioning inside a space they never left"*:
+hall to outer courtyard, hall to meeting hall, meeting hall to east gardens. One
+turn of `17ec48d5` scored 21 such moves and all 21 were the cast walking outdoors.
+
+| | pooled | per session |
+|---|---|---|
+| the inflated rule | **37.6%** (228/606) | — |
+| **corrected** (full origin plus a comma) | **16.7%** (101/606) | median **5.6%**, sd 22.0pts, range 0-79.3%, **12 of 27 sessions at zero** |
+
+**The number that justified a task was about 2x too high, for three weeks.**
+
+What makes this one worth its own entry rather than a tally mark: **it is the same
+failure as task 76's two shipped false positives — a wing and a building read as
+rooms — reproduced by an author who had read that lesson, written it into this
+page, and cited it in the very file the new detector lived in.** Knowing the rule
+did not prevent it. The pattern is not ignorance, it is that *prefix containment
+looks like hierarchy* and hierarchy is what these names accidentally encode.
+
+**The only defence that has ever worked here is reading the disagreement set.**
+This was caught by printing 15 of the 127 entries the corrected rule rejects and
+looking at them, not by either number seeming wrong. Both numbers looked fine.
+
+**Transferable rule, stronger than the old one:** *never match a name with a
+string heuristic* was not enough, because it reads as advice about proper nouns.
+The operative version is: **any test of the form "is A part of B" over
+model-authored place names is measuring a naming convention until you have read
+the set it separates.** Substring, prefix, suffix and token overlap are all the
+same trap.
+
+
 Three times this month, in three different components, a guard matched a proper
 name against Portuguese prose and fired on an ordinary word. It is the single
 most repeated mistake in this register, so it gets a rule rather than a third
