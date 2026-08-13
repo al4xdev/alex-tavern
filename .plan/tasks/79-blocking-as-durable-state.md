@@ -121,6 +121,62 @@ it does not repeat its origin's name.
 movement is somebody repositioning inside a space they never left, and no
 name-based instrument can pin it more tightly than that.**
 
+## The structural test — pre-registered 2026-08-13, BEFORE running
+
+The owner's standing question, after the fifth naming failure:
+
+> *"Is there a way to measure room-vs-position that never matches a zone name?
+> Try one structural signal and compare it against the corrected string rule on
+> the same corpus. If they agree, the string rule is vindicated. If they
+> disagree, you have found the sixth one before it shipped."*
+
+### The signal, and why it touches no name
+
+**The Director's own `witness_ids`, as proposed, before the engine clamps them.**
+Those are sets of character ids. Comparing them is set arithmetic: **no string is
+ever matched against a place name.**
+
+For each recorded move of character `C` from origin `O` to destination `D` at turn
+`T`:
+
+- `peers` = the characters standing in `O` at `T-1`, excluding `C`. Skip the move
+  if `peers` is empty — with nobody left behind there is nothing to separate from.
+- Over the `perception_events` of turn `T`, count:
+  - **together** — events whose `witness_ids` contain `C` **and** at least one peer;
+  - **apart** — events whose `witness_ids` contain `C` but no peer, or a peer but
+    not `C`.
+- **together > apart → the Director still treats C as co-present with the people
+  it left. That is a POSITION inside the room.**
+- **apart >= together → the Director treats them as separated. That is a ROOM
+  CHANGE.**
+
+It reads the **raw response** in `debug.jsonl`, not the persisted audience, so it
+is the Director's own belief formed *before* the engine's name-derived graph
+touches it. That independence is the whole point.
+
+### The validity check that runs FIRST, and can kill the signal
+
+**If the Director lists nearly everyone as a witness of nearly everything, this
+signal has no discriminating power and the comparison is meaningless.** So before
+any agreement rate:
+
+> Report the distribution of `|witness_ids| / cast size`. **If the median is above
+> 0.9, the signal is dead on arrival**, and that is reported as the result rather
+> than dressed up as a comparison.
+
+### The decision rule, written before the numbers exist
+
+| result | conclusion |
+|---|---|
+| **agreement >= 80%** of comparable moves | the corrected string rule is **vindicated**. Stop worrying about it, keep using it, record the agreement rate next to it in the register |
+| **agreement < 80%** | **read the disagreement set.** Whichever the reading supports wins; the loser gets an entry in `metric-validity.md`. This is the sixth naming failure caught **before** it shipped |
+| the structural signal is **inapplicable** to most moves (no peers, no events) | report the coverage honestly and treat the test as **not run**, rather than quoting an agreement rate computed on a handful |
+
+⚠ **The structural signal is not automatically the truth.** It has its own failure
+mode — a lazy or generous Director — which is exactly what the validity check
+above is for. If the two disagree, **neither wins on authority**; the reading of
+the disagreement set decides, per rule 3 of `.plan/guides/MEASURING.md`.
+
 ### The standing argument for this task
 
 > **If a parser cannot tell a room from a position by its name, neither can the
