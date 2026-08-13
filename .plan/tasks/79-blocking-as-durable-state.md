@@ -156,6 +156,70 @@ for task 77's. Reported separately and it blocks clause 2.
 **Read whatever the counts say.** A slot populated with junk is not a populated
 slot.
 
+### ✅ RAN 2026-08-13 — the registered clause FAILED, and the answer is better than the question
+
+**Clause 1 failed outright: arm B populated `blocking` on 0 of 8 runs.** By the
+letter of the rule registered above, the falsifier fires and this task should not
+ship a schema.
+
+**It fired for a reason the rule did not anticipate, and reading the responses is
+what found it.** The Director ignored the new key because **it already has one and
+filled that instead.** From arm B's `scene_blocking.character_zones`:
+
+```
+"Link":               "junto a Asword, próximo ao portão norte"
+"Asword":             "apoiado em Link, tossindo, próximo ao portão norte"
+"Mirella Valecourt":  "próximo à mesa central, afastando-se do gás"
+"Doran Pedra-Rúnica": "ao lado de Bruna, tentando erguê-la"
+```
+
+That is this task's question answered verbatim. **And `narrate()` pops the whole
+field** (`src/agents/narrator.py:849`).
+
+### The evidence that does NOT depend on the replay
+
+Measured over **33 recorded sessions**, unprompted, on the shipped contract:
+
+| | |
+|---|---|
+| Director calls carrying `character_zones` | **1188 of 1188 = 100%** |
+| entries that are positional, pooled | **1967 of 24,829 = 8%** |
+| per session | median **6%**, mean 8%, sd 9.0pts, range **0-44%**, one session at 0 |
+
+**The Director already writes blocking, in every single call, and the engine
+throws it away.** ~1,967 positional phrases discarded across the archive.
+
+The replay adds one thing on top: asking explicitly raises the positional share
+**4% → 35%** between arms A and B on the same payloads. So the behaviour is
+present unprompted and improves when invited.
+
+### What this does to the task
+
+**79 is no longer "add a field". It is "stop discarding one".** Which is far
+cheaper and changes three of the four decisions:
+
+1. **What reads it** — unchanged and still the hard part. Perception must not.
+2. **Free text or structured** — **answered by observation**: it is already free
+   text, already written, already fluent. Do not design a structure the Director
+   is not producing.
+3. **The 33 saved sessions** — **the migration question mostly dissolves.** Old
+   sessions never persisted it, so there is nothing to migrate; the field simply
+   starts populating going forward. Their `debug.jsonl` still holds the values if
+   anyone ever wants to backfill.
+4. **The falsifier** — needs replacing, since the registered one has now fired
+   for the wrong reason. Proposed: **if persisting `character_zones` and showing
+   it to the prose renderer does not reduce positional `zone_moves`, the field
+   was not the constraint.**
+
+⚠ **Still docs-only.** This is a bigger change to what the task IS than to what
+it costs, and the owner has not seen it yet.
+
+⚠ **The guard clause is unresolved.** Both arms produced far fewer `zone_moves`
+than the recorded originals (A: 7 of 8 runs emitted none), so **clause 2 was
+never testable** and nothing here says whether a blocking field reduces
+positional zone-minting. That question is still open and is what the replacement
+falsifier is for.
+
 ## Explicitly NOT in scope
 
 - **Task 76's graph rule.** It stays shipped and frozen. It is correct where it
