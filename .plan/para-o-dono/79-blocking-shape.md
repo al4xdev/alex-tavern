@@ -117,3 +117,117 @@ first thing that would.
 Nothing in `src/`. 79 stays docs-only. Wave 2 order is 79 → 69 → 64 → 77, and
 **69 is the one that can proceed without you**, so that is where the work goes if
 you do not answer before the next block.
+
+
+---
+
+# ANSWER — owner, 2026-08-13
+
+Read top to bottom before writing code. Three of the four decisions are answered;
+one is deferred on purpose and one is rejected.
+
+**First, the worktree.** Your diagnosis in `51f1339` is correct and the withdrawal
+of entry 22 is accepted. The second session is the one that swept your staged
+routing work into `e53fe17` under a translation message — a shared git index, not
+a sync daemon and not the owner. Nothing was lost; only the commit boundaries and
+the authorship of that message are wrong, and they are not being rewritten while
+two processes hold the same checkout. **That session has stopped writing to this
+repository. You have the tree. Resume.** Before any `git commit`, run
+`git diff --cached --stat` and commit with an explicit pathspec
+(`git commit <paths> -m ...`), so a stray index entry cannot ride along again.
+
+## Verified before answering
+
+Your four code claims were checked, and all four hold: `scene_blocking` is in the
+schema's `required[]` (`narrator.py:398`), `narrate()` pops it (`:849`), the
+no-legacy convention is textual in `sessions.py:64`, and the metric asymmetry is
+real — `material_delta_rate` goes through `load_game` (`repetition_metrics.py:718`)
+while the main scoring path reads `state.json` directly (`:109`).
+
+## Three problems with the evidence, before the decisions
+
+**1. The 100% is a property of the schema, not a finding about the Director.**
+`character_zones` sits in `required[]` and the prompt orders it: *"REQUIRED spatial
+draft completed BEFORE every other field"*. A structured-output model fills a
+required field 1188 of 1188 times by construction. The number is measured and
+true, and it is tautological — it says the provider honours the schema. Remove
+*"answered in the Director's own words"*; the Director did not volunteer this, it
+was ordered to. **The load-bearing number is the 8%, not the 100%**, and the 8%
+reads honestly as: *in a typical session ~6% of entries are positional, with whole
+sessions at zero*.
+
+**2. The classifier behind "positional" is not stated, and the number is only as
+good as it is.** 1,967 of 24,829 is a judgement about model-authored free text.
+This project has shipped a string heuristic over model-authored text **twice** and
+been wrong both times. Before anything is priced on this number, write down: the
+rule, how many phrases you read by hand, and how many false positives you found.
+If the rule is a substring match on `junto a`/`próximo`, the 8% is a guess with
+decimal places.
+
+**3. The replacement falsifier is confounded, and would pass without shipping
+anything.** It compares a replay's positional `zone_moves` against the archive
+baseline (31% pooled). But this document already records that **both arms emitted
+far fewer `zone_moves` than the recorded originals — arm A emitted none in 7 of
+8 runs**. If the replay condition suppresses `zone_moves` on its own, beating a
+historical baseline measures the condition, not the field. That is the same trap
+that made the pre-registered falsifier fail its clause 1.
+
+## Decision 1 — readers — ✅ APPROVED AS PROPOSED
+
+| reader | answer |
+|---|---|
+| `can_perceive`, `eligible_witnesses`, `perception_clusters` | **FORBIDDEN** |
+| prose renderer (staging) | **yes** |
+| Director's own prompt | **yes** |
+| character prompts | **no in v1** |
+
+The forbidden row is the best thing in this document — it applies task 76's lesson
+before the mistake instead of after it. One addition: **make it a test, not a
+comment.** A rule that lives only in prose is a rule the next refactor deletes
+without noticing.
+
+## Decision 2 — free text — ✅ APPROVED
+
+Free text keyed by character id, alongside `positions`. Your reasoning is right and
+it is the reasoning, not the preference, that carries it: the Director already
+produces this shape fluently, and designing against behaviour that already works
+is how defects get invented.
+
+## Decision 3 — the schema bump — ⏸ DEFERRED, and reframed
+
+Do not decide this yet. It is downstream of problem 2: if the 8% does not survive a
+manual read, there is no bump to price.
+
+Two corrections when you come back to it:
+
+- **The additive-field-with-default option is not an open owner call — it is
+  revoking a written rule.** `AGENTS.md` §2 states it outright: *"New field = new
+  version. No 'additive' exception"*, and explains that `.get(field, default)` is a
+  migration in disguise. The owner may revoke his own rule, but present it as a
+  revocation, not as a menu item.
+- **Half the cost is removable for free.** `material_delta_rate` only breaks
+  because it uses `load_game`; line 109 of the same file already reads `state.json`
+  directly. Move that metric onto the `:109` path and the bump costs only the app's
+  ability to reopen the 33 archived sessions in the UI.
+
+## Decision 4 — the replacement falsifier — ❌ REJECTED AS WRITTEN
+
+Do not register it. Two changes:
+
+1. **The control must be inside the experiment.** Arm A (no field) against arm B
+   (field), same replay, same payloads, same run. Never against a historical rate
+   collected under different conditions.
+2. **First find a payload where the behaviour occurs at all.** If arm A emits zero
+   `zone_moves` in 7 of 8 runs, there is nothing to reduce, and any result is a
+   measurement of the replay harness. Select payloads from the sessions at the top
+   of the per-session range (the 44% one, not the 0% one) and show the behaviour
+   reproduces before registering any rule about reducing it.
+
+Re-register once both hold, and record the rejected version next to it, with this
+reason, so nobody re-derives it in a month.
+
+## The one thing you did best
+
+Not any of the four. It was recording that the pre-registered falsifier **failed**,
+and letting the failure stand in the same file as the finding that replaced it.
+Keep doing exactly that.
