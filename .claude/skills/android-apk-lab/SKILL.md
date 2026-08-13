@@ -1,33 +1,34 @@
 ---
 name: android-apk-lab
-description: Monta o ambiente Android reproduzível do Alex Tavern, compila o APK Chaquopy/FastAPI em Docker e valida instalação, boot, HTTP, plugins, WebView e reinício de processo em aparelho físico via ADB. Use ao criar ou depurar builds Android, instalar um APK local, investigar erros que só aparecem no celular, testar ativação/instalação de plugins ou preparar evidência antes de um commit Android.
+description: Sets up Alex Tavern's reproducible Android environment, builds the Chaquopy/FastAPI APK in Docker, and validates install, boot, HTTP, plugins, WebView and process restart on a physical device over ADB. Use when creating or debugging Android builds, installing a local APK, investigating errors that only appear on the phone, testing plugin activation/installation, or preparing evidence before an Android commit.
 ---
 
 # Android APK lab
 
-Trabalhar sempre a partir da raiz do checkout. Consultar `.plan/tasks/` e
-`AGENTS.md` antes de editar. Não fazer push. Não desinstalar o app sem autorização:
-`adb install -r` preserva os dados; `adb uninstall` apaga todo o diretório privado.
+Always work from the checkout root. Consult `.plan/tasks/` and `AGENTS.md`
+before editing. Do not push. Do not uninstall the app without authorisation:
+`adb install -r` preserves the data; `adb uninstall` wipes the whole private
+directory.
 
-Os dois scripts do fluxo vivem junto desta skill, não em `scripts/` na raiz:
+The flow's two scripts live next to this skill, not in a root-level `scripts/`:
 
 ```fish
 set lab .claude/skills/android-apk-lab/scripts
 ```
 
-Eles descobrem a raiz do repositório sozinhos, então podem ser chamados de
-qualquer diretório.
+They find the repository root on their own, so they can be called from any
+directory.
 
-## Fluxo obrigatório
+## Required flow
 
-1. Confirmar alterações locais e o aparelho:
+1. Confirm local changes and the device:
 
    ```fish
    git status -sb
    adb devices -l
    ```
 
-2. Rodar regressões proporcionais antes do build:
+2. Run proportional regressions before the build:
 
    ```fish
    uv run pytest -q tests/test_android_packaging.py tests/test_frontend_architecture.py tests/test_plugins.py tests/test_plugin_hub.py
@@ -36,84 +37,85 @@ qualquer diretório.
    uvx mypy src/ tools/playtest_harness.py tools/mcp_server.py tools/replay_llm.py tools/replay_session.py
    ```
 
-3. Executar `$lab/build-debug-apk.sh`. O primeiro uso baixa um SDK isolado
-   para `.ci-cd/android/.local/` (ignorado pelo Git); os usos seguintes
-   reutilizam SDK, Gradle e a mesma `debug.keystore`. A chave estável é
-   essencial para instalar com `-r`.
+3. Run `$lab/build-debug-apk.sh`. The first use downloads an isolated SDK into
+   `.ci-cd/android/.local/` (Git-ignored); later uses reuse the SDK, Gradle and
+   the same `debug.keystore`. The stable key is essential for installing with
+   `-r`.
 
-4. Executar `$lab/adb-smoke.sh`. O script instala por cima, inicia o app,
-   cria um forward local para a porta 8889 do aparelho, verifica `/health` e
-   `/version`, coleta PID, pacote, janela ativa, log de boot e screenshot.
-   Aceita o caminho de um APK como primeiro argumento; sem argumento usa o
-   build de debug recém-gerado.
+4. Run `$lab/adb-smoke.sh`. The script installs over the top, starts the app,
+   sets up a local forward to the device's port 8889, checks `/health` and
+   `/version`, and collects PID, package, active window, boot log and a
+   screenshot. It accepts an APK path as its first argument; with no argument it
+   uses the debug build just produced.
 
-5. Exercitar manualmente o boundary alterado. Teste estático não substitui:
+5. Exercise the changed boundary by hand. A static test is no substitute:
 
-   - instalação de plugin: tocar em `Choose file` e confirmar que o seletor de
-     documentos Android abre;
-   - ativação/desativação: fechar a loja, registrar o PID anterior e confirmar
-     que o PID muda após o relançamento;
-   - fullscreen: capturar screenshot desbloqueado e confirmar ausência das
-     faixas de status e navegação;
-   - persistência: consultar `/plugins` depois do novo processo subir.
+   - plugin install: tap `Choose file` and confirm the Android document picker
+     opens;
+   - activation/deactivation: close the store, record the previous PID and
+     confirm the PID changes after the relaunch;
+   - fullscreen: take an unlocked screenshot and confirm the status and
+     navigation bars are absent;
+   - persistence: query `/plugins` after the new process comes up.
 
-6. Rodar `uv run pytest -x`, registrar o SHA-256 do APK e só então commitar
-   localmente se houver autorização explícita.
+6. Run `uv run pytest -x`, record the APK's SHA-256, and only then commit
+   locally if there is explicit authorisation.
 
-## Diagnóstico via ADB
+## Diagnosis over ADB
 
-Usar estes comandos em fish:
+Use these commands in fish:
 
 ```fish
-# Backend Android acessível no host
+# Android backend reachable from the host
 adb forward tcp:18889 tcp:8889
 curl -fsS http://127.0.0.1:18889/health | jq .
 curl -fsS http://127.0.0.1:18889/version | jq .
 curl -fsS http://127.0.0.1:18889/plugins | jq .
 
-# Evidência de boot e processo
+# Boot and process evidence
 adb shell pidof com.al4xdev.alextavern
 adb logcat -d -s TavernBootstrap
 adb shell run-as com.al4xdev.alextavern tail -80 files/bootstrap.log
 adb shell dumpsys window | rg 'mCurrentFocus|alextavern'
 
-# Evidência visual e hierarquia nativa
+# Visual evidence and native hierarchy
 adb exec-out screencap -p > /tmp/alex-tavern-screen.png
 adb shell uiautomator dump /sdcard/alex-tavern-ui.xml
 adb pull /sdcard/alex-tavern-ui.xml /tmp/alex-tavern-ui.xml
 ```
 
-O `uiautomator` enxerga bem o seletor de documentos, mas pode representar o
-conteúdo do WebView como um único nó. Nesse caso, usar screenshot, logcat e a
-resposta HTTP como evidência complementar.
+`uiautomator` sees the document picker well, but may represent the WebView's
+contents as a single node. In that case, use the screenshot, logcat and the HTTP
+response as complementary evidence.
 
-Se o aparelho estiver bloqueado, `NotificationShade` será a janela ativa e uma
-screenshot pode sair preta. Acordar a tela e pedir ao dono para desbloquear; não
-tentar contornar PIN ou biometria.
+If the device is locked, `NotificationShade` will be the active window and a
+screenshot may come out black. Wake the screen and ask the owner to unlock; do
+not try to work around a PIN or biometrics.
 
-## Falhas conhecidas e decisão
+## Known failures and what to decide
 
-- `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: a keystore usada mudou. Não desinstalar.
-  Recuperar a chave de `.ci-cd/android/.local/android-home/debug.keystore` ou a
-  chave que assinou o APK instalado.
-- `Permission denied` ao copiar plugins no armazenamento privado não implica
-  permissão Android ausente. Metadados de ZIP/Git podem carregar modos somente
-  leitura; copiar conteúdo para uma árvore nova e deixar o processo criar os
-  destinos.
-- servidor saudável com HTTP 500: separar boot de Uvicorn da falha do endpoint;
-  ler `bootstrap.log`, resposta HTTP e traceback Python.
-- ativação persistida sem efeito: WebView recarregada não reinicia Chaquopy.
-  Confirmar que o bridge chama o `RestartActivity` no processo `:restart` e que
-  o PID principal foi substituído.
-- `adb` sem acesso ao daemon/socket: executar fora do sandbox ou solicitar a
-  autorização ADB apropriada; não iniciar loops de polling.
+- `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: the keystore in use changed. Do not
+  uninstall. Recover the key from
+  `.ci-cd/android/.local/android-home/debug.keystore`, or the key that signed
+  the installed APK.
+- `Permission denied` when copying plugins into private storage does not imply a
+  missing Android permission. ZIP/Git metadata can carry read-only modes; copy
+  the contents into a fresh tree and let the process create the destinations.
+- healthy server with HTTP 500: separate the Uvicorn boot from the endpoint
+  failure; read `bootstrap.log`, the HTTP response and the Python traceback.
+- persisted activation with no effect: reloading the WebView does not restart
+  Chaquopy. Confirm the bridge calls `RestartActivity` in the `:restart`
+  process and that the main PID was replaced.
+- `adb` with no access to the daemon/socket: run outside the sandbox or request
+  the appropriate ADB authorisation; do not start polling loops.
 
-## Contratos que o APK deve preservar
+## Contracts the APK must preserve
 
-- backend e frontend vêm do source canônico; não criar cópia Android do runtime;
-- `ROLEPLAY_DATA_DIR` deve ser definido antes de importar `src.main`;
-- dados ficam em `files/data`, não em armazenamento externo;
-- bridge JavaScript aceita reinício somente para o frontend local confiável;
-- `RestartActivity` continua não exportada e em processo separado;
-- dependências Chaquopy permanecem pure Python (`pydantic<2`, Uvicorn sem extras);
-- o build informa o commit em `src/version.txt`, que permanece ignorado pelo Git.
+- backend and frontend come from the canonical source; do not create an Android
+  copy of the runtime;
+- `ROLEPLAY_DATA_DIR` must be set before importing `src.main`;
+- data lives in `files/data`, not in external storage;
+- the JavaScript bridge accepts a restart only from the trusted local frontend;
+- `RestartActivity` stays unexported and in a separate process;
+- Chaquopy dependencies stay pure Python (`pydantic<2`, Uvicorn without extras);
+- the build records the commit in `src/version.txt`, which stays Git-ignored.

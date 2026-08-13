@@ -1,13 +1,15 @@
 ---
 name: memory-playtest
-description: Roda o playtest de memória multi-personagem (foco narrativo alternado X/Y/Z) contra um LLM real, localiza perdas camada a camada e avalia a narrativa com um subagente limpo no papel de roteirista. Use quando o usuário pedir para testar retenção de memória, recall de fatos, vazamento entre personagens ou continuidade narrativa em sessões longas.
+description: Runs the multi-character memory playtest (alternating X/Y/Z narrative focus) against a real LLM, locates losses layer by layer, and has a clean subagent judge the narrative as a screenwriter. Use when the user asks to test memory retention, fact recall, cross-character leakage, or narrative continuity in long sessions.
 ---
 
-# Memory playtest — fluxo completo
+# Memory playtest — full flow
 
-Fluxo em quatro etapas: rodar o cenário contra o LLM real → localizar perdas por camada → renderizar o roteiro → avaliação narrativa por subagente **sem contexto herdado**. Os artefatos de cada run são a evidência; nunca os apague.
+Four stages: run the scenario against the real LLM → locate losses by layer →
+render the script → narrative evaluation by a subagent **with no inherited
+context**. Each run's artifacts are the evidence; never delete them.
 
-## 1. Rodar o playtest
+## 1. Run the playtest
 
 ```fish
 uv run python -m tools.playtest_harness tools/playtests/memory_focus_xyz.json \
@@ -15,49 +17,49 @@ uv run python -m tools.playtest_harness tools/playtests/memory_focus_xyz.json \
   --model-label memoria-xyz --repeat 1 --output-dir <RUN_DIR>
 ```
 
-Cenários disponíveis:
-- `tools/playtests/memory_focus_xyz.json` — retenção com foco alternado + checks de isolamento (os checks 2/3 falham até a Task 22 existir; é o esperado).
-- `tools/playtests/memory_action_fact.json` — fato que entra só pelo campo `action` (pergaminho mostrado e queimado); aceite da Task 24.
+Available scenarios:
+- `tools/playtests/memory_focus_xyz.json` — retention under alternating focus + isolation checks (checks 2/3 fail until Task 22 exists; that is expected).
+- `tools/playtests/memory_action_fact.json` — a fact that enters only through the `action` field (a scroll shown and burned); Task 24's acceptance.
 
-- `<RUN_DIR>` deve ser um diretório novo (o harness recusa diretórios existentes e qualquer coisa dentro de `.data/`). Use o scratchpad da sessão ou `plans/artifacts/<nome>-runN`.
-- Rodadas longas: execute em background e aguarde a notificação de conclusão.
-- Exit ≠ 0 é esperado quando um `recall_check` obrigatório falha — isso É o resultado, não um defeito do harness.
-- Interprete `runs[].events[].recall` em `playtest-results.json`: `prompt_passed` falso = perda antes do provider (estado/seleção/prompt); `prompt_passed` verdadeiro com `reply_passed` falso = falha de recall do modelo.
-- `invariant_violations` deve estar vazio — prova que não houve compactação, edição de presença nem troca de participantes no meio da sessão.
-- Recall de modelo é estocástico: para afirmar "reproduziu/não reproduziu", use `--repeat 2..3` e compare os checks entre repetições.
+- `<RUN_DIR>` must be a new directory (the harness refuses existing directories and anything inside `.data/`). Use the session scratchpad or `plans/artifacts/<name>-runN`.
+- Long runs: execute in the background and wait for the completion notification.
+- Exit ≠ 0 is expected when a required `recall_check` fails — that IS the result, not a harness defect.
+- Read `runs[].events[].recall` in `playtest-results.json`: `prompt_passed` false = loss before the provider (state/selection/prompt); `prompt_passed` true with `reply_passed` false = the model failed to recall.
+- `invariant_violations` must be empty — that is the proof there was no compaction, no presence edit and no participant swap mid-session.
+- Model recall is stochastic: to claim "reproduced / did not reproduce", use `--repeat 2..3` and compare the checks across repetitions.
 
-## 2. Localizar perdas camada a camada
+## 2. Locate losses layer by layer
 
 ```fish
 uv run python -m tools.analyze_memory_run <RUN_DIR> \
   --marker "ORQU[ÍI]DEA-741" --marker "GIRASSOL-222"
 ```
 
-Camadas: 1 ESTADO (histórico persistido) → 2 SELEÇÃO (filtro content_type + trim recomputados offline) → 3 PROMPT (requests reais em `debug.jsonl`) → 4 RESPOSTA (o que o personagem disse). A primeira camada onde o marcador some é a localização da perda; a correção pertence só a essa camada.
+Layers: 1 STATE (persisted history) → 2 SELECTION (content_type filter + trim, recomputed offline) → 3 PROMPT (the real requests in `debug.jsonl`) → 4 REPLY (what the character actually said). The first layer where the marker disappears is where the loss lives; the fix belongs to that layer only.
 
-## 3. Renderizar o roteiro
+## 3. Render the script
 
 ```fish
 uv run python -m tools.render_transcript <RUN_DIR> --out <TRANSCRIPT.md>
 ```
 
-Gera um roteiro legível (narração, diálogo, ações e pensamentos privados marcados) sem nenhum vazamento de código, prompt ou config — é o único material que o subagente da etapa 4 pode receber.
+Produces a readable script (narration, dialogue, actions and private thoughts marked) with no leakage of code, prompts or config — it is the only material stage 4's subagent may receive.
 
-## 4. Avaliação narrativa por subagente limpo
+## 4. Narrative evaluation by a clean subagent
 
-Lance um subagente `general-purpose` **novo** (nunca `SendMessage` para um agente existente — o avaliador não pode ter contexto herdado). Regras invioláveis do prompt:
+Launch a **fresh** `general-purpose` subagent (never `SendMessage` an existing agent — the evaluator must have no inherited context). Inviolable prompt rules:
 
-- Entregue APENAS: o caminho do transcript e uma descrição curta do cenário esperado (ex.: "três personagens numa taverna; Dario confia uma senha a Vela no início, a conversa desvia longamente para Rook com vários códigos, e no fim Dario testa a memória dos dois").
-- PROIBIDO: inspecionar código, testes, planos, análises anteriores, configs ou qualquer arquivo além do transcript; modificar arquivos; propor implementação ou correção técnica.
-- Papel: roteirista / editor de continuidade narrativa lendo a cena como um leitor comum.
-- O relatório escrito deve responder:
-  1. Os personagens lembram eventos anteriores de forma natural?
-  2. O comportamento de cada um permanece consistente?
-  3. Algum personagem demonstra saber algo que não deveria saber?
-  4. Fatos, nomes, códigos, relações ou motivações se confundem em algum ponto?
-  5. A conversa soa contínua depois das trocas de foco narrativo?
-  6. Há alguma descontinuidade estranha que um leitor normal notaria?
+- Hand over ONLY: the transcript path and a short description of the expected scenario (e.g. "three characters in a tavern; Dario entrusts a password to Vela early on, the conversation drifts at length toward Rook with several codes, and at the end Dario tests what both remember").
+- FORBIDDEN: inspecting code, tests, plans, earlier analyses, configs or any file beyond the transcript; modifying files; proposing an implementation or a technical fix.
+- Role: screenwriter / continuity editor reading the scene as an ordinary reader.
+- The written report must answer:
+  1. Do the characters recall earlier events naturally?
+  2. Does each one's behaviour stay consistent?
+  3. Does any character show knowledge they should not have?
+  4. Do facts, names, codes, relationships or motivations get confused at any point?
+  5. Does the conversation read as continuous across the narrative focus switches?
+  6. Is there any strange discontinuity an ordinary reader would notice?
 
-## 5. Consolidar
+## 5. Consolidate
 
-Relate ao usuário em um único resumo: resultado dos `recall_checks` (com a distinção prompt×reply), a tabela de camadas por marcador, os invariantes, e o relatório do subagente. Falha de isolamento (segredo de um par no prompt do outro personagem presente) é comportamento atual por design — todo `speech` é público entre presentes; registre como questão de produto, não como regressão.
+Report to the user in a single summary: the `recall_checks` outcome (keeping the prompt×reply distinction), the per-marker layer table, the invariants, and the subagent's report. An isolation failure (one pair's secret appearing in the prompt of the other character present) is current behaviour by design — every `speech` is public among those present; log it as a product question, not a regression.

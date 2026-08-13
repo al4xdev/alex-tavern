@@ -1,174 +1,172 @@
 ---
 name: critic
-description: Submete o conteúdo que você acabou de escrever (task, decisão, closure, relatório, entrada de roadmap) a um subagente crítico isolado que só lê o conteúdo — sem código, sem tasks, sem histórico — e devolve um veredito por afirmação (ADVANCES / NEUTRAL / WORSE THAN ABSENT / UNSUPPORTED) com falsificador e métrica. Use antes de gravar qualquer coisa em `.plan/`, ao revisar o que outro modelo produziu, ou quando precisar decidir se um achado merece existir. A doutrina completa está em `.plan/reference/critic-protocol.md`.
+description: Send content you just wrote (a task, a decision entry, a closure, a report, a roadmap entry) to an isolated critic subagent that reads only the content — no code, no tasks, no history — and returns a per-claim verdict (ADVANCES / NEUTRAL / WORSE THAN ABSENT / UNSUPPORTED) with a falsifier and a metric. Use before writing anything into `.plan/`, when reviewing what another model produced, or when deciding whether a finding deserves to exist. The full doctrine is in `.plan/reference/critic-protocol.md`.
 ---
 
-# Crítico — o conteúdo se defende sozinho ou não entra
+# Critic — content defends itself or it does not enter
 
-Este projeto encontrou **todos** os seus achados reais lendo texto, e **nenhum**
-por uma métrica ter apitado. Esta skill é a contraparte: antes de o texto virar
-registro, alguém que não participou da escrita tenta derrubá-lo.
+This project found **every** real finding by reading text, and **none** by a
+metric announcing a problem. This skill is the counterpart: before text becomes
+record, somebody who did not take part in writing it tries to knock it down.
 
-Leia `.plan/reference/critic-protocol.md` antes de rodar. Ele é a fonte da
-verdade e é portável — vale para qualquer modelo ou ferramenta, não só Claude.
-Esta skill é só o procedimento de disparo.
+Read `.plan/reference/critic-protocol.md` before running. That file is the
+source of truth and is portable — it holds for any model or tool, not just
+Claude. This skill is only the dispatch procedure.
 
-## 1. Extrair as afirmações
+## 1. Extract the claims
 
-A unidade **não é a linha**. É a **afirmação**: toda frase que um leitor usaria
-para decidir algo — um número, uma causa, uma recomendação, um status, um
-fechamento. Um crítico segurando uma linha solta só consegue dizer se ela está
-bem escrita, que é a coisa menos útil e a mais fácil de fingir.
+The unit is **not the line**. It is the **claim**: any sentence a reader would
+act on — a number, a cause, a recommendation, a status, a closure. A critic
+holding one loose line can only tell you whether it is well written, which is
+the least useful thing it could say and the easiest to fake.
 
-Prosa sem afirmação (moldura, transição, transcrição citada) não vai a revisão —
-não há o que estar errado nela.
+Prose carrying no claim (framing, transitions, quoted transcript) does not go to
+review — there is nothing in it to be wrong about.
 
-Numere as afirmações do artefato. Se um artefato tem zero afirmações, ele não
-precisa de crítico; precisa de justificativa para existir.
+Number the artifact's claims. An artifact with zero claims does not need a
+critic; it needs a reason to exist.
 
-### Marque o status de cada afirmação — e mantenha a marcação viva
+### Tag each claim's status — and keep the tag alive
 
-Ao lado do veredito, toda afirmação carrega um **status**, que diz que tipo de
-coisa ela é. São eixos independentes: uma THEORY pode ser a frase mais valiosa
-do documento, e um número MEASURED pode ser pior do que ausente.
+Alongside the verdict, every claim carries a **status**, which says what kind of
+thing it is. The two axes are independent: a THEORY can be the most valuable
+sentence in the document, and a MEASURED number can be worse than absent.
 
-| status | significa |
+| status | means |
 |---|---|
-| **MEASURED** | número com método nomeado, n e controle; outra pessoa reproduz |
-| **OBSERVED** | alguém leu e viu; n pequeno e declarado, sem instrumento |
-| **THEORY** | mecanismo proposto; nada medido |
-| **ASSUMED** | herdado de texto anterior, nunca conferido aqui |
+| **MEASURED** | a number with named method, n and a control; someone else can reproduce it |
+| **OBSERVED** | somebody read it and saw it; small n, stated, no instrument |
+| **THEORY** | a proposed mechanism; nothing measured |
+| **ASSUMED** | inherited from earlier text, never checked here |
 
-**Teoria escrita na gramática de medição é WORSE THAN ABSENT automaticamente** —
-por mais plausível que seja, porque o próximo leitor vai citar como estabelecido.
-Escreva o status no texto, não só na revisão: *"não diagnosticado"*, *"lido em
-seis sessões"*, *"pooled em N sessões, mediana M"* são as palavras que carregam
-isso.
+**Theory written in the grammar of a measurement is WORSE THAN ABSENT by
+default** — however plausible, because the next reader will quote it as
+established. Write the status into the text, not only into the review:
+*"undiagnosed"*, *"read across six sessions"*, *"pooled over N sessions, median
+M"* are the words that carry it.
 
-**Promover e despromover acontece durante o trabalho, não no fim.** Cada vez que
-uma evidência chega, volte e re-etiquete o que você já escreveu:
+**Promotion and demotion happen during the work, not at the end.** Every time a
+piece of evidence lands, go back and re-tag what you already wrote:
 
-- promoção sobe um degrau por vez — `ASSUMED → THEORY` (mecanismo explícito e
-  falsificável) → `OBSERVED` (leitura real, com n e método) → `MEASURED`
-  (métrica + controle + spread por sessão + regra pré-registrada **antes** dos
-  números). Nada pula degrau.
-- despromoção é **obrigatória** quando o instrumento falha (`MEASURED → THEORY`:
-  o score 0.02 e a taxa de 34%), quando o spread mostra que o número descreve só
-  as sessões vistas (`MEASURED → OBSERVED`), ou quando um controle mostra que o
-  efeito é fundo (`OBSERVED → THEORY`: 36 de 39, Fisher p = 0.43).
+- promotion climbs one rung at a time — `ASSUMED → THEORY` (mechanism stated and
+  falsifiable) → `OBSERVED` (real reading, with n and method) → `MEASURED`
+  (metric + control + per-session spread + a decision rule pre-registered
+  **before** the numbers). Nothing skips a rung.
+- demotion is **mandatory** when the instrument fails (`MEASURED → THEORY`: the
+  0.02 score and the 34% rate), when the spread shows the number only describes
+  the sessions actually seen (`MEASURED → OBSERVED`), or when a control shows
+  the effect is background (`OBSERVED → THEORY`: 36 of 39, Fisher p = 0.43).
 
-Despromoção se escreve **onde a afirmação mora**, carregando o histórico —
-*"medido, despromovido em <data> porque <o quê>"*. Retratação arquivada em outro
-lugar deixa a frase errada no caminho do leitor, e sem o histórico alguém
-re-promove ela em silêncio no mês seguinte.
+A demotion is written **where the claim lives**, carrying its history —
+*"measured, demoted on <date> because <what>"*. A retraction filed somewhere
+else leaves the wrong sentence in the reader's path, and without the history
+somebody silently re-promotes it a month later.
 
-## 2. Escolher o lote
+## 2. Choose the batch
 
-Um artefato por disparo: um arquivo de task, uma entrada de decisão, um closure,
-uma seção de relatório. O crítico precisa de contexto suficiente para julgar
-"isso avança?", e um parágrafo isolado normalmente não é.
+One artifact per dispatch: one task file, one decision entry, one closure, one
+report section. The critic needs enough context to judge "does this advance?",
+and one isolated paragraph usually is not.
 
-## 3. Disparar o crítico isolado
+## 3. Dispatch the isolated critic
 
-Lance um subagente `general-purpose` **novo**. Nunca `SendMessage` para um agente
-existente — um crítico que assistiu ao trabalho acontecer já foi convencido.
+Launch a **fresh** `general-purpose` subagent. Never `SendMessage` an existing
+agent — a critic that watched the work happen has already been convinced.
 
-O prompt literal está em `.claude/skills/critic/agents/critic-prompt.md`. Use-o
-como está, colando o conteúdo sob revisão no lugar marcado.
+The verbatim prompt is in `.claude/skills/critic/agents/critic-prompt.md`. Use
+it as it stands, pasting the content under review where marked.
 
-**Contrato de isolamento** (violar isto invalida o veredito):
+**Isolation contract** (breaking it invalidates the verdict):
 
-- Entregue APENAS: o conteúdo sob revisão, o texto do prompt do crítico, e —
-  se houver número em jogo — `.plan/reference/metric-validity.md`.
-- PROIBIDO entregar: código, arquivos de task, roadmap, histórico do git,
-  vereditos anteriores, quem escreveu, ou por que você acha que está certo.
-- PROIBIDO ao crítico: abrir qualquer arquivo além dos entregues, editar
-  arquivos, ou propor implementação.
+- Hand over ONLY: the content under review, the critic prompt text, and — if a
+  number is in play — `.plan/reference/metric-validity.md`.
+- FORBIDDEN to hand over: code, task files, the roadmap, git history, earlier
+  verdicts, who wrote it, or why you think it is right.
+- FORBIDDEN to the critic: opening any file beyond what it was handed, editing
+  files, or proposing an implementation.
 
-Para o que importa de verdade, **varie o crítico** — outro modelo ou outro
-enquadramento. Auto-revisão do mesmo modelo tem a menor superfície de
-discordância possível.
+For anything that really matters, **vary the critic** — another model or another
+framing. Same-model self-review has the smallest possible disagreement surface.
 
-### Vários críticos: a divergência é o sinal
+### Several critics: the disagreement is the signal
 
-Quando uma afirmação decide alguma coisa, dispare mais de um crítico **em
-paralelo** (chamadas independentes no mesmo bloco). E leia o resultado certo:
+When a claim decides something, dispatch more than one critic **in parallel**
+(independent calls in the same block). And read the result the right way:
 
-- **Concordância não é evidência.** Prompts iguais para modelos iguais concordam
-  por construção — isso não mediu nada.
-- **A divergência aponta exatamente a afirmação cujo apoio é fino**, que era a
-  única coisa que você queria achar.
-- **Não vote e não tire média.** Assuma o **veredito mais duro** como o que
-  precisa ser respondido, e registre que os críticos divergiram e o que cada um
-  viu. Afirmação que sobrevive a um crítico tentando despromovê-la vale mais que
-  afirmação aprovada por três críticos agradáveis.
+- **Agreement is not evidence.** Identical prompts to identical models agree by
+  construction — that measured nothing.
+- **The disagreement points at exactly the claim whose support is thin**, which
+  was the only thing you wanted to find.
+- **Do not vote and do not average.** Take the **harshest verdict** as the one
+  to answer, and record that the critics split and what each one saw. A claim
+  that survives a critic trying to demote it is worth more than one three
+  agreeable critics passed.
 
-Enquadramentos diferentes valem mais que seeds diferentes. Um trio que funciona:
-um crítico instruído a **despromover** (achar teoria vestida de medição), um a
-responder só **"o registro pioraria sem isso?"**, e um que recebe **só os números
-e nenhuma prosa**. Custo é real — não faça leque em tudo, só no que trava uma
-decisão.
+Different framings beat different seeds. A trio that works: one critic told to
+**demote** (hunt theory dressed as measurement), one answering only **"would the
+record be worse without this?"**, and one given **the numbers and no prose**.
+The cost is real — do not fan out on everything, only on what blocks a decision.
 
-## 4. Ler o retorno
+## 4. Read the return
 
-Por afirmação, o crítico devolve um veredito e três respostas obrigatórias:
-o que falsificaria a afirmação, qual a leitura mais forte contra ela, e se o
-registro ficaria pior sem ela.
+Per claim, the critic returns a verdict and three mandatory answers: what would
+falsify the claim, the strongest reading against it, and whether the record
+would be worse without it.
 
-| veredito | leitura |
+| verdict | reading |
 |---|---|
-| **ADVANCES** | um leitor consegue fazer algo que não conseguia — o crítico tem que dizer **o quê** |
-| **NEUTRAL** | verdadeiro, defensável, e não adiciona nada |
-| **WORSE THAN ABSENT** | o registro fica mais difícil de usar com isso dentro |
-| **UNSUPPORTED** | o texto não carrega o próprio peso; volta ao autor com o falsificador junto |
+| **ADVANCES** | a reader can do something they could not before — the critic must say **what** |
+| **NEUTRAL** | true, defensible, and adds nothing |
+| **WORSE THAN ABSENT** | the record is harder to use with this in it |
+| **UNSUPPORTED** | the text does not carry its own weight; back to the author with the falsifier attached |
 
-O crítico **não é aprovador**. `ADVANCES` não torna a afirmação verdadeira —
-torna ela digna de ser mantida enquanto alguém confere. Mudança de schema, de
-grafo ou de ordem do roadmap continua sendo decisão do dono.
+The critic **is not an approver**. `ADVANCES` does not make the claim true — it
+makes it worth keeping while somebody checks. A schema change, a graph change or
+a roadmap re-order stays an owner decision.
 
-## 5. Métrica
+## 5. Metrics
 
-Toda afirmação numérica precisa de uma métrica nomeada, vinda de uma destas três
-fontes (em ordem de preferência):
+Every numeric claim needs a named metric, from one of three sources (in order of
+preference):
 
-1. **Métrica existente** — confira `.plan/reference/metric-validity.md` primeiro;
-   ele diz quais são confiáveis, quais foram rebaixadas e quais foram medidas e
-   rejeitadas.
-2. **Métrica nova** — que passa a dever: um controle, o spread por sessão, uma
-   regra pré-registrada e uma entrada no registro.
-3. **O julgamento do próprio crítico, declarado como métrica** — legítimo e
-   frequentemente o melhor disponível. *"Li seis destes e não consegui
-   distinguir"* é uma medição. Reporte como o que é (n, método, incerteza do
-   crítico), nunca lavado em porcentagem.
+1. **An existing metric** — check `.plan/reference/metric-validity.md` first; it
+   says which are trusted, which were downgraded, and which were measured and
+   rejected.
+2. **A new metric** — which then owes: a control, the per-session spread, a
+   pre-registered rule, and an entry in the register.
+3. **The critic's own judgement, stated as a metric** — legitimate and often the
+   best available. *"I read six of these and could not tell them apart"* is a
+   measurement. Report it as what it is (n, method, the critic's own
+   uncertainty), never laundered into a percentage.
 
-Regras que o crítico cobra e que não são preferência de estilo — cada uma está
-aí porque foi violada e custou algo — estão na seção *Metric culture* do
-protocolo. As três que mais aparecem: **a sessão é a unidade**, **todo número de
-manchete carrega o spread por sessão**, e **nunca case um NOME com heurística de
-string**.
+The rules the critic enforces — none of them style preferences, each one there
+because it was violated and cost something — are in the protocol's *Metric
+culture* section. The three that come up most: **the session is the unit**,
+**every headline number carries its per-session spread**, and **never match a
+NAME with a string heuristic**.
 
-## 6. Fechar no schema do `.plan`
+## 6. Close into the `.plan` schema
 
-O veredito decide a pasta:
+The verdict decides the folder:
 
-| veredito | destino |
+| verdict | destination |
 |---|---|
-| ADVANCES + fecha uma pergunta | `closed/`, com a evidência que fechou |
-| ADVANCES + abre trabalho desta fase | `tasks/`, mecanismo **não diagnosticado** salvo se foi medido |
-| ADVANCES + real mas não desta fase | `backlog/` — **este é o padrão para achado novo** |
-| ADVANCES + precisa do dono | `para-o-dono/` |
-| NEUTRAL | não escreva; não existe pasta para isso |
-| WORSE THAN ABSENT | apague, e registre a rejeição onde ela seria re-derivada (seção *medido-e-rejeitado* da task, ou `metric-validity.md`) |
-| UNSUPPORTED | volta ao autor, não entra em pasta nenhuma |
+| ADVANCES + closes a question | `closed/`, with the evidence that closed it |
+| ADVANCES + opens work in this phase | `tasks/`, mechanism **undiagnosed** unless measured |
+| ADVANCES + real but not this phase | `backlog/` — **this is the default for a new finding** |
+| ADVANCES + needs the owner | `para-o-dono/` |
+| NEUTRAL | do not write it; there is no folder for this |
+| WORSE THAN ABSENT | delete it, and log the rejection where it would be re-derived (the task's *measured-and-rejected* section, or `metric-validity.md`) |
+| UNSUPPORTED | back to the author, into no folder at all |
 
-**Uma fase não cresce enquanto ninguém olha.** Achado novo vai para `backlog/`
-por padrão; promover para `tasks/` é decisão do dono.
+**A phase does not grow while nobody is watching.** A new finding goes to
+`backlog/` by default; promoting it to `tasks/` is an owner decision.
 
-## 7. Consolidar
+## 7. Consolidate
 
-Relate em um único bloco: as afirmações numeradas, o veredito **e o status** de
-cada uma, o falsificador de tudo que ficou como ADVANCES, tudo que foi apagado e
-por quê, tudo que foi promovido ou despromovido e com base em qual evidência, e
-qual métrica sustentou cada número. Se o crítico e uma leitura humana
-discordarem, **a leitura vence e o crítico ganha uma entrada em
-`metric-validity.md`** — a mesma regra que vale para todo instrumento aqui.
+Report in a single block: the numbered claims, the verdict **and status** of
+each, the falsifier for everything left as ADVANCES, everything deleted and why,
+everything promoted or demoted and on what evidence, and which metric held up
+each number. If the critic and a human reading disagree, **the reading wins and
+the critic gets an entry in `metric-validity.md`** — the same rule that applies
+to every other instrument here.

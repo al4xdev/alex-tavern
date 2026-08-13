@@ -1,0 +1,4 @@
+interface:
+  display_name: "Critic"
+  short_description: "Judge written claims with an isolated critic that sees only the content"
+  default_prompt: "Use $critic on the artifact I just wrote: extract the claims, tag each MEASURED/OBSERVED/THEORY/ASSUMED, and dispatch an isolated critic that receives the content and nothing else."
