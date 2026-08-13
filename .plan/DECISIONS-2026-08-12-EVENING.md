@@ -730,8 +730,15 @@ Two Claude sessions are running in this repository at the same time:
 
 | session | pid | started |
 |---|---|---|
-| `743b2089` (this one) | 32226 `claude` | 2026-08-06, resumed today 08:37 |
-| **`50d16fe0`** | 31711 `claude -c` | **2026-08-12 21:14:15 local** |
+| `743b2089` (this one) | **31711 `claude -c`** | 2026-08-06, resumed today |
+| **`50d16fe0`** | **32226 `claude`** | **2026-08-12 21:14:15 local** |
+
+⚠ **The two pids were swapped in the first version of this entry, corrected
+2026-08-13 19:53.** Settled when the owner closed the other session: **32226
+disappeared and 31711 survived**, and the transcript still being written is
+`743b2089`. **Nothing else in this entry depends on it** — the coincidence that
+opens the case is between `50d16fe0`'s first *transcript timestamp* and the revert
+window, and transcript timestamps do not come from pids.
 
 **Entry 22's §16 window was 21:14:11 → 21:16:47.** The second session's first
 record is **21:14:15 — four seconds after that window opened.** Its transcript
@@ -815,9 +822,10 @@ one as entry 24: an external writer holding a copy of the file from before my
 commit, writing it back. Not a merge, not an edit, not a conflict — a stale copy
 landing on top.
 
-**Session `50d16fe0` (pid 31711, `claude -c`) is still running**, 11.5 hours in.
-The owner reported it had finished; it has stopped **committing** since 13:36, and
-the process is alive.
+**Session `50d16fe0` was still running**, 11.5 hours in, and had stopped
+**committing** since 13:36. *(Written here as pid 31711; that was the swap
+corrected in entry 24 — it was **32226**. The owner closed it at 19:52 and 32226
+is the process that disappeared.)*
 
 **What is NOT established, and I am not going to guess it.** A human editor with a
 stale buffer doing "save all" produces this signature exactly as well as an agent
