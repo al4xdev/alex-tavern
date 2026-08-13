@@ -243,6 +243,43 @@ def _staging_lines(
     return lines
 
 
+def _blocking_lines(
+    blocking: dict[str, str],
+    characters: dict[str, Character],
+    controlled_id: str,
+    viewers: set[str] | None = None,
+) -> list[str]:
+    """BLOCKING block: where each person stands INSIDE the place they occupy.
+
+    Task 79. The Director writes this on every call and `narrate()` used to throw
+    it away, so the renderer staged people by zone NAME - a string no instrument
+    in this project can interpret (five registered false positives). This hands it
+    the Director's own words instead: "junto à saída lateral" rather than
+    "Salão dos Quatro Arcos".
+
+    ``viewers`` scoping is not cosmetic. ``character_zones`` covers EVERY present
+    character, so handing it over whole would put cluster B's positions in cluster
+    A's prompt - the cross-cluster leak task 71 closed from 16/29 to 3/78, coming
+    back through a new door. It is filtered by the same set that scopes the cast.
+    """
+    if not blocking:
+        return []
+    lines = []
+    for cid, where in blocking.items():
+        if viewers is not None and cid not in viewers:
+            continue
+        if cid not in characters:
+            continue
+        lines.append(f"  {_canonical_name(cid, characters, controlled_id)}: {where}")
+    if not lines:
+        return []
+    return [
+        "BLOCKING (where each person is standing right now; narrate from it, "
+        "do not contradict it):",
+        *lines,
+    ]
+
+
 def build_prose_messages(
     scene: Scene,
     characters: dict[str, Character],
@@ -252,6 +289,7 @@ def build_prose_messages(
     context_max: int | None = None,
     max_tokens: int = 1024,
     viewers: set[str] | None = None,
+    blocking: dict[str, str] | None = None,
 ) -> list[dict]:
     """Reader-entitled inputs only.
 
@@ -316,6 +354,11 @@ def build_prose_messages(
     ] or ["  - Nothing new happens; render a short atmospheric beat."]
     staging = _staging_lines(scene, characters, controlled_id, viewers)
     staging_block = "\n".join(staging) + "\n\n" if staging else ""
+    # Left at None the prompt is byte-identical to the pre-79 one, which is what
+    # keeps every existing renderer and every archived comparison on their own
+    # path — the same guarantee task 71 made for `viewers`.
+    blocking_lines = _blocking_lines(blocking or {}, characters, controlled_id, viewers)
+    blocking_block = "\n".join(blocking_lines) + "\n\n" if blocking_lines else ""
     # Measured leak, session `c76037ff` 2026-08-12: scoping the cast, staging and
     # events is not enough, because the TRANSCRIPT reintroduces the other half.
     # Narration rendered while the scene was still whole is `audience=None` and
@@ -343,6 +386,7 @@ def build_prose_messages(
         + "\n\n"
         + roster_block
         + staging_block
+        + blocking_block
         + "READER TRANSCRIPT (oldest to newest):\n"
         + "\n".join(transcript)
         + "\n\n"
@@ -460,6 +504,7 @@ async def render_narration(
     session_id: str = "",
     turn_number: int = 0,
     viewers: set[str] | None = None,
+    blocking: dict[str, str] | None = None,
 ) -> str:
     max_tokens = int(config.get("max_tokens_narrator", 2048))
     messages = build_prose_messages(
@@ -471,6 +516,7 @@ async def render_narration(
         context_max=config.get("context_max"),
         max_tokens=max_tokens,
         viewers=viewers,
+        blocking=blocking,
     )
     # Shared by the first attempt and the anti-repetition retry below.
     request_kwargs: dict[str, Any] = {

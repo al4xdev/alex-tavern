@@ -505,3 +505,63 @@ class TestAClusterWithNothingHappeningIsNotRendered:
     def test_omitting_the_events_argument_folds_nothing(self) -> None:
         """Callers that predate this branch keep their behaviour."""
         assert Runner._narration_clusters(self._game()) == [{"C1", "C2"}, {"C3", "C4"}]
+
+
+class TestBlockingDoesNotReopenThisLeak:
+    """Task 79 hands the Director's blocking to the renderer. Guard it HERE.
+
+    `scene_blocking.character_zones` maps EVERY present character to a position.
+    Handed to the renderer whole, the prompt for cluster A would carry where
+    cluster B's people are standing - this task's leak (16/29 -> 3/78), returning
+    through a door nobody was watching.
+
+    The test lives in task 71's suite rather than 79's on purpose: this is the
+    suite whose job is to catch a cross-cluster leak, and it is where the next
+    person to touch the renderer will look.
+    """
+
+    BLOCKING = {
+        "C1": "junto a saida lateral",
+        "C2": "atras da mesa virada",
+        "C3": "na boca do corredor",
+        "C4": "encostado na parede rachada",
+    }
+
+    def _user(self, viewers: set[str] | None) -> str:
+        return build_prose_messages(
+            _split_scene(), CAST, "C1", [], [], viewers=viewers, blocking=self.BLOCKING
+        )[1]["content"]
+
+    def test_the_hall_is_not_told_where_the_corridor_stands(self) -> None:
+        user = self._user({"C1", "C2"})
+        assert "junto a saida lateral" in user
+        assert "atras da mesa virada" in user
+        assert "na boca do corredor" not in user
+        assert "encostado na parede rachada" not in user
+
+    def test_the_corridor_is_not_told_where_the_hall_stands(self) -> None:
+        user = self._user({"C3", "C4"})
+        assert "na boca do corredor" in user
+        assert "encostado na parede rachada" in user
+        assert "junto a saida lateral" not in user
+
+    def test_blocking_names_people_never_ids(self) -> None:
+        """The renderer is blind; an internal id in narrative position is a leak."""
+        user = self._user({"C1", "C2"})
+        assert "Link: junto a saida lateral" in user
+        assert "C1:" not in user
+        assert "C2:" not in user
+
+    def test_an_unsplit_scene_still_gets_every_position(self) -> None:
+        user = self._user(None)
+        for where in self.BLOCKING.values():
+            assert where in user
+
+    def test_omitting_blocking_builds_the_pre_79_prompt_exactly(self) -> None:
+        """Turns without blocking stay byte-identical, as they did for task 71."""
+        before = build_prose_messages(_split_scene(), CAST, "C1", [], [], viewers={"C1", "C2"})
+        after = build_prose_messages(
+            _split_scene(), CAST, "C1", [], [], viewers={"C1", "C2"}, blocking=None
+        )
+        assert before == after
+        assert "BLOCKING" not in before[1]["content"]

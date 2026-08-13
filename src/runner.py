@@ -1598,10 +1598,22 @@ class Runner:
         # Not merely for tidiness: it keeps every injected renderer that predates
         # this task working, and makes "the majority of turns are untouched" a
         # property of the code rather than a claim in a doc.
+        # Task 79: the Director's own blocking, for THIS turn's renderer only.
+        # Never persisted, never seen by perception - `_blocking_lines` filters it
+        # by the same cluster that scopes the cast, so cluster A cannot be told
+        # where cluster B is standing.
+        # A turn with no blocking calls the renderer with exactly the pre-79
+        # signature. Same structural guarantee task 71 made for `viewers`, and for
+        # the same reason: every injected renderer that predates this task keeps
+        # working, and "turns without blocking are untouched" is a property of the
+        # code rather than a claim in a doc.
+        extra = {"blocking": narrator_raw.get("blocking")} if narrator_raw.get("blocking") else {}
         renders = [
-            self._render_narration(game, narrator_raw["perception_events"], step)
+            self._render_narration(game, narrator_raw["perception_events"], step, **extra)
             if cluster is None
-            else self._render_narration(game, narrator_raw["perception_events"], step, cluster)
+            else self._render_narration(
+                game, narrator_raw["perception_events"], step, cluster, **extra
+            )
             for cluster in clusters
         ]
         render_results = await asyncio.gather(
@@ -3000,6 +3012,7 @@ class Runner:
         events: list[dict[str, Any]],
         turn_number: int,
         viewers: set[str] | None = None,
+        blocking: dict[str, str] | None = None,
     ) -> str:
         """Blind prose renderer boundary (Task 36) — injectable like the other agents."""
         return await render_narration(
@@ -3013,6 +3026,7 @@ class Runner:
             session_id=game.session_id,
             turn_number=turn_number,
             viewers=viewers,
+            blocking=blocking,
         )
 
     async def _ensure_perspective(

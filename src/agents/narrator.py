@@ -844,9 +844,12 @@ async def narrate(
                 ]
     result["zone_link_updates"] = links
     result["return_control"] = bool(result.get("return_control", False))
-    # Scratch field only: it forces spatial blocking to be materialized before
-    # the decisions, but it is not runtime state and must not escape narrate().
-    result.pop("scene_blocking", None)
+    # The rest of `scene_blocking` is scratch: it forces spatial blocking to be
+    # materialized before the decisions, and it is not runtime state.
+    # `character_zones` is the exception, kept as `blocking` for the prose
+    # renderer of THIS turn only (task 79). It is deliberately not persisted and
+    # `Scene` gains no field: nothing here survives the turn.
+    blocking_raw = (result.pop("scene_blocking", None) or {}).get("character_zones")
     # Deterministic thought guard (Task 41): the Director sees every private
     # thought, but nothing thought-only may surface as a perceivable event.
     thought_secret = hidden_thought_tokens(history, characters, scene)
@@ -855,6 +858,24 @@ async def narrate(
         if thought_secret:
             content = redact_tokens(content, thought_secret)
         event["content"] = content
+
+    # Blocking reaches a prompt, so it earns exactly the treatment event content
+    # gets: present characters only, normalized, and redacted against the same
+    # thought secrets. It is free text the Director wrote without being asked to
+    # keep a secret, and the prose renderer is blind by design.
+    blocking: dict[str, str] = {}
+    if isinstance(blocking_raw, dict):
+        for cid, where in blocking_raw.items():
+            key = str(cid)
+            if key not in characters or key not in scene.present_characters:
+                continue
+            text = normalize_generated_text(str(where or ""))
+            if thought_secret:
+                text = redact_tokens(text, thought_secret)
+            text = text.strip()[:160]
+            if text:
+                blocking[key] = text
+    result["blocking"] = blocking
 
     # `scene_update` is the one output with no per-viewer projection: its keys
     # become durable physical facts that reach the prose prompt verbatim AND are

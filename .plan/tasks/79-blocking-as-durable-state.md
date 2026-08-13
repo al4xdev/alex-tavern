@@ -5,6 +5,36 @@
 > no serialization until the deferred bump is decided. Task 76's graph stays
 > frozen.
 >
+> ## ✅ SHIPPED 2026-08-13 — the ship-now half, no schema change
+>
+> `narrate()` no longer discards `scene_blocking.character_zones`. It sanitizes it
+> and hands it to the prose renderer **for that turn only**, as a `BLOCKING` block
+> naming where each person stands. **Nothing is persisted, `Scene` gains no field,
+> `SESSION_SCHEMA_VERSION` is untouched, and the 33 archived sessions stay
+> openable.** 1131 tests pass, `ruff check` clean.
+>
+> | | |
+> |---|---|
+> | `src/agents/narrator.py` | keeps `character_zones` as `result["blocking"]`; the rest of `scene_blocking` is still popped |
+> | `src/agents/prose.py` | `_blocking_lines()` + the `blocking` argument, filtered by `viewers` |
+> | `src/runner.py` | threads it from the Director's result to the renderer |
+> | `tests/test_per_viewer_narration.py` | **the cross-cluster leak case, in task 71's suite** |
+> | `tests/test_blocking_is_not_perception.py` | **decision 1's FORBIDDEN row, as a test** |
+>
+> **Sanitized like event content, because it reaches a blind renderer's prompt:**
+> present characters only, normalized, **redacted against the same thought
+> secrets**, truncated at 160 chars. It is free text the Director wrote without
+> being asked to keep a secret.
+>
+> **Structural guarantee, the same one task 71 made:** a turn with no blocking
+> calls the renderer with the **pre-79 signature** and builds a **byte-identical**
+> prompt. Pinned by a test. That is what keeps every injected renderer and every
+> archived comparison on their own path.
+>
+> **Still open from the design review:** `scan_cross_cluster_leak` re-run on a
+> post-change **live cell** against 3/78. The unit test pins the filter; only a
+> cell can pin the engine. **Not discharged.**
+>
 > **Next action: the owner's word on the re-priced proposal**
 > (`.plan/para-o-dono/79-blocking-shape.md`). The schema bump is recommended
 > **against** — median 5.6% symptom, irreversible cost, and no instrument that
