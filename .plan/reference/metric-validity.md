@@ -136,6 +136,45 @@ components attributes the gap to whichever component you already suspect. It
 took a cell where the *other* component was at fault to notice. Two cells is the
 minimum for any metric defined as a disagreement.
 
+## ⚠ READ THIS FIRST: the session is the unit, and almost every p-value here ignored that
+
+Added 2026-08-12 after measuring session-to-session variance under **identical
+code**, four sessions per group:
+
+| metric | mean | sd | range | sessions needed to see a 10-point change |
+|---|---|---|---|---|
+| **split rate** | 49.1% | **17.9** | 28.6 - 67.3 | **~51 per arm** |
+| frozen-position rate | 88.3% | 6.1 | 81.0 - 95.5 | ~6 per arm |
+| `return_control` rate | 2.7% | 3.9 | 0.0 - 8.3 | ~3 per arm |
+| `empty_audience` | — | — | **0 or 7** | bimodal, one decision drives all 7 |
+
+**The split rate swings by a factor of two on identical code**, and every
+comparison this project has made on it used three or four sessions.
+
+### The error underneath it
+
+Nearly every test in these files - including most of the ones written on
+2026-08-12 - was a Fisher exact on **pooled turns or pooled records**:
+`16/29 vs 3/78`, `58/108 vs 30/108`, `168/610`. That treats each turn as an
+independent draw. **It is not.** One Director decision - sealing a pulpit -
+produces seven empty-audience records in one session. One graph shape produces
+thirty split narrations. The correlated unit is the **session**, and pooling
+turns inside it inflates the effective n by roughly an order of magnitude, which
+makes p-values look far stronger than the evidence is.
+
+**What this does and does not invalidate:**
+
+- **Sound:** tests whose unit already IS the session. Task 64's *"control never
+  returned in 5 of 12 sessions versus 0 of 9"*, p=0.045, is a real test.
+- **Direction probably right, confidence overstated:** task 71's leak
+  (16/29 → 3/78) and task 67's split-rate change. The effects are large and
+  visible per session, but the quoted p-values are not defensible.
+- **Never trust at n≤4:** anything built on the split rate.
+
+**The rule going forward:** count the metric per session, then compare
+sessions. If that leaves too few points to test, say so instead of pooling turns
+to manufacture significance.
+
 ## The sharpest case on this page: 0.02 similarity, and a reader sees one paragraph
 
 Found 2026-08-12 by reading `c76037ff`, after task 71 shipped that morning.
