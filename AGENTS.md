@@ -1,190 +1,183 @@
-# Diretrizes do Projeto para Agentes
+# Project guidelines for agents
 
-Alex Tavern é uma aplicação de roleplay multiagente orientada a estado. Um Narrador governa o
-mundo físico e roteia a cena; agentes de Personagem falam e pensam com contexto restrito; o
-Runner preserva a agência humana, persiste cada sessão e coordena chamadas a provedores LLM.
+Alex Tavern is a state-driven multi-agent roleplay application. A Narrator governs the physical
+world and routes the scene; Character agents speak and think with restricted context; the Runner
+preserves human agency, persists every session and coordinates calls to LLM providers.
 
-Este arquivo é o contrato de trabalho para qualquer agente que modificar o repositório. Ele
-descreve a arquitetura e as decisões vigentes. História, auditorias e implementações concluídas
-ficam em `.plan/closed/`; trabalho ativo fica em `.plan/tasks/`; ideias futuras
-sem trabalho ativo em `.plan/backlog/`; docs de arquitetura vivos em
-`.plan/reference/`; itens esperando ação do dono em `.plan/para-o-dono/`.
-O mapa completo está em `.plan/README.md` (o `ROADMAP.md` monolítico foi removido em
-2026-07-20: o estado vive distribuído entre essas pastas).
+This file is the working contract for any agent modifying the repository. It describes the
+architecture and the decisions in force. History, audits and completed implementations live in
+`.plan/closed/`; active work lives in `.plan/tasks/`; future ideas with no active work in
+`.plan/backlog/`; living architecture docs in `.plan/reference/`; items awaiting the owner in
+`.plan/para-o-dono/`. The full map is in `.plan/README.md` (the monolithic `ROADMAP.md` was removed
+on 2026-07-20: state lives distributed across those folders).
 
 > [!IMPORTANT]
-> **Regra Básica de Execução para Agentes:**
-> Antes de criar qualquer código ou feature nova, você **deve sempre consultar a pasta `.plan/tasks/`** para verificar se já existe uma especificação ou planejamento em andamento, evitando retrabalho e mantendo a consistência arquitetural.
-> O prefixo **`S`** indica uma **Supertask**: uma mudança estrutural e de grande impacto planejada. Supertasks concluídas, como `S01-plugin-system.md`, ficam em `.plan/closed/`; as ainda não iniciadas (ex.: `S02`) moram em `.plan/backlog/` até o dono priorizá-las.
+> **Basic execution rule for agents:**
+> Before creating any new code or feature, you **must always check `.plan/tasks/`** for an existing spec or plan already under way, to avoid rework and keep the architecture consistent.
+> The **`S`** prefix marks a **Supertask**: a planned structural, high-impact change. Completed supertasks, such as `S01-plugin-system.md`, live in `.plan/closed/`; the ones not yet started (e.g. `S02`) live in `.plan/backlog/` until the owner prioritises them.
 
-## 1. Visão atual
+## 1. Current view
 
-O projeto está deixando a fase experimental e consolidando uma arquitetura pequena, explícita e
-adaptável:
+The project is leaving its experimental phase and consolidating a small, explicit, adaptable
+architecture:
 
-- backend FastAPI e Runner independentes de fornecedor LLM;
-- um adapter backend e um adapter frontend por provider;
-- configuração e segredos pertencem ao servidor;
-- estado persistido em JSON com locks transacionais e escritas atômicas;
-- contratos estruturados entre programa e modelo;
-- frontend vanilla em módulos ES, sem globals de aplicação;
-- plugins Python/JavaScript confiáveis, in-process, sem sandbox e com SDK explícito;
-- Experiences como composições ordenadas de plugins/configuração;
-- observabilidade, replay, MCP e playtests como ferramentas externas ao turno normal;
-- a documentação extensa é parte do estudo de caso, não um problema a ser reduzido.
+- FastAPI backend and Runner independent of any LLM vendor;
+- one backend adapter and one frontend adapter per provider;
+- configuration and secrets belong to the server;
+- state persisted as JSON with transactional locks and atomic writes;
+- structured contracts between program and model;
+- vanilla frontend in ES modules, no application globals;
+- trusted in-process Python/JavaScript plugins, no sandbox, with an explicit SDK;
+- Experiences as ordered compositions of plugins/configuration;
+- observability, replay, MCP and playtests as tools outside the normal turn;
+- the extensive documentation is part of the case study, not a problem to be reduced.
 
-O objetivo não é acumular mecanismos. É manter limites claros para que novas features sejam
-adicionadas no dono correto, com testes e sem ampliar acoplamento.
+The goal is not to accumulate mechanisms. It is to keep boundaries clear so new features land in
+the right owner, with tests and without widening coupling.
 
-## 2. Regra forward-only
+## 2. The forward-only rule
 
-> **“Mover, em vez de criar retrocompatibilidade e legados. O projeto é muito novo e não deve
-> ter dependência de ontem.”**
+> **"Move, rather than build backwards compatibility and legacy. The project is very new and must
+> not depend on yesterday."**
 
-Este é um projeto novo. Quando um contrato muda, todos os produtores e consumidores mudam juntos.
+This is a new project. When a contract changes, every producer and consumer changes with it.
 
-Não criar:
+Do not create:
 
-- conversores ou fallback para formatos anteriores;
-- leitura dupla de config, scenario, sessão ou log;
-- campos antigos mantidos “por segurança”;
-- arquivos duplicados em runtime e source;
-- branches permanentes para comportamentos removidos;
-- wrappers que apenas preservam uma API interna abandonada;
-- caches ou storage alternativos para esconder divergência de contrato.
+- converters or fallbacks for earlier formats;
+- double reads of config, scenario, session or log;
+- old fields kept "just in case";
+- files duplicated between runtime and source;
+- permanent branches for removed behaviour;
+- wrappers that only preserve an abandoned internal API;
+- alternative caches or storage that hide a contract divergence.
 
-Dados locais incompatíveis podem ser descartados durante o desenvolvimento. Se uma mudança exigir
-migração real no futuro, ela precisa ser uma decisão explícita de produto, isolada e testada; nunca
-deve aparecer incidentalmente dentro do parser atual.
+Incompatible local data may be discarded during development. If a change ever demands a real
+migration, that has to be an explicit product decision, isolated and tested; it must never appear
+incidentally inside the current parser.
 
-Remover o formato anterior por completo é preferível a transformar o código num conjunto de
-camadas de compatibilidade.
+Removing the previous format entirely is preferable to turning the code into a stack of
+compatibility layers.
 
-### Versionamento de sessão: avance sem medo
+### Session versioning: move forward without fear
 
-O mecanismo que torna a regra forward-only segura na prática é `SESSION_SCHEMA_VERSION`
-(`src/models.py`): toda sessão persiste a versão do schema com que foi gravada. Quando o
-schema de `GameState`/`TurnRecord` mudar de forma que sessões antigas não honram
-(campo novo com semântica comportamental, regra de visibilidade alterada, ...):
+The mechanism that makes the forward-only rule safe in practice is `SESSION_SCHEMA_VERSION`
+(`src/models.py`): every session persists the schema version it was written with. When the
+`GameState`/`TurnRecord` schema changes in a way old sessions do not honour (a new field with
+behavioural semantics, an altered visibility rule, ...):
 
-1. **Incremente `SESSION_SCHEMA_VERSION` e documente a mudança no comentário do histórico.**
-2. Não escreva migração, fallback nem leitura dupla — o backend recusa sessões de versão
-   diferente (`IncompatibleSessionError` → HTTP 409 `incompatible_session`) e o frontend
-   lista essas sessões travadas com o símbolo de incompatível, sem permitir abri-las.
-3. Sessões antigas continuam no disco (podem ser apagadas pelo usuário), mas jamais são
-   abertas por um build incompatível — não existe o risco de conversa corrompida.
+1. **Bump `SESSION_SCHEMA_VERSION` and document the change in the history comment.**
+2. Do not write a migration, a fallback or a double read — the backend refuses sessions of a
+   different version (`IncompatibleSessionError` → HTTP 409 `incompatible_session`) and the
+   frontend lists those sessions locked with the incompatible symbol, without allowing them open.
+3. Old sessions stay on disk (the user can delete them), but are never opened by an incompatible
+   build — there is no risk of a corrupted conversation.
 
-Consequência para agentes: **não trave uma melhoria de core por medo de quebrar sessões
-existentes.** Quebrar compatibilidade de sessão é barato e previsto; basta subir a versão.
-O custo real está em carregar shims de compatibilidade, nunca em invalidá-las.
+Consequence for agents: **do not hold back a core improvement out of fear of breaking existing
+sessions.** Breaking session compatibility is cheap and planned for; just bump the version. The
+real cost is in carrying compatibility shims, never in invalidating sessions.
 
-**Campo novo = versão nova. Sem exceção "aditiva".** Não existe campo "puramente aditivo
-que pode ficar sem bump": se `dict_to_game_state` (ou qualquer `dict_to_*`) precisar de
-`.get(campo, default)` para ler uma sessão, o default é uma migração disfarçada e vai
-sobreviver para sempre. Todo campo do schema atual é lido com acesso direto (`data["campo"]`)
-e um `KeyError` significa arquivo corrompido, não versão antiga — o loader já recusou
-qualquer versão diferente antes de chegar ali. Ler campo com default só é legítimo quando
-o valor é opcional *no schema atual* (o `roteiro`, que é `None` com a feature desligada).
+**New field = new version. No "additive" exception.** There is no such thing as a "purely additive
+field that can skip the bump": if `dict_to_game_state` (or any `dict_to_*`) needs
+`.get(field, default)` to read a session, that default is a migration in disguise and it will
+survive forever. Every field of the current schema is read by direct access (`data["field"]`) and a
+`KeyError` means a corrupted file, not an old version — the loader already refused any different
+version before reaching that point. Reading a field with a default is only legitimate when the
+value is optional *in the current schema* (the `roteiro`, which is `None` with the feature off).
 
-### Orçamentos: o que este projeto trata como barato
+### Budgets: what this project treats as cheap
 
-A regra forward-only diz o que estamos dispostos a **quebrar**. Esta diz o que
-estamos dispostos a **gastar**, e existe pelo mesmo motivo: agentes novos chegam
-economizando o recurso errado e pedem permissão para gastar o certo.
+The forward-only rule says what we are willing to **break**. This one says what we are willing to
+**spend**, and it exists for the same reason: new agents arrive saving the wrong resource and
+asking permission to spend the right one.
 
-**Três recursos são baratos aqui. Não os proteja, não peça autorização, não
-proponha um design pior para poupá-los.**
+**Three resources are cheap here. Do not protect them, do not ask for authorisation, and do not
+propose a worse design to save them.**
 
-1. **Retrocompatibilidade** — §2 acima. Suba a versão do schema e siga.
-2. **Custo de tokens.** Uma chamada a mais que melhora a ficção é para ser feita.
-   Não faça orçamento de centavos, não escolha um modelo pior por preço e não
-   escreva "isso custaria caro" como argumento contra um design correto. O cache
-   de prompt já carrega a maior parte disso (`docs/cases/06`, `docs/cases/10`).
-3. **Latência.** Esta é a mais contraintuitiva e a mais importante:
+1. **Backwards compatibility** — §2 above. Bump the schema version and move on.
+2. **Token cost.** An extra call that improves the fiction is a call to be made. Do not budget in
+   cents, do not pick a worse model on price, and do not write "that would be expensive" as an
+   argument against a correct design. Prompt caching already carries most of it
+   (`docs/cases/06`, `docs/cases/10`).
+3. **Latency.** This is the most counter-intuitive and the most important:
 
-> **“Latência não é problema. Se demorar 10 minutos e chegarmos em boa
-> qualidade, é uma questão de tempo — os modelos melhoram a cada trimestre e
-> isso está a nosso favor.”**
+> **"Latency is not a problem. If it takes 10 minutes and we land on good quality, that is a matter
+> of time — the models improve every quarter and that is in our favour."**
 
-Engenharia gasta em deixar o motor rápido é investida num ativo que se
-desvaloriza sozinho a cada trimestre. Engenharia gasta na ficção não se
-desvaloriza. Então o turno pode ser lento se a lentidão comprar qualidade: mais
-chamadas de agente, roteamento real de personagem, projeção por viewer, validação
-que de fato valida. A conta de UX dessa postura é paga na interface — diário de
-bordo, tela de carregamento com conteúdo (`.plan/backlog/73-...`) — nunca
-cortando qualidade.
+Engineering spent making the engine fast is invested in an asset that depreciates on its own every
+quarter. Engineering spent on the fiction does not depreciate. So the turn may be slow if the
+slowness buys quality: more agent calls, real character routing, per-viewer projection, validation
+that actually validates. The UX bill for this stance is paid in the interface — a captain's log, a
+loading screen with content (`.plan/backlog/73-...`) — never by cutting quality.
 
-**O que continua caro, e o que isso NÃO autoriza:**
+**What stays expensive, and what this does NOT authorise:**
 
-- **Latência serial não medida.** Gastar latência é permitido; gastá-la sem
-  contar não é. Chamadas independentes vão em `asyncio.gather` — se elas são
-  independentes e estão em série, isso é um defeito, não uma escolha de
-  orçamento. O risco real desta postura não é o usuário esperar: é o motor
-  acumular espera serial que ninguém mediu, e continuar lento quando os modelos
-  ficarem dez vezes mais rápidos.
-- **Complexidade e acoplamento.** Continuam caros. Uma chamada a mais é barata;
-  um subsistema a mais para justificá-la, não.
-- **Uma resposta pior.** Nada aqui autoriza cortar qualidade para ganhar tempo —
-  o vetor inteiro desta regra aponta na direção contrária.
+- **Unmeasured serial latency.** Spending latency is allowed; spending it without counting is not.
+  Independent calls go in `asyncio.gather` — if they are independent and they are serial, that is a
+  defect, not a budget choice. The real risk of this stance is not the user waiting: it is the
+  engine accumulating serial waits nobody measured, and staying slow once the models get ten times
+  faster.
+- **Complexity and coupling.** Still expensive. One more call is cheap; one more subsystem to
+  justify it is not.
+- **A worse answer.** Nothing here authorises cutting quality to gain time — the whole vector of
+  this rule points the other way.
 
-## 3. Invariantes de domínio
+## 3. Domain invariants
 
-### Agência e imersão
+### Agency and immersion
 
-O humano controla um personagem do mundo. As LLMs não recebem a existência de um “Player”,
-usuário ou operador externo.
+The human controls a character in the world. The LLMs are never given the existence of a "Player",
+a user or an external operator.
 
-- `Player.controlled_character_id` é conhecimento do Runner, não dos agentes.
-- registros internos com `speaker="Player"` são renderizados com o nome do personagem antes de
-  chegar a qualquer prompt;
-- quando o Narrador escolhe o personagem controlado como próximo falante, o Runner devolve o
-  controle ao humano e não gera sua fala;
-- não existe nome, persona ou prompt separado para o jogador;
-- nenhuma chamada nova pode contornar essa trava de agência;
-- **marcador estrutural também é vazamento.** Um prompt que formata o personagem
-  controlado de maneira diferente de todos os outros o identifica sem nomear
-  nada — e isso viola esta seção do mesmo jeito que a palavra "jogador" violaria.
-  Rótulo, ordem, campo extra, exclusão nomeada: se a regra de formatação separa
-  exatamente um personagem, ela codifica `controlled_character_id` no texto.
-  Encontrado duas vezes em 2026-07-27: a constraint de routing do Diretor
-  (corrigida em `5002f11`) e o contexto de drive/watcher, que rendia o controlado
-  por nome e o resto por ID na mesma lista (task 58).
+- `Player.controlled_character_id` is the Runner's knowledge, not the agents';
+- internal records with `speaker="Player"` are rendered with the character's name before reaching
+  any prompt;
+- when the Narrator picks the controlled character as next speaker, the Runner hands control back
+  to the human and does not generate their speech;
+- there is no separate name, persona or prompt for the player;
+- no new call may bypass that agency lock;
+- **a structural marker is leakage too.** A prompt that formats the controlled character
+  differently from all the others identifies them without naming anything — and that violates this
+  section exactly as the word "player" would. A label, an ordering, an extra field, a named
+  exclusion: if the formatting rule separates out exactly one character, it encodes
+  `controlled_character_id` into the text. Found twice on 2026-07-27: the Director's routing
+  constraint (fixed in `5002f11`) and the drive/watcher context, which rendered the controlled
+  character by name and the rest by ID in the same list (task 58).
 
-> **Por que isso não é negociável por medição.** As duas correções acima têm
-> A/B registrado, e isso é bom — mas o A/B mede *quanto custa*, nunca *se sai*.
-> Uma invariante que aceita reprovação por métrica de qualidade não é invariante.
-> A regra prática: quando um achado cai sob esta seção, o experimento decide a
-> forma da correção, não a sua existência. `src/prompt_contract.py` cobre a parte
-> lexical (`operator_ontology_hits`) e a estrutural (`singled_out_speakers`);
-> nenhuma das duas substitui ler o prompt que o servidor mandou de verdade.
+> **Why this is not negotiable by measurement.** Both fixes above have a recorded A/B, and that is
+> good — but the A/B measures *what it costs*, never *whether it ships*. An invariant that accepts
+> being failed by a quality metric is not an invariant. The practical rule: when a finding falls
+> under this section, the experiment decides the shape of the fix, not its existence.
+> `src/prompt_contract.py` covers the lexical part (`operator_ontology_hits`) and the structural
+> part (`singled_out_speakers`); neither replaces reading the prompt the server actually sent.
 
-### Responsabilidades dos papéis
+### Role responsibilities
 
-| Papel | Responsabilidade | Contexto permitido |
+| Role | Responsibility | Context allowed |
 |---|---|---|
-| Narrador | Mundo físico, consequência, transição, cena, humor e próximo falante | Cena, todos os personagens, `mind`, `body`, resumo e janela ativa |
-| Personagem | Somente fala e pensamento subjetivo em primeira pessoa | Sua `mind`, sua própria nota, contexto do Narrador, falas públicas e pensamentos próprios |
-| Runner | Agência, ordem das chamadas, estado, locks, persistência e routing | Estado completo da aplicação, nunca decisões narrativas heurísticas |
-| Historiador | Compactar eventos antigos sem cruzar fronteiras privadas | Resumo mundial recebe eventos públicos; cada memória privada recebe eventos públicos, nota própria e pensamentos próprios |
+| Narrator | Physical world, consequence, transition, scene, mood and next speaker | Scene, all characters, `mind`, `body`, summary and active window |
+| Character | Only first-person speech and subjective thought | Their own `mind`, their own note, the Narrator's context, public speech and their own thoughts |
+| Runner | Agency, call ordering, state, locks, persistence and routing | The application's full state, never heuristic narrative decisions |
+| Historian | Compact old events without crossing private boundaries | The world summary receives public events; each private memory receives public events, its own note and its own thoughts |
 
-Personagem não executa nem descreve ação física. Pensamento sobre outra pessoa é interpretação
-subjetiva, não descrição objetiva. `body`, cena, narração histórica, personalidade alheia e notas
-de outros personagens nunca entram no prompt de Character.
+A Character neither performs nor describes physical action. A thought about another person is
+subjective interpretation, not objective description. `body`, the scene, historical narration,
+someone else's personality and other characters' notes never enter a Character prompt.
 
-### Estado canônico
+### Canonical state
 
-- Personagem usa uma única forma: `{"mind": {...}, "body": {...}}`.
-- Personalidade usa apenas `personality`.
-- Cena usa campos reservados (`location`, `time_of_day`, `present_characters`) e
-  `physical_facts` para fatos livres.
-- Scenarios built-in imutáveis vivem em `src/scenarios/`.
-- Config, scenarios do usuário, sessões, backups e logs vivem exclusivamente em `.data/` ou no
-  `ROLEPLAY_DATA_DIR` do deployment.
-- Cada sessão vive em `.data/sessions/{id}/`, com `state.json`, `debug.jsonl` e `backups/`.
-- Cache, ativação física, config, ambiente e journal de plugins vivem em `.data/plugins/`.
-- `.data/` nunca é rastreado pelo Git nem reutilizado por CI/CD.
+- A character uses a single shape: `{"mind": {...}, "body": {...}}`.
+- Personality uses only `personality`.
+- The scene uses reserved fields (`location`, `time_of_day`, `present_characters`) and
+  `physical_facts` for free-form facts.
+- Immutable built-in scenarios live in `src/scenarios/`.
+- Config, user scenarios, sessions, backups and logs live exclusively in `.data/` or in the
+  deployment's `ROLEPLAY_DATA_DIR`.
+- Each session lives in `.data/sessions/{id}/`, with `state.json`, `debug.jsonl` and `backups/`.
+- Plugin cache, physical activation, config, environment and journal live in `.data/plugins/`.
+- `.data/` is never tracked by Git nor reused by CI/CD.
 
-## 4. Arquitetura e ownership
+## 4. Architecture and ownership
 
 ```text
 Frontend ES modules
@@ -204,56 +197,57 @@ FastAPI ── RuntimeState ── PluginRuntime ── Runner ── role agent
                           └── debug_log.py
 ```
 
-### Runner e concorrência
+### Runner and concurrency
 
-`src/runner.py` não mantém `GameState` em `self`. Cada operação resolve a sessão pelo ID.
+`src/runner.py` does not hold `GameState` on `self`. Every operation resolves the session by ID.
 
-Turnos, sugestões, snapshots, histórico, preview, fork, delete, undo, compactação e restauração
-compartilham o mesmo lock por sessão. Não introduza um endpoint que leia ou altere uma sessão fora
-desse limite transacional.
+Turns, suggestions, snapshots, history, preview, fork, delete, undo, compaction and restore share
+the same per-session lock. Do not introduce an endpoint that reads or changes a session outside
+that transactional boundary.
 
-- save crítico usa temporário, flush, `fsync` e rename;
-- delete espera operações ativas e remove estado, log e backups juntos;
-- scenarios têm lock por nome;
-- debug JSONL tem lock próprio para append e leitura;
-- registries de locks usam referências fracas;
-- locks atuais são process-local: o deployment suportado usa um único processo Uvicorn.
+- a critical save uses a temp file, flush, `fsync` and rename;
+- delete waits for active operations and removes state, log and backups together;
+- scenarios have a per-name lock;
+- the debug JSONL has its own lock for append and read;
+- lock registries use weak references;
+- the current locks are process-local: the supported deployment uses a single Uvicorn process.
 
-`RuntimeState`, pertencente ao FastAPI, reúne config persistida, config resolvida, cliente HTTP e
-Runner ativo. Uma troca de provider persiste e substitui o Runner sob o mesmo lock. Não recrie
-globals mutáveis paralelos.
+`RuntimeState`, owned by FastAPI, gathers persisted config, resolved config, the HTTP client and
+the active Runner. Switching provider persists and replaces the Runner under the same lock. Do not
+recreate parallel mutable globals.
 
-### Plugins e Experiences
+### Plugins and Experiences
 
-Plugins são código confiável in-process e podem substituir comportamento central. Não existe
-sandbox nem bloqueio por permissão: `permissions` documenta acesso para review e journal. O escape
-`unsafe` é deliberado. O repositório curado fornece confiança por revisão integral da fonte e
-SHA-256 fixo; ZIP de terceiro é responsabilidade de quem instala.
+Plugins are trusted in-process code and may replace core behaviour. There is no sandbox and no
+permission gate: `permissions` documents access for review and the journal. The `unsafe` escape is
+deliberate. The curated repository provides trust through full source review and a pinned SHA-256;
+a third-party ZIP is the responsibility of whoever installs it.
 
-- `plugin.toml` é strict/forward-only e usa `schema_version = 1`;
-- pacotes instalados são imutáveis por `id/version/hash`;
-- arquivos em `.data/plugins/started/` são o conjunto global ativo;
-- dependências usam constraints semver e o ambiente exato é reconstruído com uv;
-- ordem é um DAG determinístico, e a ordem declarada pela Experience vira arestas padrão;
-- filtros pre-commit recebem drafts isolados; falha descarta o draft e desativa o plugin no boot;
-- ações post-commit nunca repetem trabalho já persistido;
-- wrappers `narrator.call` e `character.call` podem substituir a operação inteira;
-- o supervisor precisa ser o pai real do Uvicorn para trocar o processo Python.
+- `plugin.toml` is strict/forward-only and uses `schema_version = 1`;
+- installed packages are immutable by `id/version/hash`;
+- files in `.data/plugins/started/` are the active global set;
+- dependencies use semver constraints and the exact environment is rebuilt with uv;
+- ordering is a deterministic DAG, and the order declared by the Experience becomes default edges;
+- pre-commit filters receive isolated drafts; a failure discards the draft and disables the plugin
+  at boot;
+- post-commit actions never redo work already persisted;
+- the `narrator.call` and `character.call` wrappers may replace the whole operation;
+- the supervisor must be Uvicorn's real parent in order to swap the Python process.
 
-O SDK e os contratos machine-readable vivem em `src/plugins/`. Exemplos e CLI de autoria ficam em
-`plugins/examples/` e `tools/plugin_author.py`. O hub curado/MCP é um repositório separado; o MCP
-não possui ferramentas Git ou publicação.
+The SDK and the machine-readable contracts live in `src/plugins/`. Examples and the authoring CLI
+live in `plugins/examples/` and `tools/plugin_author.py`. The curated hub/MCP is a separate
+repository; the MCP has no Git or publishing tools.
 
-### Workspace do hub para agentes
+### The hub workspace, for agents
 
-Quando uma tarefa envolver criar, revisar, testar ou publicar um plugin curado, o agente que está
-no repositório principal deve trabalhar com os dois repositórios, sem copiar o SDK nem transformar
-o snapshot de runtime em source:
+When a task involves creating, reviewing, testing or publishing a curated plugin, the agent working
+in the main repository must work across both repositories, without copying the SDK and without
+turning the runtime snapshot into source:
 
-1. Use `src/plugins/`, `src/static/plugin-runtime.js` e `tools/plugin_author.py` deste checkout como
-   fonte de verdade do core e dos pontos de extensão.
-2. Procure primeiro o checkout irmão `../alex-tavern-plugins`. Se ele não existir, solicite a
-   autorização Git exigida pelo ambiente e crie um clone parcial:
+1. Use `src/plugins/`, `src/static/plugin-runtime.js` and `tools/plugin_author.py` from this
+   checkout as the source of truth for the core and its extension points.
+2. Look first for the sibling checkout `../alex-tavern-plugins`. If it does not exist, request the
+   Git authorisation the environment requires and create a partial clone:
 
    ```fish
    git clone --filter=blob:none --sparse \
@@ -262,14 +256,14 @@ o snapshot de runtime em source:
    git -C ../alex-tavern-plugins sparse-checkout set docs plugins experiences
    ```
 
-   O modo sparse inclui os arquivos da raiz, o MCP, as ferramentas e as três pastas declaradas,
-   mas não materializa os blobs de `artifacts/` ou `assets/`. Não substitua esse fluxo por clone
-   completo apenas para ler documentação ou criar source.
-3. Dentro do hub, leia `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`, `docs/hooks.md` e
-   `docs/mcp.md` antes de selecionar hooks. Para plugins com chamadas LLM, leia também
-   `docs/model-calls.md`. O contrato exportado pelo core atual vence qualquer exemplo antigo.
-4. Configure o MCP do hub com o hub como diretório de trabalho e o checkout principal como
-   `--core-root`. Em um terminal fish, a forma equivalente é:
+   Sparse mode includes the root files, the MCP, the tools and the three declared folders, but does
+   not materialise the blobs in `artifacts/` or `assets/`. Do not replace that flow with a full
+   clone just to read documentation or write source.
+3. Inside the hub, read `AGENTS.md`, `docs/manifest.md`, `docs/sdk.md`, `docs/hooks.md` and
+   `docs/mcp.md` before selecting hooks. For plugins with LLM calls, also read
+   `docs/model-calls.md`. The contract exported by the current core beats any old example.
+4. Configure the hub's MCP with the hub as working directory and the main checkout as
+   `--core-root`. In a fish terminal, the equivalent form is:
 
    ```fish
    set core_root (pwd)
@@ -278,208 +272,208 @@ o snapshot de runtime em source:
    uv run python mcp_server.py --core-root "$core_root"
    ```
 
-   Use as tools MCP `plugin_contract`, `plugin_scaffold`, `plugin_validate`, `plugin_test`,
-   `plugin_pack` e `plugin_trace`; não replique manualmente contratos que já são exportados pelo
-   SDK.
-5. Fonte de plugin pertence a `../alex-tavern-plugins/plugins/`. Para revisar ou regenerar mídia e
-   pacotes publicados, peça autorização para expandir o sparse checkout antes de tocar esses
-   caminhos:
+   Use the MCP tools `plugin_contract`, `plugin_scaffold`, `plugin_validate`, `plugin_test`,
+   `plugin_pack` and `plugin_trace`; do not hand-replicate contracts the SDK already exports.
+5. Plugin source belongs in `../alex-tavern-plugins/plugins/`. To review or regenerate published
+   media and packages, ask for authorisation to expand the sparse checkout before touching those
+   paths:
 
    ```fish
    git -C ../alex-tavern-plugins sparse-checkout add artifacts assets
    ```
 
-6. Nunca edite `.data/plugins/hub`: ele é um snapshot efêmero, validado e substituível usado pelo
-   aplicativo. Não faça `pull`, commit, push, mudança de remoto ou publicação no repositório irmão
-   sem autorização Git explícita e específica.
+6. Never edit `.data/plugins/hub`: it is an ephemeral, validated, replaceable snapshot used by the
+   application. Do not `pull`, commit, push, change a remote or publish in the sibling repository
+   without explicit and specific Git authorisation.
 
 ### Providers
 
-Adapters built-in ficam em `src/llm/adapters/`; providers adicionais devem preferencialmente ser
-plugins que registram o mesmo `ProviderAdapter` durante o boot. Cada adapter possui:
+Built-in adapters live in `src/llm/adapters/`; additional providers should preferably be plugins
+registering the same `ProviderAdapter` during boot. Each adapter has:
 
-- identidade e defaults;
-- campos secretos e requisitos de ativação;
-- settings forçados;
-- URL e autenticação;
-- adaptação do request;
-- extração do envelope de resposta.
+- identity and defaults;
+- secret fields and activation requirements;
+- forced settings;
+- URL and authentication;
+- request adaptation;
+- response envelope extraction.
 
-O cliente compartilhado possui HTTP, timeout, retry, política textual e parsing. Validação local
-pertence a `src/llm/schema.py`; persistência de observabilidade pertence a
-`src/llm/debug_log.py`. Diferenças de fornecedor não entram no Runner nem nos agentes.
+The shared client owns HTTP, timeout, retry, text policy and parsing. Local validation belongs to
+`src/llm/schema.py`; observability persistence belongs to `src/llm/debug_log.py`. Vendor
+differences do not enter the Runner or the agents.
 
-Frontend adapters built-in ficam em `src/static/adapters/`; plugins registram o mesmo contrato pelo
-SDK do browser antes de `RuntimeConfig.init`. Cada um declara card, campos, segredo,
-settings forçados, parsing e serialização. `index.html` contém somente containers; não adicione
-formulário hardcoded por provider nem branches de provider em `runtime-config.js`.
+Built-in frontend adapters live in `src/static/adapters/`; plugins register the same contract
+through the browser SDK before `RuntimeConfig.init`. Each declares its card, fields, secret, forced
+settings, parsing and serialisation. `index.html` contains containers only; do not add a hardcoded
+per-provider form or provider branches in `runtime-config.js`.
 
-Adicionar um provider exige os dois adapters e testes de config, redaction, request, response e UI.
-O registry backend extensível é a fonte de verdade do contrato do servidor; a UI recusa catálogos
-divergentes em runtime.
+Adding a provider requires both adapters plus tests for config, redaction, request, response and
+UI. The extensible backend registry is the source of truth for the server contract; the UI refuses
+divergent catalogues at runtime.
 
-### Contratos estruturados
+### Structured contracts
 
-Narrador, Character, sugestões e Historiador usam JSON. Llama.cpp recebe JSON Schema nativo. DeepSeek V4
-Flash recebe `json_object`, a instrução técnica de schema adicionada pelo adapter e validação local
-posterior. Isso é adaptação de capacidade, não um prompt narrativo específico por provider.
+Narrator, Character, suggestions and Historian use JSON. Llama.cpp receives a native JSON Schema.
+DeepSeek V4 Flash receives `json_object`, the technical schema instruction added by the adapter,
+and local validation afterwards. That is capability adaptation, not a provider-specific narrative
+prompt.
 
-`src/llm/schema.py` implementa um subconjunto explícito. Tipo, keyword ou constraint não suportado
-deve falhar antes de aceitar a resposta. Nunca ignore silenciosamente uma parte do schema e nunca
-substitua contrato estruturado por parser regex.
+`src/llm/schema.py` implements an explicit subset. An unsupported type, keyword or constraint must
+fail before the response is accepted. Never silently ignore part of a schema, and never replace a
+structured contract with a regex parser.
 
-### Configuração e segredos
+### Configuration and secrets
 
-`.data/config.json` é a única configuração runtime. Ela contém config comum, provider ativo e um
-objeto completo por provider.
+`.data/config.json` is the only runtime configuration. It holds the common config, the active
+provider and one complete object per provider.
 
-- `GET /config` retorna somente representação redigida;
-- segredo em branco no PUT preserva o valor armazenado;
-- chave nunca entra em localStorage, cache do service worker, log ou argumento CLI;
-- `/config` é network-only;
-- deployments criam sua própria config; não copiam a config de desenvolvimento.
+- `GET /config` returns a redacted representation only;
+- a blank secret on PUT preserves the stored value;
+- a key never enters localStorage, the service worker cache, a log or a CLI argument;
+- `/config` is network-only;
+- deployments create their own config; they do not copy the development config.
 
-## 5. Fluxo de um turno
+## 5. The flow of a turn
 
-1. Runner adquire o lock da sessão e carrega o estado.
-2. `turn.input` pode transformar um draft da entrada.
-3. Fala, pensamento privado e ação humanos são persistidos separadamente com um único `turn_number`.
-4. Narrador recebe o estado canônico e devolve JSON validado; wrappers/filtros podem substituir a chamada/saída.
-5. Runner aplica `force_speaker` quando solicitado e preserva a agência do personagem controlado.
-6. Se necessário, Character recebe apenas seu contexto permitido e gera `speech`/`thought` estruturados.
-7. Runner aplica `scene_update` e `mood_updates` e executa `turn.before_commit` em draft isolado.
-8. Estado é salvo atomicamente, a revisão avança uma vez e `turn.after_commit` é emitido.
+1. The Runner acquires the session lock and loads the state.
+2. `turn.input` may transform a draft of the input.
+3. Human speech, private thought and action are persisted separately under a single `turn_number`.
+4. The Narrator receives the canonical state and returns validated JSON; wrappers/filters may
+   replace the call/output.
+5. The Runner applies `force_speaker` when requested and preserves the controlled character's
+   agency.
+6. If needed, the Character receives only its permitted context and generates structured
+   `speech`/`thought`.
+7. The Runner applies `scene_update` and `mood_updates` and runs `turn.before_commit` on an
+   isolated draft.
+8. State is saved atomically, the revision advances once and `turn.after_commit` is emitted.
 
-Todos os registros do passo compartilham `turn_number`, `scene_snapshot`, `mood_snapshot` e
-`plugin_state_snapshot`. Undo
-remove o passo inteiro e restaura esses snapshots.
+All records of the step share `turn_number`, `scene_snapshot`, `mood_snapshot` and
+`plugin_state_snapshot`. Undo removes the whole step and restores those snapshots.
 
-Qualquer nova chamada ao modelo precisa propagar `session_id`, `turn_number` e `agent` para o log.
-Não existem chamadas LLM invisíveis.
+Any new model call must propagate `session_id`, `turn_number` and `agent` to the log. There are no
+invisible LLM calls.
 
-## 6. Prompts e contexto
+## 6. Prompts and context
 
-Prompts são compartilhados entre providers e descrevem regras de papel de forma declarativa.
+Prompts are shared across providers and describe role rules declaratively.
 
-> **Regra curl-first (não chute — teste antes).** Toda afirmação sobre
-> comportamento de LLM (um prompt, um contrato, um esquema, uma fronteira de
-> confidencialidade, "isso vai vazar / melhorar / colidir") é hipótese até um
-> `curl` em payload REAL confirmar. Não decida por hipótese e não escreva
-> "provavelmente X"; isole a chamada, replay via `curl` (método abaixo),
-> conte a taxa em 3-4 runs e decida com o número. Pré-registre a regra de
-> decisão ANTES de rodar (ex.: "se 4b ≈ 4a → mantenho"), pra não mover a trave
-> depois. Barato: uma call de modelo flash por variante. O custo de chutar
-> errado é muito maior.
+> **The curl-first rule (do not guess — test first).** Every claim about LLM behaviour (a prompt, a
+> contract, a schema, a confidentiality boundary, "this will leak / improve / collide") is a
+> hypothesis until a `curl` against a REAL payload confirms it. Do not decide by hypothesis and do
+> not write "probably X"; isolate the call, replay it via `curl` (method below), count the rate
+> over 3-4 runs and decide with the number. Pre-register the decision rule BEFORE running (e.g.
+> "if 4b ≈ 4a → I keep it"), so the goalposts cannot move afterwards. It is cheap: one flash-model
+> call per variant. Guessing wrong costs far more.
 
-- não criar prompt narrativo especial para um fornecedor;
-- não repetir a mesma regra em várias camadas;
-- não introduzir macros, injeção por profundidade ou parser textual;
-- não limitar a narração por quantidade fixa de frases;
-- manter fatos atribuídos como alegações até confirmação pelo Narrador;
-- consequência imediata vem antes de expansão sensorial;
-- humor é estado persistente e muda somente quando houver mudança real;
-- texto gerado não usa em dash/en dash; a normalização é global no cliente;
-- histórico é limitado por orçamento de tokens, nunca por corte de caracteres.
+- do not create a special narrative prompt for one vendor;
+- do not repeat the same rule across several layers;
+- do not introduce macros, depth injection or a text parser;
+- do not cap narration by a fixed number of sentences;
+- keep attributed facts as claims until the Narrator confirms them;
+- immediate consequence comes before sensory expansion;
+- mood is persistent state and changes only on a real change;
+- generated text uses no em dash/en dash; normalisation is global, in the client;
+- history is bounded by a token budget, never by cutting characters.
 
-### Depurar defeito que parece de prompt (replay isolado antes da bateria)
+### Debugging a defect that looks like a prompt problem (isolated replay before the battery)
 
-Quando a saída de um agente repete/quebra numa cena real, NÃO itere rodando a
-bateria A/B inteira (lenta e cara). Isole a chamada defeituosa e conserte-a
-primeiro, depois valide na bateria:
+When an agent's output repeats or breaks in a real scene, do NOT iterate by running the whole A/B
+battery (slow and expensive). Isolate the faulty call and fix it first, then validate on the
+battery:
 
-1. Pegue o payload REAL da chamada ruim em `<data>/sessions/<sid>/debug.jsonl`
-   (o registro do agente tem `request.messages` exatos daquele turno).
-2. Replay via `curl` contra o provider, variando SÓ o prompt. Para deepseek:
+1. Take the REAL payload of the bad call from `<data>/sessions/<sid>/debug.jsonl` (the agent's
+   record has that turn's exact `request.messages`).
+2. Replay via `curl` against the provider, varying ONLY the prompt. For deepseek:
    `POST {api_base}/chat/completions`, `Authorization: Bearer <key>`, body
    `{"model","messages","response_format":{"type":"json_object"},"thinking":{"type":"disabled"}}`
-   (o schema já vem embutido no system pelo adapter). Rode 3-4x por variante —
-   a saída é estocástica; conte a taxa de defeito, não um caso.
-3. Itere o prompt até a chamada isolada sair limpa; SÓ então rode a bateria.
-   **A variante validada tem que ser a variante shippada**: o replay final deve
-   usar o BUILDER de produção (ou espelhar exatamente a posição/ordem do texto
-   no prompt final — inclusive diretivas longas de cenário que vêm depois).
-   Lição medida (2026-07-18, task 41): regras validadas no FIM do prompt
-   funcionaram 3/3; as mesmas regras implementadas no MEIO, soterradas por
-   5k chars de diretivas, falharam 3/3. Posição é parte da variante.
-4. Regra que essa técnica já provou (2026-07-17, loop do sorteio no
-   turma-dos-portais): se uma instrução no prompt do PERSONAGEM não conserta a
-   chamada isolada — nem uma proibição explícita do tópico — o defeito NÃO é de
-   prompt; a causa é a montante (cena estagnada no mesmo tópico). Confirme
-   variando o INPUT em vez do prompt: injetar um evento de cena novo no contexto
-   quebrou o loop 2/3 sem tocar no prompt, enquanto a proibição dura quebrou
-   0/3. Nesse caso o lever é o Diretor/roteiro avançar a cena, não o prompt do
-   agente — não adicione regra de prompt que a evidência mostrou não funcionar.
+   (the adapter already embeds the schema in the system message). Run it 3-4x per variant — the
+   output is stochastic; count the defect rate, not a single case.
+3. Iterate the prompt until the isolated call comes out clean; ONLY then run the battery.
+   **The validated variant has to be the shipped variant**: the final replay must use the
+   production BUILDER (or mirror exactly the position/order of the text in the final prompt —
+   including long scenario directives that come afterwards). Measured lesson (2026-07-18, task 41):
+   rules validated at the END of the prompt worked 3/3; the same rules implemented in the MIDDLE,
+   buried under 5k chars of directives, failed 3/3. Position is part of the variant.
+4. A rule this technique has already proved (2026-07-17, the raffle loop in turma-dos-portais): if
+   an instruction in the CHARACTER prompt does not fix the isolated call — not even an explicit ban
+   on the topic — the defect is NOT a prompt defect; the cause is upstream (a scene stagnant on the
+   same topic). Confirm it by varying the INPUT instead of the prompt: injecting a new scene event
+   into the context broke the loop 2/3 without touching the prompt, while the hard ban broke it
+   0/3. In that case the lever is the Director/roteiro moving the scene on, not the agent's prompt
+   — do not add a prompt rule the evidence has shown does not work.
 
-Compactação é um evento transacional: prepara resumos em draft isolado, grava um checkpoint
-incremental numerado, mantém a janela recente e atualiza `story_summary`/`character_notes`.
-Compactação automática é opt-in, usa a estimativa do prompt completo antes do Narrador e roda sob
-o mesmo lock do turno. Undo de compactação é LIFO, pode atravessar múltiplos checkpoints e preserva
-turnos posteriores; conflito em estado de plugin exige resolver do próprio plugin. Checkpoints
-imutáveis permanecem até a sessão ser apagada. RAG, se implementado, será recuperação semântica de
-volume externo e não um segundo sistema de memória para fatos já presentes na sessão.
+Compaction is a transactional event: it prepares summaries in an isolated draft, writes a numbered
+incremental checkpoint, keeps the recent window and updates `story_summary`/`character_notes`.
+Automatic compaction is opt-in, uses the full prompt estimate before the Narrator, and runs under
+the same turn lock. Undoing a compaction is LIFO, may cross several checkpoints and preserves later
+turns; a conflict in plugin state must be resolved by the plugin itself. Immutable checkpoints
+remain until the session is deleted. RAG, if implemented, will be semantic retrieval over an
+external volume and not a second memory system for facts already present in the session.
 
-## 7. Observabilidade e ferramentas
+## 7. Observability and tooling
 
-`.data/sessions/{id}/debug.jsonl` é a evidência primária de execução. Ele registra:
+`.data/sessions/{id}/debug.jsonl` is the primary evidence of execution. It records:
 
-- `turn_input` antes da primeira chamada;
-- request redigido, response, tentativa, duração e tamanho de prompt;
-- tipo e representação de erros;
-- marcadores de undo, compactação e restauração.
+- `turn_input` before the first call;
+- the redacted request, the response, the attempt, the duration and the prompt size;
+- error type and representation;
+- undo, compaction and restore markers.
 
-O log é append-only. Undo não apaga evidência.
+The log is append-only. Undo does not erase evidence.
 
-Ferramentas em `tools/` ficam fora do runtime narrativo:
+Tools in `tools/` sit outside the narrative runtime:
 
-- `replay_llm.py`: servidor determinístico compatível com a API LLM;
-- `replay_session.py`: reproduz inputs atuais contra a API real;
-- `mcp_server.py`: inspeção e mutações de debug via stdio;
-- `playtest_harness.py`: cenários repetíveis, fila e comparações A/B.
-- `plugin_author.py`: contract, scaffold, validate, test, pack e trace de plugins;
-- `plugin_hub.py`: sincronização HTTPS validada do hub curado e instalação por hash.
+- `replay_llm.py`: a deterministic server compatible with the LLM API;
+- `replay_session.py`: replays current inputs against the real API;
+- `mcp_server.py`: debug inspection and mutations over stdio;
+- `playtest_harness.py`: repeatable scenarios, a queue and A/B comparisons.
+- `plugin_author.py`: contract, scaffold, validate, test, pack and trace for plugins;
+- `plugin_hub.py`: validated HTTPS sync of the curated hub and install by hash.
 
-Não adicionar compatibilidade com logs sem `turn_input`. Fixtures representam somente o contrato
-atual.
+Do not add compatibility with logs lacking `turn_input`. Fixtures represent the current contract
+only.
 
-## 8. Frontend e deployments
+## 8. Frontend and deployments
 
-O frontend é dependency-free e usa módulos ES. Comunicação entre módulos ocorre por imports e
-injeção explícita de callbacks, não por variáveis globais. Config do jogo pode usar localStorage;
-config e segredos de provider não podem.
+The frontend is dependency-free and uses ES modules. Modules communicate through imports and
+explicit callback injection, not through global variables. Game config may use localStorage;
+provider config and secrets may not.
 
-Pipelines existentes vivem em:
+The existing pipelines live in:
 
 - `.ci-cd/android/`;
 - `.ci-cd/test/`;
 - `.ci-cd/docker/`.
 
-Os três arquivos em `.github/workflows/` são apenas entrypoints obrigatórios do GitHub e delegam
-para composite actions em `.ci-cd`.
+The three files in `.github/workflows/` are only GitHub's mandatory entrypoints and delegate to
+composite actions in `.ci-cd`.
 
-Todos os deployments executam o mesmo backend e o mesmo contrato de dados. Não manter stack de
-dependências, config ou source alternativo para um deployment. A versão de Python e dependências
-de cada pacote precisam ser compatíveis com o contrato canônico do `pyproject.toml`.
+Every deployment runs the same backend and the same data contract. Do not keep an alternative
+dependency stack, config or source for one deployment. Each package's Python version and
+dependencies must be compatible with the canonical contract in `pyproject.toml`.
 
-Android permanece fora do escopo desta plataforma de plugins. Não condicione decisões do SDK,
-runtime, UI ou supervisor a esse deployment enquanto ele estiver em beta.
+Android stays outside the scope of this plugin platform. Do not condition SDK, runtime, UI or
+supervisor decisions on that deployment while it is in beta.
 
-## 9. Critério de entrega
+## 9. Definition of done
 
-Uma mudança não está pronta apenas porque não lançou exceção.
+A change is not ready merely because it raised no exception.
 
-Antes de fechar:
+Before closing:
 
-1. confirme ownership: a mudança está no módulo/adapter correto;
-2. remova o caminho substituído, sem mantê-lo como fallback;
-3. revise locks e atomicidade de toda mutação compartilhada;
-4. teste sucesso, erro, input vazio/inválido e concorrência quando aplicável;
-5. inspecione prompt, resposta bruta, estado persistido e debug log quando tocar LLM;
-6. execute um boundary real proporcional ao risco (HTTP, stdio, frontend ou provider);
-7. atualize README e mova plano/task concluído para `.plan/closed/`;
-8. confirme que `.data`, segredos e artefatos locais não estão no Git;
-9. não faça commit ou push sem autorização explícita e específica.
+1. confirm ownership: the change is in the right module/adapter;
+2. remove the replaced path, without keeping it as a fallback;
+3. review locks and atomicity for every shared mutation;
+4. test success, error, empty/invalid input and concurrency where applicable;
+5. inspect the prompt, the raw response, the persisted state and the debug log whenever you touch
+   the LLM;
+6. exercise a real boundary proportional to the risk (HTTP, stdio, frontend or provider);
+7. update the README and move the finished plan/task to `.plan/closed/`;
+8. confirm `.data`, secrets and local artifacts are not in Git;
+9. do not commit or push without explicit and specific authorisation.
 
-Validação padrão após alterar Python:
+Standard validation after changing Python:
 
 ```bash
 uvx ruff check .
@@ -488,25 +482,25 @@ uvx mypy src/ tools/playtest_harness.py tools/mcp_server.py tools/replay_llm.py 
 uv run pytest -x
 ```
 
-Para frontend, valide todos os módulos com Node, carregue o registry de adapters e faça parsing do
-HTML. Para mudanças de integração, use também o smoke test HTTP ou a ferramenta real do boundary.
+For the frontend, validate every module with Node, load the adapter registry and parse the HTML.
+For integration changes, also use the HTTP smoke test or the boundary's real tool.
 
-## 10. Referências rápidas
+## 10. Quick references
 
-- `README.md`: estudo de caso e documentação detalhada.
-- `src/runner.py`: orquestração e agência.
-- `src/models.py`: domínio persistido.
-- `src/config.py`: config canônica e redaction.
-- `src/llm/adapters/`: providers backend.
-- `src/static/adapters/`: providers frontend.
-- `src/plugins/`: manifestos, SDK, hooks, store, runtime, Experiences e contratos.
-- `src/static/plugin-runtime.js`: SDK/loader frontend.
-- `src/static/plugin-center.js`: gestão Experience-first.
-- `src/llm/schema.py`: contrato estruturado local.
-- `src/llm/debug_log.py`: observabilidade persistida.
-- `tools/README.md`: operação de replay, MCP e harness.
-- `.plan/tasks/`: trabalho ativo.
-- `.plan/backlog/`: futuro sem trabalho ativo.
-- `.plan/reference/`: docs de arquitetura vivos.
-- `.plan/para-o-dono/`: espera ação do dono.
-- `.plan/closed/`: decisões e entregas concluídas.
+- `README.md`: the case study and detailed documentation.
+- `src/runner.py`: orchestration and agency.
+- `src/models.py`: the persisted domain.
+- `src/config.py`: canonical config and redaction.
+- `src/llm/adapters/`: backend providers.
+- `src/static/adapters/`: frontend providers.
+- `src/plugins/`: manifests, SDK, hooks, store, runtime, Experiences and contracts.
+- `src/static/plugin-runtime.js`: frontend SDK/loader.
+- `src/static/plugin-center.js`: Experience-first management.
+- `src/llm/schema.py`: the local structured contract.
+- `src/llm/debug_log.py`: persisted observability.
+- `tools/README.md`: operating replay, MCP and the harness.
+- `.plan/tasks/`: active work.
+- `.plan/backlog/`: the future, with no active work.
+- `.plan/reference/`: living architecture docs.
+- `.plan/para-o-dono/`: awaiting the owner.
+- `.plan/closed/`: completed decisions and deliveries.
