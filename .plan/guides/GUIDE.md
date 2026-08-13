@@ -57,34 +57,28 @@ wrong. Five instruments in the same block reported a clean number and were wrong
 So the order is: **read the thing, form a claim, then find the number that could
 prove you wrong.** Not the reverse.
 
-Five rules carry most of that:
+The rules that carry that are the **nine in
+`.plan/reference/metric-validity.md`** — one copy, so this page cannot drift from
+it. Read them there before you quote any number; each one carries what it cost when
+it was broken. The one this guide adds, because it is about method rather than
+measurement:
 
-1. **The session is the unit.** Count per session, compare sessions. Pooling turns
-   treats one Director decision as seven independent observations.
-2. **Every headline number carries its per-session spread** — median, sd, range. A
-   pooled 34% over a median of 15% means a handful of sessions carried the claim.
-3. **Pre-register the decision rule before you run.** What result would change your
-   mind, written down before the data exists.
-4. **Never match a model-authored name with a string heuristic.** This project
-   shipped that failure twice. When a detector scores zero, ask whether it can see
-   the thing at all before concluding the thing is absent.
-5. **`curl` before you believe.** Any claim about LLM behaviour is a hypothesis
-   until a replay on a real payload confirms it, 3-4 runs, counting the rate.
-   Method in `AGENTS.md` §6. **Position in the prompt is part of the variant** —
-   rules validated at the end of a prompt worked 3/3; the same rules in the middle
-   failed 3/3.
+> **`curl` before you believe.** Any claim about LLM behaviour is a hypothesis until
+> a replay on a real payload confirms it — 3-4 runs, counting the rate, decision rule
+> written down first. Method in `AGENTS.md` §6. **Position in the prompt is part of
+> the variant**: rules validated at the end of a prompt worked 3/3; the same rules in
+> the middle, buried under 5k characters of directives, failed 3/3.
 
 ## What the owner expects from you
 
 - **Cost, latency and backwards compatibility are cheap here.** Do not propose a
   worse design to save them, and do not ask permission to spend them (`AGENTS.md`
   §2). Complexity and a worse answer are what is expensive.
-- **A negative result is a result.** An arm that fails its own pre-registered gate
-  is not adopted, however good it looked. Write it down with its numbers so nobody
-  re-derives it in a month.
 - **Say "undiagnosed".** A measured symptom with an unknown cause is an honest and
   useful state. A confident mechanism where only a symptom was measured is the
-  single most damaging thing you can put in this record.
+  single most damaging thing you can put in this record. (Rules 6 and 9 on the
+  validity page are the same idea applied to a number: a negative result gets
+  written down with its numbers, not quietly dropped.)
 - **Do not commit or push without being asked**, and never write an AI authorship
   trailer (`.claude/skills/git-commit/SKILL.md`).
 - **New findings go to `backlog/` by default.** A phase does not grow while nobody
@@ -116,7 +110,9 @@ evidence.
 
 ## The three ways an agent has actually gone wrong here
 
-Not hypotheticals. All three happened, and all three were expensive.
+The incidents behind rules 1, 2, 5 and 7 on the validity page — kept as stories
+because a rule is easy to nod at and an incident is not. Not hypotheticals. All
+three happened, and all three were expensive.
 
 1. **Believing a counter over a reader.** A similarity score of **0.02** between
    paragraphs a human sees as the same paragraph, four times over. A rate of "34% of

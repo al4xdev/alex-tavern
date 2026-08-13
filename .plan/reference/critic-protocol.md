@@ -161,71 +161,30 @@ Carry the old status forward — *"measured, then demoted on <date> because
 
 ---
 
-## Metric culture — the rules a critic enforces
+## Metric culture — what a critic enforces
 
-These are not style preferences. Each one is here because it was violated and
-cost something.
+**The nine rules live in `.plan/reference/metric-validity.md`, and that is the only
+copy.** They are not review rules; they govern all measurement here, and they moved
+there on 2026-08-13 so this page and the guide cannot drift from them.
 
-1. **The session is the unit.** Count per session, compare sessions. Pooling
-   turns treats one Director decision — sealing a pulpit — as seven independent
-   observations, and inflates effective n by roughly an order of magnitude.
-   *Cost: nearly every p-value in this project, withdrawn on 2026-08-12.*
+A critic enforces them without needing to have read them all. The three that decide
+most verdicts: **the session is the unit**, **every headline number carries its
+per-session spread**, and **never match a model-authored name with a string
+heuristic**.
 
-2. **Every headline number carries its per-session spread.** Pooled figure plus
-   median, sd and range. A pooled 34% over a median of 15% means a handful of
-   sessions carried the claim.
-   *Cost: "a third of all movement in this engine", which was never true of a
-   typical session.*
-
-3. **A new metric is not believed until it has a control.** "Restated orders sit
-   on frozen scenes 36 of 39 times" is damning until you learn adjacent turn
-   pairs are frozen 184 of 213 anyway. **Fisher p = 0.43.**
-   *Cost: nothing, because the control was run. That is the point.*
-
-4. **Pre-register the decision rule before firing.** What result would change
-   your mind, written down before the data exists. A gate invented after the
-   numbers arrive is not a gate.
-
-5. **Never match a NAME with a string heuristic.** Zone names, character names,
-   place names are model-authored and follow no convention the engine controls.
-   This project shipped this failure **twice** and nearly a third time.
-   *Corollary: when a detector scores 0%, ask whether it cannot see the thing
-   before concluding the thing is absent.*
-
-6. **Record measured-and-rejected.** A hypothesis that failed its control goes
-   in the file with its numbers, so nobody re-derives it in a month.
-
-7. **Lexical distance measures whether the words changed. Nothing measures
-   whether anything happened.** Any similarity-based guard needs a read before
-   it is trusted.
-
-8. **A metric that has never announced its own error gets REPORT, DO NOT GATE.**
-   `clamp_lost_half_unsealed` needed three repairs in one day; every one was
-   found by reading a flagged case, never by the number looking wrong.
-
-9. **A negative result is a result.** An arm that fails its own pre-registered
-   gate is not adopted, however good it looked directionally.
+The critic may be handed `metric-validity.md` along with the content — it is on the
+short list of what isolation permits, precisely because a claim about a number
+cannot be judged without knowing whether that number is trusted.
 
 ---
 
-## The three legitimate sources of a metric
+## Where a metric may come from
 
-In order of preference, and a critic may propose any of them:
-
-1. **An existing metric from the register.** Check
-   `.plan/reference/metric-validity.md` first — it says which ones are trusted,
-   which are downgraded, and which were measured and rejected.
-2. **A new metric**, which then owes: a control, a per-session spread, a
-   pre-registered rule, and an entry in the register.
-3. **The critic's own judgement, stated as a metric.** Legitimate and often the
-   best available. "I read six of these and could not tell them apart" is a
-   measurement. It must be reported as what it is — n, method, and the
-   critic's own uncertainty — not laundered into a percentage.
-
-**Option 3 exists because of the 0.02 case.** When the instruments say the
-paragraphs are unrelated and a reader says "this is the same paragraph again",
-the reader wins and the number is the thing that gets an entry on the validity
-page.
+The three legitimate sources are listed once, in `metric-validity.md`. A critic may
+propose any of them, and the third is the one worth naming here: **the critic's own
+judgement, stated as a metric** — *"I read six of these and could not tell them
+apart"* is a measurement, and often the best available. Report it as what it is (n,
+method, the critic's own uncertainty) and never launder it into a percentage.
 
 ---
 
