@@ -721,3 +721,74 @@ for exact equality. So bumping 15 → 16:
 **So "we do not migrate" costs the app's ability to reopen the batteries and one
 metric — and costs the evidence nothing.** That is a cheaper bill than it sounds,
 and it is the owner's to accept.
+
+## 24. §16 SOLVED, and it is still happening right now — a SECOND agent shares this working tree
+
+**Found 2026-08-13 13:30, by accident, and it invalidates entry 22's attribution.**
+
+Two Claude sessions are running in this repository at the same time:
+
+| session | pid | started |
+|---|---|---|
+| `743b2089` (this one) | 32226 `claude` | 2026-08-06, resumed today 08:37 |
+| **`50d16fe0`** | 31711 `claude -c` | **2026-08-12 21:14:15 local** |
+
+**Entry 22's §16 window was 21:14:11 → 21:16:47.** The second session's first
+record is **21:14:15 — four seconds after that window opened.** Its transcript
+shows it reading and writing `.plan` files continuously from that moment on.
+
+The diagnosis in `746d6c6` said the most consistent remaining explanation was
+*"an external writer holding pre-21:14 content"*. **That writer has a name.** A
+second agent starting at 21:14:15 read those files as they stood before the four
+commits landed, and later wrote them back from its own copy. It explains every
+established fact at once, and it is the only candidate that does:
+
+- exactly the files touched in that window, and no others — those are the files
+  the other session had open;
+- reverted to *precisely* the pre-window state — a stale read, not a merge;
+- **no git operation in the reflog** — because no git operation occurred;
+- no sync daemon, no shared mount, no stash — all correctly ruled out.
+
+**Entry 22 is superseded.** The owner-attributed stale-index/stash story is
+withdrawn: I had already shown the index could not produce it (I committed inside
+the window, so the index held the NEW content) and that no stash touches `.plan`.
+Both objections stand; the explanation was simply the wrong one, mine included.
+
+### It happened again today, watched live
+
+While staging the routing work of entry 23:
+
+1. I ran `git add -A` and saw three `.plan/closed/` files modified that I never
+   touched — 42, 47 and `next-pre-1.0-cleanup`, mtimes **13:29:44, 13:29:58,
+   13:30:26**, seconds apart, being translated into English by the other session.
+2. I unstaged them. By the time the next command ran, **the other session had
+   committed everything in the tree**, including all of entry 23's work, as
+   `e53fe17` *"docs(closed): tasks 40, 42, 47 and the pre-1.0 cleanup in
+   English"* — a message that says nothing about a routing decision.
+3. It also committed **`.claude/settings.local.json`**, a local settings file
+   that is not in `.gitignore` and probably should be.
+
+Earlier the same morning I committed `a7a9794` *"case 11 in English"* — which was
+**the other session's in-flight translation**, sitting unstaged in the tree. It
+then committed its own `5e4b6ac` covering cases 11, 12 and 21. Neither of us knew
+the other existed.
+
+**Nothing was lost.** Both sessions' work is in the history and the tree is
+coherent: `tasks/` holds 9 files, the six moves landed, `para-o-dono/` exists.
+What was lost is the record's ability to say **who decided what, and why** —
+entry 23's rationale now sits under a commit message about translating Portuguese.
+
+### The standing instruction, discharged
+
+> *"If the tree ever disagrees with HEAD again, stop and write it down rather
+> than working around it."*
+
+Written down. **Not worked around: I am not touching another file in this repo
+until the owner decides which session continues.** Two agents committing into one
+index will keep producing mixed commits, and the next collision may land in
+`src/` where it costs more than a confusing commit message.
+
+**Status: MEASURED for the live event** (two pids, two transcripts, timestamps to
+the second, a commit that contains both sessions' work). **OBSERVED, not proven,
+for the 2026-08-12 attribution** — the four-second coincidence and the transcript
+are strong, but nobody watched that write happen.
