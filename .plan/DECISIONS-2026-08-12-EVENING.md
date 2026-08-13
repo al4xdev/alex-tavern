@@ -547,3 +547,51 @@ content and flushing it — an editor with stale buffers is the obvious candidat
 
 **Not recurred.** The tree currently matches HEAD exactly. Per the owner's
 instruction, if it happens again I stop and report rather than work around it.
+
+---
+# Round 3
+
+## 20. The naming-convention hypothesis — DIRECTIONALLY RIGHT, MECHANISM WRONG
+
+Owner's hypothesis: *the prefix rule can only fire in sessions using the comma
+convention, the convention is a per-session coin flip, so the rule is absent in
+roughly half of sessions.*
+
+Cross-tabulated over the six post-76 sessions (the only ones where it could fire):
+
+| session | comma-named destinations | genuine sibling pairs | rule fired |
+|---|---|---|---|
+| `834f91e5` | 0% | 0 | 0 |
+| `d8310b8b` | **53%** | **0** | 0 |
+| `75d9f36f` | 34% | 3 | **3** |
+| `377582f0` | **100%** | 0 *(see below)* | 0 |
+| `5d60575d` | 100% | 1 | **1** |
+| `d5a2ccf0` | 22% | 0 | 0 |
+
+**Firings match opportunity exactly, 6 of 6.** The rule is not broken and does not
+silently skip anything.
+
+**But comma usage does not predict opportunity.** `d8310b8b` is 53% comma-named
+with zero sibling pairs; `377582f0` is 100% with none. What the rule needs is not
+the convention, it is **two SIBLING zones sharing a prefix**, which is rarer.
+
+`377582f0` looked like a miss and is not one. Its only prefix-sharing pair is
+`Academia Real do Primeiro Sino, Salão dos Quatro Arcos` and
+`…, Pátio` — **parent and child**, not siblings: the movers came from the Salão,
+so the origin rule had already linked both directions and the sibling rule
+correctly added nothing and logged nothing. My first count of "opportunity" was
+counting parent-child prefix matches, and that was wrong.
+
+**So:** the conclusion the owner drew survives and the reason changes. The prefix
+rule **applied in 2 of 6 post-76 sessions**, not because of naming style but
+because genuine sibling pairs are rare. That is a narrower and better-evidenced
+statement than *"absent in roughly half of sessions because of a style coin
+flip"*, and it does **not** support a fifth entry on `metric-validity.md`: nothing
+here is an instrument misreading itself, and the rule's own behaviour is exact.
+
+**What does survive from §A, independently:** the Director's naming convention IS
+an uncontrolled per-session variable (0–97% on the same code), and every
+*detector* that reads zone names inherits it. That is already recorded. The link
+from that to `sibling_zones_linked` is the part that does not hold.
+
+**31% is a lower bound, not an estimate**, and adopted as the standing phrasing.
