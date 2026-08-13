@@ -242,27 +242,32 @@ Reading it is where it gets interesting. **The scene is not static at all** - th
 ceiling collapses, the west exit is buried, then the south, then a crack opens
 north. Plenty happens. What does not happen is anybody moving.
 
-Counting how the cast talks, per NPC speech line:
+**What replicates, over both P3 sessions:** the frozen rate. 95.2% and 89.7%,
+against the P1 control's 90.8%. **An active player does not unstick the scene.**
+That is the finding, it holds on both replicates, and it is what dismisses the
+confound.
 
-| | P1 passive (6 sessions) | P3 active (1 session) |
-|---|---|---|
-| orders to HOLD (*"recuem"*, *"ninguém se move"*, *"contra a parede"*) | 9.1% | **29.7%** |
-| orders to GO (*"avancem"*, *"sigam"*, *"saída norte"*) | 12.0% | **25.0%** |
+**What did NOT replicate, and I reported it before checking:**
 
-**Both roughly double or triple. The world obeys neither.** An active player does
-not unstick the scene; it makes the cast far more directive and leaves the
-position graph exactly as frozen.
+| per NPC speech line | P1 passive (6) | P3 r1 | P3 r2 |
+|---|---|---|---|
+| orders to HOLD | 9.1% | **29.7%** | **11.6%** |
+| orders to GO | 12.0% | **25.0%** | **4.2%** |
 
-That is a stronger statement of this task than the original transcript gave,
-because it removes the obvious alternative explanation. The room is not quiet
-because nobody asked. It is quiet with twenty people shouting instructions.
+On r1 I wrote that an active player makes the cast far more directive, that both
+order types double or triple, and that *"the room is quiet with twenty people
+shouting instructions"*. **r2 says otherwise** - it sits at the control on HOLD
+and below it on GO. Two sessions, one commit, and the numbers disagree by a
+factor of three. The prose reading behind it was real for `5d60575d`; **it was
+not a property of the engine**, and I should have waited for r2 before writing it
+down as one.
 
-⚠ **n=1 for P3**, and a second replicate was running when this was written.
-⚠ **My first cut of the HOLD count said 46.9%** and was wrong: the pattern
-included `fila`, which appears in *"saídas laterais, em fila"* - an order to MOVE
-with a queueing qualifier. Six of the first ten flagged lines were that. Fourth
-name-style guard to fail this way in one day; see
-`.plan/reference/metric-validity.md`.
+This is the variance lesson from `.plan/reference/metric-validity.md` landing on
+the person who wrote it, an hour later.
+
+⚠ **My first cut of the HOLD count said 46.9%** and was wrong on top of that: the
+pattern included `fila`, which appears in *"saídas laterais, em fila"* - an order
+to MOVE with a queueing qualifier. Six of the first ten flagged lines were that.
 
 ### What the replay says the cause is
 
