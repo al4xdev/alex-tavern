@@ -595,3 +595,52 @@ an uncontrolled per-session variable (0–97% on the same code), and every
 from that to `sibling_zones_linked` is the part that does not hold.
 
 **31% is a lower bound, not an estimate**, and adopted as the standing phrasing.
+
+## 21. Is 79 a prerequisite for 77 and 69? — ANSWERED: for 77 in part, for 69 no
+
+Checked against the transcripts each task is built on rather than reasoned from
+the framing.
+
+**77's order is half blocking and half room-change:**
+
+> T33: *"**Posicionem-se diante do portão norte agora, em formação!** A seleção
+> será concluída dentro da masmorra; **entrem em duplas**…"*
+
+*Position yourselves before the north gate, in formation* has **nowhere to
+live** — that is exactly 79's gap. *Enter the dungeon in pairs* is a room change
+and `zone_moves` expresses it fine; the Director simply emits `null`.
+
+So **79 is a prerequisite for 77's positional half only.** With a blocking field,
+"they formed up at the gate" would be recordable, partial compliance would be
+visible, and the Director would have less reason to re-issue. Without it, the
+positional half of every order is unrepresentable and silently drops. But 79
+would not fix the `zone_moves: null` half, which is 77's other face.
+
+**69 is NOT blocked by 79.** Its re-proposals are world facts, not positions:
+
+> T26/T27/T28: *"Doran golpeia a base de uma pedra caída e uma runa se acende,
+> **criando uma protuberância que pode servir de cobertura**"*
+
+"There is now cover at the base of that stone" has a channel —
+`scene.physical_facts` — and that channel **exists and is full**:
+`_MAX_PHYSICAL_FACTS = 40` with `_evict_oldest_facts`, and `09aabf25` is sitting
+at exactly **40 keys**. So 69 is a **capacity and idempotence** problem in an
+existing field, not a missing-field problem. Different failure, different fix.
+
+### Recommendation
+
+**Do not move 79 wholesale to the front.** The evidence supports something
+narrower and cheaper:
+
+- **79 stays where it is**, docs-only, and gains "77's positional half depends on
+  this" as a stated consumer.
+- **77 proceeds**, because its `zone_moves: null` half is independent of 79 and is
+  the half with a live replay behind it.
+- **69 proceeds independently.** Its channel is not missing, it is capped at 40
+  and evicting, and one of the two sessions I checked is pinned at the cap.
+
+The owner's worry — *"building the same thing twice"* — does not materialise:
+79 builds a position field, 69 fixes a saturated fact store. They are adjacent,
+not duplicate. **If 69's storage decision changes `physical_facts`, 79 should
+inherit that model**, which is the dependency that is real and is already
+recorded in both files.
