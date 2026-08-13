@@ -459,6 +459,61 @@ still no control.
 ⚠ **Not yet through an isolated critic.** The protocol asks for one on a claim
 that gates a design decision, and this one does.
 
+## The closed-transition replay — pre-registered 2026-08-13, BEFORE any call
+
+The read above says the Director re-proposes what it can still see. That makes
+this task's own thesis testable **before a line of code**, under `AGENTS.md` §6:
+*does an output constraint stop it?*
+
+If a contract clause is enough, this task is cheap and prompt-shaped, like task
+70. If it is not, the fix has to be **mechanical** — the engine rejecting the
+transition — which is expensive, and worth knowing before it is built rather
+than after.
+
+**Payloads**, chosen on recorded output before any new call, all four from the
+read above, all four cases where the original was demonstrably in the prompt:
+
+| payload | what was visible, and re-staged anyway |
+|---|---|
+| `834f91e5` T29 | bag holds `"parede_rompida": "true"`, `"criatura_emergiu": "true"` |
+| `8bd4d0f1` T38 | Liora died at T37 and Maelis says *"ela se foi"* in the transcript |
+| `a3e1ceda` T22 | bag holds `"equipes_de_resposta": "partindo pela porta leste"` |
+| `d5a2ccf0` T32 | bag holds `"projectile_hit": "true"` |
+
+4 runs per arm per payload, **32 calls**.
+
+**Arms.** A is the recorded system prompt verbatim. B inserts one bullet into the
+existing `RULES:` block, adjacent to the rule about resolving consequences,
+because position in the prompt is part of the variant and the validated variant
+must BE the shipped one:
+
+> **SETTLED FACTS DO NOT HAPPEN TWICE.** Every entry in `Physical facts` is
+> already true, and every HISTORY line has already been perceived. Do not emit a
+> `perception_event` that states one of them again, however differently worded.
+> An event MAY change a settled fact to a new state, and MAY describe its
+> consequences — it may never re-stage the moment it became true.
+
+That is this task's thesis written as a contract clause: restatement forbidden,
+**transition and consequence explicitly permitted**.
+
+**Primary measure.** Per run: does any emitted event match the known re-staged
+original at `sim >= 0.6`? That is `recurrence`. The detector's 10% error rate
+applies to both arms equally, and every run is read regardless.
+
+**The rule, all four outcomes written before the data exists:**
+
+| result | conclusion |
+|---|---|
+| **B's recurrence ≤ half of A's, and B's mean event count ≥ 70% of A's** | a contract clause is enough. This task is prompt-shaped and cheap, like task 70 |
+| **B's recurrence falls, event count collapses below 70%** | **the rule bought silence.** Worse than the defect, not adopted, and recorded as measured-and-rejected |
+| **B's recurrence does not fall** | a clause is not enough; the fix is **mechanical** — the engine rejecting the transition — and this task is expensive. Better to know now |
+| **A's own recurrence is below 40% of runs** | these re-stagings are **variance**, not a contract property. Neither arm can be credited or blamed, the design question is untouched, and this is 77's finding arriving in 69. Report and stop |
+
+⚠ **The last row is the one I expect to have to write**, because it is what
+happened to task 77's identically-shaped replay: the recorded payload had emitted
+`zone_moves: null`, and the unchanged contract moved people on 3 of 8 replays. It
+is registered here so it cannot be presented afterwards as an insight.
+
 ## Inherited from task 76's falsifier — a missing spatial field
 
 Measured 2026-08-13 over 33 sessions: **136 of 403 `zone_moves` (34%) send a
