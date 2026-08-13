@@ -388,3 +388,53 @@ nothing.
 engine cannot be still. A metric that always reads the same value still
 documents a structural fact, as long as nobody mistakes it for a check that
 passed.
+
+## The critic subagent — first run, 2026-08-13
+
+The instrument defined in `.plan/reference/critic-protocol.md`, measured for the
+first time. It reviewed `.plan/CHECKPOINT-2026-08-13.md` in isolation: the
+content and the critic prompt, no code, no task files, no history, no author.
+27 claims extracted, 7 marked WORSE THAN ABSENT, 8 demoted, 2 promoted.
+
+**It found two defects a human reader of the same document had missed.** Both are
+verifiable in the text alone, which is the point:
+
+1. **The phase's top-priority metric is stated twice, incompatibly.** The task-79
+   row carries the post-audit figures (median 6.8%, sd 7.0pts, range 0.5-25.4%);
+   the "standing numbers" table 111 lines later still carries the pre-audit ones
+   (median 6%, sd 9.0pts, range 0-44%). Same metric, a range nearly twice as wide,
+   no label saying which run is current — under a heading that invites quoting.
+2. **A generalisation contradicted by the list it summarises.** *"Not one was
+   caught by a number looking wrong... seven for seven, and it is the standing
+   method"* sits four lines below a bullet reading *"Killed by a control that cost
+   nothing, under a rule written before the number existed."* At least two of the
+   seven were caught numerically. Promoted to "the standing method", that sentence
+   reads as licence to skip controls — the opposite of what the same document
+   demands elsewhere.
+
+It also caught `"the mechanism is that settled state does not bind the output"`
+sitting under a ✅ in a **mechanism** column with nothing behind it, and
+`"every headline number carries its per-session spread"` asserted in a file where
+four headline numbers do not.
+
+### What it costs
+
+**Isolation produces false alarms, and that is the design, not a defect.** The
+critic called 76's *"firings track opportunity 6/6"* unsupported — *"the classic
+shape of a detector that cannot see the negative case"*. The reasoning is sound
+and the conclusion is wrong: that finding came from a cross-tabulation that did
+include negative cases (a 53%-comma-named session with zero sibling pairs), which
+is recorded elsewhere and was withheld from the critic on purpose. The verdict
+still did its job — it is a ruling on whether *the text carries its own weight*,
+and that text did not.
+
+Budget for roughly one such alarm per document. The exchange is a good one.
+
+### Status
+
+**TRUSTED as a reader of documents. It gates nothing.** It cannot rule on the
+world, only on whether a page supports what it says. When the critic and a reader
+of the code disagree, the reader wins and the disagreement is recorded here — the
+same rule that applies to every other instrument on this page.
+
+n=1 document. Ask again after five.
