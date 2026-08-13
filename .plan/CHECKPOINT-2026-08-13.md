@@ -39,9 +39,13 @@ Every causal story written in this block was falsified by its own evidence:
 - 69's *"the fact store is full, so the engine forgets"* — **17 of 18**
   re-proposals happen with the original still in the prompt, one of them while
   the bag says `"parede_rompida": "true"`.
+- 69's *"the mandatory UPCOMING EVENT clause forces a non-event into slot 0"* —
+  re-proposal turns carry that block **23.7%** of the time against a **27.0%**
+  control, **down in 20 of 31 sessions.** Killed by a control that cost nothing,
+  under a rule written before the number existed.
 
 **Not one was caught by a number looking wrong. Every one was caught by reading
-records or code.** That is now six for six, and it is the standing method.
+records or code.** That is now seven for seven, and it is the standing method.
 
 The sixth is the first that made a task **cheaper and better aimed** rather than
 smaller: 69 no longer has to solve remembering, only binding.

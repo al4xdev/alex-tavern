@@ -595,6 +595,56 @@ clock (**40**) and the drive layer (**33**), and 69 would have found it rather
 than owned it. Recording that now, before the numbers arrive, so the result
 cannot be annexed to this task afterwards.
 
+#### ❌ FALSIFIED by its own control, same day. The theory is dead and inverted.
+
+Step 1 ran, cost nothing, and killed it:
+
+| | UPCOMING EVENT block present |
+|---|---|
+| Director turns that re-propose a flagged event | **108 of 456 = 23.7%** |
+| **every other Director turn (the control)** | **202 of 747 = 27.0%** |
+
+Per session, session as the unit, n=31: median **22.2%** against **26.9%**,
+paired difference **-5.3 points, DOWN in 20 of 31 sessions.**
+
+**Re-proposal turns carry the block LESS often than ordinary turns.** The theory
+predicted the opposite. **Arm C was not run**, exactly as the rule said — *"only
+if the corpus rate is elevated"* — and the inference it would have cost was not
+spent.
+
+This is the seventh causal story falsified in this phase, and the second one
+where the kill condition was written down before the number existed. Recorded as
+**measured-and-rejected**: do not re-derive it.
+
+**What survives, and what does not:**
+
+- ❌ *"the mandatory-injection clause forces a non-event into slot 0, so the
+  Director fills it with the last physical thing"* — **dead**. Whatever slot 0
+  does, it is not what produces re-proposal across the corpus.
+- ✅ **`time_skip_ticks` was 0 in all 8 runs** on a payload whose prompt
+  explicitly demanded compression. That number is unaffected by the falsification
+  above — it is a direct observation of refusal, and it replicates the roadmap's
+  **0 of 6** CLOCK SIGNAL invitations accepted in `base-P1-r2`. **0 of 6 plus 0
+  of 8, two sessions, two engine states.** It belongs to task 72 and to whoever
+  owns the clock, and it is the only thing this replay produced that another task
+  can use.
+- ❓ **`d5a2ccf0` T32 re-stages the projectile in 7 of 8 runs across both arms,
+  and nobody knows why.** It is not the UPCOMING EVENT block. Left **undiagnosed
+  and named**, rather than given a second story: this file has now spent two
+  hypotheses on it and the honest position is n=1.
+
+### What the whole replay leaves this task with
+
+**The closed-transition thesis is still untested.** The clause did not fail; it
+was never engaged, because 3 of 4 payloads do not reliably reproduce the defect
+under replay at all. **A test of a fix needs a payload that reliably shows the
+defect, and this experiment's real product is knowing that we do not have one.**
+
+Anyone building closed transitions should first find payloads where re-staging is
+reproducible — `d5a2ccf0` T32 is the only known one — or accept that the fix will
+have to be validated on a live cell rather than a replay, which is slower and
+what task 68's instruments exist for.
+
 ## Inherited from task 76's falsifier — a missing spatial field
 
 Measured 2026-08-13 over 33 sessions: **136 of 403 `zone_moves` (34%) send a
