@@ -177,6 +177,75 @@ mode — a lazy or generous Director — which is exactly what the validity chec
 above is for. If the two disagree, **neither wins on authority**; the reading of
 the disagreement set decides, per rule 3 of `.plan/guides/MEASURING.md`.
 
+### ❌ RAN 2026-08-13 — the signal FAILED its own validity check, and that is the result
+
+**Median `|witness_ids| / cast` = 0.95.** Quartiles 0.86 / 0.95 / 1.00 over 4,843
+Director events.
+
+**The Director lists nearly the entire cast as witnesses of nearly every event.**
+By the check registered above the signal is dead on arrival: with everyone
+witnessing everything, `together` wins almost automatically, and it does — the
+structural rule calls **93.2%** of moves a POSITION, including a walk from the
+hall to the outer courtyard with 20 peers left behind.
+
+Agreement with the corrected string rule is **24.5%**, and that number means
+nothing: it is one instrument disagreeing with a broken one.
+
+| | structural=POSITION | structural=ROOM |
+|---|---|---|
+| **string=POSITION** | 77 | 2 |
+| **string=ROOM** | **319** | 27 |
+
+**Reported as registered, not dressed up as a comparison.** The string rule is
+**neither vindicated nor falsified** by this. The test did not run.
+
+#### What it did find, and it is worth more than the test was
+
+**`witness_ids` carries no scoping information.** A field that names who perceives
+an event, set to ~95% of the cast, is not a perception judgement — it is a
+formality. This corroborates task 67's finding from the other end (*"only 2 of
+1,868 raw Director events proposed an empty witness list"*) and generalises it:
+the Director does not narrow audiences at all, the **engine's clamp does all of
+the narrowing**, and every audience number in this project is a property of the
+graph rather than of the Director's intent.
+
+Registered in `.plan/reference/metric-validity.md` as **measured and rejected**
+for this purpose, so nobody builds a scoping signal on it.
+
+## The structural test, second attempt — a blind read, pre-registered before running
+
+The witness signal died on its own check. The owner's third hint is the one left,
+and `.plan/guides/MEASURING.md` ranks it as a legitimate source: *"a reader's
+judgement, stated as a metric... often the best available"*.
+
+> *"the narration either describes a room change or does not"*
+
+**The instrument is a blind judge reading prose.** It never sees a zone name, a
+destination string, or the string rule's verdict, so it cannot reproduce the
+failure being tested for.
+
+**Sample.** 40 recorded moves, **stratified**: 20 the corrected string rule calls
+POSITION and 20 it calls ROOM CHANGE, systematically drawn within each stratum and
+**shuffled** before dispatch.
+
+**What the judge is given:** the narration of that turn, the moving character's
+name, and nothing else. **What it is asked:** did this character move to a
+different place, reposition within the place they were already in, or is it not
+determinable from this text?
+
+**Decision rule, before the data exists:**
+
+| result | conclusion |
+|---|---|
+| **agreement >= 80%** on determinable cases | the corrected string rule is **vindicated**. Record the rate beside it in the register and stop worrying |
+| **agreement < 80%** | **read the disagreements.** The reading decides; the loser gets a register entry. Sixth naming failure, caught before it shipped |
+| **"not determinable" on more than half** | the prose does not carry the distinction, which is itself an answer: **no instrument of any kind can recover room-vs-position from this corpus**, and the task rests entirely on its standing argument |
+
+⚠ **The third row is a live possibility and it is the most useful outcome.** If a
+careful reader with the actual narration in front of them cannot tell whether
+somebody changed rooms, then the engine certainly cannot, and that is this task's
+standing argument promoted from an assertion to a measurement.
+
 ### The standing argument for this task
 
 > **If a parser cannot tell a room from a position by its name, neither can the
