@@ -271,8 +271,9 @@ and it still subsumes parts of three other tasks.
 
 ### ◆ Checkpoint — ✅ PASSED 2026-08-12, and here is the re-derivation
 
-> **Run alone, overnight, on the owner's authorisation to re-plan without them.**
-> Every call is listed in `.plan/DECISIONS-NIGHT-2026-08-12.md`; the ones marked
+> **Run alone in one evening block, 18:56 to 21:45, on the owner's authorisation
+> to re-plan without them.**
+> Every call is listed in `.plan/DECISIONS-2026-08-12-EVENING.md`; the ones marked
 > ⚠ NEEDS YOU are mine to unmake on request.
 
 Wave 1 landed (**65** ✅, **70** ✅, **63** falsified out, **67** ✅). The battery

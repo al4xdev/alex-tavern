@@ -1,11 +1,15 @@
-# Decisions taken alone — night of 2026-08-12
+# Decisions taken alone — 2026-08-12, 18:56 to 21:45
+
+*Two hours and forty-nine minutes, not a night. The file called itself NIGHT and
+everyone downstream repeated it, including the owner's answers. Corrected
+against the commit timestamps, which were there the whole time.*
 
 The owner authorised working past the checkpoint without them, on the standing
 instruction that **reading the text outranks the metrics, because this product
 does not yet have instruments anybody should trust.** Every decision below was
 taken under that rule; each one says what I read, not only what I counted.
 
-Read this top to bottom in the morning. Anything marked **⚠ NEEDS YOU** is a
+Read this top to bottom when you pick it up. Anything marked **⚠ NEEDS YOU** is a
 call I made to keep moving and would unmake on request.
 
 ---
@@ -122,7 +126,7 @@ one move back *into* the hall it had just ordered everyone out of. Directionally
 better, not adoptable at n=8 per arm.
 
 ---
-## 4. Task 71 shipped a defect this morning; I found it tonight by reading — FIXED
+## 4. Task 71 shipped a defect earlier today; I found it the same evening by reading — FIXED
 
 **What I read.** `c76037ff`, the five-person cluster. Sixteen narrations, and
 **eight had no events at all**, so the renderer described the room instead:
@@ -243,7 +247,7 @@ running when this was written.
 
 **Lesson worth keeping:** the waiter polls for `--exec-one` and a battery has no
 such child between replicates. Every "DONE" it has ever reported is suspect, and
-two of tonight's were wrong. Check the PARENT pid, not the child.
+two of this block's were wrong. Check the PARENT pid, not the child.
 
 **⟳ Owner asked for the waiter itself to be fixed, not documented.** Done:
 `tools/acceptance/wait_for_battery.sh` watches the parent
@@ -372,14 +376,14 @@ graph. **Both of those era comparisons are confounded by which scenes the
 Director happened to seal**, and neither belongs in a summary as a result.
 
 **⚠ NEEDS YOU:** this means the split rate - the number task 71 was sized on,
-and the one I re-derived at 27.8% this morning - **swings between 1% and 51%
+and the one I re-derived at 27.8% earlier today - **swings between 1% and 51%
 across sessions on identical code.** Task 71's cost and value estimates inherit
 that spread. I did not restate them, because I do not know which end is typical
 and four sessions per era cannot tell me.
 
 ---
 
-## 13. The unit-of-analysis error, and what it costs — the night's most important finding
+## 13. The unit-of-analysis error, and what it costs — this block's most important finding
 
 Measured session-to-session variance under **identical code**, four sessions per
 group:
@@ -419,7 +423,7 @@ run.
 ---
 
 ---
-# Owner answered — work done against `ANSWERS-NIGHT-2026-08-12.md`
+# Owner answered — work done against `ANSWERS-2026-08-12-EVENING.md`
 
 ## 14. Task 76's falsifier fired, and it moved the fix out of the graph
 

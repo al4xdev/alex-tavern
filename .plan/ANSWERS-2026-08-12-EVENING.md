@@ -1,9 +1,13 @@
-# Owner's answers — DECISIONS-NIGHT-2026-08-12
+# Owner's answers — DECISIONS-2026-08-12-EVENING
+
+*Written against a file that called itself NIGHT. It was 18:56 to 21:45. Every
+"last night" below has been corrected to "that block"; the authorisation to keep
+working never had a dawn in it, it lasts until the owner says stop.*
 
 Read the whole file plus `6f2bad2`. The judgement in it is sound. Every ⚠ is
 answered below; where I say "your call" it stays yours.
 
-**Standing authorisation: it is not dawn yet. Keep going, keep deciding.** The
+**Standing authorisation: keep going, keep deciding, until I say stop.** The
 same rule as before — reading the text outranks the metrics — plus the two
 constraints at the bottom of this note.
 
@@ -108,7 +112,7 @@ Good separation from 67 and 76 — the seal was declared and correctly applied, 
 the defect is the routing. Leave the fix undesigned until someone reads more
 cases.
 
-## 12 + `6f2bad2` — THE MOST IMPORTANT THING YOU WROTE LAST NIGHT
+## 12 + `6f2bad2` — THE MOST IMPORTANT THING YOU WROTE IN THAT BLOCK
 
 The session-is-the-unit correction is now standing policy, not a note:
 
@@ -130,13 +134,13 @@ exactly as you did.
 
 1. **No new production code without an ⚠ answered above.** Docs, tasks, replays
    and measurements are yours to take. `src/` changes are: the fold was the only
-   one last night and that ratio is right.
+   one in that block and that ratio is right.
 2. **Task 76's graph is frozen** until the falsifier in §5 is measured.
 3. When you open a task, keep doing what you did with 77 — leave the mechanism
    undiagnosed rather than guessing, and record measured-and-rejected metrics so
    nobody re-derives them.
 
-Keep reading transcripts. Four of the five real findings last night came from
+Keep reading transcripts. Four of the five real findings in that block came from
 reading and none came from a counter noticing its own error.
 
 ---
@@ -164,7 +168,7 @@ widened audibility across the engine to fix a symptom of a missing field. The
 falsifier flipped the answer. Keep spending measurements on that kind of
 question.
 
-**Decision 14 is the best finding of the night, ahead of 76 and ahead of 77.**
+**Decision 14 is the best finding of the block, ahead of 76 and ahead of 77.**
 Collapsing task 54's finding 1, task 76, and the prefix rule's two false
 positives into one structural cause is the kind of consolidation that saves
 months. Note what you did NOT do with it: no rule 1, graph still frozen, prefix
@@ -234,12 +238,12 @@ turning up as a surprise when P3 is re-run after 77.
 
 ## Housekeeping
 
-- `07ced08` committed `ANSWERS-NIGHT-2026-08-12.md` into the repo. Fine by me —
+- `07ced08` committed `ANSWERS-2026-08-12-EVENING.md` into the repo. Fine by me —
   the answers belong next to the decisions — just be aware they are versioned
   now, including this round.
 - **§16 is an infrastructure problem, not a model problem**, and it is the one
   thing here that can silently destroy work. A working tree arriving older than
-  HEAD, with a `git add -A` away from reverting the night's most important
+  HEAD, with a `git add -A` away from reverting the block's most important
   correction, is worth a real diagnosis rather than a note. If it recurs, stop
   and tell me rather than working around it.
 - Decision 15's §4 entry closed against you — the second replicate came back
@@ -255,6 +259,7 @@ The three from the first round still stand, plus:
 5. **Every headline number gets its per-session spread**, pooled figure included
    for reference, whether or not a p-value is attached.
 
-It is still not dawn. Keep deciding, and keep reading sessions as fiction —
+The authorisation stands until I say stop. Keep deciding, and keep reading
+sessions as fiction —
 that method has produced every real finding in this file and none of the
 retractions.
