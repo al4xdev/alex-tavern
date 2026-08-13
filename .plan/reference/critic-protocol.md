@@ -244,6 +244,28 @@ claim passes a rubric-shaped critic. Two defences, neither complete:
 
    Different framings beat different seeds: one critic asked to demote, one
    asked whether deletion would hurt, one given only the numbers and no prose.
+
+   ### Fan out INSTEAD of asking the owner — standing instruction, 2026-08-13
+
+   > *"I notice you call me times that don't need. You can simply dispatch one or
+   > more critic subagents with less context, create a stronger opinion, and take
+   > choices like this without me."*
+
+   **A judgement call is not a reason to stop.** When the next step depends on an
+   opinion rather than on a fact only the owner holds, the move is to dispatch
+   critics, read the harshest verdict, decide, and **record the decision with the
+   verdicts that produced it** — not to queue the question.
+
+   What still goes to the owner, unchanged: a schema change, a graph change, a
+   roadmap re-order, anything irreversible, and anything where the missing input
+   is a *preference* rather than an *argument*. A critic cannot tell you whether
+   the owner wants to pay a cost; it can tell you whether the case for paying it
+   holds up.
+
+   **Three framings, dispatched in parallel, is the default shape.** Cheap enough
+   to be routine, and the disagreement between them is the product. Write down
+   that they split and what each one saw, even when you go with the majority —
+   especially then.
 2. **Spot-check the critic against a read.** Periodically have a human or a
    fresh reader judge the same artifact and compare. When the critic and the
    reader disagree, **the reader wins and the critic gets an entry on the
