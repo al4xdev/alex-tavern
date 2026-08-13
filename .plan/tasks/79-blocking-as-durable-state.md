@@ -120,6 +120,42 @@ A second, cheaper falsifier available *before* any code: **replay a Director tur
 with a contract that offers a blocking slot and see whether it uses it.** That is
 the §6 discipline and it should run before the schema is designed, not after.
 
+### The slot replay — decision rule, pre-registered 2026-08-13
+
+Written before any call. It answers the expensive question — **does the Director
+know how to use such a field?** — before anyone pays for a schema bump and a
+migration of 33 saved sessions.
+
+**Payloads**, chosen on recorded output only: `09aabf25` **T7** and **T22**, both
+of which recorded positional `zone_moves` (*"salão, próximo à saída sul"*,
+*"salão, próximo ao portão norte"*, the latter for three characters at once). Both
+therefore have something to redirect. 4 runs per arm per payload, 16 calls.
+
+**Arms.** A is the recorded contract verbatim. B adds a `blocking` key to the
+output contract and one rule: a position INSIDE the place a character already
+occupies goes there, and `zone_moves` is for changing place. The Director's call
+uses `response_format: {"type": "json_object"}`, so a new key needs no schema
+change to be expressible.
+
+**The field is worth building if BOTH hold:**
+
+1. **B populates the slot.** `blocking` non-empty on a majority of B's runs, with
+   content that actually names a position.
+2. **B stops minting positional zones.** B's positional-`zone_moves` rate falls
+   materially below A's on the same payloads.
+
+**Falsifier for task 79: if B ignores the slot, or keeps minting positional zones
+at A's rate, the missing field is not the fix** and this task should not ship a
+schema. That outcome is cheap here and expensive after a migration.
+
+⚠ **Guard clause, and it decides more than it looks.** If B's `zone_moves`
+collapses to `null` everywhere, that is **not** a win: it would mean the Director
+stopped moving people rather than relocating the detail, which trades this defect
+for task 77's. Reported separately and it blocks clause 2.
+
+**Read whatever the counts say.** A slot populated with junk is not a populated
+slot.
+
 ## Explicitly NOT in scope
 
 - **Task 76's graph rule.** It stays shipped and frozen. It is correct where it
