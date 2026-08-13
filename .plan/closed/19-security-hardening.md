@@ -66,56 +66,61 @@ the boundary for every unsafe method.
 - Trusted in-process plugins remain trusted code once intentionally installed; the goal is to stop
   arbitrary web pages from reaching plugin-management endpoints.
 
-## ✅ Fechada 2026-07-19 — Critérios de aceitação atendidos
+## ✅ Closed 2026-07-19 — Acceptance criteria met
 
-**Outcome 6 — Smoke tests de deployment:** 3/3 verdes.
+**Outcome 6 — Deployment smoke tests:** 3/3 green.
 
-| Ambiente | Resultado | Detalhe |
+| Environment | Result | Detail |
 |---|---|---|
-| Desktop (same-origin) | ✅ | curl sem token → **403** |
-| Docker (LAN-IP) | ✅ | curl sem token → **403** |
-| Android/WebView | ✅ | curl sem token → **403** |
+| Desktop (same-origin) | ✅ | curl with no token → **403** |
+| Docker (LAN-IP) | ✅ | curl with no token → **403** |
+| Android/WebView | ✅ | curl with no token → **403** |
 
-Todos os ambientes rejeitam requisições sem token com 403 conforme esperado. Boundary de origem + token + política de target de provider validados em runtime real.
+Every environment rejects token-less requests with 403, as expected. The origin +
+token boundary and the provider target policy were validated in a real runtime.
 
-**Ressalvas do dia 17 resolvidas:** outcome 6 executado e aprovado → fecho confiante.
+**The 17th's caveats resolved:** outcome 6 executed and passed → a confident close.
 
 ---
 
-## Delivered 2026-07-17 — COM RESSALVAS (mantida em tasks/, não closed/)
+## Delivered 2026-07-17 — WITH CAVEATS (kept in tasks/, not closed/)
 
-Boundary de origem + token + política de alvo de provider implementados e
-testados no nível unit+integração. **Ressalva: o outcome 6 (smoke tests de
-deployment desktop/Docker/Android) NÃO foi executado — não dá pra rodar
-Docker/Android aqui — então não é fecho confiante** (convenção: fica em tasks/).
+The origin + token boundary and the provider target policy are implemented and
+tested at unit+integration level. **Caveat: outcome 6 (desktop/Docker/Android
+deployment smoke tests) was NOT executed — Docker/Android cannot be run here — so
+this is not a confident close** (convention: it stays in tasks/).
 
-### Entregue e testado (23 testes em `tests/test_security.py`, suíte 610)
-- `src/security.py`: token por-processo não-persistido + allowlist de origem
-  (loopback qualquer porta; native/WebView `null`/ausente; **same-origin real**:
-  Origin cujo authority == Host da request — cobre LAN-IP/Docker) +
+### Delivered and tested (23 tests in `tests/test_security.py`, suite 610)
+- `src/security.py`: a non-persisted per-process token + an origin allowlist
+  (loopback on any port; native/WebView `null`/absent; **real same-origin**: an
+  Origin whose authority == the request's Host — covers LAN-IP/Docker) +
   `unsafe_request_allowed`.
-- `src/main.py`: CORS wildcard credenciado REMOVIDO → regex loopback apenas.
-  **`null` NUNCA entra no CORS**: um iframe sandboxed de atacante também tem
-  Origin `null`; permitir que ele LEIA `/bootstrap` entregaria o token e
-  derrubaria o boundary inteiro (revisão 2026-07-17 fechou exatamente isso).
-  Middleware `enforce_origin_and_token` cobre TODO método de mutação;
-  `GET /bootstrap` entrega o token (legível só same-origin/loopback no browser).
-- Política de `api_base` no contrato do adapter: deepseek = HTTPS + host
-  `api.deepseek.com`; llama_cpp = loopback/rede privada, incluindo nomes
-  single-label (Docker) e sufixos privados (.local/.internal/.lan/.home.arpa).
-  Ligada no `validate_config` → `api_base` de atacante é rejeitado (422) sem
-  persistir nem trocar o Runner; config Docker legítima não quebra o boot.
-- Token nunca persistido: o service worker não cacheia `/bootstrap`; `api.js`
-  renova o token e re-tenta uma vez em 403 (restart do processo rotaciona o
-  token sem quebrar a página aberta, ex.: `/plugins/restart`).
-- Frontend: `api.js` envia o token em toda mutação; `plugin-runtime.js` idem.
+- `src/main.py`: the credentialed wildcard CORS is REMOVED → a loopback regex
+  only. **`null` NEVER enters CORS**: an attacker's sandboxed iframe also has
+  Origin `null`; letting it READ `/bootstrap` would hand over the token and bring
+  down the whole boundary (the 2026-07-17 review closed exactly this). The
+  `enforce_origin_and_token` middleware covers EVERY mutating method;
+  `GET /bootstrap` hands over the token (readable only same-origin/loopback in the
+  browser).
+- An `api_base` policy in the adapter contract: deepseek = HTTPS + host
+  `api.deepseek.com`; llama_cpp = loopback/private network, including single-label
+  names (Docker) and private suffixes (.local/.internal/.lan/.home.arpa). Wired
+  into `validate_config` → an attacker's `api_base` is rejected (422) without
+  persisting or swapping the Runner; a legitimate Docker config does not break the
+  boot.
+- The token is never persisted: the service worker does not cache `/bootstrap`;
+  `api.js` renews the token and retries once on a 403 (a process restart rotates
+  the token without breaking the open page, e.g. `/plugins/restart`).
+- Frontend: `api.js` sends the token on every mutation; `plugin-runtime.js`
+  likewise.
 
-### Ressalvas a verificar antes de fecho confiante (outcome 6)
-- Smoke test desktop (served same-origin, BASE_URL=''): mutações OK com token.
-- Smoke test Docker: acesso via IP da LAN usa o caminho same-origin
-  (Origin == Host) — confirmar no ambiente real; api_base com service name.
-- Smoke test Android/WebView: com `null` fora do CORS, o WebView carregando de
-  file:// precisa OU servir o app same-origin (http://127.0.0.1:8889) OU usar
-  modo WebView isento de CORS (universal access) para ler `/bootstrap`; as
-  mutações já passam (Origin null + token). Confirmar qual dos dois o app
-  Android usa e ajustar lá se preciso.
+### Caveats to verify before a confident close (outcome 6)
+- Desktop smoke test (served same-origin, BASE_URL=''): mutations OK with the
+  token.
+- Docker smoke test: access via the LAN IP uses the same-origin path
+  (Origin == Host) — confirm in the real environment; api_base with a service name.
+- Android/WebView smoke test: with `null` outside CORS, a WebView loading from
+  file:// must EITHER serve the app same-origin (http://127.0.0.1:8889) OR use the
+  CORS-exempt WebView mode (universal access) to read `/bootstrap`; mutations
+  already pass (Origin null + token). Confirm which of the two the Android app uses
+  and adjust there if needed.

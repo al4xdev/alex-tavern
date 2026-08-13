@@ -74,48 +74,49 @@ large fraction of expensive baseline runs would be wasted on infrastructure.
 - [x] Three consecutive repetitions of `memory_focus_xyz` against the real
   provider complete with zero runs lost to `Falha ao obter JSON válido`
   (narrative failures, if any, are out of scope here).
-- [x] `rg 'retries='` in `src/` shows no per-agent overrides left. — **conferido
-  2026-07-27**: só o repasse do parâmetro em `client.py:328`, nenhum override.
+- [x] `rg 'retries='` in `src/` shows no per-agent overrides left. — **checked
+  2026-07-27**: only the parameter being passed through in `client.py:328`, no
+  override.
 
 
 ---
 
-# As três repetições, executadas (2026-07-27)
+# The three repeats, executed (2026-07-27)
 
-O critério era estreito e por isso mensurável: três repetições consecutivas de
-`memory_focus_xyz` contra o provider real, **zero runs perdidos por "Falha ao
-obter JSON válido"**.
+The criterion was narrow and therefore measurable: three consecutive repeats of
+`memory_focus_xyz` against the real provider, **zero runs lost to "Falha ao obter
+JSON válido"**.
 
-**3/3 completaram o cenário inteiro. Nenhum run perdido por JSON.**
+**3/3 completed the whole scenario. No run lost to JSON.**
 
-E o run trouxe a evidência positiva de que a política de retry desta task faz
-trabalho real: **9 `JSONSchemaValidationError` ocorreram e todos foram
-recuperados**. O Diretor mandou booleano onde o schema pede string ou nulo (6
-vezes, sempre em chaves de `scene_update` inventadas pelo próprio modelo, tipo
-`porta_arrombada: true`), `location: null`, e a prosa mandou chaves fora do
-schema (`actions`, `events`, `scene_change`). Antes desta task, cada um desses
-era um turno perdido; aqui nenhum sequer apareceu para o jogador.
+And the run brought positive evidence that this task's retry policy does real
+work: **9 `JSONSchemaValidationError`s occurred and every one was recovered**. The
+Director sent a boolean where the schema wants a string or null (6 times, always
+in `scene_update` keys the model invented itself, such as
+`porta_arrombada: true`), `location: null`, and the prose sent keys outside the
+schema (`actions`, `events`, `scene_change`). Before this task, each of those was a
+lost turn; here not one even reached the player.
 
-## O que o run revelou sobre o instrumento, não sobre o produto
+## What the run revealed about the instrument, not about the product
 
-O harness marcou 2 dos 3 runs como falhos — mas não por JSON. Por
-`RecallCheckFailed: whispered secrets leaked into records`, com estes tokens:
+The harness marked 2 of the 3 runs as failed — but not for JSON. For
+`RecallCheckFailed: whispered secrets leaked into records`, with these tokens:
 
-| run | token acusado |
+| run | accused token |
 |---|---|
 | 1 | `onde` |
 | 2 | `cabeça` |
 
-"Onde" e "cabeça" não são segredos. O detector (`_is_rare` + `PAYLOAD_WINDOW`
-em `src/confidentiality.py`) aceita qualquer token com 4+ caracteres que caia na
-vizinhança da âncora do sussurro, e numa língua onde "onde", "casa", "porta",
-"mesa" e "cabeça" são o vocabulário básico da cena, isso gera falso positivo com
-facilidade. A reaparição dessas palavras numa fala posterior não é evidência de
-vazamento.
+"Onde" and "cabeça" ("where" and "head") are not secrets. The detector (`_is_rare`
++ `PAYLOAD_WINDOW` in `src/confidentiality.py`) accepts any token of 4+ characters
+falling in the neighbourhood of the whisper's anchor, and in a language where
+"onde", "casa", "porta", "mesa" and "cabeça" are the scene's basic vocabulary, that
+produces false positives easily. Those words reappearing in a later line is not
+evidence of a leak.
 
-Não é bug desta task e **não é conserto para hoje**: mudar o filtro é
-recalibração de um instrumento que outras tasks usam como oráculo (a família
-`secret` do xfailed3 depende dele), e recalibrar sem medir a precisão antes e
-depois só troca um viés por outro. Fica registrado como a próxima pergunta a
-medir: qual a taxa de falso positivo do detector de vazamento em português, e uma
-lista de parada por idioma resolve ou só desloca o problema?
+It is not a bug of this task and it is **not a fix for today**: changing the filter
+means recalibrating an instrument other tasks use as an oracle (xfailed3's `secret`
+family depends on it), and recalibrating without measuring precision before and
+after only swaps one bias for another. It is recorded as the next question to
+measure: what is the false-positive rate of the leak detector in Portuguese, and
+does a per-language stop list solve the problem or only move it?
