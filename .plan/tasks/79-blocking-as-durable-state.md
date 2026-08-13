@@ -5,9 +5,18 @@
 > no serialization until the deferred bump is decided. Task 76's graph stays
 > frozen.
 >
-> **Next action, and it is not code:** find replay payloads where positional
-> `zone_moves` reproduce, from the sessions at the top of the per-session range,
-> then re-register the falsifier with its control *inside* the experiment.
+> **Next action: the owner's word on the re-priced proposal**
+> (`.plan/para-o-dono/79-blocking-shape.md`). The schema bump is recommended
+> **against** — median 5.6% symptom, irreversible cost, and no instrument that
+> could verify the fix afterwards. Proposed instead is the half that needs no
+> storage: `narrate()` hands `character_zones` to the prose renderer for the
+> current turn.
+>
+> ⚠ **Decision 4 is not merely rejected, its whole SHAPE is dead.** Any falsifier
+> asking *"did positional `zone_moves` fall?"* needs an instrument that classifies
+> a move as positional, and **three independent attempts have now failed** - a
+> string rule (five false positives), the Director's own `witness_ids` (median 95%
+> of the cast), and a blind reader of the prose (88% not determinable).
 >
 > **FIRST in wave 2 as of 2026-08-13.** Not because its symptom is the biggest,
 > but because it is **the only task in the phase with an established mechanism**,
