@@ -251,7 +251,7 @@ closed** apart from one item carried forward (below).
 `with_others_present` 2 → 0 → 0. The raw `clamp_lost_half` reads 6 → 0 → **2**,
 and the 2 are the Director proposing across a seal the fiction supports, not
 graph damage — which is why the criterion had to be sharpened mid-verification.
-Details in `.plan/tasks/67-zone-graph-integrity.md`, section "The re-run cell".
+Details in `.plan/closed/67-zone-graph-integrity.md`, section "The re-run cell".
 
 **67's last closure item was WITHDRAWN, not carried.** *"A character who can no
 longer perceive must not be listed as a witness"* was measured: 25 of 13,540

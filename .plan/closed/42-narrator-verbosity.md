@@ -1,103 +1,107 @@
-# Task 42 — Narrador fala pouco (EMERGENCIAL, puro curl)
+# Task 42 — The Narrator says too little (URGENT, pure curl)
 
-**Origem:** usuário (2026-07-18). A prosa do narrador está curta demais. NÃO é
-`max_tokens` (budget enorme); é prompt. Os prompts já estão grandes — a solução
-deve ser uma **FRASE PEQUENA** que destrave o deepseek, não mais uma parede de
-regras.
+**Origin:** the user (2026-07-18). The narrator's prose is far too short. It is NOT
+`max_tokens` (the budget is enormous); it is the prompt. The prompts are already
+large — the solution has to be a **SHORT SENTENCE** that unlocks deepseek, not
+another wall of rules.
 
-## Suspeitos (a confirmar no curl)
-1. `PROSE_SYSTEM`: "vivid but **economical**" — instrução explícita de economia.
-2. Eventos chegam como "ONE short sentence" cada — o renderer pode estar
-   espelhando o tamanho do input.
-3. Regras anti-repetição/anti-invenção empurram pra segurança = brevidade.
+## Suspects (to confirm over curl)
+1. `PROSE_SYSTEM`: "vivid but **economical**" — an explicit instruction to be
+   economical.
+2. Events arrive as "ONE short sentence" each — the renderer may be mirroring the
+   size of its input.
+3. The anti-repetition/anti-invention rules push toward safety = brevity.
 
-## Método (puro curl, lição da 41: posição é parte da variante)
-1. Medir baseline real: comprimento de narração nas sessões reais
-   (c2e5107b, artefatos roteiro-ab) — evidência do "fala pouco".
-2. Pegar payloads REAIS de prosa; replay 3× por variante, medindo
-   chars/sentenças + qualidade (sem repetição, sem invenção).
-3. Variantes = frases pequenas no FIM do PROSE_SYSTEM (e/ou troca de
-   "economical"); NUNCA cap de frases (regra do AGENTS.md); piso/riqueza ok.
-4. A variante validada é a shippada; suíte; commit.
+## Method (pure curl; the lesson of 41: position is part of the variant)
+1. Measure a real baseline: narration length in real sessions (c2e5107b, the
+   roteiro-ab artifacts) — evidence of "says too little".
+2. Take REAL prose payloads; replay 3× per variant, measuring chars/sentences +
+   quality (no repetition, no invention).
+3. Variants = short sentences at the END of `PROSE_SYSTEM` (and/or replacing
+   "economical"); NEVER a sentence cap (AGENTS.md rule); a floor/richness is fine.
+4. The validated variant is the shipped one; suite; commit.
 
-## Aceite
-- [x] Baseline medido em sessões reais. (mediana 240-390 chars)
-- [x] Variante vencedora: alonga a prosa de forma consistente (3/3) sem
-  reintroduzir repetição/invenção (checar com os guards existentes).
-- [x] Diff mínimo no prompt (frase pequena), posição validada.
-      **Confirmado em produção 2026-07-27**, ver seção no fim.
+## Acceptance
+- [x] Baseline measured in real sessions. (median 240-390 chars)
+- [x] Winning variant: lengthens the prose consistently (3/3) without
+  reintroducing repetition/invention (checked against the existing guards).
+- [x] Minimal prompt diff (a short sentence), position validated.
+      **Confirmed in production 2026-07-27**, see the section at the end.
 
-## DELIVERED 2026-07-18 (puro curl, mesma sessão)
+## DELIVERED 2026-07-18 (pure curl, same session)
 
-Baseline medido (sessões reais): mediana 240-390 chars (~2-4 frases) por
-narração; no replay o payload A rendia mediana 118 chars.
+Baseline measured (real sessions): median 240-390 chars (~2-4 sentences) per
+narration; in replay, payload A yielded a median of 118 chars.
 
-Experimento (2 payloads reais de cenas diferentes, 3× por variante):
-- V0 baseline: 118 / 271 chars (med).
-- V1 troca "economical"→"generous": 702 / 301 — variância alta (194-1813).
-- V2 frase qualitativa ("let the scene breathe"): 567 / 351.
-- **V3 piso numérico (1 linha, fim do prompt): 1247 / 568 — maior e mais
-  consistente 3/3 nos DOIS payloads. VENCEDORA e shippada exatamente como
-  validada** ("Narrate at least 150 words; a beat deserves full paragraphs").
+Experiment (2 real payloads from different scenes, 3× per variant):
+- V0 baseline: 118 / 271 chars (median).
+- V1 swapping "economical"→"generous": 702 / 301 — high variance (194-1813).
+- V2 a qualitative sentence ("let the scene breathe"): 567 / 351.
+- **V3 a numeric floor (1 line, end of the prompt): 1247 / 568 — the largest and
+  the most consistent, 3/3 on BOTH payloads. WINNER, shipped exactly as
+  validated** ("Narrate at least 150 words; a beat deserves full paragraphs").
 
-Notas: é PISO, não cap (regra do AGENTS proíbe limitar por quantidade fixa —
-piso é pressão, e o modelo entrega menos em beat pequeno, comportamento
-desejado). "vivid but economical" ficou (contrapeso contra divagação; o piso
-domina — testado). Guards anti-repetição/anti-invenção seguem ativos em
-runtime. Watch item: turno sem eventos (fallback atmosférico fora de rajada)
-agora rende ~150 palavras de atmosfera — se incomodar, tratar na 26.
+Notes: it is a FLOOR, not a cap (the AGENTS rule forbids limiting by a fixed
+quantity — a floor is pressure, and the model delivers less on a small beat, which
+is the desired behaviour). "vivid but economical" stayed (a counterweight against
+rambling; the floor dominates — tested). The anti-repetition/anti-invention guards
+remain active at runtime. Watch item: a turn with no events (the atmospheric
+fallback outside a burst) now yields ~150 words of atmosphere — if that becomes
+annoying, handle it in 26.
 
-## FECHADA COM CONFIANÇA (2026-07-19, madrugada)
+## CLOSED WITH CONFIDENCE (2026-07-19, early hours)
 
-Método puro curl (AGENTS.md §6) em 2 payloads reais de prosa: o suspeito nº 1
-("vivid but economical") era real mas a troca sozinha não bastou; a variante
-vencedora foi UMA linha de PISO no FIM do PROSE_SYSTEM ("Narrate at least 150
-words; a beat deserves full paragraphs") — mediana 118→1247 e 271→568 chars,
-3/3 nas duas cenas. Piso, nunca cap (regra da casa). A variante validada É a
-shippada (commit "feat(prose): verbosity floor").
+Pure curl method (AGENTS.md §6) on 2 real prose payloads: suspect #1 ("vivid but
+economical") was real, but swapping it alone was not enough; the winning variant
+was ONE FLOOR line at the END of `PROSE_SYSTEM` ("Narrate at least 150 words; a
+beat deserves full paragraphs") — median 118→1247 and 271→568 chars, 3/3 on both
+scenes. A floor, never a cap (house rule). The validated variant IS the shipped one
+(commit "feat(prose): verbosity floor").
 
 
 ---
 
-# Confirmado em produção (2026-07-27)
+# Confirmed in production (2026-07-27)
 
-As três caixas de aceite ficaram desmarcadas mesmo com a task entregue: o
-experimento de 18/07 foi replay curl em 2 payloads, 3x por variante. Nove dias
-de mudança de prompt depois — Director reescrito, roteiro, zonas, guard de hint,
-roster de presentes — nunca se checou se o piso ainda vale em sessão real.
+The three acceptance boxes stayed unchecked even with the task delivered: the
+18/07 experiment was a curl replay on 2 payloads, 3x per variant. Nine days of
+prompt changes later — the Director rewritten, the roteiro, zones, the hint guard,
+the roster of those present — nobody had checked whether the floor still holds in a
+real session.
 
-Vale. 15 sessões reais de hoje (arms A/B/C da medição da task 55), 122 narrações:
+It does. 15 real sessions from today (the A/B/C arms of task 55's measurement), 122
+narrations:
 
-| | julho (baseline) | julho (V3 replay) | hoje (produção) |
+| | July (baseline) | July (V3 replay) | today (production) |
 |---|---|---|---|
-| mediana chars | 240-390 | 1247 / 568 | **1130** |
-| mediana palavras | ~40-65 | — | **191** |
-| faixa | — | — | 559 - 2501 chars |
+| median chars | 240-390 | 1247 / 568 | **1130** |
+| median words | ~40-65 | — | **191** |
+| range | — | — | 559 - 2501 chars |
 
-18/122 narrações (14%) ficam abaixo das 150 palavras, mínimo 92. Isso **não é
-falha do piso, é o piso funcionando como especificado**: a task registrou de
-propósito que é piso e não cap ("é PISO, não cap (regra do AGENTS proíbe limitar
-por quantidade fixa — piso é pressão, e o modelo entrega menos em beat pequeno,
-comportamento desejado)"). Um beat pequeno rendendo 92 palavras é a decisão
-original, não uma regressão dela.
+18 of 122 narrations (14%) fall below 150 words, minimum 92. That is **not a
+failure of the floor, it is the floor working as specified**: the task deliberately
+recorded that it is a floor and not a cap ("it is a FLOOR, not a cap (the AGENTS
+rule forbids limiting by a fixed quantity — a floor is pressure, and the model
+delivers less on a small beat, which is the desired behaviour)"). A small beat
+yielding 92 words is the original decision, not a regression of it.
 
-**Correção de 2026-07-27 (revisão crítica).** O "mínimo 92" vale para ESTA
-população e não é propriedade geral do sistema. Medindo `.data/sessions` — outra
-população, que inclui as sessões descartáveis dos meus próprios scripts de
-aceitação — dá 71 narrações: mediana 1213 chars / 204 palavras (as medianas se
-sustentam entre as duas amostras), mas a cauda desce a **21 palavras** e 24%
-ficam abaixo do piso, contra 15% aqui. As narrações mais curtas vêm de sessões de
-2 personagens criadas por script, não de jogo normal — ainda assim, escrever
-"mínimo 92" como se descrevesse o sistema foi generalizar uma amostra. A leitura
-"é piso, não cap" continua de pé e até sai reforçada; o número que a acompanhava
-é dependente de amostra, e agora isso está dito.
+**Correction of 2026-07-27 (critical review).** The "minimum 92" holds for THIS
+population and is not a general property of the system. Measuring `.data/sessions`
+— a different population, which includes the disposable sessions from my own
+acceptance scripts — gives 71 narrations: median 1213 chars / 204 words (the
+medians hold across both samples), but the tail drops to **21 words** and 24% fall
+below the floor, against 15% here. The shortest narrations come from 2-character
+sessions created by script, not from normal play — even so, writing "minimum 92"
+as if it described the system was generalising from a sample. The reading "it is a
+floor, not a cap" still stands and is in fact reinforced; the number that
+accompanied it is sample-dependent, and now that is said.
 
-O watch item da task ("turno sem eventos rende ~150 palavras de atmosfera — se
-incomodar, tratar na 26") também não se materializou como problema: nenhuma
-narração de produção passou perto de ser puro enchimento de piso, e o mínimo
-observado está **abaixo** dele.
+The task's watch item ("a turn with no events yields ~150 words of atmosphere — if
+it becomes annoying, handle it in 26") did not materialise as a problem either: no
+production narration came close to being pure floor-filler, and the observed
+minimum is **below** it.
 
-Uma ressalva de método, para quem reler: os dados vêm de sessões geradas para
-medir *outra* coisa (alignment/roteiro na 55), não de uma coleta desenhada para
-comprimento. Isso é a favor da conclusão, não contra — o comprimento não era o
-que estava sendo otimizado ali.
+One methodological caveat, for whoever re-reads this: the data comes from sessions
+generated to measure *something else* (alignment/roteiro in 55), not from a
+collection designed for length. That is in favour of the conclusion, not against it
+— length was not what was being optimised there.

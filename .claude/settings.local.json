@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo *)",
+      "Bash(gh api *)",
+      "Bash(gh run *)",
+      "Bash(cd *)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "alex-tavern-debug",
+    "alex-tavern-plugin-author"
+  ]
+}

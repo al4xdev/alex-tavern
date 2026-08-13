@@ -2,6 +2,19 @@
 
 > **Status:** open, found 2026-08-12 while auditing task 67's closure metrics.
 > Rare in aggregate and severe where it happens. The fix is not designed here.
+>
+> **Moved from `tasks/` to `backlog/` on 2026-08-13, on its own numbers.** It is
+> **13 of 1,255 speech records (1.0%)**, it has never been investigated, and it
+> has no next action with a decision rule attached. `.plan/README.md` defines
+> `backlog/` as *"future without active work"*, which is exactly what this is.
+> The critic protocol makes `backlog/` the default for a new finding and
+> promotion to `tasks/` an owner decision; this file was opened straight into
+> `tasks/` and is being put where it belongs.
+>
+> **Nothing here is retracted or downgraded.** The seven-turn case in `21f7c4e1`
+> is real and severe where it lands. What changed is the folder, not the
+> evidence. Promote it back the moment somebody reads more cases or wants
+> direction 3 tested.
 
 ## What a reader sees
 

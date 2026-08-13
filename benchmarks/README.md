@@ -246,7 +246,7 @@ one scored 20 duplicates that were the *input profile* repeating itself.
 > ranking at ρ = +0.60 where `RSR_prop` manages −0.09. **Do not gate on it.**
 > n = 12, one battery, and `BOCC` scores +0.74 on the same ranking without
 > claiming to measure reading quality. Re-check at the phase checkpoint;
-> `.plan/tasks/68-...` records why it is deliberately not being promoted.
+> `.plan/closed/68-...` records why it is deliberately not being promoted.
 >
 > The same finding retires a claim made after this battery, that the lexical
 > instrument was exhausted and "no threshold works". False: `CLUSTER_TAU = 0.6`
@@ -254,7 +254,7 @@ one scored 20 duplicates that were the *input profile* repeating itself.
 > above it, and the metric **did** find the cluster — the reporting hid it. The
 > real pillar escalation pair scores 0.4873, so the feared escalation
 > false-positive did not materialise either: zero of `base-P1-r2`'s 16 clusters
-> at τ=0.6 are escalations. Fix in `.plan/tasks/68-...`.
+> at τ=0.6 are escalations. Fix in `.plan/closed/68-...`.
 
 > **⚠ `NSR` is inverted on this corpus, and `SIL` cannot fire (found 2026-08-05).**
 > The module docstring calls them the two guards *"against a degenerate engine

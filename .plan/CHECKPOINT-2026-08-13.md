@@ -66,6 +66,35 @@ authorisation given the same day; say the word and it goes back to first.**
 
 ---
 
+## The folder the phase actually lives in — corrected the same day
+
+The reorder above says what to work on next. It did not fix the fact that
+`tasks/` had stopped meaning *"active"*: it held **five finished tasks** (67, 68,
+70, 71, 76, every closure item discharged) and **four files opened in a single
+block** (76-79), which the critic protocol warns against by name.
+
+**Rule applied: a file is in `tasks/` if it has a next action.** Not if its
+symptom is big.
+
+| moved | to | measure |
+|---|---|---|
+| 67, 68, 70, 71, 76 | `closed/` | every closure checklist fully discharged; 76's falsifier ran and fired |
+| **78** routed into silence | `backlog/` | **13 of 1,255 speech records (1.0%)**, uninvestigated, no next action |
+
+**77 stays in `tasks/` and by this rule it should not have.** It has no next
+action either — its cause has survived three falsifications and its leading story
+(un-remembered commitments) is task 72's, which is gated. It stays because **72's
+gate cites 77's stalls**, so shelving it would leave a gated task pointing at a
+shelved file. Recorded as the exception it is, in
+`para-o-dono/routing-2026-08-13.md`, reversible in one line.
+
+**79 stays in `tasks/`** — the only established mechanism in the phase, and its
+four shape decisions are now on one page in `para-o-dono/79-blocking-shape.md`
+instead of buried at line 91 of a 250-line file.
+
+`ROADMAP.md`'s wave-2 table was still listing 77 first, disagreeing with this
+checkpoint. It now carries the reordered table.
+
 ## What did NOT change
 
 - **Task 76's graph stays frozen.** Its falsifier fired: the mass is in naming,

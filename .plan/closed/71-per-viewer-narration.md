@@ -44,7 +44,7 @@
 > ```
 > # re-derive the split rate on the fixed graph, over a post-67 cell
 > uv run python -m tools.acceptance.immersion_scanners --battery <artifact-dir>
-> # plus the cluster count per narrated turn — the block in .plan/tasks/68
+> # plus the cluster count per narrated turn — the block in .plan/closed/68
 > ```
 >
 > If the split rate collapses once the graph is right, this task shrinks or

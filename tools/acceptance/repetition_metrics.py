@@ -20,7 +20,7 @@ to detect), because it counts event volume and this corpus fails by
 over-production. SIL is 0.0 in 16 of 16 runs: `perception_events` requires one
 item and the prose floor is 150 words, so a silent turn is structurally
 impossible. Report both, read the transcripts, gate on neither. Derivation in
-`benchmarks/README.md` §7 and `.plan/tasks/68-cluster-reporting-and-scanners.md`.
+`benchmarks/README.md` §7 and `.plan/closed/68-cluster-reporting-and-scanners.md`.
 
 Everything here except ``material_delta_rate`` is pure stdlib and offline: it
 reads ``state.json`` and ``debug.jsonl`` and spends nothing.
@@ -697,7 +697,7 @@ def analyze(
 # argument turned out to be false: the cluster metric found the restaging at
 # CLUSTER_TAU=0.6 and a reporting bug hid it (_cluster_summary above). Re-open it
 # when there is a structural notion of "already staged" to judge against —
-# .plan/tasks/68-cluster-reporting-and-scanners.md §3, after task 69.
+# .plan/closed/68-cluster-reporting-and-scanners.md §3, after task 69.
 # ---------------------------------------------------------------------------
 
 

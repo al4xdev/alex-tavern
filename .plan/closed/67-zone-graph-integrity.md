@@ -432,7 +432,7 @@ one — so 71's split rate, cluster counts and prose-call multiplier are all upp
 bounds of unknown tightness.
 
 On the post-fix cell, re-derive and write the numbers into
-`.plan/tasks/71-per-viewer-narration.md`:
+`.plan/closed/71-per-viewer-narration.md`:
 
 - the fraction of narrated turns whose scene holds more than one
   mutually-perceiving cluster (**168 of 610, 28%** before);

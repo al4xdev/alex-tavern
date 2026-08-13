@@ -1,158 +1,153 @@
-# Task 40 — Relógio narrativo (sistema de ticks): o tempo sempre anda
+# Task 40 — The narrative clock (tick system): time always moves
 
-**Origem:** ideia do usuário (2026-07-17), mecanização do "relógio do mundo" do
-doc `docs/cases/12-scene-state-transition-theory-2026-07-17.md`.
-**Relação:** primitivo fundacional consumido por Task 33 (drive) e Task 33b
-(controlador de transição de cena).
-**Status:** ✅ FECHADA (2026-07-20) — tick sempre-ligado (code-owned); deadline
-gated por `roteiro_enabled`. Aceite completo test-locked (ver seção Aceite).
+**Origin:** the user's idea (2026-07-17), mechanising the "world clock" from
+`docs/cases/12-scene-state-transition-theory-2026-07-17.md`.
+**Relation:** a foundational primitive consumed by Task 33 (drive) and Task 33b (the
+scene-transition controller).
+**Status:** ✅ CLOSED (2026-07-20) — the tick is always on (code-owned); the deadline is
+gated by `roteiro_enabled`. Acceptance fully test-locked (see the Acceptance section).
 
-## O problema que resolve
+## The problem it solves
 
-A LLM está "parada no tempo": a história é estática, o modelo não tem relógio e
-não percebe que *continuar* deixou de ser *progredir*. Os dois relógios
-(conversa vs mundo) desacoplam e a cena procedural estagna (portais/sorteio).
+The LLM is "frozen in time": the story is static, the model has no clock and does not
+notice that *continuing* has stopped being *progressing*. The two clocks (conversation vs
+world) decouple and the procedural scene stagnates (portals/raffle).
 
-> A LLM não pode parar o tempo se o tempo não pertence à LLM.
+> The LLM cannot stop time if time does not belong to the LLM.
 
-## A ideia
+## The idea
 
-Um **tick narrativo monotônico, dono do CÓDIGO, que sempre avança** (nunca 0,
-nunca pra trás). O roteiro, quando gerado, marca **cada ato (e opcionalmente cada
-beat) com um span/deadline de tick** e o `world_event` que dispara no deadline.
-Quando o clock cruza o deadline de um ato, o código **força** a transição do
-mundo — enact do `world_event` + avanço do ato — independentemente do que a
-conversa fez. A LLM nunca segura o relógio.
+A **monotonic narrative tick, owned by the CODE, that always advances** (never 0, never
+backwards). The roteiro, when generated, marks **each act (and optionally each beat) with
+a tick span/deadline** and the `world_event` that fires at the deadline. When the clock
+crosses an act's deadline, the code **forces** the world transition — enacting the
+`world_event` + advancing the act — regardless of what the conversation did. The LLM never
+holds the clock.
 
-Isso é a autoridade determinística que o doc defende: **o código exige a
-transição causal concreta** na hora certa; um GM humano não explode os portões,
-ele simplesmente realiza o sorteio quando o sino toca.
+That is the deterministic authority the document argues for: **the code demands the
+concrete causal transition** at the right moment; a human GM does not blow up the gates,
+they simply run the raffle when the bell rings.
 
-## Perguntas de design a congelar na task
+## Design questions to freeze in the task
 
-- **Unidade de tempo.** Tick abstrato ≥1 por turno commitado (base = candidato:
-  reusar/derivar de `turn_number`, que já é monotônico)? Ou avanço variável, que
-  permite *compressão de tempo* (o GM humano: "depois de alguns minutos, o sino
-  toca" — um turno consome muitos ticks)? Tempo in-fiction (minutos/horas) pode
-  ser anotação derivada; a ENFORCEMENT é no tick monotônico.
-- **Anotação do roteiro.** Cada ato declara `start_tick` + `duration_ticks`
-  (ou `deadline_tick`) + `world_event_on_deadline` (amarra ao "beat de
-  procedimento" §6.5 do doc: `world_owner`, `next_world_event`). Beats idem,
-  opcional.
-- **Enforcement.** O runner avança o clock a cada turno commitado; ao cruzar um
-  deadline de ato, force-advance + enact do `world_event` (mesmo mecanismo que
-  quebrou o loop 3/3 no curl da Task 38, mas AGENDADO pelo relógio, não reativo a
-  stall). Substitui/robustece o `budget_turns` da 38 (soft) por um deadline
-  duro, e o `turns_since_injected_event` da 33 por um sinal derivado do clock.
-- **Confidencialidade.** O schedule (deadlines + world_events futuros) chega SÓ
-  ao Diretor (como o roteiro; nunca personagem/prosa — contém spoilers). Scan.
-- **Liberdade do jogador.** O tempo passar é FATO DO MUNDO, não ditar a vontade
-  do jogador — coerente com o contrato de ação livre (o Diretor tem autoridade
-  sobre a resposta do mundo; devolve controle). Uma tentativa consequente do
-  jogador ainda é adjudicada; o relógio só garante que o mundo não congela.
-- **Compressão/skip.** O clock deve suportar um "time skip" (avançar muitos ticks
-  num turno) pra implementar o modo-sumário humano (doc §4.2) — sair do modo
-  dramático, avançar o relógio, voltar ao próximo momento de decisão.
+- **The unit of time.** An abstract tick ≥1 per committed turn (base candidate: reuse or
+  derive from `turn_number`, which is already monotonic)? Or a variable advance, which
+  allows *time compression* (the human GM: "after a few minutes, the bell rings" — one
+  turn consumes many ticks)? In-fiction time (minutes/hours) can be a derived annotation;
+  ENFORCEMENT is on the monotonic tick.
+- **The roteiro's annotation.** Each act declares `start_tick` + `duration_ticks` (or
+  `deadline_tick`) + `world_event_on_deadline` (tied to the "procedure beat", §6.5 of the
+  document: `world_owner`, `next_world_event`). Beats likewise, optional.
+- **Enforcement.** The runner advances the clock on every committed turn; on crossing an
+  act's deadline, force-advance + enact the `world_event` (the same mechanism that broke
+  the loop 3/3 in Task 38's curl, but SCHEDULED by the clock, not reactive to a stall). It
+  replaces/hardens 38's `budget_turns` (soft) with a hard deadline, and 33's
+  `turns_since_injected_event` with a clock-derived signal.
+- **Confidentiality.** The schedule (deadlines + future world_events) reaches ONLY the
+  Director (like the roteiro; never the character/prose — it contains spoilers). Scan it.
+- **Player freedom.** Time passing is a FACT OF THE WORLD, not a dictation of the player's
+  will — consistent with the free-action contract (the Director has authority over the
+  world's response; it hands control back). A consequential player attempt is still
+  adjudicated; the clock only guarantees the world does not freeze.
+- **Compression/skip.** The clock must support a "time skip" (advancing many ticks in one
+  turn) to implement the human summary mode (document §4.2) — leave dramatic mode, advance
+  the clock, come back at the next decision point.
 
-## Começo (método): curl-replay primeiro
+## Starting method: curl-replay first
 
-Antes de qualquer código, validar o conceito (AGENTS.md §6): pegar um payload
-real de Diretor num turno procedural travado e anotar "AGORA é o tick N; o mundo
-avançou para <world_event do deadline>". Medir se o Diretor encena a transição do
-mundo (como o beat concreto disruptivo fez 3/3) vs instrução abstrata (0/3).
-Só então desenhar o schema de tick + a anotação de ato + o enforcement.
+Before any code, validate the concept (AGENTS.md §6): take a real Director payload from a
+stalled procedural turn and annotate "it is NOW tick N; the world advanced to <the
+deadline's world_event>". Measure whether the Director stages the world transition (as the
+concrete disruptive beat did 3/3) versus an abstract instruction (0/3). Only then design
+the tick schema + the act annotation + the enforcement.
 
-## Aceite — ✅ TODOS CUMPRIDOS (marcado 2026-07-20, evidência abaixo)
+## Acceptance — ✅ ALL MET (marked 2026-07-20, evidence below)
 
-- [x] Clock monotônico dono do código, sempre +≥1 por turno; nunca regride;
-  undo/fork/restore preservam o clock exatamente.
+- [x] A monotonic, code-owned clock, always +≥1 per turn; never regresses;
+  undo/fork/restore preserve the clock exactly.
   → `test_tick_advances_per_committed_turn`, `test_tick_and_act_fields_roundtrip`
-  (restore), `test_undo_does_not_regress_the_clock` (undo mantém o tick, não
-  regride). Fork usa a mesma serialização do restore.
-- [x] Roteiro anota cada ato com deadline de tick + world_event; confidencial ao
-  Diretor (scan NONE).
-  → `test_acts_validation_clamps_clock_fields` (duration_ticks/world_event no
-  schema, clamps); `test_prose_and_character_builders_have_no_roteiro_surface`
-  (os builders de prosa/personagem NÃO têm parâmetro roteiro — scan NONE por
-  construção).
-- [x] No deadline, o código FORÇA o world_event/avanço de ato — cena procedural
-  alcança o próximo evento do mundo pelo relógio, SEM disrupção arbitrária.
-  → `test_act_deadline_stages_world_event_and_advances`; enforcement em
-  `_maintain_roteiro` (avanço de ato code-owned, act_completed do modelo
-  ignorado em replan de deadline).
-- [x] Suporta time-skip (compressão) num turno.
+  (restore), `test_undo_does_not_regress_the_clock` (undo keeps the tick, does not
+  regress). Fork uses the same serialisation as restore.
+- [x] The roteiro annotates each act with a tick deadline + world_event; confidential to
+  the Director (scan NONE).
+  → `test_acts_validation_clamps_clock_fields` (duration_ticks/world_event in the schema,
+  clamps); `test_prose_and_character_builders_have_no_roteiro_surface` (the prose/character
+  builders have NO roteiro parameter — scan NONE by construction).
+- [x] At the deadline, the code FORCES the world_event/act advance — a procedural scene
+  reaches the world's next event by the clock, with NO arbitrary disruption.
+  → `test_act_deadline_stages_world_event_and_advances`; enforcement in `_maintain_roteiro`
+  (code-owned act advance, the model's act_completed ignored on a deadline replan).
+- [x] Supports a time-skip (compression) within one turn.
   → `test_time_skip_fields_are_required_in_narrator_schema`,
-  `test_director_skip_request_is_clamped_and_witnessed` (clamp 0..8, sumário
-  como observation testemunhada). Curl (increment 2): cena viva nunca pula 6/6.
-- [x] A/B/C (do doc §7): medir delta material, threads, re-intervenção, coerência
-  cega.
-  → bateria RODADA (artigo Nº 13, `docs/cases/13-...`): braço C (relógio+causal)
-  sustentou 6 turnos produtivos sem o watcher disparar. Nota honesta: o crítico
-  cego pontuou B mais alto (drama com agência), mas TODA incoerência apontada
-  veio de seeds sem âncora — endereçado pelo contrato causal (33b/Decisão B).
+  `test_director_skip_request_is_clamped_and_witnessed` (clamp 0..8, the summary as a
+  witnessed observation). Curl (increment 2): a live scene never skips, 6/6.
+- [x] A/B/C (from the document's §7): measure material delta, threads, re-intervention,
+  blind coherence.
+  → battery RUN (article No. 13, `docs/cases/13-...`): arm C (clock+causal) sustained 6
+  productive turns without the watcher firing. Honest note: the blind critic scored B
+  higher (drama with agency), but EVERY incoherence it flagged came from seeds with no
+  anchor — addressed by the causal contract (33b/Decision B).
 
-**FECHO (2026-07-20):** todos os critérios cumpridos e test-locked; increment 1
-(tick + deadline) + increment 2 (time-skip) + bateria A/B/C entregues. O tick é
-sempre-ligado (code-owned, +1/turno); o enforcement de deadline é gated por
-`roteiro_enabled`. Sem pendência técnica. Migrada para `closed/`.
+**CLOSING (2026-07-20):** every criterion met and test-locked; increment 1 (tick +
+deadline) + increment 2 (time-skip) + the A/B/C battery delivered. The tick is always on
+(code-owned, +1/turn); deadline enforcement is gated by `roteiro_enabled`. No technical
+loose ends. Migrated to `closed/`.
 
-## Increment 1 DELIVERED (2026-07-19, madrugada)
+## Increment 1 DELIVERED (2026-07-19, early hours)
 
-Replay primeiro (builder de produção, sessão procedural travada ccb521ab):
-world_event de deadline injetado como UPCOMING EVENT → encenado 2/3 mesmo
-CONTRA uma história que já tinha se movido (o conflito era artefato da injeção
-sintética; no mecanismo real o evento vem do próprio roteiro). Canal já provado
-pelo drive (33) e pela disrupção (38).
+Replay first (production builder, stalled procedural session ccb521ab): the deadline's
+world_event injected as an UPCOMING EVENT → staged 2/3 even AGAINST a story that had
+already moved (the conflict was an artifact of the synthetic injection; in the real
+mechanism the event comes from the roteiro itself). The channel was already proven by drive
+(33) and by the disruption (38).
 
-Entregue:
-- `GameState.narrative_tick` (+1 por beat commitado, dono do CÓDIGO; nunca
-  regride — decisão: undo NÃO rebobina o relógio; o turno refeito acontece num
-  tick posterior, coerente com "o tempo sempre anda").
-- `RoteiroAct.duration_ticks` (0=sem deadline; clamp 0..12) + `world_event`
-  (clamp 300 chars); `Roteiro.act_started_tick`; arquiteto gera ambos
-  (obrigatórios no schema) com a regra "o mundo nunca espera a conversa".
-- Enforcement determinístico em `_maintain_roteiro`: deadline vencido →
-  world_event vira o UPCOMING EVENT deste beat (mesmo canal do drive),
-  avanço de ato É do código (replan só escreve o beat de abertura; act_completed
-  do modelo é ignorado em replans de deadline — sem double-advance), tudo
-  logado (`roteiro_replan` action=act_deadline).
-- Time-skip (v2) e experimento A/B/C ficam pendentes (33b/usuário).
+Delivered:
+- `GameState.narrative_tick` (+1 per committed beat, owned by the CODE; never regresses —
+  decision: undo does NOT rewind the clock; the redone turn happens at a later tick,
+  consistent with "time always moves").
+- `RoteiroAct.duration_ticks` (0=no deadline; clamp 0..12) + `world_event` (clamp 300
+  chars); `Roteiro.act_started_tick`; the architect generates both (required in the schema)
+  under the rule "the world never waits for the conversation".
+- Deterministic enforcement in `_maintain_roteiro`: a passed deadline → the world_event
+  becomes this beat's UPCOMING EVENT (the same channel as drive), the act advance belongs
+  to the CODE (a replan only writes the opening beat; the model's act_completed is ignored
+  on deadline replans — no double-advance), all of it logged (`roteiro_replan`
+  action=act_deadline).
+- Time-skip (v2) and the A/B/C experiment remain pending (33b/the user).
 
-Testes: roundtrip, clamps, tick por turno, deadline dispara + avança + hint.
-Suíte 619.
+Tests: roundtrip, clamps, tick per turn, the deadline fires + advances + hint. Suite 619.
 
-## Increment 2 (time-skip) DELIVERED (2026-07-19, manhã)
+## Increment 2 (time-skip) DELIVERED (2026-07-19, morning)
 
-Curl primeiro (12 calls, payloads reais):
-- Segurança: cena viva (confronto T20) NUNCA pula — 6/6 zero ticks, mesmo
-  CONVIDADA a comprimir. À prova de convite.
-- Cena travada (sorteio): livre 1/3; convidada 2/3 pulou (2-3 ticks, sumários
-  coerentes: "os alunos seguem ao pátio central..."). O modelo SUB-usa o poder
-  proativo (mesmo padrão da 38/drive) → skip não pode depender de iniciativa
-  da LLM; o CÓDIGO convida.
-- O convite via canal de hint não vira evento encenado (verificado).
+Curl first (12 calls, real payloads):
+- Safety: a live scene (the T20 confrontation) NEVER skips — 6/6 zero ticks, even when
+  INVITED to compress. Invitation-proof.
+- A stalled scene (the raffle): free 1/3; when invited, 2/3 skipped (2-3 ticks, coherent
+  summaries: "os alunos seguem ao pátio central..."). The model UNDER-uses the proactive
+  power (the same pattern as 38/drive) → the skip cannot depend on the LLM's initiative;
+  the CODE issues the invitation.
+- The invitation over the hint channel does not become a staged event (verified).
 
-Desenho shippado (variante validada = shippada, texto e posição):
-- Schema do Diretor: `time_skip_ticks` (0-8) + `time_skip_summary`,
-  obrigatórios; regra TIME COMPRESSION no FIM do system prompt.
-- Convite (`CLOCK_SKIP_INVITE`) quando o jogador PASSA o turno e nem drive nem
-  deadline ocuparam o hint — o skip do jogador é o sinal humano de
-  "modo-sumário" (doc §4.2). Gatilho por estagnação semântica fica pro watcher
-  33b.
-- Aplicação é do CÓDIGO: clamp 0..8, `narrative_tick += ticks` além do +1 do
-  beat; o sumário entra como observation testemunhada por todos os presentes
-  (prosa/perspectivas/história herdam pelos canais normais); logado
-  (`time_skip` no debug JSONL). Divisão honesta: o deadline GARANTE o avanço;
-  o skip COMPRIME quando oferecido.
+Shipped design (validated variant = shipped variant, text and position):
+- The Director's schema: `time_skip_ticks` (0-8) + `time_skip_summary`, both required; the
+  TIME COMPRESSION rule at the END of the system prompt.
+- The invitation (`CLOCK_SKIP_INVITE`) fires when the player SKIPS the turn and neither
+  drive nor a deadline occupied the hint — the player's skip is the human signal for
+  "summary mode" (document §4.2). A trigger on semantic stagnation is left to the 33b
+  watcher.
+- Application belongs to the CODE: clamp 0..8, `narrative_tick += ticks` on top of the
+  beat's +1; the summary enters as an observation witnessed by everyone present
+  (prose/perspectives/history inherit it through the normal channels); logged (`time_skip`
+  in the debug JSONL). An honest division: the deadline GUARANTEES the advance; the skip
+  COMPRESSES when offered.
 
-Testes: schema required, convite no turno de passe, clamp 99→8 + observation
-testemunhada. Suíte 627. Pendente: A/B/C unificada com 33b (dono).
+Tests: schema required, the invitation on a skipped turn, clamp 99→8 + witnessed
+observation. Suite 627. Pending: the A/B/C unified with 33b (owner).
 
 
-## Bateria A/B/C (2026-07-19): o relógio carregou a cena
+## The A/B/C battery (2026-07-19): the clock carried the scene
 
-No braço C da bateria (artigo Nº 13), relógio+roteiro sustentaram 6 turnos
-produtivos consecutivos SEM nenhuma intervenção do watcher — o mecanismo do
-increment 1+2 foi suficiente neste run. Time compression ativa em todos os
-braços absorveu parte da estagnação (ticks 16/15/17 em 10 turnos). A/B/C
-pendência da task: CUMPRIDA.
+In arm C of the battery (article No. 13), clock+roteiro sustained 6 consecutive productive
+turns with NO watcher intervention — the increment 1+2 mechanism was sufficient in this
+run. Time compression, active in every arm, absorbed part of the stagnation (ticks 16/15/17
+over 10 turns). The task's A/B/C pending item: MET.

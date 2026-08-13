@@ -13,6 +13,13 @@
 > and none is subtle.
 > **Not** a regression from 67. It is the half of task 54's finding 1 that the
 > fix for that finding did not reach, and it has been in every session since.
+>
+> **Moved to `closed/` on 2026-08-13.** Every closure item below is discharged,
+> the falsifier at the bottom **ran and fired**, and the graph is frozen by the
+> owner's instruction. The part of the defect this rule does not reach — siblings
+> the Director named as *places* rather than as sub-positions — is not abandoned;
+> it is **task 79's**, where it has an established mechanism instead of a
+> candidate graph rule. Closing this file does not close that.
 
 ## The defect
 

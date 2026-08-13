@@ -670,3 +670,54 @@ the reflog, and no sync daemon or shared mount exists.
 
 **Not recurred.** Standing instruction if it does: stop and write it down.
 
+
+## 23. Routing decided on measurement, not on how interesting the finding felt
+
+Taken under *"you have freedom to choose, based on measures of course"*. Full
+detail and the one-line reversals in `.plan/para-o-dono/routing-2026-08-13.md`.
+
+**The rule: a file is in `tasks/` if it has a next action.** Not if its symptom is
+big. Applied, six files moved, no claim altered:
+
+- **67, 68, 70, 71, 76 → `closed/`.** Every closure checklist fully discharged
+  (9, 8, 5, 8 and 5 items); 70's last open item was 64's re-measurement, which
+  ran (5/12 → 0/9); 76's falsifier ran and fired.
+- **78 → `backlog/`.** 13 of 1,255 speech records (1.0%), never investigated, no
+  next action. `README.md` defines `backlog/` as *"future without active work"*.
+- **77 stays in `tasks/` and this is the exception I am flagging rather than
+  hiding.** By the rule it should have gone to `backlog/` with 78: both are real,
+  sparse and undiagnosed, and 77's leading story is task 72's territory, which is
+  gated. It stays because **72's gate cites 77's stalls**, so shelving 77 would
+  leave a gated task pointing at a shelved file. Structural, not priority.
+- **79 stays in `tasks/`** and its four shape decisions were lifted out of the
+  task file onto one page in `para-o-dono/`, which did not exist until today
+  although `README.md` has documented it all along.
+
+**What drove it:** the critic protocol makes `backlog/` the default for a new
+finding and promotion to `tasks/` an owner decision, and I had opened four task
+files (76-79) in one block. Meanwhile `tasks/` was carrying five finished tasks,
+so the folder had stopped carrying information at all.
+
+**One inconsistency fixed on the way.** `ROADMAP.md`'s wave-2 table still listed
+**77 first** while `CHECKPOINT-2026-08-13.md` had reordered to 79 → 69 → 64 → 77.
+Two documents in the same folder disagreeing about the order of the phase is
+worse than either being wrong alone. The roadmap now carries the reordered table,
+with the ⚠ that the reorder reverses the owner's instruction.
+
+### Priced while writing this: what a schema bump for 79 actually costs
+
+Not asked for, found while answering decision 3, and it changes the question.
+`src/store/sessions.py:64` states the convention outright — *"an incompatible
+session can never be opened again"* — and `load_game` compares `schema_version`
+for exact equality. So bumping 15 → 16:
+
+| | |
+|---|---|
+| reopening the 33 archived sessions in the app | ❌ permanently refused |
+| `material_delta_rate` | ❌ the one metric that goes through `load_game` |
+| the main scoring path | ✅ survives, reads `state.json` directly |
+| `immersion_scanners.py` and every task-71/76/77 number | ✅ survives, reads `debug.jsonl` |
+
+**So "we do not migrate" costs the app's ability to reopen the batteries and one
+metric — and costs the evidence nothing.** That is a cheaper bill than it sounds,
+and it is the owner's to accept.

@@ -341,12 +341,18 @@ phase, and the cheapest change), then 69, then 64, then 77 as a research item.
 77's demotion reverses the instruction on the line above and is reversible on
 request.
 
-| task | why here |
-|---|---|
-| **77** — The order that nobody executes | **FIRST.** The phase's headline complaint made concrete, and the only item here with a transcript a reader can check: the room is ordered through a gate four times in three turns and nobody moves. Its cause is undiagnosed on purpose - two candidate mechanisms have already been written and falsified inside the file |
-| **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Owns the durable-state storage decision** (below). Re-measured post-wave-1 and still real: 97 of 987 Director events re-proposed within three turns |
-| **64** — Return control | **Re-scoped to calibration, not mechanism.** Never-returned sessions 5/12 → 0/9, and reading all ten `return_control` turns shows the Director picks the right moments and picks few. Do not build a new trigger; the contract wording is the first suspect |
-| **72** — Commitments as first-class state | **Gated.** Ships only if the checkpoint shows stalls survive 69 — see below |
+| order | task | why here |
+|---|---|---|
+| **1** | **79** — Blocking as durable state | **FIRST.** The only task in the phase with an **established** mechanism: the Director writes blocking into `scene_blocking.character_zones` on **1188 of 1188** director calls (8% of entries positional, median 6%, range 0-44%) and `narrate()` pops the field. The change is *stop discarding what we already receive*. **Docs-only** until the owner answers its shape questions — see `para-o-dono/` |
+| **2** | **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Owns the durable-state storage decision** (below). Re-measured post-wave-1: 97 of 987 Director events re-proposed within three turns — **9.8% pooled, demoted to OBSERVED** on 2026-08-13 because its per-session spread was never taken |
+| **3** | **64** — Return control | **Re-scoped to calibration, not mechanism.** Never-returned sessions 5/12 → 0/9, and reading all ten `return_control` turns shows the Director picks the right moments and picks few. Do not build a new trigger; the contract wording is the first suspect |
+| **4** | **77** — The order that nobody executes | **Demoted from first**, and it is a **research item, not a build item**. Sized 2026-08-13: real in **13 of 33 sessions (39%)** but sparse inside them (23 windows, **median 0**), and its cause has survived **three** falsified diagnoses. Keep reading cases; do not design |
+| gated | **72** — Commitments as first-class state | **Gated.** Ships only if the checkpoint shows stalls survive 69 — see below |
+
+> **78 — Routed into silence** was opened in this phase and **moved to `backlog/`
+> on 2026-08-13**: 13 of 1,255 speech records (1.0%), never investigated, no next
+> action. **76 — Sibling sub-zones are mutually deaf** shipped and is in
+> `closed/`; the half of its defect the rule cannot reach belongs to 79.
 
 > **69, 72 and 77 are three faces of one thing: the engine keeps no record of
 > what has already been settled.** 69 is a resolved event re-proposed, 77 is an
@@ -376,7 +382,7 @@ checkpoint; if stalls survive, it ships and its argument is confirmed.
 |---|---|
 | **66** — Identity and possession as data | Costs a schema bump; part of it disappears with 65. Inherits the phantom-cast scanner cut from 68 |
 | **59** — Knowledge visibility | Already open. Blocked on 63 |
-| **71** — Per-viewer narration | Product question answered 2026-08-05, then **parked until 67 has shipped**. It projects narration through the zone graph, so it cannot be built on a graph that wrongly severs a sub-zone — and every cost figure it carries was measured on that same broken graph. **Its first action is a re-measurement, not a design**; if the split rate collapses on the fixed graph, the task shrinks or closes |
+| ~~**71** — Per-viewer narration~~ | **✅ CLOSED 2026-08-12, ahead of its wave**, once 67 shipped. Cross-cluster leak 16/29 → 3/78; per session 55%/22% before, 0%/9%/0%/0% after. In `closed/` |
 
 ### The product decision this phase was waiting on — answered
 

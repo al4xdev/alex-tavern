@@ -13,6 +13,13 @@
 > a build item, because the cause has survived three attempts to name it. Do not
 > design a fix; keep reading cases.
 >
+> **Kept in `tasks/` on 2026-08-13 when 78 was moved out, and the reason is not
+> priority.** It has no build action either. It stays because **two other open
+> tasks are wired to its evidence**: 72's gate is *"do stalls survive 69"*, and
+> the stalls it means are the ones measured here, so demoting this file to
+> `backlog/` would leave a gated task pointing at a shelved one. That is a
+> structural argument, not a claim that the symptom is bigger than 78's.
+>
 > ⚠ **Two diagnoses have already been written here and falsified by their own
 > evidence.** The transcript is solid; every causal story about it so far has
 > not been. Read "The replay was run" before believing anything in the Direction

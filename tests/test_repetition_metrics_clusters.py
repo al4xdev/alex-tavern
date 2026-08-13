@@ -2,7 +2,7 @@
 
 `cluster_span` was `clusters[0]["span"]` while the list is sorted by SIZE, so the
 reported span belonged to the largest cluster instead of the widest one. A gate
-had already been decided on that scalar (`.plan/tasks/68-...`), so it gets a test
+had already been decided on that scalar (`.plan/closed/68-...`), so it gets a test
 that fails on the exact shape that hid the defect: the largest cluster is not the
 widest, and the widest sits past the truncation point of the evidence listing.
 """

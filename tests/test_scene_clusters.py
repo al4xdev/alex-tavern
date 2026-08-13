@@ -6,7 +6,7 @@ spurious singleton cluster, so those figures were upper bounds and the task is
 explicitly blocked on re-deriving them. That is only worth anything if the
 before and the after come out of the same code, which is what this pins.
 
-The reproduction is recorded in `.plan/tasks/71-per-viewer-narration.md`: over
+The reproduction is recorded in `.plan/closed/71-per-viewer-narration.md`: over
 the 16 archived sessions this scanner returns 610 narrated turns, 168 split,
 1.562 clusters per turn, 1.202 holding two or more, 8 of 16 never splitting -
 matching the numbers already written in that task to every digit it reports.

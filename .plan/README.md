@@ -15,7 +15,7 @@ Organized by state:
 | `ROADMAP.md` | The **current phase** (immersion), its fronts, the order they are attacked in, and **the baseline each task has to beat** | When deciding what is next, and before implementing any task |
 | `tasks/` | **Active** tasks (open or delivered-with-reservations, banner at the top) | When working |
 | `para-o-dono/` | Things waiting for **your action** (smoke tests, designs to accept) | When you return |
-| `backlog/` | Future without active work (06 RAG, 16 lore, public/real persona, New Journey, S02) | When planning |
+| `backlog/` | Future without active work (06 RAG, 16 lore, 78 routed-into-silence, public/real persona, New Journey, S02) | When planning |
 | `reference/` | Living architecture docs (29.2 map, narrator_hint study) | When designing |
 | `closed/` | Tasks closed WITH CONFIDENCE + completed explorations | As history |
 
@@ -23,6 +23,13 @@ Archived batteries and **the definition of every metric** live in `benchmarks/`
 (committed) — `benchmarks/README.md` §7 is the glossary; read it before gating
 anything on a number. Raw session artifacts stay in `output29/` and
 `plans/artifacts/` (gitignored, local).
+
+**A file is in `tasks/` because it has a next action, not because its symptom is
+big.** Applied 2026-08-13, when five finished tasks (67, 68, 70, 71, 76) were
+still sitting there and one sized-but-undiagnosed finding (78) had been opened
+straight into it. The critic protocol
+(`reference/critic-protocol.md`) makes `backlog/` the default for a new finding
+and promotion to `tasks/` an owner decision.
 
 Permanent conventions: only migrate tasks to `closed/` when closed with confidence;
 commits in English without AI trailers; curl-first method (AGENTS.md §6 — the validated

@@ -1,113 +1,109 @@
-# Faxina de código pré-1.0 — fechada
+# Pre-1.0 code cleanup — closed
 
-> ✅ **COMPLETA** em 2026-07-26, branch `refactor/pre-1.0-cleanup`, 33 commits
-> sobre `9387bdc`. Os 13 apontamentos da revisão de 2026-07-25 foram aplicados.
-> A pasta `.plan/next/` e o `to_the_next.md` foram removidos: este artigo é o
-> que sobra deles.
+> ✅ **COMPLETE** on 2026-07-26, branch `refactor/pre-1.0-cleanup`, 33 commits on top
+> of `9387bdc`. The 13 items from the 2026-07-25 review were applied. The `.plan/next/`
+> folder and `to_the_next.md` were removed: this article is what remains of them.
 
-## O que era
+## What it was
 
-Uma revisão linha a linha de `src/`, `tools/`, `tests/` e `.ci-cd/android/`,
-feita porque o desenvolvimento acabou e a 1.0 ia congelar a base. O objetivo
-declarado não era caçar bug — 785 testes passavam, ruff e mypy limpos — e sim
-**não entrar na versão inicial com dívida estrutural**: o mesmo helper escrito
-seis vezes, o mesmo `if` defensivo dezenove vezes, um método de 245 statements.
+A line-by-line review of `src/`, `tools/`, `tests/` and `.ci-cd/android/`, done because
+development had wrapped up and 1.0 was about to freeze the base. The declared goal was
+not to hunt bugs — 785 tests passed, ruff and mypy clean — but to **avoid entering the
+first version with structural debt**: the same helper written six times, the same
+defensive `if` nineteen times, a 245-statement method.
 
-Regra da casa em tudo: forward-only. Nada aqui criou shim, conversor ou leitura
-dupla; onde a limpeza quebrou o SDK de plugins, os dois lados mudaram juntos.
+House rule throughout: forward-only. Nothing here created a shim, a converter or a
+double read; where the cleanup broke the plugin SDK, both sides changed together.
 
-## Números medidos, antes e depois
+## Measured numbers, before and after
 
-| | Antes (`9387bdc`) | Depois | |
+| | Before (`9387bdc`) | After | |
 |---|---:|---:|---|
-| Testes | 785 | **847** | +62, nenhum removido |
-| ruff / mypy | limpos | limpos | 58 arquivos |
-| `Runner.player_turn` | 245 statements / 80 branches | fora da lista | 13 estágios nomeados |
-| Imports fora do topo | 80 | 45 | `main.py` foi de 35 a **0** |
-| Escritas atômicas de JSON | 6 cópias | **1** | +1 em `tools/` |
-| Registries de lock | 4 cópias | **1** | genérico, 3 domínios |
-| Blocos de transporte LLM | 18 | **1** | `call_agent` |
-| Envelopes de log à mão | 15 | **1** | `_emit` |
+| Tests | 785 | **847** | +62, none removed |
+| ruff / mypy | clean | clean | 58 files |
+| `Runner.player_turn` | 245 statements / 80 branches | off the list | 13 named stages |
+| Imports outside the top | 80 | 45 | `main.py` went from 35 to **0** |
+| Atomic JSON writes | 6 copies | **1** | +1 in `tools/` |
+| Lock registries | 4 copies | **1** | generic, 3 domains |
+| LLM transport blocks | 18 | **1** | `call_agent` |
+| Hand-written log envelopes | 15 | **1** | `_emit` |
 | `if self.plugins is not None` | 19 | **0** | |
-| `_char` duplicado em teste | 15 arquivos | **1** fábrica | |
-| Dicts do Director à mão | 43 em 18 arquivos | **1** fábrica | |
-| `document.getElementById` | 161 espalhados | **1** `dom.el` | falha alta, com o id |
-| `app.js` | 2.424 linhas | **620** | 10 módulos extraídos |
+| `_char` duplicated in tests | 15 files | **1** factory | |
+| Hand-written Director dicts | 43 across 18 files | **1** factory | |
+| `document.getElementById` | 161 scattered | **1** `dom.el` | fails loudly, with the id |
+| `app.js` | 2,424 lines | **620** | 10 modules extracted |
 
-## O que quebrou de propósito
+## What was broken on purpose
 
-- **Config v1**: `LEGACY_CONFIG_SCHEMA_VERSION` e a conversão sumiram. Config v2
-  continua válida — verificado com boot real.
-- **Hooks `session.*`**: deixaram de ser síncronos. Handlers síncronos de plugin
-  continuam funcionando; o hub precisa regenerar o contrato exportado.
-- **`context.command`**: não passa mais por `unsafe`. Verificado em servidor real
-  com os 3 plugins curados: **zero** eventos `permission: "unsafe"` no journal
-  (antes, todo plugin com comando emitia um).
-- **`GET /bootstrap_log`**: removido. Ninguém consumia; o `MainActivity` lê o
-  arquivo nativamente.
-- **`tools/frontend_inspector.py`** e os dois tools de MCP de frontend:
-  removidos em favor do plugin de Playwright do editor. Ver `50-playwright-*`.
-- **Sessões**: `SESSION_SCHEMA_VERSION` continua **13**. Nada aqui invalidou
-  sessão existente.
+- **Config v1**: `LEGACY_CONFIG_SCHEMA_VERSION` and the conversion are gone. Config v2
+  stays valid — verified with a real boot.
+- **`session.*` hooks**: no longer synchronous. Synchronous plugin handlers still work;
+  the hub has to regenerate the exported contract.
+- **`context.command`**: no longer passes through `unsafe`. Verified on a real server
+  with the 3 curated plugins: **zero** `permission: "unsafe"` events in the journal
+  (before, every plugin with a command emitted one).
+- **`GET /bootstrap_log`**: removed. Nobody consumed it; `MainActivity` reads the file
+  natively.
+- **`tools/frontend_inspector.py`** and the two frontend MCP tools: removed in favour of
+  the editor's Playwright plugin. See `50-playwright-*`.
+- **Sessions**: `SESSION_SCHEMA_VERSION` remains **13**. Nothing here invalidated an
+  existing session.
 
-## Cinco coisas que a suíte (ou uma medição) pegou, e que valem registro
+## Five things the suite (or a measurement) caught, worth recording
 
-1. **`log_compaction_status` grava `"error": None` de propósito.** Eu li como
-   resto e "corrigi". A mensagem de uma falha do sumarizador carrega o resumo
-   privado do mundo, e essa entrada é lida por ferramentas e pelo drawer de
-   debug. `tests/test_compaction.py` reprovou na hora. Está documentado ao lado
-   do teste que trava.
+1. **`log_compaction_status` writes `"error": None` on purpose.** I read it as a
+   leftover and "fixed" it. The message of a summariser failure carries the world's
+   private summary, and that entry is read by tools and by the debug drawer.
+   `tests/test_compaction.py` failed immediately. It is documented next to the test that
+   locks it.
 
-2. **As chaves `presence.*` do i18n não são mortas.** Não têm leitor neste
-   repositório porque quem as usa é o plugin curado de presença. Removi,
-   `test_frontend_architecture.py` reprovou, restaurei todas. O cabeçalho de
-   `i18n.js` agora avisa que o catálogo é contrato de plugin.
+2. **The i18n `presence.*` keys are not dead.** They have no reader in this repository
+   because their user is the curated presence plugin. I removed them,
+   `test_frontend_architecture.py` failed, I restored them all. The header of `i18n.js`
+   now warns that the catalogue is a plugin contract.
 
-3. **`drive`/`watcher` e `roteiro` nunca renderizaram o mesmo contexto.**
-   Pareciam idênticos na leitura; a comparação byte a byte antes/depois mostrou
-   que os dois primeiros rotulam personagens por ID ("C2") e o terceiro por nome
-   ("Marta"). Virou parâmetro explícito com comentário: unificar é experimento
-   de prompt, não refatoração.
+3. **`drive`/`watcher` and `roteiro` never rendered the same context.** They looked
+   identical on reading; the byte-by-byte before/after comparison showed the first two
+   label characters by ID ("C2") and the third by name ("Marta"). It became an explicit
+   parameter with a comment: unifying them is a prompt experiment, not a refactor.
 
-4. **Nenhum duplo de Director escrito à mão carregava o contrato inteiro.** Ao
-   escrever o teste que compara `director_beat()` com o schema shippado,
-   descobri que `scene_blocking`, `time_skip_ticks` e `time_skip_summary` eram
-   obrigatórios no schema e estavam ausentes dos 43 dicts. A fábrica também
-   tinha defaults mutáveis compartilhados — dois bugs achados pelo teste da
-   própria fábrica.
+4. **No hand-written Director double carried the whole contract.** While writing the
+   test that compares `director_beat()` against the shipped schema, I discovered that
+   `scene_blocking`, `time_skip_ticks` and `time_skip_summary` were required in the
+   schema and absent from all 43 dicts. The factory also had shared mutable defaults —
+   two bugs found by the test of the factory itself.
 
-5. **Eu afirmei que "o Playwright não consegue clicar" e era falso.** Os alvos
-   que falhavam ficam dentro de `#setup-overlay`, um modal fechado
-   (`opacity: 0`, `pointer-events: none`). Ele recusava certo. Abrindo o modal
-   na ordem correta, dirige a UI inteira — incluindo gesto de swipe em viewport
-   de celular.
+5. **I claimed "Playwright cannot click" and it was false.** The failing targets sit
+   inside `#setup-overlay`, a closed modal (`opacity: 0`, `pointer-events: none`). It
+   was refusing correctly. Opening the modal in the right order, it drives the whole UI
+   — including a swipe gesture in a phone viewport.
 
-## Como cada portão foi fechado
+## How each gate was closed
 
-- **Suíte, ruff, mypy** a cada commit.
-- **Prompt idêntico byte a byte** onde a refatoração tocou contexto de prompt
-  (doc 13): capturado do `debug.jsonl` antes e depois.
-- **Boot real** nos dois cenários: `.data/` vazio (Experience padrão aplicada,
-  marcador escrito) e config v2 existente (chave da API preservada).
-- **`curl`** nos contratos de erro: 404 sessão inexistente, 422 turno inválido,
-  409 opening depois da conversa começar.
-- **Sessão real contra a DeepSeek**, jogada pelo frontend em viewport 390×844:
-  criar sessão, gerar aberturas, swipe no carrossel, turno, sugestão,
-  compactação forçada, undo, drawer de debug. Zero erro de console.
-- **Playtest manual do dono** (task 02), que produziu as tasks 53 a 57.
+- **The suite, ruff, mypy** on every commit.
+- **A byte-identical prompt** wherever the refactor touched prompt context (doc 13):
+  captured from `debug.jsonl` before and after.
+- **A real boot** in both scenarios: empty `.data/` (default Experience applied, marker
+  written) and an existing v2 config (API key preserved).
+- **`curl`** against the error contracts: 404 for a non-existent session, 422 for an
+  invalid turn, 409 for an opening after the conversation started.
+- **A real session against DeepSeek**, played through the frontend at a 390×844
+  viewport: create the session, generate openings, swipe the carousel, take a turn, get
+  a suggestion, force a compaction, undo, open the debug drawer. Zero console errors.
+- **The owner's manual playtest** (task 02), which produced tasks 53 through 57.
 
-## O que ficou fora de escopo, declarado
+## What was left out of scope, declared
 
-- `config: dict` → dataclass tipada (atravessa adapters, SDK, `runtime-config.js`
-  e ~40 testes: supertask própria).
-- Dividir `main.py` em routers por domínio.
-- Mover os prompts grandes para arquivos `.txt` — destruiria a rastreabilidade
-  dos comentários que citam qual replay validou cada posição do texto.
-- `style.css` (2.852 linhas), não revisado.
+- `config: dict` → a typed dataclass (it crosses adapters, the SDK,
+  `runtime-config.js` and ~40 tests: a supertask of its own).
+- Splitting `main.py` into per-domain routers.
+- Moving the large prompts into `.txt` files — it would destroy the traceability of the
+  comments that cite which replay validated each position in the text.
+- `style.css` (2,852 lines), not reviewed.
 
-## O portão que continua sendo seu
+## The gate that is still yours
 
-**APK e aparelho** (`.claude/skills/android-apk-lab`). Os docs 10 e 11 mexeram
-justamente no que só falha no celular: `android-bridge.js`, o shell do service
-worker (hoje `rpt-shell-v31`), `build_info`, as strings nativas de boot e o lado
-v1 do `pydantic_compat`, que nenhum teste de desktop cobre.
+**The APK and the device** (`.claude/skills/android-apk-lab`). Docs 10 and 11 touched
+exactly what only fails on the phone: `android-bridge.js`, the service worker shell
+(currently `rpt-shell-v31`), `build_info`, the native boot strings and the v1 side of
+`pydantic_compat`, which no desktop test covers.
