@@ -13,199 +13,204 @@ Research synthesis defining stagnation as the absence of narrative state transit
 
 ---
 
-## Registro original
+## The original record
 
-*Body preserved verbatim in Portuguese.*
-Documento de pesquisa + design, alimentando a **Task 33b**. Sintetiza o achado
-empírico da Task 38 (relatório: `11-roteiro-drive-scene-stagnation-2026-07-17.md`)
-com literatura sobre diálogo, turn-taking, improviso e RPG, e mapeia como esses
-temas ajudam — e o que já fizemos similar no kernel.
+A research + design document feeding **Task 33b**. It synthesises the empirical
+finding of Task 38 (report: `11-roteiro-drive-scene-stagnation-2026-07-17.md`)
+with the literature on dialogue, turn-taking, improvisation and RPGs, and maps
+how those themes help — and what we have already built that is similar in the
+kernel.
 
-Origem: dois achados do usuário (2026-07-17). Este doc os registra fielmente e
-adiciona o mapeamento pro nosso código.
-
----
-
-### 1. A tese
-
-> **Estagnação não é repetição de texto; é ausência de transição de estado
-> narrativo.**
-
-Os guards que implementamos (backstop lexical, guard de personagem, teto de
-beat, disrupção-no-stall) eliminam sintomas reais — eco, near-dup, beat infinito
-— mas **uma cena pode produzir frases completamente diferentes e permanecer
-semanticamente imóvel**. "Todos comentam o sorteio de maneiras variadas" ainda é
-o mesmo estado.
-
-O limite que batemos na Task 38 não é o limite do roleplay com LLM. É o limite
-de **usar geração autoregressiva como motor de progressão dramática**. O modelo
-é excelente em *continuar* uma cena; não é naturalmente confiável em *decidir que
-a cena esgotou sua função e deve mudar de estado*.
+Origin: two findings by the user (2026-07-17). This document records them
+faithfully and adds the mapping onto our code.
 
 ---
 
-### 2. O mecanismo: dois relógios desacoplados
+### 1. The thesis
 
-A cena do sorteio (portais) estagnou porque **o relógio da conversa continuou
-avançando, mas o relógio do mundo parou**:
+> **Stagnation is not repeated text; it is the absence of a narrative state
+> transition.**
+
+The guards we implemented (lexical backstop, character guard, beat ceiling,
+disruption-on-stall) eliminate real symptoms — echo, near-dup, an infinite beat —
+but **a scene can produce completely different sentences and stay semantically
+motionless**. "Everyone comments on the raffle in varied ways" is still the same
+state.
+
+The wall we hit in Task 38 is not the limit of LLM roleplay. It is the limit of
+**using autoregressive generation as an engine of dramatic progression**. The
+model is excellent at *continuing* a scene; it is not naturally reliable at
+*deciding that a scene has exhausted its function and must change state*.
+
+---
+
+### 2. The mechanism: two decoupled clocks
+
+The raffle scene (portals) stagnated because **the conversation clock kept
+advancing while the world's clock stopped**:
 
 ```
-Cena de AÇÃO (estalagem)          Cena PROCEDURAL (portais)
-personagem tenta                   personagem espera
-  → mundo responde                   → personagem comenta
-    → estado muda                      → mundo continua esperando
+ACTION scene (inn)                 PROCEDURAL scene (portals)
+a character tries                  a character waits
+  → the world responds               → the character comments
+    → state changes                    → the world keeps waiting
 ```
 
-Na estalagem, ameaça/movimento/tentativa exigem adjudicação — cada ação chama
-uma resposta do mundo. Nos portais, os personagens esperavam uma *instituição*
-realizar um procedimento. Como o mundo não tem relógio autônomo, ele ficou
-esperando o Diretor; e o Diretor continuou servindo reações do elenco.
+At the inn, a threat/movement/attempt demands adjudication — every action calls
+for a response from the world. At the portals, the characters were waiting for an
+*institution* to carry out a procedure. Since the world has no autonomous clock,
+it sat waiting for the Director; and the Director kept serving up reactions from
+the cast.
 
-> **O sistema confundiu participação do elenco com progressão da cena.**
+> **The system confused cast participation with scene progression.**
 
-O histórico funciona como um **campo gravitacional / atrator**: quanto mais
-personagens reafirmam um enquadramento, mais provável fica que a próxima geração
-(1) reconheça o enquadramento como "a cena", (2) preserve a coerência local, (3)
-dê voz ao próximo personagem dentro dele, (4) reforce ainda mais o enquadramento.
-Em elenco grande piora: "cada NPC precisa reagir", então seis reações viram seis
-votos para manter o tópico vivo.
+The history works like a **gravitational field / attractor**: the more characters
+restate a framing, the likelier the next generation is to (1) recognise the
+framing as "the scene", (2) preserve local coherence, (3) give the next character
+a voice inside it, (4) reinforce the framing further. It gets worse with a large
+cast: "every NPC has to react", so six reactions become six votes to keep the
+topic alive.
 
-O beat disruptivo funcionou (3/3 no curl) não porque "disrupção" seja a solução
-correta, mas porque foi a **primeira mutação autoritativa de estado** — reacoplou
-os dois relógios: `evento concreto → mundo muda → personagens têm algo novo a
-responder`. Mas disrupções sucessivas produzem **pile-up** porque *novidade
-sozinha não equivale a causalidade* (confirmado no run de confirmação do portais).
-
----
-
-### 3. A literatura: humanos também alinham, repetem e travam
-
-O erro seria concluir "LLMs repetem e humanos não". A conclusão melhor:
-
-> Humanos também alinham, repetem, reafirmam e deixam cenas morrer. Mas uma mesa
-> humana tem **silêncio, metajogo, compressão temporal, sinais sociais e um GM
-> responsável por manter o mundo em movimento**. Nosso sistema removeu quase
-> todas essas saídas e manteve a obrigação de gerar.
-
-- **Alinhamento interativo — Pickering & Garrod.** Humanos naturalmente alinham
-  vocabulário, estrutura e representação da situação durante uma conversa. Parte
-  da repetição que observamos é uma versão *exagerada* de um mecanismo humano
-  real de coordenação — não é falha cognitiva; a função é reduzir ansiedade e
-  criar afiliação. (["Toward a mechanistic psychology of dialogue"](https://www.pure.ed.ac.uk/ws/files/11823730/Toward_a_mechanistic_psychology_of_dialogue.pdf))
-- **Turn-taking — Sacks, Schegloff & Jefferson.** A organização de turnos não é
-  round-robin: o falante atual pode selecionar alguém, outro pode se
-  autosselecionar, e os demais podem ficar em silêncio. Turno é local e
-  distribuído. → **presença na cena não implica direito nem obrigação de emitir
-  reação** — exatamente o que nosso `expected_actors` viola. ([o estudo clássico](https://pure.mpg.de/rest/items/item_2376846_3/component/file_2376845/content))
-- **Improviso e `wimping` — Magerko et al.** Cenas progridem quando alguém faz
-  uma *oferta* destinada a alterar o estado narrativo e os outros a aceitam.
-  `wimping` = aceitar a oferta anterior sem construir nada a partir dela. Os NPCs
-  fizeram wimping em escala (todos "aceitam" que estão ansiosos pelo sorteio,
-  ninguém acrescenta uma operação que transforme a situação). ([estudo empírico](https://www.academia.edu/4105381/An_empirical_study_of_cognition_and_theatrical_improvisation))
-- **Metajogo — Corbitt 2024.** Numa campanha de 6 semanas, a fala de metajogo
-  negociava conhecimento, justiça, relações e *ritmo narrativo*. A saída humana
-  pra estagnação frequentemente **abandona momentaneamente o roleplay** ("já
-  entendemos que todo mundo tá nervoso, pula pro resultado?"). ([Corbitt, 2024](https://www.sciencedirect.com/science/article/abs/pii/S0898589824000263))
-- **Frames de diálogo em RPG — Mäyrä.** Três frames intercalados: conversa social
-  fora do jogo; negociação de regras/estado; fala dentro da ficção. O GM tem
-  poder especial de transformar uma declaração em fato do mundo (jogadores ainda
-  negociam/contestam). ([Dialogue in RPGs](https://homepages.tuni.fi/frans.mayra/Dialogue-in-RPGs.pdf))
-- **FIREBALL — ACL 2023.** ~25k sessões reais de D&D no Discord, 8M utterances,
-  2,1M comandos, 1,2M estados estruturados. Modelos **com estado real do jogo
-  produziram turnos melhores que os baseados só em histórico de diálogo**. Não
-  mede estagnação diretamente, mas confirma: roleplay humano real **não é só uma
-  corrente de falas** — intercala linguagem, comandos executáveis e mudanças
-  verificáveis de estado. ([FIREBALL](https://aclanthology.org/2023.acl-long.229.pdf))
-
-**Sinais fora do texto:** o GM humano detecta "esta cena acabou" por silêncio
-desconfortável, respostas encurtando, olhares, piadas fora de personagem, perda
-de energia — *antes* de haver repetição textual suficiente pra um detector. Num
-log só-texto, boa parte dessa informação some. (Implicação: nosso detector é
-cego a metade dos sinais que um humano usa.)
+The disruptive beat worked (3/3 over curl) not because "disruption" is the right
+solution, but because it was the **first authoritative mutation of state** — it
+re-coupled the two clocks: `concrete event → the world changes → the characters
+have something new to answer`. But successive disruptions produce a **pile-up**,
+because *novelty alone is not causality* (confirmed in the portals confirmation
+run).
 
 ---
 
-### 4. As saídas humanas que removemos
+### 3. The literature: humans align, repeat and stall too
 
-1. **O jogador/personagem pode não produzir conteúdo.** "O meu só espera" é um
-   turno válido de 2 segundos. Nós pressionamos cada personagem convocado a
-   produzir uma contribuição apresentável. → silêncio deve ser permitido.
-2. **O GM comprime tempo.** "Depois de alguns minutos de especulação, o sino toca
-   e o primeiro par é anunciado." Isso **não é disrupção** — é a *conclusão da
-   transição já prometida pela cena*. O humano alterna modo dramático ↔ sumário.
-3. **Oferta com intenção ativa.** "Vou até o responsável perguntar por que
-   demora", "tento ver a lista antes", "desisto de esperar e me aproximo do
-   portal" — uma tentativa que exige resposta do mundo.
-4. **Sair da ficção (metajogo).** Um canal que os personagens não têm.
-5. **Ler sinais fora do texto** (acima).
+The mistake would be to conclude "LLMs repeat and humans do not". The better
+conclusion:
+
+> Humans also align, repeat, restate and let scenes die. But a human table has
+> **silence, metagame, temporal compression, social signals and a GM responsible
+> for keeping the world moving**. Our system removed nearly all of those exits and
+> kept the obligation to generate.
+
+- **Interactive alignment — Pickering & Garrod.** Humans naturally align
+  vocabulary, structure and situation model during a conversation. Part of the
+  repetition we observe is an *exaggerated* version of a real human coordination
+  mechanism — not a cognitive failure; its function is to reduce anxiety and
+  create affiliation. (["Toward a mechanistic psychology of dialogue"](https://www.pure.ed.ac.uk/ws/files/11823730/Toward_a_mechanistic_psychology_of_dialogue.pdf))
+- **Turn-taking — Sacks, Schegloff & Jefferson.** Turn organisation is not
+  round-robin: the current speaker may select someone, another may self-select,
+  and the rest may stay silent. A turn is local and distributed. → **being present
+  in the scene implies neither the right nor the obligation to emit a reaction** —
+  exactly what our `expected_actors` violates. ([the classic study](https://pure.mpg.de/rest/items/item_2376846_3/component/file_2376845/content))
+- **Improvisation and `wimping` — Magerko et al.** Scenes progress when someone
+  makes an *offer* meant to alter the narrative state and the others accept it.
+  `wimping` = accepting the previous offer without building anything on it. The
+  NPCs wimped at scale (everyone "accepts" that they are anxious about the raffle,
+  nobody adds an operation that transforms the situation). ([empirical study](https://www.academia.edu/4105381/An_empirical_study_of_cognition_and_theatrical_improvisation))
+- **Metagame — Corbitt 2024.** Across a 6-week campaign, metagame talk negotiated
+  knowledge, fairness, relationships and *narrative pacing*. The human exit from
+  stagnation frequently **abandons the roleplay for a moment** ("we all get that
+  everyone is nervous, can we skip to the result?"). ([Corbitt, 2024](https://www.sciencedirect.com/science/article/abs/pii/S0898589824000263))
+- **Dialogue frames in RPGs — Mäyrä.** Three interleaved frames: out-of-game
+  social conversation; negotiation of rules/state; in-fiction speech. The GM has
+  the special power to turn a statement into a fact of the world (players still
+  negotiate/contest it). ([Dialogue in RPGs](https://homepages.tuni.fi/frans.mayra/Dialogue-in-RPGs.pdf))
+- **FIREBALL — ACL 2023.** ~25k real D&D sessions on Discord, 8M utterances, 2.1M
+  commands, 1.2M structured states. Models **given real game state produced better
+  turns than those working from dialogue history alone**. It does not measure
+  stagnation directly, but it confirms: real human roleplay **is not just a chain
+  of utterances** — it interleaves language, executable commands and verifiable
+  state changes. ([FIREBALL](https://aclanthology.org/2023.acl-long.229.pdf))
+
+**Signals outside the text:** a human GM detects "this scene is over" from
+uncomfortable silence, answers getting shorter, glances, out-of-character jokes,
+a loss of energy — *before* there is enough textual repetition for a detector. In
+a text-only log, much of that information disappears. (Implication: our detector
+is blind to half the signals a human uses.)
 
 ---
 
-### 5. O que já fizemos similar aqui (mapeamento pro kernel)
+### 4. The human exits we removed
 
-Já temos **implementações parciais** de vários mecanismos humanos:
+1. **A player/character may produce no content.** "Mine just waits" is a valid
+   two-second turn. We pressure every summoned character to produce a presentable
+   contribution. → silence must be allowed.
+2. **The GM compresses time.** "After a few minutes of speculation, the bell rings
+   and the first pair is announced." That is **not a disruption** — it is the
+   *completion of the transition the scene already promised*. The human alternates
+   between dramatic mode ↔ summary.
+3. **An offer with active intent.** "I go ask the official why it is taking so
+   long", "I try to see the list first", "I give up waiting and approach the
+   portal" — an attempt that demands a response from the world.
+4. **Stepping out of the fiction (metagame).** A channel the characters do not
+   have.
+5. **Reading signals outside the text** (above).
 
-| Mecanismo humano | O que já existe no kernel |
+---
+
+### 5. What we have already built that is similar (mapping onto the kernel)
+
+We already have **partial implementations** of several human mechanisms:
+
+| Human mechanism | What already exists in the kernel |
 |---|---|
-| GM transforma declaração em fato do mundo (Mäyrä) | Split Diretor/Prosa (36); `action_intent` = TENTATIVA que o Diretor adjudica |
-| Oferta que muda estado | `perception_events` tipados do Diretor; disrupção-no-stall (38) |
-| Mundo com estímulos próprios | Drive hazard scheduler (33): injeta evento externo em cena quieta |
-| Devolver controle ao jogador | `return_control` (37) → para a fila no protagonista |
-| Direção pré-compilada | Roteiro (38, opt-in) |
-| Anti-repetição de superfície | backstop lexical + guard de personagem + teto de beat |
+| The GM turns a statement into a fact of the world (Mäyrä) | The Director/Prose split (36); `action_intent` = an ATTEMPT the Director adjudicates |
+| An offer that changes state | The Director's typed `perception_events`; disruption-on-stall (38) |
+| A world with stimuli of its own | The drive hazard scheduler (33): injects an external event into a quiet scene |
+| Handing control back to the player | `return_control` (37) → stops the queue at the protagonist |
+| Pre-compiled direction | The roteiro (38, opt-in) |
+| Surface anti-repetition | lexical backstop + character guard + beat ceiling |
 
-**O que FALTA** (a lacuna que explica a estagnação):
+**What is MISSING** (the gap that explains the stagnation):
 
-- **Estado autoritativo de cena** (dramatic_question, threads, pressures) — hoje
-  o "estado" é só o histórico + scene.physical_facts + o beat do roteiro. Não há
-  representação de *o que está dramaticamente em jogo*.
-- **Definição de progresso por DELTA MATERIAL** — hoje medimos cobertura de
-  âncoras (entidade/lexical), que o próprio usuário aponta como sinal errado: uma
-  figura encapuzada nova pode aparecer sem nada avançar; uma porta simplesmente
-  fechar pode transformar a cena.
-- **Relógio do mundo** — procedimentos pertencentes ao mundo (o sorteio) não
-  avançam sozinhos; ficam reféns da geração de reações do elenco.
-- **Cobertura de atores representativa, não exaustiva** — `expected_actors` +
-  o roteamento tratam presença como obrigação de falar.
-- **Contrato causal de intervenção** — a disrupção-no-stall introduz novidade,
-  mas não amarra a um thread existente (→ pile-up).
+- **Authoritative scene state** (dramatic_question, threads, pressures) — today the
+  "state" is only the history + scene.physical_facts + the roteiro's beat. There is
+  no representation of *what is dramatically at stake*.
+- **Progress defined by MATERIAL DELTA** — today we measure anchor coverage
+  (entity/lexical), which the user himself points out is the wrong signal: a new
+  hooded figure can appear with nothing advancing; a door simply closing can
+  transform the scene.
+- **A world clock** — procedures belonging to the world (the raffle) do not advance
+  by themselves; they are hostage to the cast's reaction generation.
+- **Representative, not exhaustive, actor coverage** — `expected_actors` and the
+  routing treat presence as an obligation to speak.
+- **A causal intervention contract** — disruption-on-stall introduces novelty but
+  does not tie it to an existing thread (→ pile-up).
 
 ---
 
-### 6. O design proposto (Task 33b reenquadrada)
+### 6. The proposed design (Task 33b reframed)
 
-Task 33b deixa de ser "watcher que reescreve o roteiro" e vira um **controlador
-de transição de estado de cena** — tira da LLM a responsabilidade de perceber
-sozinha quando continuar deixou de ser progredir, e dá ao código autoridade pra
-exigir uma transição causal concreta.
+Task 33b stops being "a watcher that rewrites the roteiro" and becomes a
+**scene-state transition controller** — it takes away from the LLM the
+responsibility of noticing on its own when continuing stopped being progressing,
+and gives the code the authority to demand a concrete causal transition.
 
-#### 6.1 Estado autoritativo mínimo
+#### 6.1 Minimal authoritative state
 ```
 scene_phase          dramatic_question     active_pressure
 unresolved_threads   actor_commitments     last_material_change
 intervention_level
 ```
 
-#### 6.2 Progresso = DELTA MATERIAL verificável
-Um turno só conta como avanço se produzir ≥1 delta: uma decisão foi tomada;
-informação antes desconhecida virou conhecida; posição/posse/acesso mudou; uma
-tentativa recebeu consequência; uma relação/compromisso mudou; uma ameaça
-avançou; uma possibilidade foi aberta/fechada; a pergunta dramática mudou.
-Entidade nova e novidade lexical *participam* do sinal, mas **não são o sinal
-principal**.
+#### 6.2 Progress = a verifiable MATERIAL DELTA
+A turn only counts as progress if it produces ≥1 delta: a decision was taken;
+previously unknown information became known; position/possession/access changed;
+an attempt received a consequence; a relationship/commitment changed; a threat
+advanced; a possibility was opened/closed; the dramatic question changed. A new
+entity and lexical novelty *participate* in the signal, but **are not the main
+signal**.
 
-#### 6.3 Recuperação em ladder (ANTES de disromper)
+#### 6.3 Recovery as a ladder (BEFORE disrupting)
 ```
-1. Há transição do mundo já prometida?  → EXECUTE-A.
-2. Há tentativa pendente?                → ADJUDIQUE-A.
-3. Há personagens sem contribuição material? → permita SILÊNCIO ou agregue reações.
-4. Ainda sem mudança possível?           → reincorpore um thread existente como pressão.
-5. Só então:                             → introduza uma disrupção nova.
+1. Is there a world transition already promised?  → EXECUTE IT.
+2. Is there a pending attempt?                     → ADJUDICATE IT.
+3. Are there characters with no material contribution? → allow SILENCE or aggregate reactions.
+4. Still no change possible?                       → reincorporate an existing thread as pressure.
+5. Only then:                                      → introduce a new disruption.
 ```
-A disrupção é o ÚLTIMO recurso, não o primeiro. Um GM humano não explodiria os
-portões — ele simplesmente **realizaria o sorteio**.
+Disruption is the LAST resort, not the first. A human GM would not blow up the
+gates — they would simply **run the raffle**.
 
-#### 6.4 Contrato causal de intervenção (o antídoto pro pile-up)
+#### 6.4 The causal intervention contract (the antidote to the pile-up)
 ```yaml
 source_thread:   "o portal reage de forma anômala ao jogador"
 target_state:    "o sorteio deixa de ser a questão dominante"
@@ -214,14 +219,15 @@ expected_delta:  "a cerimônia é interrompida e a seleção é contestada"
 closes_or_advances: "mistério dos portais incompatíveis"
 refractory_turns: 3
 ```
-Muito diferente de `event_now: "um estrondo e uma figura encapuzada"` — o segundo
-**quebra** a cena; o primeiro a **transforma**. Após uma intervenção, proibir
-outra disrupção por `refractory_turns`; nesse período o Diretor só: materializa a
-consequência → permite reação → consolida o novo estado → devolve controle. Se
-ainda estagnar, a próxima intervenção **escala o mesmo thread** (`lembrar →
-pressionar → tornar inevitável → resolver com custo`), nunca abre outro fio.
+Very different from `event_now: "um estrondo e uma figura encapuzada"` — the
+second **breaks** the scene; the first **transforms** it. After an intervention,
+forbid another disruption for `refractory_turns`; during that window the Director
+only: materialises the consequence → allows a reaction → consolidates the new
+state → hands control back. If it still stagnates, the next intervention
+**escalates the same thread** (`remind → press → make inevitable → resolve at a
+cost`), never opening another strand.
 
-#### 6.5 Beat de PROCEDIMENTO (o relógio do mundo)
+#### 6.5 The PROCEDURE beat (the world's clock)
 ```yaml
 beat_kind: procedure
 world_owner: mestre_da_cerimonia
@@ -230,74 +236,74 @@ max_reaction_turns: 2
 on_budget_exhausted: enact_next_world_event
 actor_coverage: representative_not_exhaustive
 ```
-> Cenas procedurais não precisam primordialmente de mais drive dos personagens.
-> Precisam de **um mundo que continue funcionando** enquanto os personagens
-> existem dentro dele.
+> Procedural scenes do not primarily need more drive from the characters. They
+> need **a world that keeps functioning** while the characters exist inside it.
 
-#### 6.6 Liberdade do jogador — contrato refinado
+#### 6.6 Player freedom — the refined contract
 ```
-player_intent:       preservado integralmente
-attempted_action:    pode ser narrada
-world_response:      autoridade do Diretor
-player_followthrough: nunca presumido após mudança material
-return_control:      obrigatório após complicação ou revelação
+player_intent:       preserved in full
+attempted_action:    may be narrated
+world_response:      the Director's authority
+player_followthrough: never presumed after a material change
+return_control:      mandatory after a complication or a revelation
 ```
-Refino sobre "toda ação é uma tentativa": ações **triviais e já estabelecidas**
-não sofrem resistência artificial. O Diretor só interpõe resposta relevante
-quando há incerteza, oposição, custo ou consequência dramática — senão vira GM
-adversarial (transformar abrir uma gaveta em disputa = falsa agência). "Atravesso
-o portal" pode ser interrompido porque o mundo mudou antes da consumação; mas se
-o portal está aberto, seguro e sem incerteza relevante, impedir seria falsa
-adjudicação.
+A refinement on "every action is an attempt": **trivial, already-established**
+actions meet no artificial resistance. The Director only interposes a relevant
+response where there is uncertainty, opposition, cost or dramatic consequence —
+otherwise it becomes an adversarial GM (turning opening a drawer into a contest =
+false agency). "I cross the portal" may be interrupted because the world changed
+before the act completed; but if the portal is open, safe and free of relevant
+uncertainty, blocking it would be false adjudication.
 
 ---
 
-### 7. O experimento que fecharia a hipótese
+### 7. The experiment that would close the hypothesis
 
-Três braços no cenário Portais:
+Three arms in the Portals scenario:
 
-| Braço | Intervenção |
+| Arm | Intervention |
 |---|---|
-| A | Diretor livre |
-| B | disrupção concreta arbitrária (o que fizemos na 38) |
-| C | consequência concreta ligada a um thread existente (§6.4) |
+| A | Free Director |
+| B | an arbitrary concrete disruption (what we did in 38) |
+| C | a concrete consequence tied to an existing thread (§6.4) |
 
-Medir, além de "quebrou o tópico": **delta material em 1–2 turnos**; thread
-anterior avançado/fechado; nº de novos threads abertos; necessidade de nova
-intervenção em ≤3 turnos; retorno efetivo de controle ao jogador; **coerência
-causal julgada às cegas**.
+Measure, beyond "did it break the topic": **material delta within 1–2 turns**; a
+prior thread advanced/closed; the number of new threads opened; whether a new
+intervention is needed within ≤3 turns; whether control effectively returns to the
+player; **causal coherence judged blind**.
 
-Previsão (usuário): **B vence em quebra imediata; C vence em drive sustentado e
-coerência.** Essa é a diferença entre um *mecanismo anti-loop* e um *motor
-dramático de verdade*.
+Prediction (the user's): **B wins on immediate breakage; C wins on sustained drive
+and coherence.** That is the difference between an *anti-loop mechanism* and a
+*real dramatic engine*.
 
-Método de exploração: curl-replay primeiro (AGENTS.md §6) — validar o contrato
-causal numa chamada real de Diretor antes de qualquer bateria; depois o A/B/C.
-
----
-
-### 8. Relação com o que está roteado
-
-- **Task 33 (drive layer)** já foi roteada (2026-07-17) pra ganhar um gatilho de
-  estagnação. Este doc a refina: o gatilho não deve ser "hora de acontecer algo"
-  (hazard) e sim um **controlador de transição** com estado autoritativo + delta
-  material + ladder de recuperação. A disrupção arbitrária é o piso, não o teto.
-- **Task 33b** herda este design (controlador de cena + contrato causal + beat de
-  procedimento + cobertura representativa).
-- **FIREBALL** sugere um caminho de validação futuro: modelos com estado
-  estruturado > histórico de diálogo. Nosso `perception_events` + o estado de
-  cena proposto são o análogo; um dataset como FIREBALL permitiria medir
-  quantitativamente (embora enviesado a interações com comandos do Avrae).
+Exploration method: curl-replay first (AGENTS.md §6) — validate the causal contract
+on a real Director call before any battery; then the A/B/C.
 
 ---
 
-### 9. Mecanização: o relógio narrativo (Task 40)
+### 8. Relation to what is already routed
 
-Ideia do usuário que fecha o "relógio do mundo" (§2) de forma concreta: a LLM
-está parada no tempo porque a história não tem relógio. Introduzir um **tick
-monotônico, dono do código, que sempre avança**, com **cada ato do roteiro
-amarrado a um deadline de tick + o `world_event` que dispara nele**. No deadline,
-o código FORÇA a transição do mundo — a LLM não pode parar o tempo porque o tempo
-não pertence a ela. Isso torna determinístico o "beat de procedimento" (§6.5): o
-sorteio acontece quando o sino toca (tick), não quando o elenco para de comentar.
-Especificado em `.plan/tasks/40-narrative-tick-clock.md`; começa por curl-replay.
+- **Task 33 (drive layer)** was already routed (2026-07-17) to gain a stagnation
+  trigger. This document refines it: the trigger should not be "time for something
+  to happen" (hazard) but a **transition controller** with authoritative state +
+  material delta + a recovery ladder. Arbitrary disruption is the floor, not the
+  ceiling.
+- **Task 33b** inherits this design (scene controller + causal contract +
+  procedure beat + representative coverage).
+- **FIREBALL** suggests a future validation path: models with structured state >
+  dialogue history. Our `perception_events` + the proposed scene state are the
+  analogue; a dataset like FIREBALL would allow measuring this quantitatively
+  (though biased toward interactions using Avrae commands).
+
+---
+
+### 9. Mechanisation: the narrative clock (Task 40)
+
+The user's idea that closes the "world clock" (§2) concretely: the LLM is frozen in
+time because the story has no clock. Introduce a **monotonic tick, owned by the
+code, that always advances**, with **each act of the roteiro tied to a tick
+deadline + the `world_event` that fires at it**. At the deadline, the code FORCES
+the world transition — the LLM cannot stop time because time does not belong to
+it. That makes the "procedure beat" (§6.5) deterministic: the raffle happens when
+the bell rings (a tick), not when the cast stops commenting. Specified in
+`.plan/tasks/40-narrative-tick-clock.md`; it starts with curl-replay.

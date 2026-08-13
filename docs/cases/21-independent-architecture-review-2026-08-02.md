@@ -1,68 +1,72 @@
-# 21 — Revisão independente da arquitetura: segunda leitura da bateria de repetição
+# 21 — Independent architecture review: a second reading of the repetition battery
 
-Registrado 2026-08-02, mesmo dia do archive da bateria. Esta é uma leitura independente
-do material de `benchmarks/2026-08-02-6ed5639e049f-*`, do caso 20 e do código. Foi
-escrita para atacar as conclusões do caso 20, não para confirmá-las. A sessão 8bd4d0f1
-(`base-P1-r2`) foi verificada contra `debug.jsonl` e `state.json` arquivados em
+Recorded 2026-08-02, the same day the battery was archived. This is an independent reading
+of the material in `benchmarks/2026-08-02-6ed5639e049f-*`, of case 20 and of the code. It
+was written to attack case 20's conclusions, not to confirm them. Session 8bd4d0f1
+(`base-P1-r2`) was verified against the `debug.jsonl` and `state.json` archived in
 `plans/artifacts/p1-archive/`.
 
-**Resumo da divergência central.** O caso 20 concluiu que a pior sessão da bateria
-(`base-P1-r2`) era culpa do *renderizador de prosa*, que "inventou e re-inventou" o teto
-rompendo, e listou como "maior causa restante" o renderizador re-encenando eventos
-("unfixed, and the largest known remaining cause"). **Isso está errado, verificável no
-log.** O Diretor re-propôs o desabamento do teto em T33, T34 e T35; a viga caindo em
-T36 e T37; a morte de Liora em T36, T37 e T38; o pilar desabando em T28 e T29. A prosa
-renderizou fielmente as decisões do Diretor. A correção priorizada no caso 20 — afinar a
-guarda anti-repetição da prosa — **não teria consertado a pior sessão**, porque o defeito
-está uma camada acima. E a decisão de cancelar a memória durável de eventos encenados
-(MEMORY factor) foi tomada com um instrumento que é estruturalmente cego ao caso que ela
-deveria detectar.
+Quoted log lines, transcript excerpts and prompt fragments are kept verbatim in Portuguese;
+they are the evidence.
+
+**Summary of the central disagreement.** Case 20 concluded that the battery's worst session
+(`base-P1-r2`) was the fault of the *prose renderer*, which "invented and re-invented" the
+ceiling rupturing, and listed the renderer restaging events as the "largest remaining cause"
+("unfixed, and the largest known remaining cause"). **That is wrong, and verifiable in the
+log.** The Director re-proposed the ceiling collapse at T33, T34 and T35; the falling beam at
+T36 and T37; Liora's death at T36, T37 and T38; the pillar collapsing at T28 and T29. The
+prose rendered the Director's decisions faithfully. The fix case 20 prioritised — tightening
+the prose anti-repetition guard — **would not have fixed the worst session**, because the
+defect sits one layer above. And the decision to cancel durable memory of staged events (the
+MEMORY factor) was taken with an instrument that is structurally blind to the case it was
+supposed to detect.
 
 ---
 
-## 1. Contexto e questão
+## 1. Context and question
 
-O sintoma que motivou a investigação: o Narrador re-conta a mesma cena por vários turnos
-— o chão treme e lascas de pedra caem, de novo e de novo — enquanto a história não anda.
-A investigação do caso 20 fez duas baterias controladas, achou e corrigiu defeitos
-determinísticos (o relógio do ato final, o eco de fala, o sinal de controle no canal de
-eventos), e deixou em aberto uma lista. O usuário pediu uma segunda leitura com três
-perguntas:
+The symptom that motivated the investigation: the Narrator re-tells the same scene for
+several turns — the floor shakes and shards of stone fall, again and again — while the story
+does not move. Case 20's investigation ran two controlled batteries, found and fixed
+deterministic defects (the final act's clock, the speech echo, the control signal on the
+event channel), and left a list open. The user asked for a second reading with three
+questions:
 
-1. A arquitetura atual está num bom caminho, ou tem um defeito de fundo que vai continuar
-   produzindo os sintomas?
-2. O que atacar primeiro, e por quê.
-3. Olhando as histórias geradas: elas fazem sentido? Onde exatamente falham como narrativa?
+1. Is the current architecture on a good path, or does it have an underlying defect that
+   will keep producing the symptoms?
+2. What should be attacked first, and why.
+3. Looking at the generated stories: do they make sense? Where exactly do they fail as
+   narrative?
 
-## 2. Método
+## 2. Method
 
-- Leitura integral das transcrições: `base-P1-r1`, `base-P1-r2`, `oldcode-P1-r1`,
-  `null-P1-r1`, `base-P2-r1` (≈3.700 linhas), mais varreduras dirigidas nas demais
+- Full reading of the transcripts: `base-P1-r1`, `base-P1-r2`, `oldcode-P1-r1`,
+  `null-P1-r1`, `base-P2-r1` (≈3,700 lines), plus targeted sweeps of the rest
   (drive, oldcode-r2, null-r2, P2).
-- Leitura do caso 20, do `blind-read.md`, do `README.md` de benchmarks, do `metrics.json`
-  das duas baterias e do `manifest.json`.
-- Verificação primária contra os artefatos crus: para `8bd4d0f1` (base-P1-r2) e
-  `7fd84e9a` (null-P1-r1), li os `perception_events` do Diretor no `debug.jsonl`
-  turno a turno (T27-T39 de base-r2; T16-T19 de null-r1), o bloco ROTEIRO dos prompts de
-  T34/T37, o `state.json` (roteiro, `physical_facts`, registros) e calculei as
-  similaridades pareadas dos eventos de teto.
-- Leitura do código: `src/agents/narrator.py`, `src/agents/prose.py`, `src/runner.py`
-  (turno, burst, `_persist_audible_speech`, `_beat_settled`, clocks), `src/roteiro.py`,
+- Reading case 20, `blind-read.md`, the benchmarks `README.md`, the `metrics.json` of both
+  batteries and the `manifest.json`.
+- Primary verification against the raw artifacts: for `8bd4d0f1` (base-P1-r2) and
+  `7fd84e9a` (null-P1-r1), I read the Director's `perception_events` in `debug.jsonl` turn
+  by turn (T27-T39 of base-r2; T16-T19 of null-r1), the ROTEIRO block of the T34/T37
+  prompts, the `state.json` (roteiro, `physical_facts`, records) and computed the pairwise
+  similarities of the ceiling events.
+- Reading the code: `src/agents/narrator.py`, `src/agents/prose.py`, `src/runner.py` (turn,
+  burst, `_persist_audible_speech`, `_beat_settled`, clocks), `src/roteiro.py`,
   `src/perception.py`, `src/confidentiality.py`, `src/agents/character.py`,
   `tests/test_audible_speech_echo.py`, `tests/test_beat_clock.py`.
-- Não rodei nada ao vivo (zero custo de provider). Não comparei com sessões do modelo
-  antigo (07-28): não estão no checkout.
+- I ran nothing live (zero provider cost). I did not compare against sessions from the old
+  model (07-28): they are not in the checkout.
 
-## 3. Achados
+## 3. Findings
 
-### 3.1 Correção da atribuição central: quem re-encenou a pior sessão foi o Diretor, não a prosa
+### 3.1 Correcting the central attribution: what restaged the worst session was the Director, not the prose
 
-O `blind-read.md` afirma, como verificação: *"Verified: none of it is in
-`perception_events`. The Director never proposed the ceiling rupturing. The PROSE
-RENDERER invented it and re-invented it."* O `debug.jsonl` de `8bd4d0f1` diz o contrário.
-Os eventos do Diretor, turno a turno:
+`blind-read.md` states, as verification: *"Verified: none of it is in `perception_events`.
+The Director never proposed the ceiling rupturing. The PROSE RENDERER invented it and
+re-invented it."* The `debug.jsonl` of `8bd4d0f1` says the opposite. The Director's events,
+turn by turn:
 
-| turno | evento do Diretor (verbatim do log) |
+| turn | the Director's event (verbatim from the log) |
 |---|---|
 | T33 | `physical_outcome` — "O teto da câmara oculta desaba com um estrondo, abrindo um buraco de onde a névoa verde jorra em jato direto para o pátio, e a entrada fica soterrada." |
 | T34 | `observation` — "O teto da câmara oculta desaba com um rugido, abrindo um buraco por onde um jato espesso de névoa verde dispara em direção ao pátio, enquanto a entrada fica soterrada por blocos." |
@@ -73,274 +77,274 @@ Os eventos do Diretor, turno a turno:
 | T28 | `physical_outcome` — "...o pilar racha de alto a baixo e, num estrondo, desaba, erguendo uma nuvem de poeira..." |
 | T29 | `physical_outcome` — "Bruna puxa a braçadeira do pilar, que estala e se parte em faíscas verdes, e o pilar desaba em blocos que bloqueiam a fresta." |
 
-O teto desaba três turnos seguidos, Liora morre três vezes, o pilar desaba duas vezes —
-**tudo decidido pelo Diretor**. A prosa apenas cumpriu o contrato: renderizou os eventos
-confirmados. A leitura do blind-read verificou contra um artefato que não era o
-`debug.jsonl` (ou leu errado); qualquer que seja o caso, a alegação central não sobrevive
-aos logs arquivados.
+The ceiling collapses three turns running, Liora dies three times, the pillar collapses twice
+— **all decided by the Director**. The prose merely honoured its contract: it rendered the
+confirmed events. The blind-read's reading verified against an artifact that was not the
+`debug.jsonl` (or read it wrong); either way, the central claim does not survive the archived
+logs.
 
-Consequência prática: o item "Open, not fixed — the prose renderer restages events" é uma
-atribuição errada. A guarda de prosa mediu 0.777 vs o limiar 0.8 na T34 — mas mesmo com o
-limiar baixado para 0.7, a prosa de T35 é texto *novo* sobre um evento *repetido*; a guarda
-de sentenças não enxerga re-encenação no nível de evento, e nunca enxergaria, porque ela
-compara prosa contra prosa, não evento contra evento.
+Practical consequence: the item "Open, not fixed — the prose renderer restages events" is a
+misattribution. The prose guard measured 0.777 against the 0.8 threshold at T34 — but even
+with the threshold lowered to 0.7, the T35 prose is *new* text about a *repeated* event; a
+sentence-level guard cannot see restaging at the event level, and never would, because it
+compares prose against prose, not event against event.
 
-### 3.2 A cadeia causal completa do estol (base-P1-r2, T30-T39)
+### 3.2 The full causal chain of the stall (base-P1-r2, T30-T39)
 
-Verificada peça a peça nos artefatos:
+Verified piece by piece in the artifacts:
 
-1. **A resolução da cena dependia do personagem controlado.** Da T33 em diante, a
-   narração e a fala dos NPCs exigem o portal do Link: *"Link, agora! Abra o portal para
-   Liora..."* (T33-T36). O perfil de input da bateria é "bare skip" — o humano não age.
-2. **O Diretor nunca roteou o Link e nunca devolveu o controle.** De T30 a T39, os
-   `next_speakers` são sempre os mesmos três NPCs (C17, C3, C8) e `return_control` é
-   `False` (ou ausente) em todos os turnos medidos — dez turnos de impasse. O mecanismo
-   de saída do burst existe (`player_addressed` se o PC entra na fila; `protagonist_decision`
-   se `return_control`), e nenhum disparou. `BURST_PROTAGONIST_EXCLUDE_BEATS = 2`
-   (`runner.py:145`) só exclui o PC dos dois primeiros beats de cada burst; depois disso o
-   Diretor *poderia* roteá-lo e não o fez por dez turnos.
-3. **O roteiro reforçava a re-encenação por contrato, não por acaso.** No prompt da T34, o
-   bloco ROTEIRO dizia, literalmente: *"Current beat: O teto da câmara oculta desaba de
-   repente, abrindo uma nova fonte de névoa..."* e *"Not in play yet — introduce as concrete
-   perception events: pedras do teto desabado, entrada soterrada da câmara, gritos de
-   alunos próximos"*. Ou seja: o beat em si **ordenava** o desabamento, e os âncoras —
-   que a T33 já tinha encenado — eram declarados "ainda não em jogo". O Diretor obedeceu
-   ao mandato. `anchors_seen` termina vazio no estado final (para o beat corrente), e o
-   matcher de âncoras (`roteiro.anchor_matched`, substring exata ou janela fixa de N
-   palavras com τ=0.85) não consegue casar "pedras do teto desabado" contra "O teto da
-   câmara oculta desaba..." — a cobertura falha, o beat nunca avança por cobertura, e o
-   relógio de turno (HARD_BEAT_TURN_CAP=3) força replan.
-4. **O replan regenera o mesmo beat diante do mesmo impasse.** `exit_reasons` da sessão:
-   9× `replan_beat:stalled`, 5× `act_deadline:clock`, 1× `act_regenerate` em 39 turnos.
-   Cada replan pergunta ao modelo "o que vem agora" com a cena parada (Liora presa, névoa
-   avançando, PC ausente); o modelo reescreve o mesmo standoff. Beat novo, conteúdo igual.
-5. **Nada deduplica entre submissões.** O filtro anti-repetição do burst
-   (`burst.event_texts`, `runner.py:1166-1169`) morre a cada submissão — o próprio caso 20
-   nota isso. Re-proposta do mesmo evento físico em submissões diferentes passa sem
-   barreira determinística.
-6. **As similaridades pareadas dos três eventos de teto (T33/34/35) são 0.793, 0.674 e
-   0.704** — todas abaixo do τ=0.8 do `cluster`/`RSR`. Ou seja, a métrica de cluster não
-   podia ver este cluster **por construção**: a mesma re-encenação com deriva sinonímica
-   ("estrondo"→"rugido", ordem de palavras trocada) fica no limiar inferior do teste léxico.
+1. **Resolving the scene depended on the controlled character.** From T33 onward, the
+   narration and the NPCs' speech demand Link's portal: *"Link, agora! Abra o portal para
+   Liora..."* (T33-T36). The battery's input profile is "bare skip" — the human does not act.
+2. **The Director never routed Link and never handed control back.** From T30 to T39, the
+   `next_speakers` are always the same three NPCs (C17, C3, C8) and `return_control` is
+   `False` (or absent) in every measured turn — ten turns of deadlock. The burst's exit
+   mechanism exists (`player_addressed` if the PC enters the queue; `protagonist_decision` if
+   `return_control`), and neither fired. `BURST_PROTAGONIST_EXCLUDE_BEATS = 2`
+   (`runner.py:145`) only excludes the PC from the first two beats of each burst; after that
+   the Director *could* have routed them and did not, for ten turns.
+3. **The roteiro reinforced the restaging by contract, not by accident.** In the T34 prompt,
+   the ROTEIRO block said, literally: *"Current beat: O teto da câmara oculta desaba de
+   repente, abrindo uma nova fonte de névoa..."* and *"Not in play yet — introduce as
+   concrete perception events: pedras do teto desabado, entrada soterrada da câmara, gritos
+   de alunos próximos"*. That is: the beat itself **ordered** the collapse, and the anchors —
+   which T33 had already staged — were declared "not in play yet". The Director obeyed the
+   mandate. `anchors_seen` ends empty in the final state (for the current beat), and the
+   anchor matcher (`roteiro.anchor_matched`, exact substring or a fixed N-word window with
+   τ=0.85) cannot match "pedras do teto desabado" against "O teto da câmara oculta desaba..."
+   — coverage fails, the beat never advances by coverage, and the turn clock
+   (HARD_BEAT_TURN_CAP=3) forces a replan.
+4. **The replan regenerates the same beat in the face of the same deadlock.** The session's
+   `exit_reasons`: 9× `replan_beat:stalled`, 5× `act_deadline:clock`, 1× `act_regenerate`
+   across 39 turns. Each replan asks the model "what comes now" with the scene frozen (Liora
+   trapped, mist advancing, PC absent); the model rewrites the same standoff. New beat, same
+   content.
+5. **Nothing deduplicates across submissions.** The burst's anti-repetition filter
+   (`burst.event_texts`, `runner.py:1166-1169`) dies with each submission — case 20 notes
+   this itself. Re-proposing the same physical event in different submissions passes with no
+   deterministic barrier.
+6. **The pairwise similarities of the three ceiling events (T33/34/35) are 0.793, 0.674 and
+   0.704** — all below the τ=0.8 of `cluster`/`RSR`. That is, the cluster metric could not see
+   this cluster **by construction**: the same restaging with synonymic drift
+   ("estrondo"→"rugido", word order swapped) sits at the lower edge of the lexical test.
 
-### 3.3 A re-encenação é comportamento de base, em todas as células — inclusive sem roteiro
+### 3.3 Restaging is baseline behaviour, in every cell — including with no roteiro
 
-Em `null-P1-r1` (roteiro desligado), o portão da equipe verde "se fecha com um baque
-surdo" duas vezes — T18 e T19 — e a desqualificação do Link é anunciada duas vezes (T18,
-T19), tudo em `perception_events` do Diretor (verificado no log). A conclusão do caso 20
-de que "null é o menos repetitivo; o roteiro adiciona repetição" precisa ser qualificada:
-**null também re-encena**; o que muda é o grau e a "dullness", não o mecanismo. O
-roteiro agrava por um canal extra (o bloco "introduce X"), mas a re-encenação de evento
-resolvido diante de cena estática é comportamento de base do Diretor. Nenhuma célula
-escapa — o que enfraquece qualquer hipótese que trate o roteiro como a causa raiz.
+In `null-P1-r1` (roteiro off), the green team's gate "se fecha com um baque surdo" twice —
+T18 and T19 — and Link's disqualification is announced twice (T18, T19), all in the
+Director's `perception_events` (verified in the log). Case 20's conclusion that "null is the
+least repetitive; the roteiro adds repetition" needs qualifying: **null restages too**; what
+changes is the degree and the dullness, not the mechanism. The roteiro aggravates it through
+an extra channel (the "introduce X" block), but restaging a resolved event in front of a
+static scene is the Director's baseline behaviour. No cell escapes — which weakens any
+hypothesis treating the roteiro as the root cause.
 
-### 3.4 A guarda de confidencialidade corrompe o registro público: `[indistinct]` em todas as células
+### 3.4 The confidentiality guard corrupts the public record: `[indistinct]` in every cell
 
-O marcador `[indistinct]` — que é o `REDACTION_MARKER` de `src/confidentiality.py` —
-aparece em **todas** as células da bateria, incluindo base e null, e em **~38 ocorrências**
-nas 12 transcrições P1: base-r3 tem 8, oldcode-r1 tem 8, null-r1 tem 4. Exemplos:
+The `[indistinct]` marker — the `REDACTION_MARKER` of `src/confidentiality.py` — appears in
+**every** cell of the battery, including base and null, and in **~38 occurrences** across the
+12 P1 transcripts: base-r3 has 8, oldcode-r1 has 8, null-r1 has 4. Examples:
 
 - `base-P1-r3`: *"A Diretora Maelis projeta a voz sobre o caos: 'As segundas portas
   [indistinct] abertas. Entrem agora ou a névoa decide por vocês.'"* (T7)
 - `base-P1-r3`: *"Maelis ordena, com a [indistinct] erguida: 'Atravessem agora...'"* (T21)
-- `base-P1-r3` T33, **na narração em itálico**: *"...declarando que a seleção segue
+- `base-P1-r3` T33, **in the italic narration**: *"...declarando que a seleção segue
   [indistinct] e que as equipes formais foram dissipadas..."*
 - `null-P1-r2`: *"Garran Holt, em tom ríspido, diz a Riven que a masmorra não [indistinct]
   quem [indistinct] sem ordem..."*
 
-Mecanismo verificado: `narrate()` redige o conteúdo de **todo** perception_event contra
-`hidden_thought_tokens(history, characters, scene)` — o conjunto de tokens raros (≥4
-caracteres) a até `PAYLOAD_WINDOW=7` palavras de uma âncora (maiúscula mid-sentence,
-dígito ou CAPS) em **qualquer** pensamento privado. Com 21 personagens pensando por
-turno, esse conjunto cresce com palavras comuns, e a fala pública re-vozada (canal
-audible_speech) é redigida **antes de persistir**; a prosa depois ecoa o texto já
-redigido. Resultado: "bengala", "foram", "segue" viram `[indistinct]` em fala pública.
+Verified mechanism: `narrate()` redacts the content of **every** perception_event against
+`hidden_thought_tokens(history, characters, scene)` — the set of rare tokens (≥4 characters)
+within up to `PAYLOAD_WINDOW=7` words of an anchor (a mid-sentence capital, a digit or CAPS)
+in **any** private thought. With 21 characters thinking per turn, that set fills up with
+common words, and re-voiced public speech (the audible_speech channel) is redacted **before
+being persisted**; the prose then echoes the already-redacted text. Result: "bengala",
+"foram", "segue" become `[indistinct]` in public speech.
 
-Isto é exatamente a categoria "o sistema revelando sua própria mecânica" — a segunda
-quebra de imersão que o usuário mais valoriza — acontecendo no engine atual, em todas as
-células, com alta frequência, e **nenhum relatório anterior a mediu**. É o inverso do
-vazamento clássico: aqui a defesa contra vazamento de pensamento *mutila a fala pública*
-e deixa o artefato da guarda visível na ficção. Não é tunável por threshold: é o desenho
-(redação por token, subtrativa, global).
+This is exactly the "the system revealing its own machinery" category — the second
+immersion break the user cares most about — happening in the current engine, in every cell,
+at high frequency, and **no earlier report measured it**. It is the inverse of the classic
+leak: here the defence against thought leakage *mutilates public speech* and leaves the
+guard's artifact visible in the fiction. It is not tunable by threshold: it is the design
+(token-wise, subtractive, global redaction).
 
-### 3.5 O canal de re-voz `audible_speech`: um segundo produtor de fala, fora do agente do personagem
+### 3.5 The `audible_speech` re-voicing channel: a second producer of speech, outside the character agent
 
-`_persist_audible_speech` (`runner.py:1404`) persiste eventos `audible_speech` do Diretor
-como registros de fala atribuídos ao personagem. O prompt do Diretor proíbe inventar
-diálogo ("DIALOGUE OWNERSHIP: never invent new dialogue... Record only the stimulus or
-words already spoken in HISTORY") — mas o modelo re-vozou com texto *novo* e o código
-persistiu. Este canal é a maior fonte de ruído narrativo em **todas** as transcrições:
+`_persist_audible_speech` (`runner.py:1404`) persists the Director's `audible_speech` events
+as speech records attributed to the character. The Director's prompt forbids inventing
+dialogue ("DIALOGUE OWNERSHIP: never invent new dialogue... Record only the stimulus or words
+already spoken in HISTORY") — but the model re-voiced with *new* text and the code persisted
+it. This channel is the largest source of narrative noise in **every** transcript:
 
-- **Duplicação de conteúdo**: `base-P1-r2` T9 tem a fala da própria Maelis seguida de
-  *"A diretora Maelis grita uma ordem: 'Evacuar o salão agora! Todos para o pátio externo
-  pelo corredor leste!'"*; `oldcode-P1-r1` T4 tem **três** reafirmações em terceira pessoa
-  no mesmo turno ("Garran anuncia em voz alta...", "Riven questiona em voz alta...",
-  "Lorde Cassian propõe...").
-- **Auto-referência em terceira pessoa**: `null-P1-r1` T26-T28 — *"Téo, da arquibancada,
-  comenta em voz alta que a decisão de desqualificar Link foi dura demais..."* — Téo
-  falando de Téo.
-- **Re-voz do próprio jogador**: `base-P2-r1` T2 — *"Link responde, em tom neutro, que
-  continua aqui"* e *"Link acrescenta que sim, concorda em continuar ali"* — o canal
-  reafirma a entrada do humano em terceira pessoa, duplicada.
-- **Sangria de identidade**: `base-P1-r2` T23, Bruna diz *"Doran, ecos da morte não vão
-  achar a carga"* — quem ofereceu ler ecos foi Lucan; T24, Nix age com "a braçadeira
-  direita" — a braçadeira é da Bruna. `oldcode-P1-r2` (linha 716): *"Nix Pata-Ligeira
-  desliza até a fenda... **Ele** se curva, as orelhas felinas eretas"* — Nix é mulher
-  (confirmado o achado não-verificado do blind-read).
-- **O vazamento de IDs internos** (`oldcode-P1-r1` T39: *"C17 ordena que C20 permaneça
-  com os estilhaços e que C18 a acompanhe"*) aconteceu **por este mesmo canal** — um
-  registro `audible_speech` com IDs internos persistido.
+- **Content duplication**: `base-P1-r2` T9 has Maelis's own line followed by *"A diretora
+  Maelis grita uma ordem: 'Evacuar o salão agora! Todos para o pátio externo pelo corredor
+  leste!'"*; `oldcode-P1-r1` T4 has **three** third-person restatements in the same turn
+  ("Garran anuncia em voz alta...", "Riven questiona em voz alta...", "Lorde Cassian
+  propõe...").
+- **Third-person self-reference**: `null-P1-r1` T26-T28 — *"Téo, da arquibancada, comenta em
+  voz alta que a decisão de desqualificar Link foi dura demais..."* — Téo talking about Téo.
+- **Re-voicing the player themselves**: `base-P2-r1` T2 — *"Link responde, em tom neutro, que
+  continua aqui"* and *"Link acrescenta que sim, concorda em continuar ali"* — the channel
+  restates the human's input in the third person, duplicated.
+- **Identity bleed**: `base-P1-r2` T23, Bruna says *"Doran, ecos da morte não vão achar a
+  carga"* — the one who offered to read echoes was Lucan; T24, Nix acts with "a braçadeira
+  direita" — the armband is Bruna's. `oldcode-P1-r2` (line 716): *"Nix Pata-Ligeira desliza
+  até a fenda... **Ele** se curva, as orelhas felinas eretas"* — Nix is a woman (confirming
+  the blind-read's unverified finding).
+- **The internal-ID leak** (`oldcode-P1-r1` T39: *"C17 ordena que C20 permaneça com os
+  estilhaços e que C18 a acompanhe"*) happened **through this same channel** — an
+  `audible_speech` record with internal IDs, persisted.
 
-A guarda `_echoes_recent_speech` só pega auto-repetição quase-verbatim do **mesmo
-falante** (testes em `tests/test_audible_speech_echo.py`, intencional: "another speaker
-saying the same thing is not an echo"). Paráfrase passa. O canal continua produzindo
-duplicação e confusão de papéis em todas as células.
+The `_echoes_recent_speech` guard only catches near-verbatim self-repetition by the **same
+speaker** (tests in `tests/test_audible_speech_echo.py`, deliberate: "another speaker saying
+the same thing is not an echo"). Paraphrase passes. The channel keeps producing duplication
+and role confusion in every cell.
 
-### 3.6 Mandatos de produção mínima e a ausência de representação de "nada aconteceu"
+### 3.6 Minimum-production mandates and the absence of a representation for "nothing happened"
 
-Dois mandatos estruturais fabricam movimento quando nada acontece:
+Two structural mandates manufacture movement when nothing happens:
 
-1. O schema do Diretor exige `perception_events` com `minItems: 1`
-   (`narrator.py`, `build_narrator_json_schema`). O Diretor **não pode** responder "não
-   houve evento". Em cena parada, ele re-resolve o último evento (o portão fechando, o
-   teto caindo) — é o que o log mostra.
-2. A prosa tem piso de verbosidade: *"Narrate at least 150 words; a beat deserves full
-   paragraphs"* — e, simultaneamente, o fallback *"Nothing new happens; render a short
-   atmospheric beat"*. Duas instruções contraditórias no mesmo prompt. Com um beat vazio,
-   o modelo produz 150+ palavras de atmosfera; atmosfera repetida vira re-descrição; a
-   re-descrição precisa de "novidade" e escala micro-eventos sensoriais (lâmpadas que
-   tremem, lascas que caem, tetos que rompem). O sintoma original — "o chão treme e
-   lascas de pedra caem, de novo e de novo" — é, em parte, este piso de verbosidade
-   agindo sobre beats vazios.
-3. A válvula de escape existe e não foi usada: `time_skip_ticks` (1-8) para beats
-   exaustos está no schema e no prompt, mas em T30-T39 de base-r2 foi `0` em todos os
-   turnos. O estado "urgente mas não-resolúvel sem o PC" não tem representação no
-   pipeline: não é "exausto" (há perigo imediato), então o salto de tempo não é natural; e
-   não é resolúvel, porque a resolução está com o personagem que o burst exclui.
+1. The Director's schema requires `perception_events` with `minItems: 1` (`narrator.py`,
+   `build_narrator_json_schema`). The Director **cannot** answer "there was no event". On a
+   frozen scene it re-resolves the last event (the gate closing, the ceiling falling) — which
+   is what the log shows.
+2. The prose has a verbosity floor: *"Narrate at least 150 words; a beat deserves full
+   paragraphs"* — and, simultaneously, the fallback *"Nothing new happens; render a short
+   atmospheric beat"*. Two contradictory instructions in the same prompt. With an empty beat,
+   the model produces 150+ words of atmosphere; repeated atmosphere becomes re-description;
+   re-description needs "novelty" and escalates sensory micro-events (flickering lamps,
+   falling shards, ruptured ceilings). The original symptom — "the floor shakes and shards of
+   stone fall, again and again" — is, in part, this verbosity floor acting on empty beats.
+3. The escape valve exists and was not used: `time_skip_ticks` (1-8) for exhausted beats is
+   in the schema and in the prompt, but across T30-T39 of base-r2 it was `0` on every turn.
+   The state "urgent but unresolvable without the PC" has no representation in the pipeline:
+   it is not "exhausted" (there is immediate danger), so a time skip is not natural; and it is
+   not resolvable, because the resolution sits with the character the burst excludes.
 
-Bônus verificado: `null-P1-r1` T3 tem um registro de ação com conteúdo literal `"null"`
-persistido para C17 — o modelo emitiu `action_intent: "null"` (string) e o normalizador
-aceitou. Menor, mas é um vazamento de serialização na ficção.
+Verified bonus: `null-P1-r1` T3 has an action record with the literal content `"null"`
+persisted for C17 — the model emitted `action_intent: "null"` (a string) and the normaliser
+accepted it. Minor, but it is a serialisation leak into the fiction.
 
-### 3.7 Verificações pontuais: o que confirmei e o que não confirmei
+### 3.7 Spot checks: what I confirmed and what I did not
 
-**Confirmado por mim:**
+**Confirmed by me:**
 
-- `[indistinct]` em todas as células, inclusive base e null, inclusive na narração.
-- Nix como "Ele se curva" (oldcode-r2) — flip de gênero.
-- Gritos com audiência vazia: Riven gritando no mesmo salão com "ninguém além dele
-  percebe" (base-r2 T23/T25); Marta idem (oldcode-r1 T18; base-P2-r1 T15-T16). O
-  clamp de zona permite estreitamento ("the model may narrow perception"), e o modelo
-  estreita para zero em gritos — fisicamente absurdo no mesmo salão.
-- Finais no ar (base-r2 termina na T39 com uma ordem que ninguém obedece).
-- A ação `"null"` persistida.
-- As métricas arquivadas batem com o que o caso 20 reportou (rsr 1.7% para base-r2,
-  echo 0, cluster 3x/5t; P2: echo 0 vs 3-4, bocc 2 vs 3).
+- `[indistinct]` in every cell, including base and null, including in the narration.
+- Nix as "Ele se curva" (oldcode-r2) — a gender flip.
+- Shouts with an empty audience: Riven shouting in the same hall with "nobody but him
+  perceives it" (base-r2 T23/T25); Marta likewise (oldcode-r1 T18; base-P2-r1 T15-T16). The
+  zone clamp allows narrowing ("the model may narrow perception"), and the model narrows to
+  zero on shouts — physically absurd in the same hall.
+- Endings left hanging (base-r2 ends at T39 with an order nobody obeys).
+- The `"null"` action, persisted.
+- The archived metrics match what case 20 reported (rsr 1.7% for base-r2, echo 0, cluster
+  3x/5t; P2: echo 0 vs 3-4, bocc 2 vs 3).
 
-**Não confirmei por mim** (aceito como n=1 do blind-read): a troca de idioma em
-`null-r2`; o "Riven completa a avaliação e pede seu turno por 18 turnos"; o header de
-cena errado.
+**Not confirmed by me** (accepted as the blind-read's n=1): the language switch in `null-r2`;
+the "Riven finishes the assessment and asks for his turn for 18 turns"; the wrong scene
+header.
 
-**O que o caso 20 acertou** (com base nos dados): o R0 (ato terminal regenera; o loop de
-12 injeções idênticas sumiu — `act_regenerate:acts_exhausted` aparece no log e nenhuma
-célula base repete o evento injetado 4×); o Cut A (echo 0 em todas as células base vs 3-4
-em oldcode, n=2 na P2 e n=3 na P1); a cautela do confundidor do modelo (07-31) — o RSR de
-9.9% do oldcode na *nova* weights contra 31-41% na antiga é internamente consistente,
-embora eu não tenha a sessão antiga para re-verificar; e a honestidade da seção "how much
-to trust the numbers" — três métricas carregaram o resultado e são as três corretas.
+**What case 20 got right** (based on the data): R0 (the terminal act regenerates; the loop of
+12 identical injections is gone — `act_regenerate:acts_exhausted` appears in the log and no
+base cell repeats the injected event 4×); Cut A (echo 0 in every base cell vs 3-4 in oldcode,
+n=2 in P2 and n=3 in P1); the caution about the model confounder (07-31) — oldcode's 9.9% RSR
+under the *new* weights against 31-41% under the old is internally consistent, though I do not
+have the old session to re-verify; and the honesty of the "how much to trust the numbers"
+section — three metrics carried the result and they are the right three.
 
-## 4. Discussão: três defeitos de fundo
+## 4. Discussion: three underlying defects
 
-Respondendo à pergunta 1: **a arquitetura está num bom caminho e tem um defeito de fundo
-que vai continuar produzindo os sintomas.**
+Answering question 1: **the architecture is on a good path and has an underlying defect that
+will keep producing the symptoms.**
 
-O bom: a separação decisão→prosa (Diretor emite eventos tipados; renderizador cego) é o
-que tornou este relatório possível — todo o defeito acima foi localizado em minutos porque
-os eventos são tipados e logados. Os invariantes de vazamento por seleção-antes-da-chamada
-(prosa não recebe mentes, speech reduzido a marcador, redação por viewer) são corretos em
-desenho. Os cortes determinísticos do caso 20 (R0, Cut A, Cut B) são reais e verificáveis.
+The good: the decision→prose separation (the Director emits typed events; a blind renderer)
+is what made this report possible — every defect above was located in minutes because the
+events are typed and logged. The leak invariants based on selection-before-the-call (prose
+receives no minds, speech reduced to a marker, per-viewer redaction) are correct by design.
+Case 20's deterministic cuts (R0, Cut A, Cut B) are real and verifiable.
 
-O defeito de fundo, em uma frase: **o pipeline não tem representação para "nada de novo
-aconteceu" nem memória durável de "o que já foi fisicamente encenado", e cada camada tem
-um mandato de produzir conteúdo (≥1 evento; ≥150 palavras; beat novo a cada 3 turnos)**.
-Enquanto isso for verdade, todo remendo lexical (thresholds de similaridade) vai falhar na
-margem de paráfrase — que é exatamente onde o modelo vive. Os sintomas vão continuar:
-re-encenação de evento físico, contradição física (Liora morre três vezes, o teto desaba
-três vezes), estol de cena que o jogador percebe como "estou falando com uma máquina".
+The underlying defect, in one sentence: **the pipeline has no representation for "nothing new
+happened" and no durable memory of "what has already been physically staged", and every layer
+carries a mandate to produce content (≥1 event; ≥150 words; a new beat every 3 turns)**. While
+that stays true, every lexical patch (similarity thresholds) will fail at the paraphrase
+margin — which is exactly where the model lives. The symptoms will continue: restaging of a
+physical event, physical contradiction (Liora dies three times, the ceiling collapses three
+times), scene stalls the player experiences as "I am talking to a machine".
 
-O segundo defeito de fundo: **a confidencialidade é lexical, subtrativa e global, e o seu
-falso-positivo é visível na ficção** (o `[indistinct]` em fala pública persistida e em
-narração). Isso é uma invariante violada na prática — a guarda contra "pensamento privado
-virando fala" transforma fala pública em lixo legível, em todas as células. A direção
-correta não é tunar tokens; é parar de redigir no registro persistido (redigir só na
-projeção por viewer, ou descartar o evento quando não dá para publicar com segurança).
+The second underlying defect: **confidentiality is lexical, subtractive and global, and its
+false positive is visible in the fiction** (the `[indistinct]` in persisted public speech and
+in narration). This is an invariant violated in practice — the guard against "private thought
+becoming speech" turns public speech into readable garbage, in every cell. The right
+direction is not tuning tokens; it is to stop redacting in the persisted record (redact only
+in the per-viewer projection, or discard the event when it cannot be published safely).
 
-O terceiro: **o canal `audible_speech` dá ao Diretor um segundo papel de locutor**, com
-texto livre persistido em terceira pessoa — violando a separação de papéis da tabela do
-AGENTS.md §3 (Personagem fala; Diretor narra) — e é o vetor de duplicação, auto-referência,
-sangria de identidade e do vazamento C17/C20.
+The third: **the `audible_speech` channel gives the Director a second speaking role**, with
+free text persisted in the third person — violating the role separation in the AGENTS.md §3
+table (the Character speaks; the Director narrates) — and it is the vector for duplication,
+self-reference, identity bleed and the C17/C20 leak.
 
-Respondendo à pergunta 3 (as histórias fazem sentido?): elas fazem sentido **enquanto o
-mundo anda**, e deixam de fazer exatamente em três padrões repetidos, em ordem de dano:
+Answering question 3 (do the stories make sense?): they make sense **while the world moves**,
+and stop making sense in exactly three repeated patterns, in order of damage:
 
-1. **Estol por impasse com o PC** (base-r2 T30-T39): a ficção exige o jogador, o motor
-   não devolve o controle, e o mundo re-encena a crise por 10 turnos. É o pior padrão —
-   o leitor vê o mundo "girando em falso".
-2. **Contradição física** (Liora morre 3×; o portão se fecha 2×): repetição que vira
-   incoerência, mais grave que a mera repetição porque quebra o contrato de realidade.
-3. **Ruído de canal** (duplicação de fala em 1ª+3ª pessoa, auto-referência, `[indistinct]`,
-   gritos inaudíveis no mesmo salão): poluição constante que corrói a leitura — nenhuma
-   transcrição escapa.
+1. **A stall from deadlock with the PC** (base-r2 T30-T39): the fiction demands the player,
+   the engine does not hand control back, and the world restages the crisis for 10 turns. It
+   is the worst pattern — the reader watches the world spin in place.
+2. **Physical contradiction** (Liora dies 3×; the gate closes 2×): repetition that becomes
+   incoherence, worse than mere repetition because it breaks the reality contract.
+3. **Channel noise** (speech duplicated in 1st + 3rd person, self-reference, `[indistinct]`,
+   inaudible shouts in the same hall): constant pollution that erodes the reading — no
+   transcript escapes it.
 
-## 5. Limitações
+## 5. Limitations
 
-- Li 5 transcrições inteiras e verifiquei dirigidamente as demais; não li 100% das 16.
-- Minhas verificações primárias cobrem 2 sessões (base-r2, null-r1) nos trechos críticos;
-  as demais confirmações (Nix, gritos, etc.) são leitura de transcrição, não de log.
-- Não tenho as sessões do modelo antigo (07-28); a decomposição código vs. modelo do RSR
-  fica como o caso 20 a registrou.
-- Não re-rodei nada; nenhuma das minhas conclusões é estatística nova, e sim leitura de
-  evidência já arquivada.
-- n=1 do blind-read para idioma inglês e para "Riven pede o turno por 18 turnos" — não
-  re-verifiquei.
-- Não avaliei frontend, plugins, nem os casos 01-19.
+- I read 5 transcripts in full and swept the rest in a targeted way; I did not read 100% of
+  the 16.
+- My primary verifications cover 2 sessions (base-r2, null-r1) in the critical stretches; the
+  other confirmations (Nix, the shouts, etc.) are transcript reading, not log reading.
+- I do not have the old model's sessions (07-28); the code vs model decomposition of the RSR
+  stands as case 20 recorded it.
+- I re-ran nothing; none of my conclusions is new statistics, only a reading of already
+  archived evidence.
+- The blind-read's n=1 for the English language switch and for "Riven asks for his turn for 18
+  turns" — I did not re-verify those.
+- I did not evaluate the frontend, the plugins, or cases 01-19.
 
-## 6. Recomendação: o que atacar primeiro (e o que não atacar)
+## 6. Recommendation: what to attack first (and what not to)
 
-1. **Memória durável de eventos encenados + comparação semântica, aplicada ao DIRETOR**
-   (não à prosa). O MDR (`material_delta_rate`) foi especificado e nunca rodou; o mesmo
-   vale para um juiz semântico. O alvo é: re-propor um `physical_outcome`/`scene_change`
-   cujo conteúdo já foi encenado (semanticamente) deve custar correção ou rejeição
-   determinística — o equivalente do R0 para o Diretor. **Reabrir a decisão de cancelar o
-   MEMORY factor**: o gate que a cancelou (cluster_max < 4 em base/null) foi medido com
-   um instrumento que não viu a pior sessão (similaridades 0.67-0.79, abaixo de τ=0.8).
-   A re-encenação cross-submission em base-r2 é exatamente o que MEMORY existia para
-   resolver, e continua acontecendo.
-2. **Resolver o deadlock do protagonista.** Sinal determinístico: os próprios eventos do
-   Diretor nomeiam o PC ("Link, abra o portal") enquanto `return_control=false`. Quando o
-   conteúdo do beat exige o PC, devolver o controle — ou, no mínimo, remover a exclusão
-   dos primeiros beats (`BURST_PROTAGONIST_EXCLUDE_BEATS`) quando o beat nomeia o PC.
-   Barato e mexe na pior sessão. Alternativa: o roteiro deve poder declarar
-   "este beat depende do PC" sem colocar o PC em `expected_actors` (a exclusão é correta
-   para beats que não precisam dele).
-3. **Parar o `[indistinct]` de chegar ao registro persistido.** Redação deve acontecer na
-   projeção por viewer, não no conteúdo persistido; quando o conteúdo não puder ser
-   publicado com segurança, descartar o evento (fail closed) em vez de publicar texto
-   mutilado. Primeiro passo: um scanner offline (no formato de
-   `tools/acceptance/repetition_metrics.py`) que conte `REDACTION_MARKER` por sessão/canal
-   — o número é hoje desconhecido e é a prova da falha.
-4. **Fechar o canal de texto livre do `audible_speech`.** O Diretor não deveria re-vozar
-   com texto novo: persistir apenas a referência a uma fala já existente em HISTORY (por
-   índice), nunca texto recém-escrito. Isso elimina de uma vez duplicação, auto-referência,
-   o vetor de IDs internos e boa parte do `[indistinct]` (que incide justamente na re-voz).
-   A necessidade WT-09 (fala audível chegar à memória de quem não respondeu) permanece —
-   só muda o produtor do texto.
-5. **Não atacar**: o threshold da guarda de prosa (0.777 vs 0.8) — não consertaria
-   base-r2, e o problema mora no nível de evento; a "fact churn" — observada sem dano,
-   aguardar evidência de dano real antes de mexer; e não reconstruir o pipeline de
-   eventos tipados — ele é o que permitiu esta análise.
+1. **Durable memory of staged events + semantic comparison, applied to the DIRECTOR** (not to
+   the prose). The MDR (`material_delta_rate`) was specified and never ran; the same goes for
+   a semantic judge. The target is: re-proposing a `physical_outcome`/`scene_change` whose
+   content has already been staged (semantically) must cost a correction or a deterministic
+   rejection — the Director's equivalent of R0. **Reopen the decision to cancel the MEMORY
+   factor**: the gate that cancelled it (cluster_max < 4 in base/null) was measured with an
+   instrument that did not see the worst session (similarities 0.67-0.79, below τ=0.8).
+   Cross-submission restaging in base-r2 is exactly what MEMORY existed to solve, and it is
+   still happening.
+2. **Resolve the protagonist deadlock.** A deterministic signal: the Director's own events
+   name the PC ("Link, abra o portal") while `return_control=false`. When the beat's content
+   demands the PC, hand control back — or at minimum, drop the first-beats exclusion
+   (`BURST_PROTAGONIST_EXCLUDE_BEATS`) when the beat names the PC. Cheap, and it moves the
+   worst session. Alternative: the roteiro should be able to declare "this beat depends on the
+   PC" without putting the PC into `expected_actors` (the exclusion is correct for beats that
+   do not need them).
+3. **Stop `[indistinct]` from reaching the persisted record.** Redaction must happen in the
+   per-viewer projection, not in the persisted content; when content cannot be published
+   safely, discard the event (fail closed) instead of publishing mutilated text. First step:
+   an offline scanner (in the shape of `tools/acceptance/repetition_metrics.py`) counting
+   `REDACTION_MARKER` per session/channel — the number is unknown today and it is the proof of
+   the failure.
+4. **Close the `audible_speech` free-text channel.** The Director should not re-voice with new
+   text: persist only a reference to a line already in HISTORY (by index), never freshly
+   written text. That removes, in one move, the duplication, the self-reference, the
+   internal-ID vector and much of the `[indistinct]` (which lands precisely on the re-voicing).
+   The WT-09 need (audible speech reaching the memory of whoever did not answer) remains — only
+   the producer of the text changes.
+5. **Do not attack**: the prose guard's threshold (0.777 vs 0.8) — it would not fix base-r2,
+   and the problem lives at the event level; "fact churn" — observed without damage, wait for
+   evidence of real damage before touching it; and do not rebuild the typed-event pipeline —
+   it is what made this analysis possible.
 
-Prioridade: 1 e 2 juntos atacam a pior sessão pelo mecanismo real; 3 e 4 atacam o ruído
-que contamina todas as sessões. O custo de errar aqui é alto e medível: a bateria existe,
-o modelo é o mesmo, e o `oldcode` ainda roda — qualquer um desses cortes tem contrafactual
-disponível.
+Priority: 1 and 2 together attack the worst session through the real mechanism; 3 and 4 attack
+the noise contaminating every session. The cost of being wrong here is high and measurable:
+the battery exists, the model is the same, and `oldcode` still runs — every one of these cuts
+has a counterfactual available.
