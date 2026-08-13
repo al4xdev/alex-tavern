@@ -327,3 +327,13 @@ to enact its own standing order emits `zone_moves` at a normal rate, this is a
 prompt-contract defect and closes cheaply. If it still emits `null`, the gap is
 structural and the `action` field needs a mechanical path. Decide that with a
 replay before writing code.
+
+## Related: 69, 72 and 77 are one shape
+
+**The engine keeps no record of what has already been settled.** Task 69 is a
+resolved event re-proposed (the ceiling collapses three times). Task 77 is an
+issued order never enacted (the room is sent through a gate four times and
+nobody moves). Task 72 is the durable structure that would hold either.
+
+They are deliberately **not merged**: 77 has evidence and 72 has a design, and
+merging them would cost the evidence its own name and make 72 unfalsifiable.

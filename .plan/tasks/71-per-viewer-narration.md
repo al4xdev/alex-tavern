@@ -25,7 +25,7 @@
 >
 > ## ✅ THE RE-MEASUREMENT HAS RUN — 2026-08-12, the task stands
 >
-> Split rate 53.7% → **27.8%** (p=1.7e-4), cost multiplier **1.28x**, and no
+> Split rate 53.7% → **27.8%** (pooled p withdrawn, see below), cost multiplier **1.28x**, and no
 > singleton clusters in the four post-67 sessions scored that day - a fifth
 > session later found them, see the correction under "The singleton question".
 > See "The re-measurement" below. The pre-67 figures further down this file are superseded; they are
@@ -380,7 +380,7 @@ close, alive in the post-67 graph.
 - [x] **⛔ BLOCKING, do this first:** the split rate and cluster count
       **re-measured on the post-67 graph**. Every figure in this file is a
       pre-67 upper bound. If the rate collapses, re-size or close the task
-      instead of building it; *(2026-08-12: 53.7% → **27.8%**, p=1.7e-4. It
+      instead of building it; *(2026-08-12: 53.7% → **27.8%**, pooled p withdrawn. It
       halved but did not collapse, and stays above the 20% line the rule was
       registered against)*;
 - [x] the singleton-cluster question decided against those numbers — the leaning
@@ -417,7 +417,9 @@ close, alive in the post-67 graph.
 - [x] **the residual transcript leak re-scored on a fresh cell.**
       *(2026-08-12, two cells `09aabf25` and `54bcdace`: **0 of 36 split
       narrations**, both halves live. The task's headline is 16/29 (55%) →
-      3/78 (3.8%) pooled, p=9.8e-09. The backstop removed nothing in either
+      3/78 (3.8%) pooled. **The p-value this line used to carry was pooled over
+      turns and is withdrawn; the session-level test gives p = 0.13 on two
+      informative sessions against four.** The backstop removed nothing in either
       cell because the model did not leak in them, so its own evidence stays
       the offline replay: 3 fires, 0 false positives, over 42 narrations.)*
 
@@ -568,9 +570,15 @@ reach this" answers yes for each half of a split scene and finds nothing.
 > | pre-71 | 2 | 29 | **16 (55%)** | |
 > | roster only | 2 | 42 | **3 (7.1%)** | |
 > | roster + backstop | 2 | 36 | **0** | vs roster only **p = 0.25** |
-> | **all post-71** | 4 | 78 | **3 (3.8%)** | vs pre-71 **p = 9.8e-09** |
+> | **all post-71** | 4 | 78 | **3 (3.8%)** | vs pre-71 — see caveat |
 >
-> The last row is the task's result and it is overwhelming. **The
+> ⚠ **The p = 9.8e-09 that stood here is withdrawn**: it pooled turns across
+> sessions, and one Director decision produces many correlated records. The
+> session-level test on two informative pre sessions against four post gives
+> **p = 0.13**. The separation is still clean per session (55% and 22% before;
+> 0%, 9%, 0%, 0% after) and that, not the p-value, is what supports the task.
+>
+> The last row is the task's result and the direction is strong. **The
 > roster-versus-backstop comparison is not significant** and must not be quoted
 > as if it were: 0 of 36 is an ordinary draw from a 7% rate.
 >

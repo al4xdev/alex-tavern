@@ -107,16 +107,20 @@ PROFILE_INPUTS: dict[str, list[tuple[str, str | None]]] = {
     # turn commits exactly 1, so any other shape changes session LENGTH, and
     # length drives every recurrence number here. Only the content differs, which
     # is the whole point: it isolates "does the player push" from everything else.
+    # Accented 2026-08-13 to match P1, which is accented. The two P3 sessions run
+    # on 2026-08-12 (`5d60575d`, `d5a2ccf0`) used the unaccented text; nothing
+    # parses these strings, so the change is cosmetic, but a rerun will not be
+    # byte-identical to those two.
     "P3": [
         ("speech", "Eu vou na frente. Abram caminho."),
         ("skip", None),
-        ("action", "atravessar o salao em direcao a saida mais proxima"),
+        ("action", "atravessar o salão em direção à saída mais próxima"),
         ("skip", None),
         ("skip", None),
-        ("speech", "Nao vou esperar mais. Estou entrando."),
+        ("speech", "Não vou esperar mais. Estou entrando."),
         ("skip", None),
         ("skip", None),
-        ("action", "seguir em frente sozinho se ninguem acompanhar"),
+        ("action", "seguir em frente sozinho se ninguém acompanhar"),
         ("skip", None),
     ],
     "P2": [

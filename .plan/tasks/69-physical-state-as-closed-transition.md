@@ -165,3 +165,31 @@ output may not.
 **The measurement that would falsify this task:** if closed transitions land and
 the restaging cluster count does not fall, the state model is not the mechanism
 and the production mandate (task 72) is carrying all of it.
+
+## Related: 69, 72 and 77 are one shape
+
+**The engine keeps no record of what has already been settled.** Task 69 is a
+resolved event re-proposed (the ceiling collapses three times). Task 77 is an
+issued order never enacted (the room is sent through a gate four times and
+nobody moves). Task 72 is the durable structure that would hold either.
+
+They are deliberately **not merged**: 77 has evidence and 72 has a design, and
+merging them would cost the evidence its own name and make 72 unfalsifiable.
+
+## Inherited from task 76's falsifier — a missing spatial field
+
+Measured 2026-08-13 over 33 sessions: **136 of 403 `zone_moves` (34%) send a
+character to a position inside the room they are already in** — `Salão dos
+Quatro Arcos` to `Salão dos Quatro Arcos, junto ao duto de ventilação`.
+
+The cause is that `Scene` has nowhere else to put it. It holds `zones` (the
+audibility graph) and `positions` (character -> zone), and `scene_blocking` is
+scratch that `narrate()` pops. **A position within a room can only be expressed
+by minting a zone, and a zone is the unit of audibility**, so blocking detail
+becomes an acoustic wall.
+
+Task 76 stops short here deliberately: the fix is neither its graph rule nor a
+contract clause, because the contract has nowhere to redirect the Director to.
+**This is a storage decision, and 69 owns storage.** Whatever 69 builds should
+answer: where does "by the door, three paces from Marta" live, such that it
+survives the turn and does not sever anyone's hearing?

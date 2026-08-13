@@ -203,3 +203,13 @@ battery can check it.
 longer show long stalls, then restaging was the whole of it and the social layer
 is not needed. **This is now the gate in the banner, evaluated at the checkpoint,
 not a retrospective note.**
+
+## Related: 69, 72 and 77 are one shape
+
+**The engine keeps no record of what has already been settled.** Task 69 is a
+resolved event re-proposed (the ceiling collapses three times). Task 77 is an
+issued order never enacted (the room is sent through a gate four times and
+nobody moves). Task 72 is the durable structure that would hold either.
+
+They are deliberately **not merged**: 77 has evidence and 72 has a design, and
+merging them would cost the evidence its own name and make 72 unfalsifiable.

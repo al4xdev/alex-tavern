@@ -283,7 +283,7 @@ What the re-derivation changed:
 |---|---|---|
 | **64** | *"may be closed by 70 alone"* | **not closed, and re-scoped.** Never-returned sessions 5/12 → **0/9** (p=0.045), but the rate is still ~3%. Reading all ten return-control turns: the Director picks exactly the right moments and picks few. **Calibration, not a missing mechanism** |
 | **63** | out of wave 1 as *"a prose-rendering cosmetic issue"* | **half wrong.** Re-scored over seven sessions: persisted speech 0 and ledger 0 everywhere, but **4 of the 6 surviving markers are in persisted Narrator REPORTS with audiences of 18 and 19**. Stays out of wave 1; re-scoped as durable-report damage |
-| **71** | wave 3, *"parked until 67 ships"* | **✅ CLOSED.** Built once 67 landed. Cross-cluster leak 16/29 (55%) → 3/78 (3.8%), p=9.8e-09, cost 1.278x |
+| **71** | wave 3, *"parked until 67 ships"* | **✅ CLOSED.** Built once 67 landed. Cross-cluster leak 16/29 (55%) → 3/78 (3.8%), cost 1.278x. Pooled p withdrawn; per session 55%/22% → 0%/9%/0%/0% |
 | **76** *(new)* | — | **shipped.** Sibling sub-zones were mutually deaf; 25 wrongly-denied audience entries → 20 |
 | **77** *(new)* | — | **open, cause unknown.** The room is ordered through a gate four times in three turns and nobody moves. Two diagnoses written and both falsified by their own evidence |
 | **72** | gated on *"stalls survive 69"* | **the stalls are documented (77) but 69 has not shipped**, so the gate is still not formally testable. 77's replay points at un-remembered commitments, which is 72's territory |
@@ -332,11 +332,21 @@ legitimately close here without being built.
 
 ### Wave 2 — make the scene move
 
+**Re-ordered 2026-08-13 by the owner: 77 goes first.**
+
 | task | why here |
 |---|---|
-| **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Owns the durable-state storage decision** (below) |
-| **64** — Return control | Depends on what 69 builds; **may be closed by 70 alone at the checkpoint** — and if task 74's offline test survives, 64 is likely its first consumer rather than a task of its own |
+| **77** — The order that nobody executes | **FIRST.** The phase's headline complaint made concrete, and the only item here with a transcript a reader can check: the room is ordered through a gate four times in three turns and nobody moves. Its cause is undiagnosed on purpose - two candidate mechanisms have already been written and falsified inside the file |
+| **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Owns the durable-state storage decision** (below). Re-measured post-wave-1 and still real: 97 of 987 Director events re-proposed within three turns |
+| **64** — Return control | **Re-scoped to calibration, not mechanism.** Never-returned sessions 5/12 → 0/9, and reading all ten `return_control` turns shows the Director picks the right moments and picks few. Do not build a new trigger; the contract wording is the first suspect |
 | **72** — Commitments as first-class state | **Gated.** Ships only if the checkpoint shows stalls survive 69 — see below |
+
+> **69, 72 and 77 are three faces of one thing: the engine keeps no record of
+> what has already been settled.** 69 is a resolved event re-proposed, 77 is an
+> issued order never enacted, 72 is the durable structure that would hold either.
+> They stay **separate** on purpose — 77 has evidence and 72 has a design, and
+> merging them would cost the evidence its name and make 72 unfalsifiable.
+> Cross-linked in all three files.
 
 **69 owns the storage decision.** Tasks 69, 72 and 66 all want durable state, and
 `scene.physical_facts` is already pinned at its 40-key cap in **4 of 12 P1 runs**

@@ -298,6 +298,71 @@ evidence now points both ways, so the choice belongs to the owner rather than to
 me. Task 54's doctrine favours rule 1: separation should be declared, and
 undeclared deafness is the expensive error.
 
+## ✅ THE FALSIFIER RAN — 2026-08-13, and it fires. Do not adopt rule 1.
+
+The owner froze the graph until this was measured. It is measured, and it moves
+the fix out of the graph entirely.
+
+> *"if sibling sub-zones are rare once the Director stops being handed a contract
+> that invites them, this is a prompt problem and not a graph problem."*
+
+**Over 33 sessions, 403 `zone_moves` with a known origin:**
+
+| | |
+|---|---|
+| destination whose own prefix names the zone the mover just left | **136 (34%)** |
+| destination whose name literally contains the origin | 39 (10%) |
+
+Unambiguous on reading:
+
+```
+Salão dos Quatro Arcos          ->  Salão dos Quatro Arcos, junto ao duto de ventilação
+Salão dos Quatro Arcos          ->  Salão dos Quatro Arcos, porta dos fundos, junto com Marta
+Ala Leste, túnel de manutenção  ->  Ala Leste, túnel de manutenção (lado Garran)
+```
+
+**A third of all movement is somebody crossing the room they are already in.**
+That is the mass, and the falsifier's own words make it a prompt problem.
+
+### The clause that invites it
+
+`narrator.py`, on reconciling a character's self-declared position with canon:
+
+> *"PREFER splitting the stage with zone_moves (creating a zone if needed)"*
+> *"When canon and self-location differ, create or use a separate zone with
+> zone_moves first."*
+
+A character says *"I step toward the rubble"*, that differs from canon, and the
+contract instructs the Director to split the stage. It is obeying.
+
+### ⚠ But the contract cannot be fixed on its own, and this is the real finding
+
+`Scene` holds exactly two spatial fields: `zones` (the audibility graph) and
+`positions` (character -> zone). `scene_blocking` is a scratch field and
+`narrate()` pops it before anything durable sees it.
+
+**So there is no representation of "where in the room you are" that is not a
+zone, and a zone is the unit of audibility.** Every positional detail the
+Director wants to keep becomes an acoustic barrier. Telling it *"zone_moves is
+for changing rooms"* leaves it two options: drop the detail, or keep doing this.
+
+That is the root cause of this whole family - task 54's finding 1, this task, and
+the two false positives the prefix rule ships with. It is not a graph bug and not
+a prompt bug. **It is a missing field.**
+
+### What to do, in order
+
+1. **Do not adopt rule 1.** The owner's two objections stand and the measurement
+   removes its justification: the mass is in naming, not in the graph.
+2. **Do not ship a contract clause alone either.** It has nowhere to send the
+   Director instead.
+3. **This belongs to task 69**, which already owns the durable-state storage
+   decision. A position-within-zone field is exactly that decision, and 69 is
+   the task that gets to make it. Cross-referenced there.
+4. The shipped prefix rule **stays** - it is correct where it fires, it fired 3
+   times in 4 live sessions, and it is not the thing standing between this
+   engine and the defect.
+
 **The measurement that would falsify this task:** if sibling sub-zones are rare
 once the Director stops being handed a contract that invites them, this is a
 prompt problem and not a graph problem. Worth checking, because the true fix may

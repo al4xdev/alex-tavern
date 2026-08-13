@@ -270,7 +270,7 @@ ones, landing on exactly 108 narrated turns each side:
 | pre-67 | 58/108 (53.7%) | 2.352 | **0.740** |
 | post-67 | 30/108 (27.8%) | 1.278 | **0.000** |
 
-Fisher p=1.7e-4. The rate halved but stayed above the 20% line the decision rule
+The rate halved but stayed above the 20% line the decision rule
 was registered against, so 71 stands. **Every singleton cluster was an
 artifact** — none in the four post-67 sessions scored that day — so the cost
 multiplier is 1.28x under either policy. A fifth session (`21f7c4e1`) later
@@ -294,7 +294,11 @@ which is most turns.
 
 All nine closure items are discharged. The leak, scored by
 `scan_cross_cluster_leak`: **16 of 29 (55%) → 3 of 78 (3.8%)** pooled across
-four post-71 sessions, p = 9.8e-09. Cost 1.278x, concurrent.
+four post-71 sessions. Cost 1.278x, concurrent.
+
+⚠ **Both figures above are pooled over turns and their p-values are withdrawn**
+(`6f2bad2`): the session is the correlated unit. Per session the leak is 55% and
+22% before, 0%, 9%, 0%, 0% after - clean separation, session-level p = 0.13.
 
 ⚠ **The deterministic backstop has never fired in production.** Both cells that
 carry it came back 0 (22 and 14 narrations), and diffing every persisted

@@ -245,6 +245,18 @@ running when this was written.
 such child between replicates. Every "DONE" it has ever reported is suspect, and
 two of tonight's were wrong. Check the PARENT pid, not the child.
 
+**⟳ Owner asked for the waiter itself to be fixed, not documented.** Done:
+`tools/acceptance/wait_for_battery.sh` watches the parent
+(`-m tools.acceptance.repetition_battery`), which lives for the whole run, and
+cannot exit on a child gap. The reasoning is in the script header so the next
+person does not rewrite the one-liner.
+
+**⟳ The second post-fold replicate landed: `377582f0`, 37 turns.** It produced
+**0 cluster narrations at all** - the scene never split - so like `75d9f36f` it
+is uninformative rather than confirming. **The fold's live evidence is still one
+cell** (`d8310b8b`, 2 cluster narrations, 0 eventless). Recorded as it landed,
+per the owner's instruction; not re-opened on one thin cell.
+
 ---
 ## 9. I audited task 67's own closure metrics, and they were luckier than strong
 
@@ -405,3 +417,63 @@ split rate in particular cannot support any comparison at the sample sizes we
 run.
 
 ---
+
+---
+# Owner answered — work done against `ANSWERS-NIGHT-2026-08-12.md`
+
+## 14. Task 76's falsifier fired, and it moved the fix out of the graph
+
+**§5 said: measure before touching the graph. Measured; the graph stays frozen
+and rule 1 is not adopted.**
+
+Over 33 sessions, 403 `zone_moves` with a known origin: **136 (34%) send a
+character to a position inside the room they are already in.**
+
+```
+Salão dos Quatro Arcos          ->  Salão dos Quatro Arcos, junto ao duto de ventilação
+Ala Leste, túnel de manutenção  ->  Ala Leste, túnel de manutenção (lado Garran)
+```
+
+The contract invites it in one clause: *"PREFER splitting the stage with
+zone_moves (creating a zone if needed)"* whenever self-location differs from
+canon.
+
+**⚠ And the contract cannot be fixed alone.** `Scene` holds `zones` and
+`positions` and nothing else; `scene_blocking` is scratch that `narrate()` pops.
+**There is no way to say "where in the room you are" except by minting a zone,
+and a zone is the unit of audibility.** So blocking detail becomes an acoustic
+wall by construction. Telling the Director to stop leaves it nowhere to go.
+
+That is the root of task 54 finding 1, task 76, and the prefix rule's two false
+positives. **It is a missing field, not a graph bug and not a prompt bug**, and
+I handed it to **task 69**, which already owns the storage decision.
+
+The shipped prefix rule stays: correct where it fires, and not the thing standing
+between the engine and the defect.
+
+## 15. Everything else in the answers file
+
+- **§2 done** — 77 is now first in wave 2, above 69.
+- **§3 done** — 69, 72 and 77 cross-linked, with the "three faces of one thing"
+  framing written once in the roadmap and once in each file. Not merged.
+- **§4 done** — second post-fold replicate `377582f0` landed with **0 cluster
+  narrations at all**, so it is uninformative rather than confirming. The fold's
+  live evidence remains one cell. Recorded, not re-opened.
+- **§7 done** — P3 accented to match P1; noted that the two sessions already run
+  used unaccented text, so a rerun is not byte-identical.
+- **§8 done** — `tools/acceptance/wait_for_battery.sh` watches the parent pid.
+  The reasoning is in the header so nobody rewrites the one-liner.
+- **§12 done** — swept every pooled p-value out of `CHECKPOINT.md`, `ROADMAP.md`
+  and task 71, including two that survived the first pass inside a closure item
+  and a summary table calling the result *"overwhelming"*.
+
+## 16. ⚠ The working tree arrived older than HEAD
+
+Four `.plan` files came back as a stale copy — the SSH sync, most likely. The
+diff would have **deleted decision 13 and reinstated the withdrawn p-values and
+the retracted containment claim**: precisely the errors §12 credits me with
+fixing. Restored from HEAD; the stale copies are in
+`/tmp/alex-tavern-worktree-conflict/` if you want to see them.
+
+Worth knowing because it can happen again, and a careless `git add -A` would
+have committed the regression silently.
