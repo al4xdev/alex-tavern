@@ -26,3 +26,8 @@ src/version.txt
 
 # Local agent relay config (per-machine, not part of the project)
 .pi/
+
+# Machine-local Claude Code settings: permission grants and which MCP
+# servers this checkout enables. The shared contract is .claude/settings.json;
+# this one arrived by a stray `git add -A` on 2026-08-13.
+.claude/settings.local.json
