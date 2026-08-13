@@ -95,6 +95,77 @@ Measured directly: 24 same-speaker pairs at ≥ 0.70 and 51 at ≥ 0.60 across t
 nine sessions, against `ECHO_PERSIST` = 0. **The one speech-repetition metric
 this project owns is blind to the whole band by design.**
 
+## ✅ Candidate 1 CHECKED 2026-08-13 — falsified, twice
+
+The file called this *"the cheapest thing to check and the most likely"*. It is
+cheap. It is not the cause.
+
+**The beat machinery is not stuck.** Across the cited stall in `09aabf25`:
+
+```
+T28  B11_aftermath_and_rebinding   started T27
+T31  B12_entrance_of_the_howl      started T30, actions_elapsed 0
+T32  B12                           actions_elapsed 1
+T33  B12                           actions_elapsed 2
+T34  B13_second_howl_and_fissure   started T33, replans_in_act 1
+T36  B14_fissure_and_portal_charge started T35
+```
+
+The beat advances, tracks its own budget, and **replans when it stops
+progressing**. There is no "beat that was never consumed" here; the machinery
+notices and moves on.
+
+**A better version of the hypothesis, also falsified.** B12's exit condition is a
+POSITION the engine cannot represent:
+
+> *"Todas as equipes **se posicionam diante do portão norte**, com a diretora
+> dando a ordem final de entrada…"*
+
+and B13 carries it **verbatim** after the replan. That is a real observation, and
+it connects to task 79. But it does not generalise:
+
+| | pooled | per session |
+|---|---|---|
+| exit conditions phrased as a position | **53/396 = 13%** | median 16%, sd 10.3pts, range 0-36% |
+| beat lifetime, positional exit condition | **2.36 turns** (n=53) | median 2.0, max 3 |
+| beat lifetime, other exit condition | **2.51 turns** (n=344) | median 3.0, max 7 |
+| transitions copying the exit condition verbatim | **9/368 = 2%** | median 0%, range 0-15% |
+
+**Beats with an unsatisfiable positional exit condition run SHORTER, not longer
+(0.94x).** If the mechanism were "the exit condition can never be met so the beat
+lingers", those beats would linger. They do not. And verbatim copying, the thing I
+actually saw at B12 to B13, happens on 2% of transitions — the cited case is one
+of nine in the whole corpus.
+
+**So candidate 1 is dead in both forms, and this is the third falsified diagnosis
+in this file.**
+
+## How big is the symptom, actually — measured 2026-08-13
+
+Never sized before. Definition matched to what the transcript shows: **three
+consecutive turns where some line restates a line from the turn before
+(similarity ≥ 0.6, any speaker), while nobody's position changes.**
+
+| | |
+|---|---|
+| sessions with at least one such window | **13 of 33 (39%)** |
+| total windows | **23** |
+| per session | **median 0**, max 5 |
+
+⚠ **My first detector said 9%** because it required the SAME speaker to restate
+three times. What the transcript shows is three DIFFERENT speakers restating one
+order, so that detector was measuring a narrower thing than the defect. Recorded
+because the corrected number is four times larger and the correction came from
+re-reading the transcript, not from the number looking wrong.
+
+**What this means for priority.** The owner raised 77 above most of wave 2 on
+2026-08-13, before this sizing existed. The symptom is real and reaches **39% of
+sessions**, but it is **sparse inside them** (median 0 windows) and its cause has
+now survived three attempts to name it. That is a different object from *"the
+phase's headline complaint"* as this file's header still calls it. **The ranking
+is the owner's call and I have not changed it** — but it was made without this
+number.
+
 ## Direction — deliberately not prescribed
 
 The defect is real and readable; the mechanism is not diagnosed. Candidates,
