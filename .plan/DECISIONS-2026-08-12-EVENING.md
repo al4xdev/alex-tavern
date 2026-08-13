@@ -792,3 +792,43 @@ index will keep producing mixed commits, and the next collision may land in
 the second, a commit that contains both sessions' work). **OBSERVED, not proven,
 for the 2026-08-12 attribution** — the four-second coincidence and the transcript
 are strong, but nobody watched that write happen.
+
+## 25. The tree reverted a second time, 19:41:16, and this one was watched
+
+**Standing instruction discharged: stopped, wrote it down, did not work around it.**
+
+At 19:41:16 two files I had committed minutes earlier in `176efcc` appeared as
+modified in the working tree. The diff was **81 deletions and 0 insertions** —
+purely the removal of what that commit added.
+
+**Established, by md5:**
+
+| | |
+|---|---|
+| `.plan/para-o-dono/79-blocking-shape.md` | **byte-identical to `176efcc^`** |
+| `.plan/reference/metric-validity.md` | **byte-identical to `176efcc^`** |
+| both written at | **19:41:16**, 29ms apart |
+| no git operation in the reflog | confirmed |
+
+**Byte-identical to the pre-commit state is the signature**, and it is the same
+one as entry 24: an external writer holding a copy of the file from before my
+commit, writing it back. Not a merge, not an edit, not a conflict — a stale copy
+landing on top.
+
+**Session `50d16fe0` (pid 31711, `claude -c`) is still running**, 11.5 hours in.
+The owner reported it had finished; it has stopped **committing** since 13:36, and
+the process is alive.
+
+**What is NOT established, and I am not going to guess it.** A human editor with a
+stale buffer doing "save all" produces this signature exactly as well as an agent
+does, and the owner has been editing `79-blocking-shape.md` by hand — that file is
+where their answer was written. Two writes 29ms apart fits either. **The mechanism
+is the same as entry 24; the writer is not identified.**
+
+**Repaired, not worked around.** The working-tree version contained **no content
+that is not already in HEAD** — the diff is pure deletion — so `git restore`
+loses nothing and no other author's work is discarded. Verified before running it.
+
+**Cost this time: zero.** Both files were committed before the revert landed. That
+is the only reason this is a note rather than an incident, and it is an argument
+for committing in small pieces rather than for trusting the tree.
