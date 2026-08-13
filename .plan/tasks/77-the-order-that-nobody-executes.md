@@ -8,6 +8,11 @@
 > This is the phase's headline complaint, *"the scene does not move"*, caught in
 > the act with a transcript rather than a number.
 >
+> **Sized 2026-08-13: 13 of 33 sessions (39%), 23 windows, median 0 per
+> session.** Real and sparse. **Moved to 4th in wave 2** as a research item, not
+> a build item, because the cause has survived three attempts to name it. Do not
+> design a fix; keep reading cases.
+>
 > ⚠ **Two diagnoses have already been written here and falsified by their own
 > evidence.** The transcript is solid; every causal story about it so far has
 > not been. Read "The replay was run" before believing anything in the Direction

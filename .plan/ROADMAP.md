@@ -334,6 +334,12 @@ legitimately close here without being built.
 ### Wave 2 — make the scene move
 
 **Re-ordered 2026-08-13 by the owner: 77 goes first.**
+**RE-ORDERED AGAIN 2026-08-13 after 77 was sized and its third mechanism died.**
+See `.plan/CHECKPOINT-2026-08-13.md`. Ordering principle is now **mechanism
+confidence, not symptom size**: 79 first (the only established mechanism in the
+phase, and the cheapest change), then 69, then 64, then 77 as a research item.
+77's demotion reverses the instruction on the line above and is reversible on
+request.
 
 | task | why here |
 |---|---|

@@ -1,6 +1,13 @@
 # Task 69 — Physical state as a closed transition
 
-> **Status:** open. **Wave 2, first.** This is the residual restaging — what is
+> **Status:** open. **Wave 2, second as of 2026-08-13** (behind 79, which has the
+> only established mechanism in the phase). Symptom re-measured post-wave-1 and
+> still real: 97 of 987 Director events re-proposed within three turns. Its
+> channel is identified and provably saturated - `_MAX_PHYSICAL_FACTS = 40` with
+> eviction, and `09aabf25` sits at exactly 40 of 40. Whether saturation CAUSES
+> the re-proposal is untested and should be tested before anything is designed.
+>
+> Originally: **Wave 2, first.** This is the residual restaging — what is
 > left after the previous phase closed every *code loop* that fed the Director
 > the same input twelve times.
 >

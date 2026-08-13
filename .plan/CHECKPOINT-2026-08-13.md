@@ -1,0 +1,97 @@
+# Checkpoint — 2026-08-13
+
+Written after a block of work that produced **many measured symptoms and almost
+no confirmed mechanisms.** That asymmetry is the finding, and it is what this
+checkpoint reorders the phase around.
+
+---
+
+## The theory question, asked plainly
+
+For each open task, two separate things: **does the symptom exist** (a count over
+sessions), and **do we know why** (a mechanism that survived a test).
+
+| task | symptom | mechanism |
+|---|---|---|
+| **79** blocking has nowhere to live | not a symptom; a **code fact** | ✅ **ESTABLISHED.** The Director writes blocking in **1188 of 1188** director calls, 8% of entries positional (median 6%, range 0-44%). `narrate()` pops the field. Both halves verified in code and in 33 sessions |
+| **69** events re-proposed | ✅ measured: **97 of 987** Director events re-proposed within 3 turns (9.8%) | ~ **PARTLY.** `physical_facts` is capped at `_MAX_PHYSICAL_FACTS = 40` and evicts; `09aabf25` sits at exactly 40/40. Capacity is a code fact. Whether capacity *causes* the re-proposal is untested |
+| **77** the order nobody executes | ✅ measured: **13 of 33 sessions (39%)**, 23 windows, median 0 | ❌ **UNKNOWN after three falsified attempts** (contract-forbids, variance, beat machinery) |
+| **64** control returns rarely | ✅ measured: never-returned **5/12 → 0/9**; rate ~3% | ~ suspected: contract wording. Untested |
+| **78** routed into silence | ✅ measured: **13 of 1,255** speech records (1%), concentrated in runs | ❌ not investigated |
+| **72** commitments as state | ✗ no symptom of its own | ✗ a design, gated |
+
+**One task has an established mechanism, and it is the cheapest one.** That is
+the whole basis for the reordering below.
+
+### Why so many mechanisms died
+
+Every causal story written in this block was falsified by its own evidence:
+
+- 77's *"the contract forbids enactment"* — arm A moves people 3/8 times on the
+  exact payloads that recorded `null`.
+- 77's *"variance"* — untestable, replaced.
+- 77's *"the beat is never consumed"* — the beat advances and replans; beats with
+  unsatisfiable positional exit conditions run **shorter** (0.94x).
+- 79's *"the Director needs a new field"* — it ignored the new key because it
+  **already fills an existing one**.
+- 76's *"the naming convention gates the rule"* — firings track opportunity 6/6;
+  convention does not predict opportunity.
+
+**Not one was caught by a number looking wrong. Every one was caught by reading
+records or code.** That is now five for five, and it is the standing method.
+
+---
+
+## Reordered wave 2 — by mechanism confidence, not by symptom size
+
+**Principle:** prefer work whose mechanism is established and whose change is
+cheap and reversible, over work whose design rests on an unconfirmed story. A
+task with a big symptom and no mechanism is a **research** item, not a build item,
+and scheduling it as a build item is how a phase turns into the loop it is trying
+to avoid.
+
+| order | task | why here |
+|---|---|---|
+| **1** | **79** — blocking as durable state | The only established mechanism in the phase, and the change is *stop discarding a field we already receive*. Still **docs-only** pending the owner's shape decisions. Everything else waits behind less certainty than this |
+| **2** | **69** — physical state as a closed transition | Symptom measured and stable post-wave-1; the channel is identified and provably saturated (40/40). Owns the storage model that 79 must fit |
+| **3** | **64** — return control | Re-scoped to calibration. Cheapest possible test: a contract-wording replay, which is the same lever that tripled the rate in task 70 |
+| **4** | **77** — the order nobody executes | **Demoted from first.** Real in 39% of sessions and sparse inside them, cause unknown after three attempts. **Keep observing, do not design.** It is the best-documented symptom in the phase and the least understood |
+| **5** | **78** — routed into silence | 1% of speech records. Leave until someone reads more cases |
+| gated | **72** — commitments as first-class state | Unchanged. Its gate is *"do stalls survive 69"*, and 69 has not shipped |
+
+**⚠ 77 was moved down and that reverses the owner's 2026-08-13 instruction**,
+which raised it above most of wave 2. The instruction predates the sizing (39% of
+sessions, median 0 windows) and the third falsification. **Reordered under the
+authorisation given the same day; say the word and it goes back to first.**
+
+---
+
+## What did NOT change
+
+- **Task 76's graph stays frozen.** Its falsifier fired: the mass is in naming,
+  the fix is not a graph rule, and the shipped prefix rule stays because it is
+  correct where it fires.
+- **79 stays docs-only.** The finding makes it cheaper, not approved.
+- **`empty_audience`, `with_others_present`, `clamp_lost_half_unsealed` remain
+  REPORT, DO NOT GATE.**
+- **Session is the unit.** No pooled-turn p-value gets quoted without the caveat.
+  Every headline number carries its per-session spread.
+
+## Standing numbers, with spreads
+
+| number | pooled | per session |
+|---|---|---|
+| cross-cluster narration leak (task 71) | 16/29 → 3/78 | 55%, 22% before; 0%, 9%, 0%, 0% after |
+| split rate | 27.8% post-67 | **sd 17.9pts**, range 28.6-67.3 — untrustworthy at n≤4 |
+| intra-room `zone_moves` (lower bound) | 31% | median 22%, sd 31.5pts, range 0-95% |
+| positional entries in `character_zones` | 8% | median 6%, sd 9.0pts, range 0-44% |
+| beat exit conditions phrased as a position | 13% | median 16%, sd 10.3pts, range 0-36% |
+| restate-and-freeze windows | 23 total | **13/33 sessions**, median 0, max 5 |
+| frozen adjacent turn pairs | 90.8% | P3 active player: 95.2%, p = 0.70 |
+
+## The one thing to read first, next session
+
+`.plan/reference/metric-validity.md`. Five instruments in this block reported a
+clean number and were wrong, and the page now carries the general form: **lexical
+distance measures whether the words changed; nothing here measures whether
+anything happened.**

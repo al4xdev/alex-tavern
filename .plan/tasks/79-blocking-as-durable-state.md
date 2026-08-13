@@ -4,6 +4,15 @@
 > serialization, no contract edit until the shape below is agreed in writing.
 > Task 76's graph and this schema are both frozen.
 >
+> **FIRST in wave 2 as of 2026-08-13.** Not because its symptom is the biggest,
+> but because it is **the only task in the phase with an established mechanism**:
+> the Director writes blocking in 1188 of 1188 director calls and `narrate()`
+> pops it. Both halves are verified in code and across 33 sessions. Every other
+> open task rests on a mechanism that is suspected or unknown.
+>
+> The change is also the cheapest available: **stop discarding a field we already
+> receive.**
+>
 > The question, verbatim from where it was found:
 >
 > > **where does *"by the door, three paces from Marta"* live, such that it
