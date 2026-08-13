@@ -33,6 +33,8 @@ Standing rule this page exists to enforce:
 | `_strip_offstage_actors` (task 71) | **trusted, second version** | 3 fires, 0 false positives over 42 live narrations; the first version had 3 of each |
 | `_carries_intent` (task 65) | **weak, kept permissive** | does not separate on real data; see below |
 | `empty_audience` (task 67) | **REPORT, DO NOT GATE** | also cannot tell a DECLARED seal from graph damage: it filed seven turns of a man on a deliberately sealed pulpit as `graph_isolated` |
+| Director-proposed `witness_ids`, as a scoping signal | **MEASURED AND REJECTED** | median `|witness_ids|`/cast = **0.95** (quartiles 0.86/0.95/1.00, n=4,843 events). The Director lists nearly the whole cast as witnesses of nearly everything, so the field carries no perception judgement. Corroborates task 67 from the other side: **the engine's clamp does all the narrowing**, and every audience number here is a property of the graph, not of the Director's intent |
+| blind read of narration for room-vs-position (task 79) | **valid, and its answer is "cannot tell"** | 40 stratified blind reads: **35 "not determinable" (88%)**. Reported as the result, not as a failure of the judge - the prose does not carry the distinction. n=5 determinable is quoted as n=5 |
 | `NSR` | **report, never gate** | ranks sessions OPPOSITE to a blind reader, Spearman +0.923 |
 | `SIL` | **report, never gate** | 0.0 in 18 of 18 runs; structurally impossible, see below |
 | `deaf_occupied`, `unreciprocated`, `edges_lost` | **REJECTED** | measured, do not predict damage; see below |

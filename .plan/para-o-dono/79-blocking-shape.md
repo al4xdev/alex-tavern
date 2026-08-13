@@ -233,3 +233,82 @@ reason, so nobody re-derives it in a month.
 Not any of the four. It was recording that the pre-registered falsifier **failed**,
 and letting the failure stand in the same file as the finding that replaced it.
 Keep doing exactly that.
+
+---
+
+# RE-PRICED — 2026-08-13, with the corrected number in front of me
+
+**You asked: does the bump still look worth it? It does not. Here is what 79
+ships without one.**
+
+## What changed the answer
+
+Not only the 2x correction. Between your instruction and this reply, the
+structural test you asked for **ran twice and failed twice**, and that is the
+finding:
+
+| instrument | independent of zone names? | outcome |
+|---|---|---|
+| string rules | ❌ | five registered false positives, latest 2x |
+| the Director's own `witness_ids` | ✅ set arithmetic | **dead**: median witness list is **95% of the cast** |
+| a blind reader given the narration | ✅ | **88% not determinable** (35 of 40) |
+
+**No instrument this project can build measures room-versus-position on this
+corpus.** Your standing argument is therefore no longer an assertion — it is
+measured, and in a stronger form: *nothing* can tell them apart.
+
+## The re-pricing
+
+**A `SESSION_SCHEMA_VERSION` bump is not worth paying now.** The symptom is
+**16.7% pooled, median 5.6%, and 12 of 27 sessions never do it at all**; the bump
+permanently closes 33 archived sessions; and — the decisive part — **there is no
+instrument that could tell us afterwards whether the bump worked.** Paying an
+irreversible cost for an unmeasurable benefit on a median 5.6% symptom is the
+trade this phase exists to refuse.
+
+## What 79 ships instead, and it needs no schema change at all
+
+The two approved readers have **different durability requirements**, and only one
+of them needs persistence. That split is the whole proposal:
+
+| half | needs storage? | ship? |
+|---|---|---|
+| **prose renderer gets `character_zones` for the current turn** | ❌ **no** — the Director produces it in the same call the renderer runs in | ✅ **ship now** |
+| **Director's prompt gets last turn's blocking** so it stops minting zones | ✅ yes, it must survive the turn | ⏸ **defer with the bump** |
+
+**Concretely: `narrate()` stops popping `scene_blocking` into oblivion and hands
+`character_zones` to the prose renderer as staging for that turn.** Nothing is
+persisted, no `Scene` field, no bump, the 33 sessions stay openable, and it is
+revertible in one commit.
+
+**Why it is worth doing on its own:** the renderer currently stages people by
+**zone name**, which is the very string this whole audit shows is unreliable. It
+would instead stage them where the Director actually said they are — *"junto à
+saída lateral"* rather than *"Salão dos Quatro Arcos"*. That is a prose-quality
+change, and prose quality is the one thing on this page that a blind read **can**
+measure: 88% undeterminable is itself the evidence that narration is not carrying
+position today.
+
+Decision 1 holds unchanged and perception stays **FORBIDDEN**, as a test.
+
+## Decision 4 — not re-registered, and the reason is new
+
+Every falsifier in the rejected shape asks *"did positional `zone_moves` fall?"*
+and needs an instrument that classifies a move as positional. **There isn't one,
+and the three failures above are why.** Your fix to the control was right and it
+was not the deepest problem.
+
+**Proposed instead, for the half that ships:** a blind read of narration from a
+cell before and after, asking whether the reader can tell where people are
+standing. Today's answer is **35 of 40 "not determinable"** and that is the
+baseline. Registered only on your word, with arms in the same run.
+
+## Two follow-ups this turned up
+
+- **`witness_ids` carries no scoping information** — median 95% of the cast. The
+  Director does not narrow audiences; the engine's clamp does all of it. Every
+  audience number in this project is a property of the graph, not of the
+  Director's intent. Registered as measured-and-rejected.
+- **The narration and the `zone_moves` sometimes describe different events.**
+  `00997daa` T16 moves a character from the hall to the courtyard while the prose
+  shows him stepping back from a crack. Not counted, not chased, worth a look.

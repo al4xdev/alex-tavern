@@ -246,6 +246,76 @@ careful reader with the actual narration in front of them cannot tell whether
 somebody changed rooms, then the engine certainly cannot, and that is this task's
 standing argument promoted from an assertion to a measurement.
 
+### ✅ RAN 2026-08-13 — the third row fires: 88% NOT DETERMINABLE
+
+40 blind reads, 0 failures.
+
+| | |
+|---|---|
+| `NAO_DA_PARA_SABER` | **35 of 40 = 88%** |
+| determinable | **5** |
+| agreement on those 5 | 2 of 5 — **n=5, quoted as n=5, not as 40%** |
+
+**A careful reader holding the actual narration cannot tell, for 88% of recorded
+moves, whether the character changed rooms or shifted position inside one.** Not
+because the reader is weak: because *the prose does not say*. The judge was given
+the whole narration and one character's name, and 35 times out of 40 the text
+simply does not render that character's movement.
+
+The three disagreements are worth reading, and they point in both directions:
+
+- `00997daa` T16 — the recorded `zone_moves` sends the character from the hall to
+  the central courtyard. The narration says only *"Ele recua da beira da
+  rachadura, os calcanhares batendo com firmeza"* — he steps back from the edge of
+  a crack. **The prose and the state change describe different events.** The judge
+  read the prose correctly and the string rule read the state correctly, and they
+  are describing different things that happened in the same turn.
+- `09aabf25` T22 — *"dá um passo curto... em direção ao portão norte"*, one short
+  step. The judge called it a place change; on reading, the string rule looks
+  closer.
+- `09aabf25` T35 — *"avança ao lado de Link pela ponte improvisada de pedra sobre
+  a fissura"*. Genuinely ambiguous.
+
+## ⛔ THREE INSTRUMENTS, THREE FAILURES — and that is now the measurement
+
+This is the result the owner's instruction was fishing for, and it is stronger
+than a vindication would have been.
+
+| instrument | independent of names? | outcome |
+|---|---|---|
+| string rules over zone names | ❌ no | **five registered false positives**, the latest making a headline **2x** too high for three weeks |
+| the Director's own `witness_ids` | ✅ yes, set arithmetic | **dead on its validity check** — median witness list is **95% of the cast** |
+| a blind reader of the narration | ✅ yes, no names shown | **88% not determinable** |
+
+**Nothing available to this project can measure room-versus-position on this
+corpus.** Not a parser, not the engine's own perception data, not a careful human
+reading the finished prose.
+
+### What that does to the standing argument — it promotes it
+
+> **If a parser cannot tell a room from a position by its name, neither can the
+> engine.**
+
+Adopted 2026-08-13 as an assertion. It is now **MEASURED**, and in a stronger form
+than it was written: *nothing* can tell them apart, and the engine is merely the
+worst-placed of the three. The field is warranted not because the rate is large —
+**it is small: 16.7% pooled, median 5.6%, 12 of 27 sessions at zero** — but
+because the distinction is **structurally unrecoverable** once a position has been
+minted as a zone. A field that exists does not have to recover anything.
+
+### ⚠ And it kills an entire CLASS of falsifier, including the one being re-drafted
+
+Decision 4's rejected falsifier, and every replacement in the same shape, asks:
+**does positional `zone_moves` fall after the change?** That question requires an
+instrument that can classify a move as positional. **There isn't one.** The
+rejected version's flaw was its control; the deeper flaw is that its *measurement*
+cannot exist.
+
+**So decision 4 is not re-registered here.** Any falsifier for this task has to be
+about something observable: whether the prose renderer stages people where the
+Director actually put them, judged by a blind read of narration quality, which is
+the one instrument on this page that produced a usable answer about anything.
+
 ### The standing argument for this task
 
 > **If a parser cannot tell a room from a position by its name, neither can the
