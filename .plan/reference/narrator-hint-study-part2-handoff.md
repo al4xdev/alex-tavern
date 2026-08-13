@@ -1,40 +1,44 @@
-# Handoff: generalização de `narrator_hint` por LLM
+# Handoff: generalising `narrator_hint` with an LLM
 
-**Data:** 2026-07-18  
-**Modelo testado:** DeepSeek V4 Flash, `thinking=disabled`, `temperature=0.1`  
-**Método:** chamadas reais via wrapper de `curl` em `/tmp`, sem alteração do runtime  
-**Resultado:** convergência em quatro casos de domínios diferentes após 55 chamadas válidas
+**Date:** 2026-07-18  
+**Model tested:** DeepSeek V4 Flash, `thinking=disabled`, `temperature=0.1`  
+**Method:** real calls through a `curl` wrapper in `/tmp`, with no change to the runtime  
+**Result:** convergence across four cases from different domains after 55 valid calls
 
-## Resumo executivo
+> The prompt blocks and the compiled hints below are kept **verbatim in
+> Portuguese**. They are the exact strings that were measured; translating them
+> would make the numbers in this document claims about text that was never sent.
 
-Uma única chamada “criativa” não generalizou. Ela:
+## Executive summary
 
-- repetiu fatos como se fossem novos;
-- confundiu perfil com acontecimento;
-- controlou o personagem da entrada final;
-- inventou objetos, figurantes e física;
-- suprimiu agenda institucional quando uma reação social era mais saliente;
-- ignorou limites de quantidade escritos no prompt.
+A single "creative" call did not generalise. It:
 
-A arquitetura que generalizou foi:
+- repeated facts as if they were new;
+- confused a profile with an event;
+- controlled the character behind the final input;
+- invented objects, extras and physics;
+- suppressed the institutional agenda whenever a social reaction was more salient;
+- ignored quantity limits written into the prompt.
+
+The architecture that did generalise was:
 
 ```text
                          ┌─ Reaction Scout ────┐
-snapshot canônico enxuto│                     ├─ Judge ── campos escalares
+lean canonical snapshot │                     ├─ Judge ── scalar fields
                          └─ Continuity Scout ──┘              │
                                                               ▼
-                                                compilador determinístico
+                                                deterministic compiler
                                                               │
                                                               ▼
                                                      narrator_hint | null
 ```
 
-Reaction Scout e Continuity Scout são independentes e podem rodar em paralelo.
-O Judge roda depois. Respostas inválidas são corrigidas por retry com
+Reaction Scout and Continuity Scout are independent and can run in parallel. The
+Judge runs afterwards. Invalid responses are repaired by a retry carrying
 `VALIDATION_ERROR`.
 
-Não usar a string `hint` escrita pela LLM. O programa deve compilá-la dos campos
-selecionados:
+Do not use the `hint` string written by the LLM. The program must compile it from
+the selected fields:
 
 ```text
 {reaction_seed.actor} {reaction_seed.delta};
@@ -42,81 +46,83 @@ selecionados:
 {continuity.actor} {continuity.delta}.
 ```
 
-Campos nulos são omitidos. Isso remove variação de estilo e rótulos abstratos.
+Null fields are omitted. That removes style variation and abstract labels.
 
-## Casos reais usados
+## The real cases used
 
-| Caso | Fonte no projeto | Domínio | Estímulo | Resultado convergente |
+| Case | Source in the project | Domain | Stimulus | Convergent result |
 |---|---|---|---|---|
-| Academia | `src/scenarios/turma-dos-portais-pt.json` + sessão `e5a0ca6a` | tensão social + dever institucional | Link dá desculpa constrangedora após atraso público | Riven ri; nobres propagam murmúrios; Maelis inicia seleção |
-| Thorn/Lyra | `src/scenarios/thorn-lyra.json`, personagens `thorn-lyra-c1`/`thorn-lyra-c2` | fantasia, objeto arcano, disposições divergentes | Edda põe medalhão arcano na mesa e pergunta a Lyra | Lyra se inclina para examinar; Thorn permanece guardado como candidato não escolhido |
-| Festa | `.data/scenarios/tony_house.json`, presets `alex`/`sofia` | tensão afetiva moderna + conhecimento privado | Alex cumprimenta a ex, Fernanda, diante de Sofia | Fernanda cora/desvia o olhar/fecha postura; Sofia permanece neutra |
-| Moinho | `.data/scenarios/presence-e2e-test.json` | espaço, presença e risco físico ambíguo | viga acima de Aria estala; Bron está ausente | Aria olha para cima e enrijece postura; nenhum colapso; Bron não reage |
+| Academy | `src/scenarios/turma-dos-portais-pt.json` + session `e5a0ca6a` | social tension + institutional duty | Link gives an embarrassing excuse after arriving late in public | Riven laughs; the nobles propagate murmurs; Maelis starts the selection |
+| Thorn/Lyra | `src/scenarios/thorn-lyra.json`, characters `thorn-lyra-c1`/`thorn-lyra-c2` | fantasy, an arcane object, divergent dispositions | Edda puts an arcane medallion on the table and asks Lyra | Lyra leans in to examine it; Thorn stays guarded, as an unchosen candidate |
+| Party | `.data/scenarios/tony_house.json`, presets `alex`/`sofia` | modern romantic tension + private knowledge | Alex greets his ex, Fernanda, in front of Sofia | Fernanda blushes / looks away / closes her posture; Sofia stays neutral |
+| Mill | `.data/scenarios/presence-e2e-test.json` | space, presence and ambiguous physical risk | a beam above Aria cracks; Bron is absent | Aria looks up and stiffens; no collapse; Bron does not react |
 
-## Série experimental
+## The experimental series
 
-As linhas abaixo são as 55 chamadas válidas desta rodada. Timeouts sem resposta
-não entram na numeração.
+The rows below are this round's 55 valid calls. Timeouts with no response are not
+numbered.
 
-| # | Caso | Variante alterada | Resultado | Leitura |
+| # | Case | Variant changed | Result | Reading |
 |---:|---|---|---|---|
-| 1 | Thorn/Lyra | Gerador geral anterior | Repetiu aura; “aguarda resposta” | Falha de novidade e ausência de reação |
-| 2 | Thorn/Lyra | Novidade estrita + microreações | Achou Thorn/Lyra; inventou goteira, bêbado e ação de Edda | Gerador precisa juiz |
-| 3 | Thorn/Lyra | Juiz conservador | Escolheu reação Thorn/Lyra; rejeitou ruídos e ACTOR_FINAL | Passou |
-| 4 | Festa | Mesmo gerador | Sofia tenta mediar; agenda decide por Alex | Alvo direto ignorado |
-| 5 | Festa | `DIRECT_TARGET` primeiro | Identificou Fernanda; repetiu interrupção | Alvo correto, novidade incompleta |
-| 6 | Festa | `already_true` + `novel_delta` | Reação de Fernanda; inventou copo, figurante e música | Átomos úteis misturados a invenções |
-| 7 | Festa | Juiz conservador comum | Aceitou copo inexistente | Proibição textual insuficiente |
-| 8 | Festa | Juiz closed-world com claims | Rejeitou copo/figurante/música; manteve Fernanda | Passou |
-| 9 | Moinho | Gerador inicial | Viga “pode cair”, Milo alerta, roda “pode afetar” | Modal, ACTOR_FINAL e física inventada |
-| 10 | Moinho | Evento afirmativo + alvo NPC | Achou Aria; ainda inventou queda e vibração | Reação correta, física errada |
-| 11 | Moinho | Juiz closed-world | Rejeitou colapso/vibração; escolheu Aria | Passou |
-| 12 | Moinho | Gate de entidades | Rejeitou engrenagens, mas aceitou deslocamento da viga | Entidade não resolve predicado |
-| 13 | Moinho | Tipos de derivação | `world_inference` rejeitado; Aria aceita | Passou |
-| 14 | Thorn/Lyra | Gerador universal congelado v1 | Lyra se inclina; demais lentes nulas | Passou |
-| 15 | Thorn/Lyra | Juiz universal v1 | Escolheu Lyra | Passou |
-| 16 | Festa | Mesmo gerador universal | Fernanda guardada | Passou |
-| 17 | Festa | Mesmo juiz universal | Escolheu Fernanda | Passou |
-| 18 | Moinho | Mesmo gerador universal | Aria + física/ambiente inventados | Gerador continua deliberadamente amplo |
-| 19 | Moinho | Juiz universal v1 | Rejeitou viga; aceitou engrenagens/poeira | Closed-world ainda frouxo |
-| 20 | Moinho | Derivação tipada | Só Aria aceita | Passou |
-| 21 | Academia | Gerador universal composto | Riven/Liora válidos misturados a fala; agenda suprimida | Átomo composto e saliência |
-| 22 | Academia | Átomos independentes | Produziu seis reações; agenda ainda suprimida | Separação melhora filtragem, não agenda |
-| 23 | Academia | Continuity Scout separado | Encontrou início da seleção; também tentou reação social | Scouts devem ter ownership estrito |
-| 24 | Academia | Juiz com fases e limite textual | Aceitou tudo e ignorou limite | Não confiar em `max 3` textual |
-| 25 | Academia | Reaction Scout com classificação | Nix classificada hostil por “sem pena” | Perfil comprimido ambíguo |
-| 26 | Academia | Regra pragmatismo ≠ hostilidade + perfil canônico | Classificação correta; emitiu seis átomos | Relações corretas |
-| 27 | Academia | Judge com cinco slots | Selecionou quatro e retornou hint nulo | Schema permitia combinação demais |
-| 28 | Academia | Judge com três campos escalares | Riven + nobres + seleção | Passou |
-| 29 | Thorn/Lyra | Reaction Scout | Thorn guarded, Lyra approach | Passou |
-| 30 | Thorn/Lyra | Judge escalar sem direct target | Escolheu Thorn; hint perdeu sujeito | Faltava `DIRECT_TARGET` e `actor` no schema |
-| 31 | Festa | Reaction Scout | Fernanda guarded, mas delta abstrato | Exigir câmera-observável |
-| 32 | Festa | Observable gate | Repetiu interrupção | Exigir novidade contra HISTORY |
-| 33 | Festa | Novelty + PENDING | Fernanda cora/desvia/fecha postura | Passou |
-| 34 | Moinho | Reaction Scout | Aria guarded, Bron ausente | Passou |
-| 35 | Thorn/Lyra | Reaction Scout atualizado | Thorn guarded, Lyra approach | Passou |
-| 36 | Thorn/Lyra | Judge com `DIRECT_TARGET` e actor | Escolheu Lyra; sujeito preservado | Passou |
-| 37 | Festa | Mesmo Judge final | Escolheu Fernanda | Passou |
-| 38 | Moinho | Mesmo Judge final | Escolheu Aria | Passou |
-| 39 | Thorn/Lyra | Continuity Scout permissivo | Inventou dever para Lyra | Conhecimento não é autorização |
-| 40 | Thorn/Lyra | Exigir dever explícito em prompt | Ainda fabricou dever de Edda | Prompt não fecha conjunto |
-| 41 | Thorn/Lyra | `AUTHORIZATIONS=[]` fechado | Candidate `null` | Passou |
-| 42 | Academia | Autorização estruturada de Maelis | Início da seleção | Passou |
-| 43 | Academia | Judge combinado, repetição 1 | Riven + nobres + seleção | Correto |
-| 44 | Academia | Judge combinado, repetição 2 | Mesmo trio | Correto |
-| 45 | Academia | Judge combinado, repetição 3 | Mesmo trio; string hint abstrata | Estrutura 3/3; não usar string da LLM |
-| 46 | Thorn/Lyra | Reaction Scout, estabilidade 2 | Mesmas tendências | Correto |
-| 47 | Thorn/Lyra | Reaction Scout, estabilidade 3 | Mesmas tendências | 3/3 |
-| 48 | Festa | Reaction Scout, estabilidade 2 | Fernanda guarded | Correto |
-| 49 | Festa | Reaction Scout, estabilidade 3 | Fernanda guarded, Sofia neutral | 3/3 |
-| 50 | Moinho | Reaction Scout, repetição | Aria approach | Ambiguidade approach/guarded |
-| 51 | Moinho | Reaction Scout, repetição | Aria approach | Mesma direção |
-| 52 | Moinho | Reaction Scout, repetição | Aria guarded | Sem convergência direcional |
-| 53 | Moinho | Tie-break de menor compromisso, repetição 1 | Aria guarded, olha sem mover | Correto |
-| 54 | Moinho | Tie-break, repetição 2 | Relação Aria; átomo atribuído a Milo | Erro estrutural detectável |
-| 55 | Moinho | Retry com `VALIDATION_ERROR` | Corrigiu somente actor Milo → Aria | Recuperação passou |
+| 1 | Thorn/Lyra | The earlier general generator | Repeated the aura; "awaits an answer" | Novelty failure and no reaction |
+| 2 | Thorn/Lyra | Strict novelty + micro-reactions | Found Thorn/Lyra; invented a leak, a drunk and an action by Edda | The generator needs a judge |
+| 3 | Thorn/Lyra | Conservative judge | Chose the Thorn/Lyra reaction; rejected the noises and ACTOR_FINAL | Passed |
+| 4 | Party | Same generator | Sofia tries to mediate; the agenda decides for Alex | The direct target was ignored |
+| 5 | Party | `DIRECT_TARGET` first | Identified Fernanda; repeated the interruption | Right target, incomplete novelty |
+| 6 | Party | `already_true` + `novel_delta` | Fernanda's reaction; invented a glass, an extra and music | Useful atoms mixed with inventions |
+| 7 | Party | Ordinary conservative judge | Accepted a glass that does not exist | A textual prohibition is not enough |
+| 8 | Party | Closed-world judge with claims | Rejected the glass/extra/music; kept Fernanda | Passed |
+| 9 | Mill | Initial generator | The beam "might fall", Milo warns, the wheel "might be affected" | Modal, ACTOR_FINAL and invented physics |
+| 10 | Mill | Affirmative event + NPC target | Found Aria; still invented a fall and a vibration | Right reaction, wrong physics |
+| 11 | Mill | Closed-world judge | Rejected the collapse/vibration; chose Aria | Passed |
+| 12 | Mill | Entity gate | Rejected the gears, but accepted the beam shifting | An entity does not settle the predicate |
+| 13 | Mill | Derivation types | `world_inference` rejected; Aria accepted | Passed |
+| 14 | Thorn/Lyra | Frozen universal generator v1 | Lyra leans in; the other lenses null | Passed |
+| 15 | Thorn/Lyra | Universal judge v1 | Chose Lyra | Passed |
+| 16 | Party | Same universal generator | Fernanda guarded | Passed |
+| 17 | Party | Same universal judge | Chose Fernanda | Passed |
+| 18 | Mill | Same universal generator | Aria + invented physics/environment | The generator stays deliberately broad |
+| 19 | Mill | Universal judge v1 | Rejected the beam; accepted the gears/dust | Closed-world still loose |
+| 20 | Mill | Typed derivation | Only Aria accepted | Passed |
+| 21 | Academy | Composite universal generator | Riven/Liora valid but mixed with speech; agenda suppressed | Composite atom and salience |
+| 22 | Academy | Independent atoms | Produced six reactions; agenda still suppressed | Separation improves filtering, not the agenda |
+| 23 | Academy | Separate Continuity Scout | Found the start of the selection; also attempted a social reaction | The scouts need strict ownership |
+| 24 | Academy | Judge with phases and a textual limit | Accepted everything and ignored the limit | Do not trust a textual `max 3` |
+| 25 | Academy | Reaction Scout with classification | Nix classified hostile for being "merciless" | Compressed profile is ambiguous |
+| 26 | Academy | Rule "pragmatism ≠ hostility" + canonical profile | Correct classification; emitted six atoms | Relationships correct |
+| 27 | Academy | Judge with five slots | Selected four and returned a null hint | The schema allowed too much combining |
+| 28 | Academy | Judge with three scalar fields | Riven + nobles + selection | Passed |
+| 29 | Thorn/Lyra | Reaction Scout | Thorn guarded, Lyra approach | Passed |
+| 30 | Thorn/Lyra | Scalar judge with no direct target | Chose Thorn; the hint lost its subject | `DIRECT_TARGET` and `actor` were missing from the schema |
+| 31 | Party | Reaction Scout | Fernanda guarded, but an abstract delta | Require camera-observable |
+| 32 | Party | Observable gate | Repeated the interruption | Require novelty against HISTORY |
+| 33 | Party | Novelty + PENDING | Fernanda blushes / looks away / closes her posture | Passed |
+| 34 | Mill | Reaction Scout | Aria guarded, Bron absent | Passed |
+| 35 | Thorn/Lyra | Updated Reaction Scout | Thorn guarded, Lyra approach | Passed |
+| 36 | Thorn/Lyra | Judge with `DIRECT_TARGET` and actor | Chose Lyra; subject preserved | Passed |
+| 37 | Party | Same final judge | Chose Fernanda | Passed |
+| 38 | Mill | Same final judge | Chose Aria | Passed |
+| 39 | Thorn/Lyra | Permissive Continuity Scout | Invented a duty for Lyra | Knowledge is not authorisation |
+| 40 | Thorn/Lyra | Require an explicit duty in the prompt | Still fabricated a duty for Edda | A prompt does not close the set |
+| 41 | Thorn/Lyra | Closed `AUTHORIZATIONS=[]` | Candidate `null` | Passed |
+| 42 | Academy | Structured authorisation from Maelis | The selection begins | Passed |
+| 43 | Academy | Combined judge, repeat 1 | Riven + nobles + selection | Correct |
+| 44 | Academy | Combined judge, repeat 2 | Same trio | Correct |
+| 45 | Academy | Combined judge, repeat 3 | Same trio; abstract hint string | Structure 3/3; do not use the LLM's string |
+| 46 | Thorn/Lyra | Reaction Scout, stability 2 | Same tendencies | Correct |
+| 47 | Thorn/Lyra | Reaction Scout, stability 3 | Same tendencies | 3/3 |
+| 48 | Party | Reaction Scout, stability 2 | Fernanda guarded | Correct |
+| 49 | Party | Reaction Scout, stability 3 | Fernanda guarded, Sofia neutral | 3/3 |
+| 50 | Mill | Reaction Scout, repeat | Aria approach | approach/guarded ambiguity |
+| 51 | Mill | Reaction Scout, repeat | Aria approach | Same direction |
+| 52 | Mill | Reaction Scout, repeat | Aria guarded | No directional convergence |
+| 53 | Mill | Least-commitment tie-break, repeat 1 | Aria guarded, looks without moving | Correct |
+| 54 | Mill | Tie-break, repeat 2 | Aria's relation; the atom attributed to Milo | A detectable structural error |
+| 55 | Mill | Retry with `VALIDATION_ERROR` | Fixed only the actor, Milo → Aria | Recovery passed |
 
-## Prompts finais
+## The final prompts
+
+Kept verbatim, as sent.
 
 ### 1. Reaction Scout
 
@@ -227,9 +233,9 @@ Retorne JSON:
 }
 ```
 
-Não solicitar `hint` ao Judge em produção. Compilar deterministicamente.
+Do not ask the Judge for a `hint` in production. Compile it deterministically.
 
-### 4. Retry de validação
+### 4. Validation retry
 
 ```text
 Você é REACTION SCOUT universal.
@@ -241,10 +247,11 @@ Todo atom.actor deve existir em relations e atom.tendency deve ser idêntica
 Retorne somente JSON corrigido.
 ```
 
-O mesmo padrão serve para erros do Continuity Scout e Judge: enviar resposta
-anterior + lista precisa de violações, sem rerodar toda a criação.
+The same pattern serves errors from the Continuity Scout and the Judge: send the
+previous response plus a precise list of violations, without re-running the whole
+creation step.
 
-## Contrato de entrada recomendado
+## The recommended input contract
 
 ```json
 {
@@ -255,9 +262,9 @@ anterior + lista precisa de violações, sem rerodar toda a criação.
   "perception": {
     "character_id": ["event_id"]
   },
-  "stimulus": "último acontecimento público normalizado",
+  "stimulus": "the last public event, normalised",
   "history_predicates": [
-    "ações/predicados recentes já realizados"
+    "recent actions/predicates already performed"
   ],
   "pending": [
     {"id": "pending_id", "description": "..."}
@@ -266,7 +273,7 @@ anterior + lista precisa de violações, sem rerodar toda a criação.
     {
       "id": "authorization_id",
       "owner": "character_id",
-      "scope": "qual pending/dever pode iniciar"
+      "scope": "which pending/duty it may start"
     }
   ],
   "participation": {
@@ -282,38 +289,38 @@ anterior + lista precisa de violações, sem rerodar toda a criação.
 }
 ```
 
-### Dados indispensáveis
+### The indispensable data
 
-- `actor_final`: não é “Player”; é somente o personagem que produziu a entrada
-  final. Mantém a imersão e impede extensão de agência.
-- presença, zonas e percepção já calculadas;
-- predicados recentes, não prosa longa;
-- perfis canônicos dos NPCs presentes relevantes;
-- conhecimento individual relevante;
-- participation/saturação;
-- estados pendentes explícitos;
-- autorizações fechadas;
-- conjunto de entidades permitido.
+- `actor_final`: not "Player"; only the character who produced the final input.
+  It preserves immersion and prevents agency from being extended.
+- presence, zones and perception, already computed;
+- recent predicates, not long prose;
+- canonical profiles of the relevant NPCs present;
+- relevant individual knowledge;
+- participation/saturation;
+- explicitly pending states;
+- closed authorisations;
+- the allowed entity set.
 
-### Blocker real: `AUTHORIZATIONS`
+### The real blocker: `AUTHORIZATIONS`
 
-`AUTHORIZATIONS` não pode ser inferido livremente pela mesma LLM. Nos testes,
-ela transformou curiosidade e uma pergunta em “dever explícito” para Lyra mesmo
-após proibição.
+`AUTHORIZATIONS` cannot be freely inferred by the same LLM. In the tests it turned
+curiosity and a question into an "explicit duty" for Lyra even after being
+forbidden to.
 
-Fontes seguras possíveis:
+Possible safe sources:
 
-- papel/dever estruturado no cenário;
-- beat/owner estruturado pelo sistema de roteiro;
-- estado de plugin com owner explícito;
-- regra institucional tipada.
+- a structured role/duty in the scenario;
+- a beat/owner structured by the roteiro system;
+- plugin state with an explicit owner;
+- a typed institutional rule.
 
-Se o runtime não possui uma fonte estruturada, enviar `AUTHORIZATIONS=[]`.
-É melhor perder um avanço automático que fabricar autoridade.
+If the runtime has no structured source, send `AUTHORIZATIONS=[]`. Losing an
+automatic advance is better than fabricating authority.
 
-## Validações locais obrigatórias
+## Mandatory local validations
 
-Estas invariantes não devem depender do modelo:
+These invariants must not depend on the model:
 
 ```text
 relation.actor ∈ present
@@ -321,38 +328,40 @@ relation.actor != actor_final
 atom.actor ∈ relations.actor
 atom.actor != actor_final
 atom.tendency == relations[atom.actor].tendency
-atom.delta não vazio
+atom.delta not empty
 continuity.authorization_id ∈ input.authorizations.id
 continuity.actor == authorization.owner
-selected ids existem nos outputs dos scouts
-reaction_followup != null somente se reaction_seed.tendency == attack_status
-no máximo 1 seed + 1 followup + 1 continuity
+the selected ids exist in the scouts' outputs
+reaction_followup != null only if reaction_seed.tendency == attack_status
+at most 1 seed + 1 followup + 1 continuity
 ```
 
-Também validar localmente contra:
+Also validate locally against:
 
-- IDs ausentes;
-- entidades não permitidas quando extraíveis;
-- Unicode dash conforme normalização global;
-- schema JSON estrito;
-- tamanho máximo de cada `delta`.
+- missing IDs;
+- entities not allowed, where extractable;
+- Unicode dashes, per the global normalisation;
+- a strict JSON schema;
+- a maximum size for each `delta`.
 
-Falha deve disparar retry corretivo com erro preciso. A chamada 55 demonstrou
-que isso corrige erro de atribuição sem recriar o beat.
+A failure must trigger a corrective retry with a precise error. Call 55 showed
+that this fixes an attribution error without recreating the beat.
 
-## Resultados de estabilidade
+## Stability results
 
-| Componente/caso | Resultado |
+| Component/case | Result |
 |---|---|
-| Judge combinado da Academia | mesmos três campos em 3/3 |
-| Reaction Scout Thorn/Lyra | mesmas tendências `guarded/approach` em 3/3 |
-| Reaction Scout Festa | Fernanda `guarded`; Sofia `neutral/omitida` em 3/3 |
-| Reaction Scout Moinho antes do tie-break | 2 approach / 1 guarded |
-| Reaction Scout Moinho depois do tie-break | semântica guarded mínima em 3/3; 1 erro estrutural recuperado por retry |
-| Continuity Scout sem autorização | `null` quando `AUTHORIZATIONS=[]` |
-| Continuity Scout Academia | início da seleção com autorização de Maelis |
+| The Academy's combined judge | the same three fields 3/3 |
+| Reaction Scout, Thorn/Lyra | the same `guarded/approach` tendencies 3/3 |
+| Reaction Scout, Party | Fernanda `guarded`; Sofia `neutral/omitted` 3/3 |
+| Reaction Scout, Mill, before the tie-break | 2 approach / 1 guarded |
+| Reaction Scout, Mill, after the tie-break | minimal guarded semantics 3/3; 1 structural error recovered by retry |
+| Continuity Scout with no authorisation | `null` when `AUTHORIZATIONS=[]` |
+| Continuity Scout, Academy | the selection starts, on Maelis's authorisation |
 
-## Hints finais compilados
+## The final compiled hints
+
+Verbatim, as produced.
 
 ```text
 Academia:
@@ -370,38 +379,39 @@ Moinho:
 Aria olha para cima e enrijece os ombros.
 ```
 
-## Recomendação para Claude
+## Recommendation for Claude
 
-1. Não colocar mais essa responsabilidade no prompt atual do Diretor.
-2. Não implementar uma única chamada `generate_hint`.
-3. Criar um contrato experimental isolado com Reaction Scout e Continuity
-   Scout em paralelo, Judge depois e compilador determinístico.
-4. Começar atrás de flag/plugin ou harness, ainda fora do turno canônico.
-5. Reusar cliente LLM compartilhado e debug JSONL; toda chamada precisa de
-   `session_id`, `turn_number` e agent distinto.
-6. Só integrar ao turno após replay em mais sessões reais e definição da fonte
-   canônica de `AUTHORIZATIONS`.
-7. Se integrado, o resultado deve entrar no Diretor como hint de sistema,
-   nunca como fato já ocorrido. O Diretor continua validando espaço, percepção
-   e routing.
+1. Do not put this responsibility into the Director's current prompt.
+2. Do not implement a single `generate_hint` call.
+3. Build an isolated experimental contract with Reaction Scout and Continuity
+   Scout in parallel, the Judge afterwards, and a deterministic compiler.
+4. Start it behind a flag/plugin or in the harness, still outside the canonical
+   turn.
+5. Reuse the shared LLM client and the debug JSONL; every call needs a
+   `session_id`, a `turn_number` and a distinct agent.
+6. Only integrate it into the turn after replaying it across more real sessions
+   and defining the canonical source of `AUTHORIZATIONS`.
+7. If integrated, the result must enter the Director as a system hint, never as a
+   fact that already happened. The Director keeps validating space, perception
+   and routing.
 
-## Limitações
+## Limitations
 
-- Os testes medem DeepSeek V4 Flash; outros providers precisam da mesma bateria.
-- Reaction Scout ainda gera quantidade variável; o Judge escalar absorve isso.
-- Gestos exatos variam, embora a tendência converja.
-- O pipeline adiciona duas fases de latência (scouts paralelos, depois Judge).
-- Não houve implementação nem teste HTTP do turno completo.
-- Não houve teste de compactação/histórico longo.
-- `allowed_entities` e `history_predicates` exigem um input builder confiável.
+- The tests measure DeepSeek V4 Flash; other providers need the same battery.
+- The Reaction Scout still emits a variable quantity; the scalar Judge absorbs it.
+- Exact gestures vary, although the tendency converges.
+- The pipeline adds two latency phases (parallel scouts, then the Judge).
+- There was no implementation and no HTTP test of the full turn.
+- There was no test of compaction/long history.
+- `allowed_entities` and `history_predicates` require a trustworthy input builder.
 
-## Arquivos desta pesquisa
+## The files of this research
 
-- Relatório anterior:
+- Earlier report:
   `.plan/explore-narrator-hint-llm-experiments.md`
-- Este handoff:
+- This handoff:
   `.plan/narrator-hint-generalization-handoff.md`
-- Wrapper temporário, não versionado:
+- Temporary wrapper, not versioned:
   `/tmp/curl_wrapper.py`
-- Request temporário, não versionado:
+- Temporary request, not versioned:
   `/tmp/curl_request.json`

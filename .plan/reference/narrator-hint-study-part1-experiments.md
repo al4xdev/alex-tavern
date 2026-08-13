@@ -1,85 +1,85 @@
-# Explore: geração autônoma de `narrator_hint`
+# Explore: autonomous generation of `narrator_hint`
 
-**Data**: 2026-07-18  
-**Escopo**: experimento aberto com DeepSeek V4 Flash via `curl`, usando o
-estado anterior ao hint humano do turno 10 da sessão `e5a0ca6a`.
+**Date**: 2026-07-18  
+**Scope**: open experiment with DeepSeek V4 Flash over `curl`, using the state as
+it stood before the human hint on turn 10 of session `e5a0ca6a`.
 
-## Objetivo e critério
+## Goal and criterion
 
-O hint humano de referência foi mantido fora dos prompts:
+The reference human hint was kept out of the prompts (quoted verbatim, as typed):
 
 > todo nobres riem de link, devido a cena e a sujeira dele
 
-Uma saída foi considerada próxima quando descobriu autonomamente a consequência
-social preparada: um rival hostil inicia o deboche, personagens/status alinhados
-propagam uma reação pública contida e um personagem protetor pode reagir ao
-excesso. Repetir o interrogatório de Maelis, controlar Link, inventar perigo ou
-apenas prolongar o silêncio foi considerado falha.
+An output counted as close when it discovered, on its own, the social consequence
+that had been set up: a hostile rival starts the mockery, status-aligned
+characters propagate a restrained public reaction, and a protective character may
+react to the excess. Repeating Maelis's interrogation, controlling Link, inventing
+danger, or merely prolonging the silence counted as a failure.
 
-As chamadas anteriores ao pedido explícito de “recomeçar do zero” e três smoke
-tests do wrapper não fazem parte da série. Um timeout sem resposta também não foi
-contado como chamada válida.
+The calls made before the explicit request to "start over from scratch", and three
+smoke tests of the wrapper, are not part of the series. A timeout with no response
+was not counted as a valid call either.
 
-## Chamadas
+## Calls
 
-| # | Dados de entrada | Prompt/papel | Contrato de saída | Resultado resumido | Avaliação e hipótese seguinte |
+| # | Input data | Prompt/role | Output contract | Result in brief | Assessment and next hypothesis |
 |---:|---|---|---|---|---|
-| 1 | Cena e histórico mínimo, sem perfis | Gerador direto de próximo acontecimento | `{hint, motivo}` | Murmúrios na plateia, mas Maelis volta a desconfiar e interrogar | Parcial. A situação pública basta para sugerir murmúrio, mas falta relação e saturação |
-| 2 | Quatro perfis contrastantes + participação | Simulação dos próximos cinco segundos | Ranking de pressão + hint | Identificou Riven=riso e Liora=desprezo; hint afirmou incorretamente que já dominaram | Ranking melhor que síntese livre |
-| 3 | Mesmo input | Calculador; evento só com pressão >=70 | Scores + evento composto | Riven e Liora iniciam zombaria, outros seguem, Asword se opõe; escalou para vaias | Muito próximo, intensidade excessiva |
-| 4 | Mesmo input | Escala explícita 1–5 e custo de formalidade | Scores + evento + hint | Riven/Liora em voz alta, murmúrios, Asword; inventou reação da diretora e tratou Nix como hostil | Prosa de personalidade ambígua |
-| 5 | Ledger relacional estruturado | Propagação social: hostil, alinhado, protetor, pragmático | Seed + followers + counter + hint | Riven inicia; Liora e nobres propagam; Asword contrapõe | Correto e próximo ao hint humano |
-| 6 | Idêntico ao #5 | Repetição de estabilidade | Mesmo | Mesmo encadeamento, com variação superficial | Correto |
-| 7 | Idêntico ao #5 | Repetição de estabilidade | Mesmo | Retornou `seed=null`, alegando faltar iniciador designado | Falha conservadora; estabilidade 2/3 |
-| 8 | Ledger; temperatura 0.1 | Modelo deve selecionar iniciador, `null` só sem gatilho | Mesmo | Riven → risos nobres/Liora → desconforto de Asword | Correto |
-| 9 | Idêntico ao #8 | Repetição | Mesmo | Mesmo encadeamento | Correto |
-| 10 | Idêntico ao #8 | Repetição | Mesmo | Mesmo encadeamento | Correto; 3/3 |
-| 11 | Perfis canônicos em prosa no lugar do ledger | Mesmo mecanismo social | Mesmo | Nix foi alinhada ao bullying porque “usa piadas”; Asword duplicado | Prosa bruta não é segura sem classificação anterior |
-| 12 | Perfis canônicos em prosa | Ordem estrita: classificar relação, depois simular | Relations + seed/followers/counter + hint | Classificou Riven/Liora hostis, Nix neutra, Asword protetor; evento correto | Uma chamada pode construir ledger efêmero |
-| 13 | Idêntico ao #12 | Repetição | Mesmo | Nix `pragmatic_positive`; evento correto | Correto |
-| 14 | Idêntico ao #12 | Repetição | Mesmo | Nix neutra; evento correto | Correto; 3/3 |
-| 15 | Controle: conversa privada só Link/Maelis | Classificação em etapas | Mesmo | Maelis pragmática; `hint=null` | Controle negativo passou |
-| 16 | Controle: cena pública, apenas aliados/neutros | Classificação em etapas | Mesmo | Todos protetores/neutros; `hint=null` | Plateia e constrangimento sozinhos não forçam bullying |
-| 17 | Transferência: artesã derruba vinho; rival, guardiã de status e amiga | Classificação em etapas | Mesmo | Rival inicia riso, guardiã/plateia seguem, amiga contrapõe | Generalizou, mas classificou guardiã de status como protetora |
-| 18 | Mesmo controle transferido | Taxonomia inclui `status_aligned` | Mesmo | Corrigiu guardiã; rival → plateia → amiga | Categoria de alinhamento social é necessária |
-| 19 | Cena real completa resumida | “Leilão” de lentes física/social/institucional/agenda | Candidatos pontuados + vencedor | Gerou tosse para Link, adiamento absurdo e sarcasmo válido; errou aritmética e truncou | Uma chamada criativa + árbitro interno é instável |
-| 20 | Candidatos ruins e bons do #19 | Juiz conservador | Vereditos + winner + hint | Rejeitou tosse, adiamento e expulsão; escolheu sarcasmo de Riven | Separar geração e julgamento funciona |
-| 21 | Cena real | Gerador puro por cinco lentes, sem escolher | Lista de candidatos com suporte | Gerou sensação imposta a Link, Riven, Maelis, Liora e nobre | Diversidade útil, ainda com candidatos inválidos |
-| 22 | Saída exata do #21 | Juiz conservador | Vereditos + winner + hint | Rejeitou ação/sensação de Link; escolheu Riven | Pipeline completo chegou ao hint social |
-| 23 | Transferência institucional: seleção parada | Gerador por lentes permissivo | Lista de candidatos | Inventou tablet, luz, ritual e fatos de suporte; não iniciou anúncio | Gerador precisa suporte quase literal e estado pendente explícito |
-| 24 | Mesmo controle institucional | Gerador estrito; lente de agenda procura estado pendente | Cada lente retorna candidato ou `null` | Física/social/ambiente `null`; dever e agenda iniciam anúncio | Correto, sem invenções |
-| 25 | Candidatos do #24 | Juiz de menor transição | Vereditos + winner + hint | “Inicie o anúncio das equipes e ranks em cena, sem definir escolhas do protagonista” | Transferência institucional passou |
+| 1 | Scene and minimal history, no profiles | Direct generator of the next event | `{hint, motivo}` | Murmurs in the audience, but Maelis goes back to suspecting and interrogating | Partial. The public situation is enough to suggest a murmur, but relationship and saturation are missing |
+| 2 | Four contrasting profiles + participation | Simulation of the next five seconds | Pressure ranking + hint | Identified Riven=laughter and Liora=contempt; the hint incorrectly claimed they had already taken over | Ranking beats free-form synthesis |
+| 3 | Same input | Calculator; an event only at pressure >=70 | Scores + composite event | Riven and Liora start the mockery, others follow, Asword objects; escalated into jeering | Very close, intensity excessive |
+| 4 | Same input | Explicit 1–5 scale and a cost for formality | Scores + event + hint | Riven/Liora out loud, murmurs, Asword; invented a reaction from the headmistress and treated Nix as hostile | Personality prose is ambiguous |
+| 5 | Structured relational ledger | Social propagation: hostile, aligned, protective, pragmatic | Seed + followers + counter + hint | Riven starts; Liora and the nobles propagate; Asword pushes back | Correct and close to the human hint |
+| 6 | Identical to #5 | Stability repeat | Same | Same chain, with surface variation | Correct |
+| 7 | Identical to #5 | Stability repeat | Same | Returned `seed=null`, claiming no designated initiator | Conservative failure; stability 2/3 |
+| 8 | Ledger; temperature 0.1 | The model must select the initiator, `null` only with no trigger | Same | Riven → laughter from the nobles/Liora → Asword's discomfort | Correct |
+| 9 | Identical to #8 | Repeat | Same | Same chain | Correct |
+| 10 | Identical to #8 | Repeat | Same | Same chain | Correct; 3/3 |
+| 11 | Canonical profiles in prose instead of the ledger | Same social mechanism | Same | Nix was aligned with the bullying because she "uses jokes"; Asword duplicated | Raw prose is not safe without prior classification |
+| 12 | Canonical profiles in prose | Strict order: classify the relationship, then simulate | Relations + seed/followers/counter + hint | Classified Riven/Liora hostile, Nix neutral, Asword protective; event correct | One call can build an ephemeral ledger |
+| 13 | Identical to #12 | Repeat | Same | Nix `pragmatic_positive`; event correct | Correct |
+| 14 | Identical to #12 | Repeat | Same | Nix neutral; event correct | Correct; 3/3 |
+| 15 | Control: private conversation, Link/Maelis only | Staged classification | Same | Maelis pragmatic; `hint=null` | Negative control passed |
+| 16 | Control: public scene, allies/neutrals only | Staged classification | Same | Everyone protective/neutral; `hint=null` | An audience and embarrassment alone do not force bullying |
+| 17 | Transfer: an artisan spills wine; a rival, a status guardian and a friend | Staged classification | Same | The rival starts the laughter, guardian/audience follow, the friend pushes back | Generalised, but classified the status guardian as protective |
+| 18 | Same transferred control | Taxonomy includes `status_aligned` | Same | Fixed the guardian; rival → audience → friend | A social-alignment category is necessary |
+| 19 | Full real scene, summarised | An "auction" of physical/social/institutional/agenda lenses | Scored candidates + winner | Produced a cough for Link, an absurd postponement and valid sarcasm; got the arithmetic wrong and truncated | One creative call plus an internal arbiter is unstable |
+| 20 | The bad and good candidates from #19 | Conservative judge | Verdicts + winner + hint | Rejected the cough, the postponement and the expulsion; chose Riven's sarcasm | Separating generation from judgement works |
+| 21 | Real scene | Pure generator across five lenses, with no power to choose | Candidate list with support | Produced a sensation imposed on Link, Riven, Maelis, Liora and a noble | Useful diversity, still with invalid candidates |
+| 22 | The exact output of #21 | Conservative judge | Verdicts + winner + hint | Rejected Link's action/sensation; chose Riven | The full pipeline reached the social hint |
+| 23 | Institutional transfer: a stalled selection | Permissive lens generator | Candidate list | Invented a tablet, a light, a ritual and supporting facts; did not start the announcement | The generator needs near-literal support and explicit pending state |
+| 24 | Same institutional control | Strict generator; the agenda lens looks for pending state | Each lens returns a candidate or `null` | Physical/social/environment `null`; duty and agenda start the announcement | Correct, nothing invented |
+| 25 | The candidates from #24 | Judge of the smallest transition | Verdicts + winner + hint | *"Inicie o anúncio das equipes e ranks em cena, sem definir escolhas do protagonista"* | The institutional transfer passed |
 
-### Ocorrências operacionais fora da contagem
+### Operational occurrences outside the count
 
-| Ocorrência | Resultado |
+| Occurrence | Result |
 |---|---|
-| Controle privado #15, primeira tentativa | Timeout HTTP após 45 s, sem resposta; repetido sem alterar variante |
-| Smoke inicial do wrapper | HTTP 400 porque DeepSeek exige a palavra “JSON” quando `json_object` é usado |
-| Wrapper inicial | Substituição não recursiva deixou `$DEEPSEEK_MODEL` no body; corrigido em `/tmp` |
+| Private control #15, first attempt | HTTP timeout after 45 s, no response; repeated without altering the variant |
+| Initial wrapper smoke test | HTTP 400, because DeepSeek requires the word "JSON" when `json_object` is used |
+| Initial wrapper | A non-recursive substitution left `$DEEPSEEK_MODEL` in the body; fixed in `/tmp` |
 
-## Achados
+## Findings
 
-### Dados que realmente mudaram o resultado
+### The data that actually changed the outcome
 
-1. **Estímulo público recente**, sem prosa longa: quem fez o quê, diante de quem
-   e qual consequência ainda não apareceu.
-2. **Participação recente por personagem**: Maelis havia falado três vezes e os
-   rivais zero. Isso reduz repetição e revela pressão acumulada.
-3. **Perfis/relações dos presentes relevantes**: hostilidade, proteção, humor
-   pragmático e alinhamento de status.
-4. **Estado explicitamente pendente**: “equipes e ranks ainda não anunciados”.
-   Sem essa forma declarativa, a lente de agenda inventou espera e ritual.
-5. **Restrições de agência e canon**: não estender ação, fala, pensamento ou
-   sensação do autor da última entrada; não inventar objetos ou suporte.
+1. **A recent public stimulus**, without long prose: who did what, in front of
+   whom, and which consequence has not appeared yet.
+2. **Recent participation per character**: Maelis had spoken three times and the
+   rivals zero. That reduces repetition and reveals accumulated pressure.
+3. **Profiles/relationships of the relevant people present**: hostility,
+   protection, pragmatic humour and status alignment.
+4. **Explicitly pending state**: "teams and ranks not announced yet". Without that
+   declarative form, the agenda lens invented a wait and a ritual.
+5. **Agency and canon constraints**: do not extend the action, speech, thought or
+   sensation of whoever wrote the last input; do not invent objects or support.
 
-O estado físico completo, todas as personalidades e a história longa não foram
-necessários para descobrir o hint-alvo. Fatos irrelevantes aumentaram a chance
-de associação espúria.
+The complete physical state, every personality and the long history were not
+needed to discover the target hint. Irrelevant facts raised the chance of a
+spurious association.
 
-### Contrato social de uma chamada
+### The social contract of a single call
 
-Este contrato obteve 3/3 na cena-alvo e passou dois controles negativos:
+This contract scored 3/3 on the target scene and passed two negative controls:
 
 ```json
 {
@@ -93,29 +93,29 @@ Este contrato obteve 3/3 na cena-alvo e passou dois controles negativos:
 }
 ```
 
-Ordem que produziu estabilidade:
+The order that produced stability:
 
-1. classificar relações;
-2. escolher iniciador somente entre hostis;
-3. propagar somente para hostis ou alinhados ao status;
-4. selecionar oposição somente entre protetores/pragmáticos;
-5. compor o hint apenas dos campos anteriores.
+1. classify the relationships;
+2. choose the initiator only among the hostile;
+3. propagate only to the hostile or the status-aligned;
+4. select the opposition only among the protective/pragmatic;
+5. compose the hint from the previous fields only.
 
-Esse contrato é eficiente, mas especializado em dinâmica social.
+That contract is efficient, but specialised in social dynamics.
 
-### Pipeline geral de duas chamadas
+### The general two-call pipeline
 
-O desenho que transferiu tanto para a humilhação pública quanto para o avanço da
-seleção foi:
+The design that transferred both to the public humiliation and to the advance of
+the selection was:
 
 ```text
-snapshot enxuto
-    → gerador por lentes, sem poder escolher
-    → juiz conservador de menor consequência
-    → narrator_hint ou null
+lean snapshot
+    → lens generator, with no power to choose
+    → conservative judge of least consequence
+    → narrator_hint or null
 ```
 
-Lentes úteis:
+Useful lenses:
 
 - `physical_consequence`
 - `social_reaction`
@@ -123,38 +123,38 @@ Lentes úteis:
 - `ongoing_agenda`
 - `environmental_change`
 
-O gerador precisa retornar `null` por lente quando não houver suporte e citar
-fatos quase literalmente. O juiz rejeita:
+The generator must return `null` per lens when there is no support, and must
+quote facts almost literally. The judge rejects:
 
-- controle do autor da entrada final;
-- suporte inventado;
-- repetição do agente saturado;
-- escalada desproporcional;
-- atraso de agenda sem causa;
-- evento que apenas dramatiza aparência sem mover a situação.
+- control over whoever authored the final input;
+- invented support;
+- repetition by a saturated agent;
+- disproportionate escalation;
+- an agenda delay with no cause;
+- an event that only dramatises appearance without moving the situation.
 
-Entre candidatos válidos, o juiz escolhe a menor transição observável que libera
-uma consequência preparada e ainda não expressa.
+Among valid candidates, the judge picks the smallest observable transition that
+releases a prepared consequence not yet expressed.
 
-### Resultado para a cena real
+### Result for the real scene
 
-Sem receber o hint humano, as variantes estáveis convergiram para:
+Without receiving the human hint, the stable variants converged on:
 
-> Riven inicia com riso ou sarcasmo contido; Liora e representantes nobres
-> propagam olhares, cochichos ou risos abafados; Asword demonstra oposição sem
-> tomar o controle de Link.
+> Riven opens with restrained laughter or sarcasm; Liora and the noble
+> representatives propagate glances, whispers or stifled laughs; Asword shows
+> opposition without taking control of Link.
 
-Isso é semanticamente equivalente ao impulso humano, porém preserva melhor a
-formalidade do salão e diferencia os personagens em vez de fazer literalmente
-“todos os nobres” reagirem igual.
+That is semantically equivalent to the human impulse, but it preserves the hall's
+formality better and differentiates the characters instead of making literally
+"all the nobles" react alike.
 
-## Conclusão
+## Conclusion
 
-Uma LLM consegue simular `narrator_hint`, mas “pedir uma boa próxima ideia” não
-é estável. O resultado depende mais da **representação do estado** e da
-**separação entre geração e julgamento** do que de uma proibição adicional no
-prompt do Diretor atual.
+An LLM can simulate `narrator_hint`, but "ask for a good next idea" is not stable.
+The result depends far more on the **representation of the state** and on the
+**separation between generation and judgement** than on one more prohibition in
+the current Director's prompt.
 
-A opção de uma chamada é suficiente para um módulo social especializado. Para
-um hint geral, o pipeline gerador + juiz foi mais robusto: tolera criatividade
-na primeira chamada e impede que candidatos inválidos contaminem o Diretor.
+The single-call option is enough for a specialised social module. For a general
+hint, the generator + judge pipeline was more robust: it tolerates creativity in
+the first call and stops invalid candidates from contaminating the Director.
