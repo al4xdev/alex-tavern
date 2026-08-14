@@ -5,7 +5,18 @@ __pycache__/
 *.egg-info/
 dist/
 .data/
-plans/
+# `plans/artifacts/` holds ~1.8 GB of raw sessions and replay output: local, and it
+# does NOT travel with a clone. The ANALYSIS SCRIPTS and the hand-read dossiers in
+# there are ~140 KB and are the METHOD behind every number in `.plan/` - task files
+# cite them by path - so those are tracked and the bulk is not.
+plans/**
+!plans/artifacts/
+!plans/artifacts/**/
+!plans/artifacts/**/*.py
+!plans/artifacts/**/*.md
+plans/artifacts/**/sessions/**
+plans/artifacts/**/runs/**
+plans/artifacts/**/blind_read/**
 .deepcode/
 unsloth_compiled_cache/
 output/
