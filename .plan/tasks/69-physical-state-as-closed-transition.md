@@ -26,8 +26,15 @@
 > 703 flagged pairs, **17 happened while the original event was still in front of
 > the Director** — in the facts bag, in the transcript, or both. In one of them
 > the bag literally read `"parede_rompida": "true"` and the Director broke the
-> wall again. **Nothing is being forgotten.** The `_MAX_PHYSICAL_FACTS` cap is
-> real and it is not the cause; the eviction bullet below drops to hygiene.
+> wall again. **The `_MAX_PHYSICAL_FACTS` cap is real and eviction is not the
+> cause; the eviction bullet below drops to hygiene.**
+>
+> ⚠ **Scoped after three critics: this is narrower than "nothing is forgotten".**
+> Presence in a prompt is not use, so a retrieval failure is still open; the CI on
+> 17/18 is [73%, 99%], so capacity could still explain a minority; and the
+> session-level test (18 never-capping sessions against 15 capping ones) has never
+> been run although both groups are already identified. **"Capacity is not
+> necessary and explains at most a minority" is what the evidence carries.**
 >
 > **The thesis of this task is unharmed and better aimed:** settled state has to
 > become **binding on the output**, not easier to retrieve. Retrieval already
@@ -372,9 +379,31 @@ adding one.
   the bag — the teams were **already leaving** — and Maelis re-issues the order.
 - `d5a2ccf0` T31→T32. `"projectile_hit": "true"`. The projectile hits again.
 
-**Nothing was forgotten in any of them.** The state channel held the fact, the
-transcript held the event, and the Director re-proposed anyway. Making the store
-bigger, or its eviction smarter, cannot reach a single one of these.
+**The original was present in the prompt in every one of them.** The state channel
+held the fact, the transcript held the event, and the Director re-proposed anyway.
+
+⚠ **Scoped 2026-08-13 after three isolated critics, and the scoping matters:**
+
+- ~~*"nothing is being forgotten"*~~ — **presence in a prompt is not use.** This
+  method inspects the input; it never observes whether the model attended to it.
+  Every one of the 17 is equally consistent with a retrieval failure this design
+  is structurally incapable of seeing.
+- ~~*"a larger or smarter store cannot fix it"*~~ — the evidence rules out
+  **eviction**. It does not rule out a store that pins, re-ranks or summarises
+  settled facts, which addresses salience rather than capacity.
+- **17 of 18 is not a rate.** Exact 95% CI **[73%, 99%]**, so at its lower bound
+  capacity could still account for up to 27%. The claim that survives is
+  *"capacity is not necessary and explains at most a minority"*, not *"plays no
+  role"*. And the 18 have **no session denominator** — under rule 1 they could be
+  a handful of sessions.
+- **The in-scope n is smaller than 18.** 43.4% of the flagged population is
+  speech, out of this task's scope, and the 17/18 was never split by event kind.
+
+**The session-level test that would settle it was never run, and both groups are
+already identified:** compare re-proposal rate between the **18 sessions that
+never reach the 40-key cap** and the **15 that do**. If the defect occurs at the
+same rate where the mechanism is structurally impossible, that is evidence of
+absence rather than absence of evidence.
 
 ### The one exception is not capacity either — it is an event that was LOST
 
@@ -414,6 +443,7 @@ paths double-counts):
 | | pooled | per session |
 |---|---|---|
 | flagged pairs (`sim >= 0.6`, lookback 3) | **703 of 5,064 = 13.9%** | median **12.5%**, sd **5.2pts**, range 4.6-24.9%, n=31 |
+| ⚠ **corrected to this task's own scope** | **~7.9%** (13.9% x 0.566, speech removed), **~7.1%** if the detector's 10% false-positive rate is also applied | **no per-session spread exists for the corrected figure** — the median/sd/range above belong to the uncorrected 13.9% and must not travel with it |
 
 **This is one of the few numbers in this project whose per-session spread does
 not destroy it** — sd 5.2 points, against 17.9 for the split rate and 31.5 for
@@ -517,7 +547,19 @@ is registered here so it cannot be presented afterwards as an insight.
 ### ✅ RAN 2026-08-13 — VARIANCE row, as registered. And the average was hiding the finding.
 
 **A: 5 of 16 runs recurred (31%). B: 6 of 16 (38%).** A is below the 40% line, so
-by the rule registered above this is the **variance** outcome: the contract clause
+by the rule registered above this is the **variance** outcome:
+
+⚠ **The unit is wrong and the gate was mis-specified.** 16 runs over 4 payloads is
+**n=4**, not 16 — runs inside a payload share a prompt and a scene, which is rule
+1 exactly. The paired per-payload differences are **+1, +2, -1, -1**, and a signed
+test at n=4 cannot reach p<0.05 two-sided **by construction**: the design could not
+have returned a positive result. The 40% floor was also set in run units, and a
+Wilson interval on 5/16 is [14%, 56%], straddling it — two more recurrences and
+the identical null would have been called informative.
+
+**The verdict stands** (the gate fired *and* the direction was adverse) but it
+stands on procedure, not on power. **If this is ever re-run, block on payload and
+report per-payload.** the contract clause
 is neither credited nor blamed, and **the closed-transition thesis is untested by
 this experiment.** B was directionally *worse*, well inside noise.
 

@@ -31,9 +31,10 @@
 > prompt. Pinned by a test. That is what keeps every injected renderer and every
 > archived comparison on their own path.
 >
-> **Still open from the design review:** `scan_cross_cluster_leak` re-run on a
-> post-change **live cell** against 3/78. The unit test pins the filter; only a
-> cell can pin the engine. **Not discharged.**
+> ✅ **Discharged 2026-08-14.** A `base`/P1 cell ran on the shipped code and
+> `scan_cross_cluster_leak` reports **0 leaking of 48 split narrations**
+> (`ea6620fb` 0/46, `bb72dc94` 0/2) against the 3/78 baseline. **Handing blocking
+> to the renderer did not re-open task 71's leak.**
 >
 > **Next action: the owner's word on the re-priced proposal**
 > (`.plan/para-o-dono/79-blocking-shape.md`). The schema bump is recommended
@@ -326,9 +327,45 @@ than a vindication would have been.
 | the Director's own `witness_ids` | ✅ yes, set arithmetic | **dead on its validity check** — median witness list is **95% of the cast** |
 | a blind reader of the narration | ✅ yes, no names shown | **88% not determinable** |
 
-**Nothing available to this project can measure room-versus-position on this
-corpus.** Not a parser, not the engine's own perception data, not a careful human
-reading the finished prose.
+**No instrument TRIED can measure room-versus-position on this corpus** — four of
+them now, each failing for a different reason.
+
+⚠ **The earlier wording here said "nothing available can measure it" and that was
+over-reach.** Three isolated critics killed it independently on 2026-08-13: it is
+a universal impossibility claim drawn from a handful of attempts, each of which
+failed for a reason that is a property of *the instrument*, not of the corpus.
+**"Tried" is the whole difference**, and the record now says only what was shown.
+
+**The fourth instrument, run because a critic caught that this project's own rule
+names it and it had never been tried.** `MEASURING.md` rule 5's corollary says
+*"prefer a structural signal to a string one... `Scene.positions` maps a character
+to a zone without parsing anything"* — written the same day, by the same author,
+who then reached for `witness_ids` instead. Exactly the shape rule 5 already logs
+about itself.
+
+> **The signal:** was the destination a zone that already existed at T-1, and was
+> anyone else standing in it? A move to a place that exists, or where people
+> already are, is a place. A destination that is newly minted and empty is the
+> Director inventing somewhere for one character — which is what this task says
+> happens when a position has nowhere to live. Set membership on keys and ids,
+> no string matching at all.
+>
+> **It passes its validity check** — fires on 73.2% of 512 moves, so it is not
+> degenerate the way `witness_ids` was — **and then fails on reading.**
+> `salão dos quatro arcos → pátio central` scores POSITION because the courtyard
+> is newly minted and empty. **A genuinely new room is also newly minted and
+> empty.** It separates novel destinations from familiar ones, which is a real
+> distinction and not this one. Agreement with the string rule: 35.4%.
+
+**So: four instruments, four different failures.** A string rule that measures
+naming; a perception signal that is saturated at 95% of cast; a blind reader that
+answers "cannot tell" 88% of the time; and a structural signal that measures
+novelty. That is a strong statement about four attempts and **not** a proof that a
+fifth cannot exist.
+
+**Reopening condition, which the earlier version lacked:** any instrument whose
+positives **and** negatives have both been read, on this corpus. Write it down
+here when it exists.
 
 ### What that does to the standing argument — it promotes it
 
@@ -698,6 +735,46 @@ The 8.4% is a **floor**. Three sources of miss, each found by reading, each name
 `zone_moves`: 8.4% is a lower bound, not an estimate.** The hand read says the
 true figure is materially higher; no string rule can pin it; and do not build a
 better regex, because source 1 is not reachable by one.
+
+#### ⚠ The set the rule ACCEPTS was finally read — 2026-08-14 — and 16.7% is not a rate
+
+Three critics independently caught the same gap: the 15 entries read in the 2x
+correction came from the **127 the corrected rule rejects**. That validates the
+correction and says nothing about the 101 it accepts, which are the entire
+numerator. `MEASURING.md` rule 5 requires reading **the set it separates** — both
+sides.
+
+Read at last, 20 systematic of 92 accepted moves:
+
+| what the read found | n of 20 |
+|---|---|
+| genuine repositions | ~12 |
+| **origin identical to destination** — a no-op move counted as a reposition | 2 |
+| **room changes matched by a stray preposition** | 2 clear, 4 arguable |
+
+The clear failures:
+
+```
+Salão dos Quatro Arcos  ->  corredor, atrás de C17, mantendo distância
+degraus da entrada      ->  pátio central, próximo ao corredor
+```
+
+Both are moves to a **different place** that matched only because the destination
+happens to describe a position relative to a person or a corridor. (The first also
+carries a raw character id inside a zone name, which is its own small finding.)
+
+**And the clustering is severe: 92 accepted moves come from 15 sessions, with one
+turn contributing 5 identical entries (`5d60575d` T3) and another 4
+(`c76037ff` T16).** The effective n is nowhere near 92.
+
+**Conclusion: precision on the accepted set is roughly 60-80%, not the ~100% the
+`character_zones` audit found on its own different population.** Combined with a
+median of 5.6% and 12 of 27 sessions at zero, the honest description is:
+
+> **zero-inflated, heavily clustered, and carried by a handful of turns. 16.7% is
+> not a rate and must not be quoted as one.** It is the output of an instrument
+> whose positives are 60-80% precise, over a corpus where most sessions score
+> zero.
 
 #### What the audit does NOT change
 

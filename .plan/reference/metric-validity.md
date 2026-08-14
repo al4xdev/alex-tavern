@@ -35,6 +35,8 @@ Standing rule this page exists to enforce:
 | `empty_audience` (task 67) | **REPORT, DO NOT GATE** | also cannot tell a DECLARED seal from graph damage: it filed seven turns of a man on a deliberately sealed pulpit as `graph_isolated` |
 | Director-proposed `witness_ids`, as a scoping signal | **MEASURED AND REJECTED** | median `|witness_ids|`/cast = **0.95** (quartiles 0.86/0.95/1.00, n=4,843 events). The Director lists nearly the whole cast as witnesses of nearly everything, so the field carries no perception judgement. Corroborates task 67 from the other side: **the engine's clamp does all the narrowing**, and every audience number here is a property of the graph, not of the Director's intent |
 | blind read of narration for room-vs-position (task 79) | **valid, and its answer is "cannot tell"** | 40 stratified blind reads: **35 "not determinable" (88%)**. Reported as the result, not as a failure of the judge - the prose does not carry the distinction. n=5 determinable is quoted as n=5 |
+| positional `zone_moves` string rule (task 79) | **REPORT, DO NOT GATE — not a rate** | corrected from 37.6% to 16.7% after a building-level prefix bug; then its ACCEPTED set was read for the first time on 2026-08-14: **~60-80% precise**, two failure modes (origin==destination no-ops; room changes matched by a stray preposition), and **92 positives from 15 sessions with single turns contributing 5 and 4**. Median 5.6%, 12 of 27 sessions at zero. Zero-inflated and clustered |
+| `Scene.positions` novelty signal (task 79) | **MEASURED AND REJECTED** | "destination newly minted and unoccupied at T-1" — set membership only, no string matching. **Passes its validity check** (fires on 73.2% of 512 moves, not degenerate) and **fails on reading**: a genuinely new ROOM is also newly minted and empty, so it separates novel destinations, not rooms from positions. Agreement with the string rule 35.4%. Tried because a critic noticed rule 5's own corollary names it and it had never been run |
 | `NSR` | **report, never gate** | ranks sessions OPPOSITE to a blind reader, Spearman +0.923 |
 | `SIL` | **report, never gate** | 0.0 in 18 of 18 runs; structurally impossible, see below |
 | `deaf_occupied`, `unreciprocated`, `edges_lost` | **REJECTED** | measured, do not predict damage; see below |
@@ -286,6 +288,25 @@ events, so slightly more than half of its own headline number is somebody else's
 defect. Pooled recurrence over the full archive is **703/5,064 = 13.9%**, per
 session **median 12.5%, sd 5.2pts, range 4.6-24.9%** (n=31) — which is, unusually
 for this page, a spread that does **not** destroy the pooled figure.
+
+## An agreement figure needs chance agreement as its control
+
+Recorded 2026-08-13, found by a critic given the numbers with the prose removed.
+
+Two instruments were compared: one calling 16.7% of moves a reposition, the other
+calling 93.2%. The reported agreement was **24.5%** — and with those two marginals
+the arithmetic **ceiling** is 23.4% and the chance floor is 21.2%. The reported
+figure exceeded its own ceiling (so a denominator was inconsistent somewhere), and
+the entire feasible range corresponds to **kappa between 0 and 0.03**.
+
+**An agreement percentage between two classifiers with lopsided base rates is
+pinned by those base rates and carries almost no information.** It looked like
+evidence and was arithmetic.
+
+**Transferable, and it is rule 3 applied to a shape nobody thinks of as a metric:**
+*the control for an agreement figure is chance agreement.* Compute it before
+quoting the raw percentage, and if one classifier is near-degenerate — 93.2% one
+way — say so instead, because that fact explains the agreement entirely.
 
 ## Matching a NAME: the failure that keeps recurring
 
