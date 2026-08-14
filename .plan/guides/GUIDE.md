@@ -21,12 +21,17 @@ when the machine repeats itself or when the machinery becomes visible.
 2. **[`MEASURING.md`](./MEASURING.md)**, next to this file — the nine rules, and what
    each cost when it was broken. **Second on purpose:** you will produce a number on
    your first day, and the ruler has to arrive before you need it, not after.
-3. **`.plan/ROADMAP.md`** — the current phase, the waves, and the order. It is an
+3. **[`STATE-OF-PLAY.md`](./STATE-OF-PLAY.md)**, next to this file — where the work
+   actually stood at handover: what is true, **what the record used to say and no
+   longer does**, the traps in the order you will hit them, and what to do first.
+   Read it before the roadmap; it is shorter and it will stop you quoting a
+   withdrawn number.
+4. **`.plan/ROADMAP.md`** — the current phase, the waves, and the order. It is an
    index and an ordering argument, not a container.
-4. **`.plan/CHECKPOINT-2026-08-13.md`** — where the phase actually stands.
-5. **`.plan/reference/critic-protocol.md`** — how this project decides a sentence
-   was worth writing.
-6. Then `AGENTS.md` in full, once, before your first change.
+5. **`.plan/CHECKPOINT-2026-08-13.md`** — where the phase actually stands.
+6. **`.plan/reference/critic-protocol.md`** — how this project decides a sentence
+   was worth writing, and how to dispatch critics instead of waiting on the owner.
+7. Then `AGENTS.md` in full, once, before your first change.
 
 `.plan/reference/metric-validity.md` is **not** on this list. It is the register: you
 look an instrument up in it the moment you are about to quote that instrument, and

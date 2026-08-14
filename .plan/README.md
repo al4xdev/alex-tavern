@@ -12,7 +12,7 @@ Organized by state:
 
 | Folder/file | What it is | When to look |
 |---|---|---|
-| `guides/` | **Start here if you are new.** Read once, end to end: `GUIDE.md` (the hour before `AGENTS.md`) and `MEASURING.md` (the nine rules behind every number here) | First session, before touching anything |
+| `guides/` | **Start here if you are new.** Read once, end to end: `GUIDE.md` (the hour before `AGENTS.md`), `STATE-OF-PLAY.md` (where the work stood at the 2026-08-14 handover, and which numbers were withdrawn) and `MEASURING.md` (the nine rules behind every number here) | First session, before touching anything |
 | `ROADMAP.md` | The **current phase** (immersion), its fronts, the order they are attacked in, and **the baseline each task has to beat** | When deciding what is next, and before implementing any task |
 | `tasks/` | **Active** tasks (open or delivered-with-reservations, banner at the top) | When working |
 | `para-o-dono/` | Things waiting for **your action** (smoke tests, designs to accept) | When you return |
