@@ -61,7 +61,13 @@ afternoon instead of a week.
 | **64** return control | `tasks/` | Re-scoped to calibration. Cheapest test in the phase: a contract-wording replay |
 | **77** the order nobody executes | `tasks/` | **Research item, not a build item.** 13 of 33 sessions, median 0 windows, cause unknown after three falsifications |
 | **72** commitments as state | `tasks/` | Gated on "do stalls survive 69" |
-| **80, 81** narration findings | `backlog/` | Opened from 79's method section; 80 has the honest caveat that good fiction omits movement too |
+| **80, 81, 82** narration/state findings | `backlog/` | Opened out of 79's and 69's method sections, where they would have been lost. **80** the narration does not convey space (n=40, with the caveat that good fiction omits movement too); **81** narration and state describing different events (n=1); **82** a Director event that reached nothing (n=1) |
+
+**All three of 80-82 are n small and uninvestigated on purpose.** They are
+candidate findings, not defects, and each says in its own file what would kill it.
+**82 is the one with the cheapest test** — counting events that produce no speech,
+no narration and no fact update is mechanical, needs no judge, and needs no string
+matching over names, which makes it almost unique in this corpus.
 
 ## What I would do first, in your place
 
