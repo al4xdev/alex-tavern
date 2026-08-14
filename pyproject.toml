@@ -22,6 +22,12 @@ dev = [
 # Shared sources are also embedded in the Android app's Python 3.11 runtime.
 target-version = "py311"
 line-length = 100
+# One-off analysis scripts, tracked since 2026-08-14 so the METHOD behind the
+# numbers in `.plan/` survives a machine change. They are a record, not shipped
+# code: each one produced a figure that a task file cites, so editing one now
+# would mean the file no longer matches what actually ran. Excluded from the lint
+# gate for that reason, not because the gate is inconvenient.
+extend-exclude = ["plans/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
