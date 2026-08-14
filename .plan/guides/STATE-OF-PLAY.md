@@ -93,6 +93,35 @@ What still goes to the owner: schema changes, graph changes, roadmap re-orders,
 anything irreversible, and anything where the missing input is a *preference*
 rather than an argument.
 
+## ⚠ What a clone does NOT give you
+
+**The repository is not the whole record.** Cloning gets you every document, every
+test, and every analysis script. It does **not** get you the evidence.
+
+| | travels? | where |
+|---|---|---|
+| all of `.plan/`, `docs/cases/`, `AGENTS.md`, tests, `src/` | ✅ | git |
+| **the analysis scripts and hand-read dossiers** | ✅ **as of 2026-08-14** | `plans/artifacts/**/*.py` and `*.md`, newly un-ignored for exactly this reason |
+| archived metric outputs, blind reads, `immersion-scan.json` | ✅ | `benchmarks/`, 2.1 MB, committed |
+| **the 33 recorded sessions — every `debug.jsonl` and `state.json`** | ❌ | `plans/artifacts/**/sessions/`, **1.8 GB, local only** |
+| replay outputs (`runs/`, `blind_read/`) | ❌ | same |
+| the provider key | ❌ | `.data/config.json`, correctly ignored — never commit it |
+
+**Consequence, and it is the important one: without the sessions you cannot
+re-derive a single number in this record.** Every measurement here reads
+`debug.jsonl` directly. The scripts will run and find nothing.
+
+**If you are moving machines, copy `plans/artifacts/` across separately** (rsync,
+external disk, whatever) *before* you conclude that a number cannot be reproduced.
+If it is genuinely gone, say so in the file that quotes the number rather than
+re-deriving it from a smaller corpus and quietly changing the figure — the record
+already carries several corrections and one more honest gap is cheaper than a
+silent restatement.
+
+**`benchmarks/` is the fallback.** It is committed and it holds the archived
+battery outputs and blind reads, so the *conclusions* remain checkable even when
+the raw sessions do not.
+
 ## One housekeeping fact you need
 
 **This repository was edited by two agent sessions at once on 2026-08-12 and
