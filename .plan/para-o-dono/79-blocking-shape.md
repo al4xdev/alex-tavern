@@ -1,5 +1,12 @@
 # For the owner — task 79's shape, four decisions
 
+> **Evidence correction, 2026-09-05; owner decisions below are preserved.**
+> The later re-pricing's 35/40 blind-read baseline is withdrawn: all 40 targets
+> were unresolved IDs. It cannot establish prose inferability for named
+> characters. The same audit withdraws task 81's quoted Link/Asword attribution.
+> See `plans/artifacts/79-reader-identity-audit/REPORT.md`. Current-turn blocking
+> remains implemented; quality acceptance remains open and persistence deferred.
+
 **Written 2026-08-13. Nothing in `src/` has been touched. 79 is docs-only until
 you answer, exactly as you instructed.**
 
@@ -251,7 +258,7 @@ finding:
 |---|---|---|
 | string rules | ❌ | five registered false positives, latest 2x |
 | the Director's own `witness_ids` | ✅ set arithmetic | **dead**: median witness list is **95% of the cast** |
-| a blind reader given the narration | ✅ | **88% not determinable** (35 of 40) |
+| historical blind-read attempt | target mapping failed | **35/40 output count; canonical-name inference withdrawn 2026-09-05** |
 
 **No instrument this project can build measures room-versus-position on this
 corpus.** Your standing argument is therefore no longer an assertion — it is
@@ -286,8 +293,8 @@ revertible in one commit.
 would instead stage them where the Director actually said they are — *"junto à
 saída lateral"* rather than *"Salão dos Quatro Arcos"*. That is a prose-quality
 change, and prose quality is the one thing on this page that a blind read **can**
-measure: 88% undeterminable is itself the evidence that narration is not carrying
-position today.
+measure. **The historical argument using 88% undeterminable as evidence of
+missing position is withdrawn, 2026-09-05: the judge received IDs, not names.**
 
 Decision 1 holds unchanged and perception stays **FORBIDDEN**, as a test.
 
@@ -300,8 +307,9 @@ was not the deepest problem.
 
 **Proposed instead, for the half that ships:** a blind read of narration from a
 cell before and after, asking whether the reader can tell where people are
-standing. Today's answer is **35 of 40 "not determinable"** and that is the
-baseline. Registered only on your word, with arms in the same run.
+standing. The historical proposed baseline was **35 of 40 "not determinable"**;
+**withdrawn 2026-09-05 as a canonical-name baseline**. Any replacement needs
+its own validated identity and audience contract, with arms in the same run.
 
 ## Two follow-ups this turned up
 

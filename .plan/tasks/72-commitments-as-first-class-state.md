@@ -1,5 +1,12 @@
 # Task 72 — Commitments as first-class state
 
+**Task-77 evidence correction, 2026-09-24:** a content audit narrowed its three
+cited passages. Repeated orders can coexist with movement, resistance or unclear
+group identity. That audit establishes neither an unremembered-commitment cause
+nor the absence of one. This task's existing post-69 gate remains unevaluated
+and unchanged by that read; see
+[`77-content-audit/REPORT.md`](../../plans/artifacts/77-content-audit/REPORT.md).
+
 > **Status:** open, **GATED**. Proposed by a blind narrative reviewer who was
 > asked one question the roadmap's author could not answer about his own work:
 > *if all the other tasks ship perfectly, is the game meaningfully more
@@ -204,12 +211,13 @@ longer show long stalls, then restaging was the whole of it and the social layer
 is not needed. **This is now the gate in the banner, evaluated at the checkpoint,
 not a retrospective note.**
 
-## Related: 69, 72 and 77 are one shape
+## Related hypothesis: 69, 72 and 77 may share a shape
 
-**The engine keeps no record of what has already been settled.** Task 69 is a
-resolved event re-proposed (the ceiling collapses three times). Task 77 is an
-issued order never enacted (the room is sent through a gate four times and
-nobody moves). Task 72 is the durable structure that would hold either.
+**Historical shared-state hypothesis, not established cause.** Task 69 includes
+resolved events re-proposed. Task 77 includes repeated orders with a crossing
+that remains unclear in its main passage, alongside other cited cases with
+movement and resistance. Task 72 proposes durable commitments, but the task-77
+content audit does not establish that this structure would resolve those cases.
 
 They are deliberately **not merged**: 77 has evidence and 72 has a design, and
 merging them would cost the evidence its own name and make 72 unfalsifiable.

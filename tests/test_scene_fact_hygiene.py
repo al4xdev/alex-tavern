@@ -25,7 +25,7 @@ import pytest
 from src.agents import narrator as narrator_mod
 from src.agents.narrator import narrate
 from src.confidentiality import hidden_whisper_tokens, scene_fact_secret_tokens
-from src.runner import _evict_oldest_facts, _fact_key_admissible
+from src.runner import Runner, _evict_oldest_facts, _fact_key_admissible
 from tests.factories import director_beat, make_cast, make_game, make_record
 
 SECRET = "Vharkhalos"
@@ -183,10 +183,28 @@ class TestFactKeyHygiene:
         facts = {"crack_in_ceiling": "fina"}
         assert _fact_key_admissible("crack_in_ceiling", facts)
 
-    def test_per_character_transient_state_is_refused(self) -> None:
-        assert not _fact_key_admissible("maelis_action", {})
-        assert not _fact_key_admissible("goblin_position", {})
-        assert not _fact_key_admissible("shaman_stance", {})
+    @pytest.mark.parametrize("suffix", ["action", "position", "stance", "state", "status"])
+    def test_a_free_form_suffix_does_not_determine_fact_ownership(self, suffix: str) -> None:
+        assert _fact_key_admissible(f"world_{suffix}", {})
+
+    def test_a_confirmed_door_lock_is_not_lost_to_the_state_suffix(self) -> None:
+        game = make_game()
+        game.scene.physical_facts = {
+            "dungeon_gates": "quatro arcos de pedra fechados",
+        }
+
+        Runner.__new__(Runner)._update_scene(
+            game,
+            {
+                "combustible_puddle": "presente perto das portas de aço",
+                "door_runes": "vermelhas, pulsando com zumbido",
+                "smoke_smell": "fraco, vindo das alas superiores",
+                "doors_state": "trancadas",
+            },
+        )
+
+        assert game.scene.physical_facts["doors_state"] == "trancadas"
+        assert game.scene.physical_facts["dungeon_gates"] == "quatro arcos de pedra fechados"
 
     def test_an_unrelated_new_fact_is_admitted(self) -> None:
         assert _fact_key_admissible("main_doors", {"crack_in_ceiling": "fina"})
@@ -196,3 +214,28 @@ class TestFactKeyHygiene:
         _evict_oldest_facts(facts)
         assert len(facts) == 40
         assert "fact_0" not in facts and "fact_49" in facts
+
+    @pytest.mark.parametrize("update_first", [True, False])
+    def test_a_changed_fact_survives_new_fact_at_capacity(
+        self, monkeypatch: pytest.MonkeyPatch, update_first: bool
+    ) -> None:
+        monkeypatch.setattr("src.runner._MAX_PHYSICAL_FACTS", 3)
+        game = make_game()
+        game.scene.physical_facts = {"gate": "open", "weather": "clear", "floor": "dry"}
+        items = [("gate", "closed"), ("lantern", "lit")]
+        delta = dict(items if update_first else reversed(items))
+
+        Runner.__new__(Runner)._update_scene(game, delta)
+
+        assert game.scene.physical_facts == {"floor": "dry", "gate": "closed", "lantern": "lit"}
+
+    def test_removing_a_fact_in_the_same_delta_avoids_unnecessary_eviction(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr("src.runner._MAX_PHYSICAL_FACTS", 3)
+        game = make_game()
+        game.scene.physical_facts = {"gate": "closed", "weather": "clear", "floor": "dry"}
+
+        Runner.__new__(Runner)._update_scene(game, {"lantern": "lit", "weather": None})
+
+        assert game.scene.physical_facts == {"gate": "closed", "floor": "dry", "lantern": "lit"}

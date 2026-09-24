@@ -16,14 +16,19 @@ call I made to keep moving and would unmake on request.
 
 ## 1. Task 64 re-scoped from "missing trigger" to "shy trigger" — DECIDED
 
-**What I did.** Ran the battery the task demanded: nine post-70 sessions, 323
-Director turns.
+**What I did.** Ran the battery the task demanded: nine post-70 sessions,
+historically counted as 323 Director turns. **Correction, 2026-09-24:** the nine
+retained session states and logs contain 314 committed Director decisions. The
+original 323 calculation was not recovered; the 0/9 sessions with neither
+handoff route remains in the retained records. The pooled-turn p-values in the
+historical table below are withdrawn because turns within a session are not
+independent. See the [Task 64 audit](../plans/artifacts/64-return-control-calibration/RESULT.md).
 
 | signal | pre-70 | post-70 | |
 |---|---|---|---|
-| sessions where control NEVER returned | **5 of 12** | **0 of 9** | p = 0.045 |
-| `return_control=True` | 1.0% | 3.1% | p = 0.059 |
-| either path | 3.3% | 6.2% | p = 0.057 |
+| sessions where control NEVER returned by either route | **5 of 12** | **0 of 9** | historical p withdrawn |
+| `return_control=True` | 1.0% | 3.2% (10/314 retained) | historical p withdrawn |
+| either path | 3.3% | 6.4% (20/314 retained) | historical p withdrawn |
 
 **What the numbers alone would have said:** rates are still ~3%, so the
 mechanism picks badly and needs replacing. That is what the task was written to

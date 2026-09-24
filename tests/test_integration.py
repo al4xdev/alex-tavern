@@ -2694,6 +2694,37 @@ class TestHttpBoundary:
     """Testes da fronteira HTTP com ASGITransport — Pydantic → route → Runner."""
 
     @pytest.mark.asyncio
+    async def test_builtin_physical_manifest_reaches_the_materialized_session(self) -> None:
+        from src.main import RuntimeState, app
+        from src.runner import Runner
+
+        llm_client = httpx.AsyncClient()
+        runner = Runner(llm_client, {})
+        app.state.runtime = RuntimeState(
+            stored_config={"provider": "llama_cpp", "providers": {"llama_cpp": {}}},
+            server_config={},
+            llm_client=llm_client,
+            runner=runner,
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test", headers=_sec_headers()
+        ) as http:
+            response = await http.post(
+                "/session/start",
+                json={"scenario_name": "thorn-lyra"},
+            )
+        await llm_client.aclose()
+
+        assert response.status_code == 200
+        state = response.json()["state"]
+        entity = state["durable_state"]["physical_entities"][
+            "thorn-lyra-main-hall-door"
+        ]
+        assert entity["registered_turn_number"] == 0
+        assert entity["dimensions"]["aperture"]["state"] == "closed"
+        delete_session(response.json()["session_id"])
+
+    @pytest.mark.asyncio
     async def test_hint_only_reaches_runner(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
         """narrator_hint como único conteúdo via HTTP chega ao Runner."""
         from src.main import RuntimeState, app
@@ -3172,6 +3203,25 @@ class TestDynamicConfigAndScenarios:
         assert request.characters["C1"].mind.name == "Aria"
         with pytest.raises(ValidationError):
             StartSessionRequest(characters={"C1": {"name": "legacy-flat"}})
+
+    def test_session_request_preserves_a_provenance_free_physical_manifest(self) -> None:
+        from pydantic import ValidationError
+
+        from src.main import StartSessionRequest
+        from src.pydantic_compat import dump
+
+        entity = {
+            "entity_id": "door",
+            "key": "hall.door",
+            "kind": "passage",
+            "scene_key": "hall",
+            "dimensions": {"aperture": "closed"},
+        }
+        request = StartSessionRequest(physical_entities=[entity])
+
+        assert dump(request)["physical_entities"] == [entity]
+        with pytest.raises(ValidationError):
+            StartSessionRequest(physical_entities=[{**entity, "registered_turn_number": 0}])
 
     def test_scenarios_store_crud(self) -> None:
         """Verifica as operações de CRUD diretamente no scenarios store."""

@@ -502,6 +502,14 @@ the canonical typed history representation and contains no markdown-era compatib
 
 ## ⏪ History, Undo, and Mood
 
+Physical scene facts are capped at 40 entries, evicting the least recently
+written first. Updating an existing fact refreshes its write order; eviction runs after the complete scene
+delta, so a removal in that delta can free capacity before another fact is evicted.
+The order survives session save/load.
+Free-form fact keys are not rejected merely for ending in `_state`, `_status`,
+`_action`, `_position` or `_stance`; those suffixes do not identify ownership
+by a character. The separate similarity check still applies to new keys.
+
 Every history record carries a deep copy of the scene state and every character's mood at the
 moment it was appended — that snapshot is what makes undo possible without a separate undo log.
 
@@ -1298,8 +1306,9 @@ sharing a checked-in key, session, scenario, or debug log.
 Built-in scenarios are immutable application assets under `src/scenarios/`; their character
 records live under `src/characters/`. User scenarios remain mutable runtime data under
 `.data/scenarios/`, while user characters remain under `.data/presets/`. A scenario stores world,
-scene, directives, controlled slot, and character references only. The Runner resolves canonical
-`mind`/`body` records when it materializes the independent session snapshot.
+scene, directives, controlled slot, character references and, when declared, a provenance-free
+manifest of typed physical fixtures. The Runner resolves canonical `mind`/`body` records and
+materializes those fixtures as turn-zero durable state in the independent session snapshot.
 
 ### Browser-boundary security
 
@@ -1649,6 +1658,10 @@ current source supersede intermediate assumptions.
 > [!IMPORTANT]
 > **AI Coding Agents & Contributors:** All active tasks, planning documents, and scratchpads are tracked in the [`.plan/`](.plan/) directory.
 > - **Always consult [`.plan/tasks/`](.plan/tasks/) and [`AGENTS.md`](AGENTS.md) before writing any new code or features** to avoid duplication and maintain architectural consistency.
+> - Read the [current handover](.plan/guides/STATE-OF-PLAY.md) before reusing historical measurements. The [reader identity audit](plans/artifacts/79-reader-identity-audit/REPORT.md) withdraws task 79's 35/40 canonical-name baseline; the archived judge was given internal IDs.
+> - Task 69's [prose-history diagnostic](plans/artifacts/69-projectile-boundary/REPORT.md) preserves the literary read, source corrections and disputed retreat classifications; it did not validate removing history.
+> - The [P3 input audit](plans/artifacts/77-p3-input-dispatch/REPORT.md) corrects the acceptance tool's action dispatch. Historical P3 actions were sent as skips; those sessions still contain steering speeches, but cannot establish responsiveness to the unsent actions.
+> - The [replanner physical-context diagnostic](plans/artifacts/69-replan-physical-context/REPORT.md) retains eight individual readings and the protocol dispute: supplying canonical facts did not validate a runtime change, and canonical state itself contained conflicting messenger locations.
 > - **`S`-prefixed tasks are Supertasks** — large structural changes. Completed ones are historical records under [`.plan/closed/`](.plan/closed/), including [S01-plugin-system.md](.plan/closed/S01-plugin-system.md); unstarted ones live in `.plan/backlog/` until the owner prioritizes them. Current source, tests, and `AGENTS.md` supersede their intermediate assumptions.
 
 ---

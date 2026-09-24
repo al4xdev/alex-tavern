@@ -5,7 +5,7 @@
    while the dev server is reachable.
    ══════════════════════════════════════════════════════════════════════ */
 
-const CACHE = 'rpt-shell-v32';
+const CACHE = 'rpt-shell-v33';
 const SHELL = [
     '/',
     '/index.html',
@@ -25,6 +25,7 @@ const SHELL = [
     '/adapters/deepseek.js',
     '/adapters/index.js',
     '/setup.js',
+    '/durable-state-manifest.js',
     '/slash-commands.js',
     '/slash-command-parser.js',
     '/android-bridge.js',

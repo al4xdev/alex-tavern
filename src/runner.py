@@ -60,6 +60,11 @@ from src.disposition import (
     integrate_appraisal,
 )
 from src.drive import evaluate_event_hazard, generate_event_seed
+from src.durable_state import (
+    DurableState,
+    bootstrap_physical_entities,
+    validate_durable_state,
+)
 from src.llm.debug_log import (
     log_audible_speech_drop,
     log_burst,
@@ -173,25 +178,8 @@ _SPEECH_ECHO_MIN_CHARS = 30
 _SPEECH_ECHO_LOOKBACK_TURNS = 4
 
 
-# Physical facts are durable, unbounded and never pruned: the only prune path
-# clears them on a LOCATION change, and the Director reliably re-emits the
-# identical location string, so it never fires. Measured on the battery runs, a
-# 38-turn session accumulated 54 keys / 3169 chars of Director prompt, 10 of
-# them near-synonym pairs (ceiling_crack / crack_in_ceiling / ceil_crack_widened)
-# and 18 per-character transient state.
-# A SAFETY VALVE, not the policy. The intake filters below are what actually
-# bound the channel: replayed against the 38-turn session they refuse 63 keys and
-# take the peak from 54 to 32. The cap only exists so pathological growth cannot
-# run away. Sized above that observed peak on purpose — at 24 it evicted 8 facts
-# that nothing else objected to, and eviction is dangerous here: dropping
-# `main_doors: trancadas` is precisely what would let the Director seal the doors
-# again, so a cap set too low causes the defect it is meant to help with.
 _MAX_PHYSICAL_FACTS = 40
 _FACT_SYNONYM_THRESHOLD = 0.75
-# Per-character transient state. Where someone is standing belongs in
-# zone_moves, how they feel in mood_updates; neither is a durable world fact,
-# and writing them here is what filled a third of the budget.
-_TRANSIENT_FACT_KEY = re.compile(r"_(action|position|stance|state|status)$")
 
 
 def _canonical_fact_key(key: str) -> str:
@@ -210,8 +198,8 @@ def _canonical_fact_key(key: str) -> str:
 def _fact_key_admissible(key: str, facts: dict[str, str]) -> bool:
     """Whether a new physical-fact key may join the scene.
 
-    Rejects per-character transient state and near-synonyms of a key already
-    present, so the same crack cannot be tracked under three names at once. An
+    Rejects near-synonyms of a key already present, so the same crack cannot
+    be tracked under three names at once. An
     exact re-write of an existing key is always allowed: that is an UPDATE, and
     updating a fact is the whole point of the channel.
 
@@ -221,8 +209,6 @@ def _fact_key_admissible(key: str, facts: dict[str, str]) -> bool:
     """
     if key in facts:
         return True
-    if _TRANSIENT_FACT_KEY.search(key):
-        return False
     canonical = _canonical_fact_key(key)
     return not any(
         similar_text(canonical, _canonical_fact_key(existing)) > _FACT_SYNONYM_THRESHOLD
@@ -440,26 +426,33 @@ def _carries_intent(spoken: str, intent: str) -> bool:
     return len(shared) / len(wanted) >= _INTENT_CARRIED_RATIO
 
 
-def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None]:
-    """The clock and screenplay as they are right now, for this beat's records."""
-    return game.narrative_tick, (asdict(game.roteiro) if game.roteiro is not None else None)
+def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None, DurableState]:
+    """The clock, screenplay and durable state before this beat starts."""
+    return (
+        game.narrative_tick,
+        asdict(game.roteiro) if game.roteiro is not None else None,
+        copy.deepcopy(game.durable_state),
+    )
 
 
 def _stamp_undo_anchor(
-    game: GameState, step: int, anchor: tuple[int, dict[str, Any] | None]
+    game: GameState,
+    step: int,
+    anchor: tuple[int, dict[str, Any] | None, DurableState],
 ) -> None:
-    """Write the pre-beat clock and screenplay onto every record of this beat.
+    """Write pre-beat state onto every record of this beat.
 
     Records are appended at different moments of a beat - the player's input
     before the Director runs, the narration after - so the anchor is stamped
     once, at commit, instead of being read from a moving ``game``.
     """
-    tick, roteiro = anchor
+    tick, roteiro, durable_state = anchor
     for record in reversed(game.history):
         if record.turn_number != step:
             break
         record.narrative_tick_snapshot = tick
         record.roteiro_snapshot = copy.deepcopy(roteiro)
+        record.durable_state_snapshot = copy.deepcopy(durable_state)
 
 
 def _current_turn(game: GameState) -> int:
@@ -566,6 +559,7 @@ class Runner:
         cfg = await self.plugins.hooks.filter(Hook.SESSION_START, cfg, {"runner": self})
         session_id = generate_session_id()
         scenario_data: dict | None = None
+        wholly_default_session = "characters" not in cfg and "scene" not in cfg
 
         if "characters" not in cfg or "scene" not in cfg:
             from src.store.scenarios import list_builtin_scenarios, load_builtin_scenario
@@ -658,6 +652,20 @@ class Runner:
                 if load_preset(preset_name) is None:
                     raise ValueError(f"Character preset '{preset_name}' was not found.")
 
+        physical_manifest = (
+            cfg["physical_entities"]
+            if "physical_entities" in cfg
+            else (
+                (scenario_data or {}).get("physical_entities", [])
+                if wholly_default_session
+                else []
+            )
+        )
+        durable_state = bootstrap_physical_entities(
+            physical_manifest,
+            character_ids=set(characters),
+        )
+
         game = GameState(
             session_id=session_id,
             characters=characters,
@@ -667,10 +675,12 @@ class Runner:
             narrator_directives=cfg.get("narrator_directives", ""),
             character_preset_ids=character_preset_ids,
             scenario_source_id=str(cfg.get("scenario_source_id", "")),
+            durable_state=durable_state,
         )
         game = await self.plugins.hooks.filter(
             Hook.SESSION_BEFORE_COMMIT, game, {"kind": "start", "runner": self}
         )
+        validate_durable_state(game.durable_state, set(game.characters))
         save_game(game)
         self._warn_on_directive_contract(game)
         await self.plugins.hooks.action(Hook.SESSION_AFTER_COMMIT, {"game": game, "kind": "start"})
@@ -2073,6 +2083,7 @@ class Runner:
         await self._audit_turn_for_watcher(game, step)
         await self._apply_disposition_feedback(game, step)
         game.revision += 1
+        validate_durable_state(game.durable_state, set(game.characters))
         save_game(game)
         await self.plugins.hooks.action(Hook.TURN_AFTER_COMMIT, {"game": game, "kind": "turn"})
         return game
@@ -2166,6 +2177,7 @@ class Runner:
                 for viewer_id, item in restore.perspective_snapshot.items()
             }
             game.dispositions = dict_to_disposition_state(restore.disposition_snapshot)
+            game.durable_state = copy.deepcopy(restore.durable_state_snapshot)
             game.narrative_tick = restore.narrative_tick_snapshot
             game.roteiro = (
                 dict_to_roteiro(copy.deepcopy(restore.roteiro_snapshot))
@@ -2179,6 +2191,7 @@ class Runner:
                 {"turn_number": last_turn_number, "removed": removed, "runner": self},
             )
             game.revision += 1
+            validate_durable_state(game.durable_state, set(game.characters))
             save_game(game)
             await self.plugins.hooks.action(
                 Hook.UNDO_AFTER_COMMIT,
@@ -3180,8 +3193,9 @@ class Runner:
             if value is None:
                 game.scene.physical_facts.pop(key, None)
             else:
+                game.scene.physical_facts.pop(key, None)
                 game.scene.physical_facts[key] = value
-                _evict_oldest_facts(game.scene.physical_facts)
+        _evict_oldest_facts(game.scene.physical_facts)
 
     def _update_moods(self, game: GameState, mood_updates: dict[str, str]) -> None:
         """Applies the new mood decided by the Narrator to each affected character."""
@@ -3255,5 +3269,6 @@ class Runner:
                 for viewer_id, perspective in game.character_perspectives.items()
             },
             disposition_snapshot=asdict(game.dispositions),
+            durable_state_snapshot=copy.deepcopy(game.durable_state),
         )
         game.history.append(record)

@@ -1,22 +1,51 @@
 # Task 77 — The order that nobody executes
 
+**Content correction, 2026-09-24:** the three cited windows were reread as
+continuous fiction and checked against accepted Director output and committed
+positions. In `09aabf25` T30–T35, Link and Asword advance within the hall but
+do not clearly cross the gate despite repeated entry orders. In `b11b38dc`
+T20–T24, Riven actually crosses, Link declines to follow, fog delays Asword,
+and the door closes; this is not unambiguous evidence that nobody executes an
+order. In `09aabf25` T15–T17, anonymous students enter the corridor and later
+students appear near the gate, without clear group identity. T33–T34 also
+repeats a “second howl” and fissure opening; its cause is unproved. The old
+**13/33 sessions and 23 windows count historical detector incidence, not
+calibrated defect prevalence**. The original case list and selector were not
+recovered; one explicit reconstruction over 33 current non-P3 states yields
+**27 windows in 15 sessions**, without proving the historical report wrong.
+Neither count is a quality gate. A fourth, separately selected case shows local
+movement while team formation remains unresolved. The main narrative complaint
+stays open with unknown cause. [Source-checked content audit](../../plans/artifacts/77-content-audit/REPORT.md),
+[detector reconstruction](../../plans/artifacts/77-content-audit/RECONSTRUCTION.md),
+[fourth case](../../plans/artifacts/77-content-audit/CASE-21F.md).
+
+**Input-tool correction, 2026-09-14:** the historical P3 physical actions were
+sent as skips; the action-responsiveness interpretation is withdrawn below.
+The dispatcher now sends them as actions. A new three-input prefix reached the
+real Director with the exact action and persisted it in session fb62cc2f;
+the reader still could not determine where Link reached before the creature
+interrupted him. Delivery is verified, narrative resolution remains open.
+See the [live boundary and content read](../../plans/artifacts/77-p3-input-dispatch/LIVE-RESULT.md).
+
 > **Status:** open, found 2026-08-12 by **reading a session as fiction**, not by
-> any metric. No metric in this project reports it, and the one measurement I
+> any validated metric. No calibrated metric in this project reports it, and the one measurement I
 > tried failed its own control — that failure is recorded below so nobody
 > re-derives it.
 >
 > This is the phase's headline complaint, *"the scene does not move"*, caught in
 > the act with a transcript rather than a number.
 >
-> **Sized 2026-08-13: 13 of 33 sessions (39%), 23 windows, median 0 per
-> session.** Real and sparse. **Moved to 4th in wave 2** as a research item, not
+> **Historical detector output, 2026-08-13: 13 of 33 sessions (39%), 23
+> windows, median 0 per session.** The selector is not reproducible from the
+> published description; defect prevalence is unknown after the
+> content read above. **Moved to 4th in wave 2** as a research item, not
 > a build item, because the cause has survived three attempts to name it. Do not
 > design a fix; keep reading cases.
 >
 > **Kept in `tasks/` on 2026-08-13 when 78 was moved out, and the reason is not
 > priority.** It has no build action either. It stays because **two other open
 > tasks are wired to its evidence**: 72's gate is *"do stalls survive 69"*, and
-> the stalls it means are the ones measured here, so demoting this file to
+> the unresolved main passage here is one reason to test that gate, so demoting this file to
 > `backlog/` would leave a gated task pointing at a shelved one. That is a
 > structural argument, not a claim that the symptom is bigger than 78's.
 >
@@ -45,7 +74,8 @@ through the north gate. Reading straight through:
 > **T33 Asword:** *"Link, vamos atravessar juntos agora! Os demais, sigam em
 > formação, sem olhar para trás!"*
 
-**Three turns. The same order four times. Nobody enters the gate.** Asword says
+**Three turns. The same order four times. No completed gate crossing is clear in
+this window.** Asword says
 the identical sentence at T31 and T33 with one clause changed. Everyone agrees
 with the order every time, and the world does not advance past it.
 
@@ -53,7 +83,7 @@ The same shape at `09aabf25` T15-T17 (*"A seleção é antecipada: entrem na
 masmorra agora, em duplas"* twice, plus Garran's echo), and at `b11b38dc`
 T22-T23.
 
-**This is not a repetition defect.** A commander repeating an ignored order is
+**Speech repetition alone does not explain this defect.** A commander repeating an ignored order is
 ordinary drama, and would be fine if the wording escalated or the situation
 changed. What a reader gets instead is a room where everyone announces the same
 imminent action, agrees enthusiastically, and remains exactly where they were.
@@ -152,16 +182,19 @@ of nine in the whole corpus.
 **So candidate 1 is dead in both forms, and this is the third falsified diagnosis
 in this file.**
 
-## How big is the symptom, actually — measured 2026-08-13
+## Historical detector sizing — reported 2026-08-13, not content-calibrated
 
-Never sized before. Definition matched to what the transcript shows: **three
-consecutive turns where some line restates a line from the turn before
-(similarity ≥ 0.6, any speaker), while nobody's position changes.**
+The published definition was: **three consecutive turns where some line
+restates a line from the turn before (similarity ≥ 0.6, any speaker), while
+nobody's recorded position changes.** The exact historical selector and case
+list were not recovered. One explicit reconstruction of that description gives
+27 windows/15 sessions, not the 23/13 reported below; neither is a calibrated
+count of the narrative complaint.
 
 | | |
 |---|---|
-| sessions with at least one such window | **13 of 33 (39%)** |
-| total windows | **23** |
+| sessions with at least one detector window | **13 of 33 (39%)** |
+| total detector windows | **23** |
 | per session | **median 0**, max 5 |
 
 ⚠ **My first detector said 9%** because it required the SAME speaker to restate
@@ -170,13 +203,13 @@ order, so that detector was measuring a narrower thing than the defect. Recorded
 because the corrected number is four times larger and the correction came from
 re-reading the transcript, not from the number looking wrong.
 
-**What this means for priority.** The owner raised 77 above most of wave 2 on
-2026-08-13, before this sizing existed. The symptom is real and reaches **39% of
-sessions**, but it is **sparse inside them** (median 0 windows) and its cause has
-now survived three attempts to name it. That is a different object from *"the
-phase's headline complaint"* as this file's header still calls it. **The ranking
-is the owner's call and I have not changed it** — but it was made without this
-number.
+**What this means for priority, corrected 2026-09-24.** The owner raised 77
+above most of wave 2 on 2026-08-13, before this sizing existed. The historical
+detector reported hits in **39% of sessions**, sparsely inside them (median 0
+windows); its selector is unrecovered and the narrative defect's frequency is
+unknown. The main passage remains a readable
+complaint, and its cause has survived three attempts to name it. **The ranking
+is the owner's call and I have not changed it.**
 
 ## Direction — deliberately not prescribed
 
@@ -314,7 +347,18 @@ narration length. And whatever the number says, **the transcript gets read** -
 a frozen rate that falls while the prose still reads as a room going nowhere
 would mean the position axis was the wrong measure, not that the task is fixed.
 
-### P3 result, first replicate — the confound is DISMISSED, and it made the task worse
+### Historical P3 result — action interpretation withdrawn, 2026-09-14
+
+**Correction:** the dispatcher sent every non-speech input as `skip=True`,
+including the two declared P3 physical actions. The two logs contain seven
+and nine recorded inputs, with empty actions throughout; the third is a skip
+in both, and the ninth is a skip in the second. They do not represent the
+intended four content inputs and six skips. Both retain the steering speeches,
+so this does not show absence of all initiative or explain the narrative
+failure. The “confound dismissed” and “regardless of who pushes” conclusions
+below cannot use the unsent actions as evidence. Their action-responsiveness
+interpretation is withdrawn, not replaced by a new estimate. The dispatcher
+now forwards actions explicitly; [reproduction and archive locations](../../plans/artifacts/77-p3-input-dispatch/REPORT.md).
 
 `5d60575d`, 23 turns. **Frozen rate 95.2% (20 of 21 adjacent pairs)** against the
 P1 control's 90.8% over nine sessions. Above the 82% line, so by the rule
@@ -329,6 +373,11 @@ north. Plenty happens. What does not happen is anybody moving.
 against the P1 control's 90.8%. **An active player does not unstick the scene.**
 That is the finding, it holds on both replicates, and it is what dismisses the
 confound.
+
+**Withdrawn as a physical-action comparison, 2026-09-14:** neither session
+received the declared action inputs. The rates remain historical outputs;
+responsiveness to the actual steering speeches is not evaluated by the new
+dispatch audit, and must not be silently conflated with action responsiveness.
 
 **What did NOT replicate, and I reported it before checking:**
 
@@ -411,12 +460,13 @@ prompt-contract defect and closes cheaply. If it still emits `null`, the gap is
 structural and the `action` field needs a mechanical path. Decide that with a
 replay before writing code.
 
-## Related: 69, 72 and 77 are one shape
+## Related hypothesis: 69, 72 and 77 may share a shape
 
-**The engine keeps no record of what has already been settled.** Task 69 is a
-resolved event re-proposed (the ceiling collapses three times). Task 77 is an
-issued order never enacted (the room is sent through a gate four times and
-nobody moves). Task 72 is the durable structure that would hold either.
+**Historical shared-state hypothesis, not established cause.** Task 69 includes
+resolved events re-proposed. This task's main passage has repeated orders and
+no clearly completed crossing, but its other cited passages have movement,
+resistance and unclear group identity. Task 72 proposes durable commitments;
+the content audit does not establish that this structure would resolve them.
 
 They are deliberately **not merged**: 77 has evidence and 72 has a design, and
 merging them would cost the evidence its own name and make 72 unfalsifiable.

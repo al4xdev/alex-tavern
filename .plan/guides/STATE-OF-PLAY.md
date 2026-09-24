@@ -1,5 +1,21 @@
 # State of play — handover, 2026-08-14
 
+> **Update, 2026-09-05:** the first proposed acceptance measurement below had
+> a broken identity contract. All 40 judge targets were IDs, not names; 35/40
+> is withdrawn as a canonical-name baseline. The paired reconstruction and
+> manual read are in `plans/artifacts/79-reader-identity-audit/REPORT.md`.
+> Task 79's current-turn blocking implementation remains; quality acceptance
+> is open. Task 80 loses that quantitative support, and task 81's quoted
+> movement of Link was actually Asword's. Historical text is retained below.
+
+**Content follow-up, 2026-09-05:** isolated literary readers and a paired prose
+comparison retain concrete strengths and continuity concerns without assigning
+a quality score. Garran stands before being described as “ainda de joelhos”;
+the beam crossing leaves membership of “o grupo” unclear. Task 79 acceptance
+remains open. See `plans/artifacts/79-content-read/REPORT.md` and
+`plans/artifacts/79-content-comparison/REPORT.md` for passages, source checks and
+the comparison's missing and schema-invalid responses.
+
 **Read `GUIDE.md` first (it is the hour before `AGENTS.md`), then this.** That one
 teaches you the place. This one tells you where the work actually stands on the
 day it changed hands, what is true, what only looks true, and what to do next.
@@ -27,9 +43,9 @@ afternoon instead of a week.
 |---|---|---|
 | Narration renders per perception cluster and the cross-cluster leak is closed | **MEASURED** | 16/29 → 3/78, and **0 of 48** on the post-79 cell |
 | The Director writes blocking into `scene_blocking.character_zones` and the engine used to discard it | **MEASURED** | `narrate()` popped it; it now reaches the prose renderer |
-| Eviction from the 40-key fact store is **not** why the Director re-proposes resolved events | **MEASURED, scoped** | 17 of 18 read cases had the original still in the prompt, one with `"parede_rompida": "true"` in the bag. CI [73%, 99%] — capacity explains *at most a minority*, not none |
+| Historical visibility read found prior events still in the prompt | **OBSERVED; causal exclusion withdrawn 2026-09-05** | Visibility is not use. The completed session-cohort read leaves capacity/attention undiagnosed; see `plans/artifacts/69-session-cohorts/REPORT.md` |
 | The Director does not narrow audiences; the engine's clamp does all of it | **MEASURED** | median `witness_ids` is **95% of the cast**, n=4,843 |
-| An active player does not unstick a stalled scene | **MEASURED** | frozen-pair rate 95.2% and 89.7% (P3) against a 90.8% P1 control |
+| Historical P3 “active player” comparison | **ACTION INTERPRETATION WITHDRAWN, 2026-09-14** | P3's declared physical actions were dispatched as skips; the two logs retain steering speeches, whose effect the dispatch audit does not evaluate. Old positional rates do not measure response to the unsent actions. See `plans/artifacts/77-p3-input-dispatch/REPORT.md` |
 | Restated orders sit on frozen scenes no more often than any other turn pair | **MEASURED** | 36/39 vs a 184/213 control, Fisher p = 0.43 |
 
 ## What is NOT true, though the record used to say it was
@@ -49,7 +65,7 @@ afternoon instead of a week.
 3. **The session is the unit.** It costs an order of magnitude of effective n when you forget, and it is the most expensive mistake in this repo's history.
 4. **Pre-register the decision rule, in the unit you will analyse.** One experiment here registered its gate in *runs* when the unit was *payloads*, and the design could not have returned a positive result — nobody noticed until a critic recomputed it.
 5. **`ruff format` is not clean on this repo and never has been. The gate is `ruff check`.**
-6. **Verify against `debug.jsonl`, not `state.json`.** The raw Director response is the ground truth; state is downstream of clamps.
+6. **Inspect `debug.jsonl` at the boundary relevant to the claim.** The raw Director response shows its proposal; the actual consumer request shows what that consumer received. In bb72dc94 T9, `time_skip_summary` says “Os alunos formam grupos hesitantes e começam a se mover em direção à rota de serviço”. Runner materializes it as a fifth prose event. Reading only the four original `perception_events` falsely attributed the grouping to renderer invention. State is also downstream of clamps; none of these records substitutes for every other boundary.
 7. **Prompts may not contain em dashes or en dashes.**
 
 ## Where the work is
@@ -57,11 +73,11 @@ afternoon instead of a week.
 | task | where | state |
 |---|---|---|
 | **79** blocking as durable state | `tasks/` | **Cheap half SHIPPED.** Blocking reaches the prose renderer, filtered per cluster, nothing persisted. The **schema bump is deferred** — see `para-o-dono/79-blocking-shape.md` for the owner's answers and the re-pricing |
-| **69** physical state as a closed transition | `tasks/` | Next. Capacity excluded; the thesis is that settled state must **bind the output**. ⚠ **No replay payload reliably reproduces the defect**, so its fix needs a live cell |
-| **64** return control | `tasks/` | Re-scoped to calibration. Cheapest test in the phase: a contract-wording replay |
-| **77** the order nobody executes | `tasks/` | **Research item, not a build item.** 13 of 33 sessions, median 0 windows, cause unknown after three falsifications |
+| **69** physical state as a closed transition | `tasks/` | Schema-16 durable storage and deterministic fixtures exist; **no model producer**. Two earlier local proposal screens met narrow fixture rules; T29 gap stayed unscored, and the second covered one hall gate. Source reading found T32's persisted physical contradiction, T37→T38's blue-gate closure repeated across a time skip, and a separate kennel-gate session with persisted closure at T33/T34/T35. The blue-gate duplicate and action-only screens then failed semantic gates despite 16/16 valid calls each. A 12-turn purposive retry read supplies no prevalence or retry-causation claim; its T23 early-render verdict was withdrawn after the omitted time-skip event was found in the real prose request. The retry replay (7/8 valid) and curated fidelity-reader screen (6/12 valid) were incomplete. No runtime change followed. See `plans/artifacts/69-closed-transition-contract/T34-T35-KENNEL-GATE-REPEAT-FINDING.md` |
+| **64** return control | `tasks/` | Calibration corrected the historical denominator; a contract-wording screen stopped below its technical-validity gate, so no wording shipped. See `plans/artifacts/64-return-control-calibration/` |
+| **77** the order nobody executes | `tasks/` | **Open research.** Three cited passages and one reconstructed candidate were read as fiction. Historical 13/33 is uncalibrated and its selector unrecovered; explicit reconstruction finds 27/15, with neither count estimating defect prevalence. Cause unknown; see `plans/artifacts/77-content-audit/REPORT.md` |
 | **72** commitments as state | `tasks/` | Gated on "do stalls survive 69" |
-| **80, 81, 82** narration/state findings | `backlog/` | Opened out of 79's and 69's method sections, where they would have been lost. **80** the narration does not convey space (n=40, with the caveat that good fiction omits movement too); **81** narration and state describing different events (n=1); **82** a Director event that reached nothing (n=1) |
+| **80, 81, 82** narration/state findings | `backlog/` | Opened out of 79's and 69's method sections. **80** spatial omission hypothesis, former n=40 judge baseline withdrawn; **81** has T32's source-checked creature-state/prose contradiction, mechanism undiagnosed; original actor, T29 gap and T23 early-render candidates remain withdrawn; **82** a Director event that reached nothing (n=1) |
 
 **All three of 80-82 are n small and uninvestigated on purpose.** They are
 candidate findings, not defects, and each says in its own file what would kill it.
@@ -71,9 +87,9 @@ matching over names, which makes it almost unique in this corpus.
 
 ## What I would do first, in your place
 
-1. **Run a blind read on the shipped change.** 79's ship-now half is a *quality* change and its acceptance instrument is named: a blind reader answers "não dá para saber" for **35 of 40** cases today. That baseline exists precisely so you can measure whether handing the Director's blocking to the renderer moved it. **No `zone_moves` rate is a gate for it** — quoting one is a category error.
-2. **Run 69's session-level capacity test.** Both groups are already identified — 18 sessions never reach the fact cap, 15 do. Comparing re-proposal rates between them is cheap and turns an absence-of-evidence argument into evidence.
-3. **Then 64**, which is the cheapest remaining item and has a known lever.
+1. **Repair and validate the acceptance read before evaluating 79's quality.** The former **35/40 baseline is withdrawn (2026-09-05)**: all targets were IDs. A paired name-corrected reconstruction still produced wrong-actor and movement-category errors. It is a diagnostic, not a new baseline. Use canonical names and per-viewer narration, and distinguish useful staging from invented movement. **No `zone_moves` rate is a gate for this change.**
+2. **69's storage boundary exists; its model producer remains open.** The hall-gate source screen classified one existing aperture on three turns in one session, but T29's newly shaped rubble gap remains unscored and dynamic entity creation untested. T32 demonstrates a persisted proposal/prose physical conflict; T37→T38 supplies a completed blue-gate closure repeated across a time skip. A separate kennel-gate session persists closure on T33, T34 and T35 with no intervening reopening; T37's additional proposal is absent from that viewer's prose. The blue-gate duplicate and action-only shapes failed their local semantic gates, and T23's apparent early-render defect was withdrawn when its accepted time-skip event was found in the real prose request. The purposive retry read does not establish mechanism or prevalence, and the single-payload replay was incomplete and did not validate a fix. The earlier cohort and ceiling replays still do not exclude capacity as a cause. See `plans/artifacts/69-session-cohorts/REPORT.md` and `plans/artifacts/69-closed-transition-contract/T34-T35-KENNEL-GATE-REPEAT-FINDING.md`.
+3. **64's wording candidate stopped at technical validity.** Keep the calibration result; a new wording experiment needs a newly registered question, not another call under the failed gate.
 
 ## How to decide things without the owner
 

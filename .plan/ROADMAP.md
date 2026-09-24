@@ -277,18 +277,25 @@ and it still subsumes parts of three other tasks.
 > ⚠ NEEDS YOU are mine to unmake on request.
 
 Wave 1 landed (**65** ✅, **70** ✅, **63** falsified out, **67** ✅). The battery
-re-ran: **nine post-70 sessions, 323 Director turns**, plus four post-71 cells.
+re-ran: **nine post-70 sessions, historically logged as 323 Director turns**,
+plus four post-71 cells. **Corrected 2026-09-24:** the nine retained
+`state.json`/`debug.jsonl` pairs contain **314 committed Director turns**; the
+original 323 calculation was not recovered. The session-level handoff result
+remains 0/9 sessions without either route. The pooled-turn p-values once quoted
+for task 64 are retired because turns within a session are clustered. See
+[Task 64](tasks/64-return-control-to-the-protagonist.md) and its
+[audit](../plans/artifacts/64-return-control-calibration/RESULT.md).
 What the re-derivation changed:
 
 | task | before the checkpoint | after |
 |---|---|---|
-| **64** | *"may be closed by 70 alone"* | **not closed, and re-scoped.** Never-returned sessions 5/12 → **0/9** (p=0.045), but the rate is still ~3%. Reading all ten return-control turns: the Director picks exactly the right moments and picks few. **Calibration, not a missing mechanism** |
+| **64** | *"may be closed by 70 alone"* | **not closed, and re-scoped.** Never-returned sessions 5/12 → **0/9** in the retained nine-session cohort; the corrected committed-turn denominator is 314. Reading all ten return-control turns: the Director picks held moments and picks few. **Calibration question, no validated wording change** after the 2026-09-24 screen stopped at its technical gate |
 | **63** | out of wave 1 as *"a prose-rendering cosmetic issue"* | **half wrong.** Re-scored over seven sessions: persisted speech 0 and ledger 0 everywhere, but **4 of the 6 surviving markers are in persisted Narrator REPORTS with audiences of 18 and 19**. Stays out of wave 1; re-scoped as durable-report damage |
 | **71** | wave 3, *"parked until 67 ships"* | **✅ CLOSED.** Built once 67 landed. Cross-cluster leak 16/29 (55%) → 3/78 (3.8%), cost 1.278x. Pooled p withdrawn; per session 55%/22% → 0%/9%/0%/0% |
 | **76** *(new)* | — | **shipped.** Sibling sub-zones were mutually deaf; 25 wrongly-denied audience entries → 20 |
-| **77** *(new)* | — | **open, cause unknown.** The room is ordered through a gate four times in three turns and nobody moves. Two diagnoses written and both falsified by their own evidence |
-| **72** | gated on *"stalls survive 69"* | **the stalls are documented (77) but 69 has not shipped**, so the gate is still not formally testable. 77's replay points at un-remembered commitments, which is 72's territory |
-| **69** | next in wave 2 | **unchanged and now genuinely next** |
+| **77** *(new)* | — | **Open, cause unknown.** Orders repeat while the pair advances toward the gate without a clearly completed crossing. A later content audit separates two cited cases with different outcomes; see the task. Historical diagnoses remain falsified |
+| **72** | gated on *"stalls survive 69"* | **69 has not shipped**, so the gate is still not formally testable. The later Task 77 content read found movement, resistance and uncertain crossings; missing commitment state remains a hypothesis, not a diagnosis |
+| **69** | next in wave 2 | **Durable storage exists, model producer open.** The pillar fixture gate passed but left T29 gap unscored. An existing hall-gate aperture screen passed a narrow local rule; a new blue-gate duplicate screen and an action-only variant both failed semantic gates despite 16/16 valid calls each, so no producer followed. Source reading found T32's persisted physical contradiction, T37→T38's blue-gate closure repeated across a time skip, and a separate kennel-gate session with persisted closure at T33/T34/T35. T23's early-render claim was withdrawn after its accepted time-skip event was recovered from the real prose input. No prevalence or retry-causation estimate. The retry replay (7/8 valid) and curated fidelity-reader screen (6/12 valid) failed technical prerequisites. No correction or runtime guard is adopted |
 
 **⚠ The blind read was NOT blind.** The checkpoint asks for a blind reader and
 what it got was me, reading two sessions as fiction while knowing the code. That
@@ -344,19 +351,28 @@ request.
 | order | task | why here |
 |---|---|---|
 | **1** | **79** — Blocking as durable state | ✅ **CHEAP HALF SHIPPED 2026-08-13** (blocking reaches the prose renderer per cluster; nothing persisted, no schema bump; leak re-checked at **0 of 48** split narrations). The schema bump is **deferred**. **FIRST.** The only task in the phase with an **established** mechanism: **8.4%** of `scene_blocking.character_zones` entries carry positional detail (median 6.8%, sd 7.0pts, range 0.5-25.4%, a **floor**) and `narrate()` pops the field. The change is *stop discarding what we already receive*. Owner answered 2026-08-13: **readers and free-text APPROVED**, the schema bump **deferred**, the falsifier **rejected and to be re-registered** |
-| **2** | **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Owns the durable-state storage decision** (below). Re-measured post-wave-1: 97 of 987 Director events re-proposed within three turns — **9.8% pooled, demoted to OBSERVED** on 2026-08-13 because its per-session spread was never taken |
+| **2** | **69** — Physical state as a closed transition | The residual restaging, with evidence that survives audit. **Schema-16 durable storage exists; no model producer or live-quality result.** Two earlier local extraction screens met narrow fixture rules, but T29 gap output has no trusted source label and the second screen covers only one named hall gate. The later blue-gate duplicate and action-only screens failed semantic gates with all 16 calls valid in each. Source reading found T32's same-turn state conflict, T37→T38's completed blue-gate closure repeated, and a second session whose kennel gate closes in persisted T33/T34/T35 prose; T23's apparent renderer timing breach was withdrawn after the time-skip event was recovered from its real input. Retry and fidelity-reader screens were technically incomplete, so no prompt or guard changed. Re-measured post-wave-1: 97 of 987 Director events re-proposed within three turns — **9.8% pooled, demoted to OBSERVED** on 2026-08-13 because its per-session spread was never taken |
 | **3** | **64** — Return control | **Re-scoped to calibration, not mechanism.** Never-returned sessions 5/12 → 0/9, and reading all ten `return_control` turns shows the Director picks the right moments and picks few. Do not build a new trigger; the contract wording is the first suspect |
-| **4** | **77** — The order that nobody executes | **Demoted from first**, and it is a **research item, not a build item**. Sized 2026-08-13: real in **13 of 33 sessions (39%)** but sparse inside them (23 windows, **median 0**), and its cause has survived **three** falsified diagnoses. Keep reading cases; do not design |
+| **4** | **77** — The order that nobody executes | **Research item, not a build item.** A source-checked read separated three cited passages, and a fourth detector-selected passage shows local movement with unresolved formation. The historical **13/33 sessions, 23 windows** is uncalibrated detector output; its selector is unrecovered. An explicit reconstruction finds **27/15** on current non-P3 archives, without proving the old count wrong. Neither count is defect prevalence. Cause unknown; keep reading cases, do not design |
 | gated | **72** — Commitments as first-class state | **Gated.** Ships only if the checkpoint shows stalls survive 69 — see below |
+
+
+> **Task 69 update, 2026-09-05:** the session-cohort comparison leaves
+> capacity/attention undiagnosed; the two selected ceiling replays fail their
+> pre-specified follow-up criterion. No prompt deletion or durable-state remedy
+> is validated. See `plans/artifacts/69-session-cohorts/REPORT.md` and
+> `plans/artifacts/69-roof-input-replay/REPORT.md`.
 
 > **78 — Routed into silence** was opened in this phase and **moved to `backlog/`
 > on 2026-08-13**: 13 of 1,255 speech records (1.0%), never investigated, no next
 > action. **76 — Sibling sub-zones are mutually deaf** shipped and is in
 > `closed/`; the half of its defect the rule cannot reach belongs to 79.
 
-> **69, 72 and 77 are three faces of one thing: the engine keeps no record of
-> what has already been settled.** 69 is a resolved event re-proposed, 77 is an
-> issued order never enacted, 72 is the durable structure that would hold either.
+> **Historical shared-state hypothesis, not a diagnosis:** 69 includes resolved
+> events re-proposed; 77 includes repeated orders with an unclear crossing;
+> 72 proposes durable commitments. The 2026-09-24 content audit found movement,
+> resistance and group-identity ambiguity among 77's cited cases. It does not
+> establish that missing commitment state caused those passages.
 > They stay **separate** on purpose — 77 has evidence and 72 has a design, and
 > merging them would cost the evidence its name and make 72 unfalsifiable.
 > Cross-linked in all three files.
@@ -451,11 +467,11 @@ this phase already shipped one inverted gate by skipping that step.
 | **70** | named exclusion on **100% of P2 turns** (41/41, 41/41, 44/44) and **33–41% of P1** | **0** prompts naming exactly one cast id | new `prompt_contract` check, fails before / passes after |
 | **63** | **87 markers in P1, 28 in P2** — of which **42 / 15** in persisted speech records, 7 / 4 in narration, and **33 / 6** in the perspective **ledger** (`recent_memory` and `memory_summary`, never `people`). The ledger half was not in the hand audit | **0** in persisted records, prose and **all three ledger channels** | 68's channel-split scanner |
 | **67** | **33 empty-audience records across 5 of 12** sessions, **every one with other characters present**: **31** cut off by the zone graph, **2** narrowed to nothing by the Director's own list — while only **2 of 1,868** raw Director events proposed an empty witness list. Largest witness list clamped to zero: **18** | **0** for a subject co-located with others | 68's audience scanner; `base-P1-r2` T23 replayed |
-| **69** | ceiling restaged **T33/T34/T35**, Liora dies **T36/T37/T38**, pillar **T28/T29** (`base-P1-r2`); `cluster_max` `base` median **3**; `physical_facts` pinned at the 40-key cap in **4 of 12** runs | ceiling family does not recur **and** the T28→T29 pillar escalation still passes | fixed `cluster_max`/`cluster_span` + blind read |
+| **69** | ceiling restaged **T33/T34/T35**, Liora dies **T36/T37/T38**, pillar **T28/T29** (`base-P1-r2`); `cluster_max` `base` median **3**; `physical_facts` pinned at the 40-key cap in **4 of 12** runs | ceiling family does not recur **and** a source-grounded genuine escalation remains possible. The old T28→T29 `ajar -> closed` aperture label is synthetic and cannot serve as the recorded escalation gate | fixed `cluster_max`/`cluster_span` + blind read, plus source check for the escalation |
 | **64** | `return_control=True` **5 of 482 turns (1%)**; controlled character routed **11 (2.3%)**; **5 of 12** sessions never returned control at all | both rates rise; 5/12 falls | direct count, one cell |
 | **72** | `time_skip_ticks` nonzero on **13 of 482 turns (2.7%)**, and **0 of 6** explicit `CLOCK SIGNAL` invitations accepted in `base-P1-r2`; 12 openings in 19 turns in `base-P1-r1` | consecutive no-net-change turns fall | blind read — a held scene and an empty one score identically to every metric here |
 | **66** | phantom names in **4 of 16** sessions; pronoun flip n=1; the seal changes hands 5 times with **0** staged transfers | scanner at **0** | 66's cast-integrity scanner |
-| **79** | a blind reader given a turn's narration and one character's name answers **"não dá para saber" 35 of 40 times (88%)**; ⚠ positional `zone_moves` is **not a rate** - 16.7% pooled / median 5.6% / 12 of 27 sessions at zero, and its accepted set reads only 60-80% precise. **Four** instruments failed to measure this | that 88% falls on a post-change cell, arms in the same run | **the blind read.** ⚠ **Not a `zone_moves` rate** - no instrument can classify a move as positional, so quoting one against this change is a category error |
+| **79** | **35/40 canonical-name baseline WITHDRAWN, 2026-09-05:** all targets were unresolved IDs. Corrected-name diagnostic also has wrong-actor and movement-category errors. Details: `plans/artifacts/79-reader-identity-audit/REPORT.md` | Quality acceptance remains open; validate a correctly named, per-viewer instrument before a contemporary blocking A/B | A read separating useful staging from invented movement. Neither the old 88%, the corrected diagnostic count, nor positional `zone_moves` is an acceptance gate |
 
 **The narrative baseline is the blind read, not a number.** On this archive it
 ranked `oldcode` at **9, 10 and 11 of 12** — independent confirmation of the

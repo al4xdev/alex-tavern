@@ -1,5 +1,31 @@
 # Task 79 — Blocking as durable state
 
+**Current evaluation, 2026-09-05:** isolated text-only readers assessed continuous
+viewer-visible scenes before seeing any metric or technical hypothesis. In
+bb72dc94, Garran “se põe de pé” before appearing “ainda de joelhos”; in ea6620fb,
+the beam falls “atrás do grupo” but the reader cannot securely locate Link.
+The readers also recognized actual progression and effective dialogue. The
+[sequence read](../../plans/artifacts/79-content-read/REPORT.md) and
+[paired prose comparison](../../plans/artifacts/79-content-comparison/REPORT.md)
+retain quotations, strengths, uncertainties and source checks. Literary
+preferences are not a winner rate or production acceptance. Keep the shipped
+blocking path; quality acceptance and the deferred persistence decision remain
+open. The proposed qualitative question is whether a reader can follow the
+visible sequence and whether subsequent speech recognizes its actions. This is
+not a validated metric, a demand that every line acknowledge every action, or a
+requirement to eliminate intentional ambiguity.
+
+> **2026-09-05 correction: the blind-read acceptance baseline is withdrawn.**
+> All 40 archived judge targets were internal IDs, not canonical names: the
+> collector read `character.name` instead of `character.mind.name`. The old
+> 35/40 remains a historical output count, not evidence that a correctly named
+> reader cannot infer movement. A paired reconstruction also exposed wrong-actor
+> and movement-category errors after name correction. Quality acceptance is
+> still open; neither that old count nor the new diagnostic count is a gate.
+> [Audit and reproduction](../../plans/artifacts/79-reader-identity-audit/REPORT.md)
+> (repository path: `plans/artifacts/79-reader-identity-audit/REPORT.md`). The
+> shipped current-turn blocking path and deferred persistence decision stand.
+
 > **Status:** open. **Decisions 1 and 2 are APPROVED by the owner (2026-08-13);
 > decision 3 is DEFERRED and decision 4 is REJECTED.** Still no `Scene` field and
 > no serialization until the deferred bump is decided. Task 76's graph stays
@@ -47,7 +73,8 @@
 > asking *"did positional `zone_moves` fall?"* needs an instrument that classifies
 > a move as positional, and **three independent attempts have now failed** - a
 > string rule (five false positives), the Director's own `witness_ids` (median 95%
-> of the cast), and a blind reader of the prose (88% not determinable).
+> of the cast), and a blind-read attempt whose identity contract failed
+> (the historical 88% is withdrawn as a prose-inferability result, 2026-09-05).
 >
 > **FIRST in wave 2 as of 2026-08-13.** Not because its symptom is the biggest,
 > but because it is **the only task in the phase with an established mechanism**,
@@ -288,6 +315,11 @@ standing argument promoted from an assertion to a measurement.
 
 ### ✅ RAN 2026-08-13 — the third row fires: 88% NOT DETERMINABLE
 
+**WITHDRAWN AS A CANONICAL-NAME READ, 2026-09-05.** The historical output below
+is preserved, but every submitted target was an ID. The collector also joined
+the turn's narration across audiences. The prose-inferability conclusion and
+the claimed character attribution do not follow. See the audit linked above.
+
 40 blind reads, 0 failures.
 
 | | |
@@ -325,7 +357,7 @@ than a vindication would have been.
 |---|---|---|
 | string rules over zone names | ❌ no | **five registered false positives**, the latest making a headline **2x** too high for three weeks |
 | the Director's own `witness_ids` | ✅ yes, set arithmetic | **dead on its validity check** — median witness list is **95% of the cast** |
-| a blind reader of the narration | ✅ yes, no names shown | **88% not determinable** |
+| historical blind-read attempt | target identity was an unresolved ID | **88% output count; prose-inferability conclusion withdrawn 2026-09-05** |
 
 **No instrument TRIED can measure room-versus-position on this corpus** — four of
 them now, each failing for a different reason.
@@ -359,7 +391,7 @@ about itself.
 
 **So: four instruments, four different failures.** A string rule that measures
 naming; a perception signal that is saturated at 95% of cast; a blind reader that
-answers "cannot tell" 88% of the time; and a structural signal that measures
+was given unresolved IDs (its 88% is not an inferability result); and a structural signal that measures
 novelty. That is a strong statement about four attempts and **not** a proof that a
 fifth cannot exist.
 
@@ -475,7 +507,7 @@ move as positional. Three independent attempts have now failed:
 |---|---|
 | string rules over zone names | five registered false positives, latest 2x too high |
 | the Director's own `witness_ids` | dead: median witness list is **95% of the cast** |
-| a blind reader given the narration | **88% not determinable** |
+| historical blind-read attempt | **invalid target mapping; its 88% inference withdrawn 2026-09-05** |
 
 **The control was never the deepest problem.** Version 1 failed its clause for the
 wrong reason, version 2 was rejected for measuring the harness, and version 3
@@ -483,6 +515,14 @@ cannot be built at all. All three are recorded here, in order, so the next perso
 does not start a fourth.
 
 ### What replaces it: the ship-now half is a QUALITY change, judged by a blind read
+
+**2026-09-05: acceptance remains open; the proposed baseline below is invalid.**
+The 40 targets were IDs rather than names. Correct names are necessary but not
+sufficient: the replay still produced wrong-actor evidence and classified
+standing still as repositioning. A new acceptance read must be per viewer,
+validate focal identity and distinguish useful staging from invented movement.
+The following historical rule is retained as a rejected instrument, not an
+instruction to beat 88%.
 
 **Stated plainly so nobody looks for a rate later and concludes it failed.**
 

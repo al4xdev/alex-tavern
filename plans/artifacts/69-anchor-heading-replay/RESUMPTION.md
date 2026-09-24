@@ -1,0 +1,1 @@
+The owner restored provider access. Execute the same frozen manifest, random schedule and decision rule in runs-recharged. Preserve runs/: four HTTP 402 rejections, twelve calls not dispatched, no model outputs. The runner changes only to accept a distinct output directory; each execution preserves its own script and hashes. No hypothesis or acceptance criterion changes.

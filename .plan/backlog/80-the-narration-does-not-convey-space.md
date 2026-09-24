@@ -1,5 +1,14 @@
 # Task 80 — The narration does not convey space
 
+> **2026-09-05: quantitative support withdrawn; hypothesis remains in backlog.**
+> The old 35/40 came from targets such as C11, not canonical character names.
+> The collector read the wrong schema level. Those outputs cannot establish
+> omission for correctly identified characters. Correcting names in a paired
+> reconstruction also exposed semantic judge errors, so its diagnostic output
+> is not a replacement baseline. See
+> `plans/artifacts/79-reader-identity-audit/REPORT.md`.
+> Historical observations below are preserved with this correction.
+
 > **Status:** backlog, **candidate finding, not a defect.** Opened 2026-08-13 out
 > of task 79's method section, where it did not belong: this is an **immersion**
 > claim and 79 is a schema task.
@@ -14,6 +23,10 @@
 A blind reader was given the **narration of a turn** and **one character's name**,
 and asked whether that character moved to a different place, repositioned inside
 the place they were already in, or whether the text does not say.
+
+**Correction:** the method intended a name but supplied an unresolved ID in all
+40 cases, and joined narration records across audiences. The claim below about
+what the prose fails to tell a properly identified reader is withdrawn.
 
 It never saw the zone graph, the destination, the origin, or any instrument's
 verdict. 40 cases, stratified 20/20 on an independent classifier's judgement,

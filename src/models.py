@@ -6,6 +6,14 @@ import copy
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from src.durable_state import (
+    DurableState,
+    PhysicalEntity,
+    PhysicalValue,
+    register_physical_entity,
+    validate_actor_entity_ids,
+)
+
 # Version of the persisted session schema. Bump it whenever GameState/TurnRecord
 # semantics change in a way old sessions cannot honor (new fields with behavioral
 # meaning, changed visibility rules, ...). Sessions persisted with a different
@@ -39,8 +47,9 @@ from typing import Any
 # relationship appraisal revisions clamped to evidence the observer perceived,
 # and disposition state included in each TurnRecord's atomic undo snapshot.
 # 14 = narrative-kernel audit state; 15 = source scenario identity on the
-# materialized session snapshot (Task 62).
-SESSION_SCHEMA_VERSION = 15
+# materialized session snapshot (Task 62); 16 = closed durable physical state
+# entries and transitions, including their atomic undo snapshots (Task 69).
+SESSION_SCHEMA_VERSION = 16
 
 
 @dataclass
@@ -220,6 +229,9 @@ class TurnRecord:
     # finding 6). Undo now means "this beat did not happen", with no exception.
     narrative_tick_snapshot: int = 0
     roteiro_snapshot: dict[str, Any] | None = None
+    # Durable physical state before this beat. This mirrors the other pre-turn
+    # snapshots so undo makes accepted state transitions disappear atomically.
+    durable_state_snapshot: DurableState = field(default_factory=DurableState)
 
 
 def record_visible_to(record: TurnRecord, character_id: str) -> bool:
@@ -412,6 +424,9 @@ class GameState:
     # that drift per dyad over the arc. Only the projected qualitative band ever
     # reaches a model. See src/disposition.py.
     dispositions: DispositionState = field(default_factory=DispositionState)
+    # Closed physical states that the Runner can enforce, separate from the
+    # Director's descriptive physical-facts bag and never subject to eviction.
+    durable_state: DurableState = field(default_factory=DurableState)
     schema_version: int = SESSION_SCHEMA_VERSION
 
 
@@ -592,7 +607,38 @@ def dict_to_turn_record(data: dict[str, Any]) -> TurnRecord:
         disposition_snapshot=copy.deepcopy(data["disposition_snapshot"]),
         narrative_tick_snapshot=int(data["narrative_tick_snapshot"]),
         roteiro_snapshot=copy.deepcopy(data["roteiro_snapshot"]),
+        durable_state_snapshot=dict_to_durable_state(data["durable_state_snapshot"]),
     )
+
+
+def dict_to_durable_state(data: dict[str, Any]) -> DurableState:
+    """Build the current forward-only durable physical state representation."""
+    durable_state = DurableState()
+    for entity_id, item in data["physical_entities"].items():
+        entity = PhysicalEntity(
+            entity_id=item["entity_id"],
+            key=item["key"],
+            kind=item["kind"],
+            scene_key=item["scene_key"],
+            registered_turn_number=int(item["registered_turn_number"]),
+            registered_update_id=item["registered_update_id"],
+            dimensions={
+                dimension: PhysicalValue(
+                    state=value["state"],
+                    updated_turn_number=int(value["updated_turn_number"]),
+                    updated_update_id=value["updated_update_id"],
+                    updated_transition_id=value["updated_transition_id"],
+                )
+                for dimension, value in item["dimensions"].items()
+            },
+        )
+        if entity_id != entity.entity_id:
+            raise ValueError(
+                f"Durable physical entity map key {entity_id!r} does not match "
+                f"entity_id {entity.entity_id!r}."
+            )
+        register_physical_entity(durable_state, entity)
+    return durable_state
 
 
 def dict_to_game_state(data: dict[str, Any]) -> GameState:
@@ -645,7 +691,7 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         for item in data["presence_edit_stack"]
     ]
 
-    return GameState(
+    game = GameState(
         session_id=data["session_id"],
         characters=characters,
         player=player,
@@ -672,5 +718,11 @@ def dict_to_game_state(data: dict[str, Any]) -> GameState:
         watcher_last_intervention_tick=int(data["watcher_last_intervention_tick"]),
         watcher_silence_spent=bool(data["watcher_silence_spent"]),
         dispositions=dict_to_disposition_state(data["dispositions"]),
+        durable_state=dict_to_durable_state(data["durable_state"]),
         schema_version=int(data["schema_version"]),
     )
+    character_ids = set(game.characters)
+    validate_actor_entity_ids(game.durable_state, character_ids)
+    for record in game.history:
+        validate_actor_entity_ids(record.durable_state_snapshot, character_ids)
+    return game

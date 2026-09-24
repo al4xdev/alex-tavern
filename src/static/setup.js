@@ -1,5 +1,6 @@
 import { el } from './dom.js';
 import { api } from './api.js';
+import { clonePhysicalEntities, manifestFromDurableState } from './durable-state-manifest.js';
 import { bindTranslation, getLocale, onLocaleChange, t, translateDocument } from './i18n.js';
 import { PluginRuntime } from './plugin-runtime.js';
 
@@ -65,6 +66,7 @@ export const Setup = (() => {
     let activeRevision = 0;
     let backEntry = 'scenarios';
     let presetLibraryScrollTop = 0;
+    let physicalEntitiesDraft = [];
 
     function setDraftBusy(busy) {
         modalBody.inert = busy;
@@ -347,6 +349,7 @@ export const Setup = (() => {
             narrator_directives: directivesEl.value.trim(),
             characters,
             character_preset_ids,
+            physical_entities: clonePhysicalEntities(physicalEntitiesDraft),
             scene: {
                 location: sceneLocEl.value.trim(),
                 time_of_day: sceneTimeEl.value.trim(),
@@ -357,6 +360,9 @@ export const Setup = (() => {
     }
 
     async function populate(cfg) {
+        physicalEntitiesDraft = Array.isArray(cfg.physical_entities)
+            ? clonePhysicalEntities(cfg.physical_entities)
+            : manifestFromDurableState(cfg.durable_state);
         directivesEl.value = cfg.narrator_directives || '';
         sceneLocEl.value   = (cfg.scene && cfg.scene.location) || '';
         sceneTimeEl.value  = (cfg.scene && cfg.scene.time_of_day) || '';
@@ -820,6 +826,7 @@ export const Setup = (() => {
             controlled_character_id: cfg.controlled_character_id,
             narrator_directives: cfg.narrator_directives,
             character_preset_ids: cfg.character_preset_ids,
+            physical_entities: cfg.physical_entities,
             scene: cfg.scene,
         };
         try {
@@ -969,8 +976,10 @@ export const Setup = (() => {
             try {
                 setDraftBusy(true);
                 const sessionId = getSessionIdCb();
+                const editableConfig = { ...cfg };
+                delete editableConfig.physical_entities;
                 const result = await api.updateSessionSetup(sessionId, {
-                    ...cfg,
+                    ...editableConfig,
                     expected_revision: activeRevision,
                 });
                 activeRevision = result.state.revision;

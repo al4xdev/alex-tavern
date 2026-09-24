@@ -221,8 +221,12 @@ def run_one(
             for kind, text in inputs:
                 if kind == "speech":
                     await runner.player_turn(sid, speech=text)
-                else:
+                elif kind == "action":
+                    await runner.player_turn(sid, action=text)
+                elif kind == "skip":
                     await runner.player_turn(sid, skip=True)
+                else:
+                    raise ValueError(f"Unknown input kind: {kind}")
             return {"session_id": sid}
 
     result = asyncio.run(_go())

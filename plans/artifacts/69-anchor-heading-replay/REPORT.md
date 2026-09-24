@@ -1,0 +1,29 @@
+# Anchor heading: local content screen blocks integration
+
+2026-09-05. The provider was replenished and the frozen comparison completed in a separate `runs-recharged/` execution. The original `runs/` remains intact: four HTTP 402 rejections, twelve requests not dispatched, no model outputs. The resumed execution returned four valid A and four valid B continuations for evacuation; three valid A and four valid B continuations for roof, with one A connection failure after the permitted retry. No returned response was schema-invalid.
+
+The candidate remains isolated in `/tmp/alex-tavern-anchor-heading`; it is not integrated. The predeclared qualitative veto applies: roof B3 (opaque V4) sends the evacuees back toward the north stands, described in that same output as “corroída e instável”, after the preceding order sent them toward the patio. A later fissure diverts part of the mist but does not explain that earlier redirection or restore the stands' stability. This is an unresolved material deterioration in the contextual reading, not proof of a causal heading effect. Task 69 remains open.
+
+Two fresh readers received only preceding fiction and shuffled continuations. Their free judgments were saved before arm keys were opened. [SOURCE-CHECK.md](SOURCE-CHECK.md) checks every alternative against its source, retains strengths and ambiguities, and corrects findings whose missing background exists in the full request. In particular, Liora's generic hall position is already in the input roster; it is not evidence that this heading teleported her. Raw literary verdicts remain in `reading-evacuation/READER-VERDICT.md` and `reading-roof/READER-VERDICT.md`.
+
+## Reproduced boundary
+
+In bb72dc94 T9, the confirmed event says “Os portões internos da masmorra se fecham com um estrondo metálico.” The beat anchor is “portões internos se fechando com estrondo”. Calling production `anchor_matched` on that exact pair returns false. The archived T10 snapshot lists only the dust anchor as seen, and its actual Director prompt still puts the gate closure under `Not in play yet — introduce as concrete perception events:`. This establishes one unsupported absence assertion produced by lexical nonrecognition. It does not establish how often the matcher errs or whether this assertion caused the later reset.
+
+The candidate changes only that heading to `Elements referenced by this beat:` and updates existing tests to keep checking omission of anchors already recorded as seen. The anchor list, filtering, order, coverage algorithm, replanning triggers and persisted schema are unchanged. The new heading also removes an instruction to introduce events; that is part of the proposed intervention, not a separately identified effect. [candidate.patch](candidate.patch) preserves the diff.
+
+The candidate was exercised through `describe_roteiro_for_director` and `build_narrator_messages` using the archived T10 snapshot and preceding history. The gate reference remains, the unsupported absence/introduction instruction is absent, and the candidate's emitted heading line exactly matches the B request frozen before the failed provider run. Running the HEAD and candidate roteiro builders on those same inputs, then the Director message builder, also yields complete message lists differing only by the heading substitution. This compares two reconstructions; it does not claim the reconstructed messages reproduce every byte of the archived request. The frozen archived A/B requests independently differ only by that same substitution. Source, results and verification script are retained in `candidate-builder-check.json` and `runs/verify-heading-candidate.py`. This is a deterministic prompt-construction check, not a model-behavior result.
+
+## Criticism and validation
+
+The registered rule covers aggravation as well as new harms, retains a qualitative veto and forbids worse schema-validity outcomes in B. The final [PREREGISTRATION.md](PREREGISTRATION.md), request manifest and executed script are frozen by hashes in `runs/run.json`. The resumed execution pins the same manifest and preregistration hashes in `runs-recharged/run.json`; its script differs only by accepting a separate output-directory name. The registered screen requires at least three schema-valid outputs per arm per session, with no more returned schema-invalid responses in B than A. Those requirements pass. Its independent qualitative rule says: “Also block any unresolved material deterioration supported by contextual reading, even below that recurrence threshold”. That veto applies to the route reversal described above; the completed screen therefore blocks this candidate. [The complete fixed rule](PREREGISTRATION.md) remains unchanged. No recurrence improvement or literary winner is claimed.
+
+Local checks in the isolated worktree:
+
+- Roteiro, operator-ontology, internal-ID and per-viewer suites: `151 passed in 5.60s`.
+- Full suite: `1131 passed, 2 deselected, 1 warning in 61.69s`. The warning is the existing Starlette/httpx deprecation.
+- `uvx ruff check .`: passed; candidate diff whitespace check passed.
+- `uvx ruff format --check .`: 44 files would be reformatted. This is a failed formatting check; equality with a previous count does not establish an identical file set.
+- Standard mypy command: three diagnostics in unchanged `src/runner.py` at 873, 1291 and 1964: tuple unpacking, return-tuple annotation and a `BaseException` union. No passing type-check claim is made.
+
+The main checkout's `src/` and `tests/` remain unchanged and its index is empty. No commit or push occurred. The next investigation is whether the pending beat is being treated as an event to perform despite confirmed history. The heading experiment does not establish that mechanism. Any further comparison gets a separate preregistration and preserves these results.

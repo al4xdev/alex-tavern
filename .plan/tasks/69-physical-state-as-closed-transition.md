@@ -1,5 +1,341 @@
 # Task 69 — Physical state as a closed transition
 
+**Second source session, kennel gate, 2026-09-24:** in `oldcode-P1-r2/a3e1ceda`,
+persisted T33 Narrator prose explicitly closes the kennel gate, although the
+T33 Director event says only `tranca` and its status is `trancado`. Final accepted
+T34 Director retry and persisted prose close it again; T35 accepted event and
+persisted prose close it a third time, with no intervening reopening. The T37
+Director proposes another closure, but the recorded viewer's renderer input and
+persisted prose omit it, so T37 is not counted as reader-facing repetition.
+This is a second archived session, not a prevalence or causal estimate. The
+[source finding](../../plans/artifacts/69-closed-transition-contract/T34-T35-KENNEL-GATE-REPEAT-FINDING.md)
+separates the accepted proposal from persisted narration and the `trancado`
+status from aperture closure.
+
+**Action-only blue-gate candidate also stopped, 2026-09-24:** a second
+pre-registered smoke test removed state comparison from the model input and
+asked only whether each accepted proposal asserted a new completed gate
+closure. All 16 curl calls were HTTP-200, schema-valid and supplied literal
+event quotes. T37, T38 and T39 each matched their local label in 4/4 calls;
+T36 yielded one `true` that quoted a warning that five seconds **remain**
+before closing. The all-output semantic gate therefore failed. The quote
+does not diagnose tense, keyword anchoring or other-event confusion, and the
+three positive/negative turns do not establish semantic reliability. No
+producer follows. See the [registered rule](../../plans/artifacts/69-closed-transition-contract/BLUE-GATE-ACTION-PREREGISTRATION.md)
+and [result](../../plans/artifacts/69-closed-transition-contract/BLUE-GATE-ACTION-RESULT.md).
+
+**Blue-gate extractor candidate stopped, 2026-09-24:** a pre-registered
+four-turn screen on `7fd84e9a` T36–T39 included the T37 time-skip closure,
+T38's repeated closure, and T39's same-state/no-new-closure control. All 16
+fresh curl calls were HTTP-200 and schema-valid, but the semantic gate failed:
+T38's `repeated_closure` was false in 3/4 calls; the fourth marked an aperture
+`change` even though current and candidate were both `closed`. T36's discrete
+`ajar -> closed` fixture also received only 1/4 expected `no_change` labels.
+T37 and T39 controls matched 4/4 each. This is one session and one prompt shape,
+not model reliability or a repair. No producer integration follows. See the
+[registered rule](../../plans/artifacts/69-closed-transition-contract/BLUE-GATE-EXTRACTION-PREREGISTRATION.md)
+and [result](../../plans/artifacts/69-closed-transition-contract/BLUE-GATE-EXTRACTION-RESULT.md).
+
+**Blue-gate restaging source case, 2026-09-24:** in archived `7fd84e9a`,
+T37's accepted time-skip summary closes the blue gate, `scene_update.gate_blue`
+is `fechado`, and the persisted prose depicts the doors meeting. T38's accepted
+Director event and persisted prose close that same gate again without an
+intervening reopening; T38's update still says `fechado`. An isolated
+content-only reader agreed this is a repeat of the completed closure, while
+the characters' crossing requires separate assessment. This is one source
+case, not a rate or producer validation. A storage-only refusal that leaves the
+proposed event in prose would not repair the reader-visible repeat; the actual
+repair path is untested. The next diagnostic can use the real T38 proposal with
+a manually anchored `closed` aperture, checking both state and final prose.
+See the [source finding](../../plans/artifacts/69-closed-transition-contract/T37-T38-BLUE-GATE-REPEAT-FINDING.md).
+
+**Retry content read and T23 correction, 2026-09-24:** a purposive read of 12
+archived repetition-retry turns across 12 sessions kept T32 as a source-checked
+persisted same-turn physical conflict. Discarded-draft conflicts in other turns
+were removed by retries; the read did not establish a general retry effect or
+prevalence. Its initial T23 early-render verdict is **withdrawn**: the source
+packet omitted `time_skip_summary`, which explicitly revealed the team and was
+included in the actual renderer request as a confirmed event. T24 re-proposes
+that already accepted reveal, a Director-beat repetition relevant to this task,
+but not a demonstrated renderer invention. Future fidelity packets must include
+every event the renderer actually received. No model guard or runtime change is
+adopted from this read. See the
+[read and correction](../../plans/artifacts/69-closed-transition-contract/REPETITION-RETRY-CONTENT-READ.md)
+and [T23 withdrawal](../../plans/artifacts/69-closed-transition-contract/T23-EARLY-TEAM-REVEAL-FINDING.md).
+
+**Renderer fidelity boundary, 2026-09-24:** a source check of archived
+`5c994c42` T32 found an accepted Director state keeping a dust creature
+active while the persisted narration says its remains disappear without trace.
+The first prose response preserved the active threat; the contradictory
+second followed a lexical-repetition correction. One isolated text reader
+confirmed the physical conflict. Whether the correction caused it is
+undiagnosed, and this one turn is no prevalence estimate. The case motivates
+the next real-payload fidelity test before a producer is wired to narration.
+See the [source finding](../../plans/artifacts/69-closed-transition-contract/T32-PROSE-STATE-FINDING.md).
+
+**T32 retry replay, 2026-09-24:** the pre-registered comparison of the archived
+lexical correction with a generic physical-fidelity reminder is **incomplete**:
+eight curl calls returned HTTP 200, but one original-arm response contained an
+extra JSON key, so only 7/8 met the required schema. No replacement call or
+semantic A/B score followed. A separate blind prose read was descriptive;
+readers disagreed on whether a candidate-arm passage erased the creature, and
+the valid original-arm texts did not reproduce the archived explicit
+disappearance. No correction or producer change is adopted. See the
+[registered rule](../../plans/artifacts/69-closed-transition-contract/T32-RETRY-V2-PREREGISTRATION.md)
+and [result](../../plans/artifacts/69-closed-transition-contract/T32-RETRY-V2-RESULT.md).
+
+**Curated fidelity-reader screen, 2026-09-24:** a separate model compared three
+accepted Director/prose pairs (T8 gates, T32 first prose, T32 persisted retry)
+under a frozen contradiction rubric. Only **6/12** fresh curl responses matched
+the required verdict/quote schema; the other six returned schema-shaped
+objects rather than verdict instances. The all-valid prerequisite failed, so
+no semantic gate was scored. Two valid responses supplied quotes that appear
+to oppose their own verdicts, a descriptive concern only. This reader is not
+adopted; it neither repairs the T32 conflict nor validates an end-to-end
+producer. See the [registration](../../plans/artifacts/69-closed-transition-contract/PROSE-FIDELITY-LOCAL-PREREGISTRATION.md)
+and [result](../../plans/artifacts/69-closed-transition-contract/PROSE-FIDELITY-LOCAL-RESULT.md).
+
+**Second source screen, 2026-09-24:** one archived hall-gate sequence supplied
+T7 (no opening), T8 (explicit `ajar -> open`) and T10 (impact while still open,
+no `open -> closed` warrant). The pre-registered local rule passed: 12/12
+HTTP-200, schema-valid responses, with 4/4 expected aperture labels on each
+turn. These are repeated samples of **three proposals in one session** with
+manual starting states; T8's positive update is explicit. T10's repeated guard
+may be a separate continuity defect, and its `no_change` label alone does not
+prove the extractor noticed the impact. This does not validate a model producer,
+newly created gaps, narrative quality or reliability. The next diagnostic is
+proposal-to-renderer fidelity on a real accepted Director proposal, followed
+by the unresolved dynamic-entity and independent-escalation boundaries. See
+the [V2 registration](../../plans/artifacts/69-closed-transition-contract/DOOR-EXTRACTION-V2-PREREGISTRATION.md)
+and [result](../../plans/artifacts/69-closed-transition-contract/DOOR-EXTRACTION-V2-RESULT.md).
+
+**Pre-render extraction screen, 2026-09-24:** a separate model call on two
+archived Director proposals from one session met its pre-registered **fixture
+gate**: 8/8 schema-valid curl responses; T28 selected the pillar integrity
+change in 4/4, and T29 avoided a new transition into its already held
+`destroyed` state in 4/4. This is no reliability estimate or live producer.
+The T29 rubble-gap choice was deliberately unscored because its post-event
+aperture was not source-labelled; all four calls nevertheless selected
+`ajar -> closed`. That is an observed tendency on one ambiguous payload, not
+four established errors or proof of closure. No model-produced transition is
+wired to the Runner. A separate existing-door aperture screen is now recorded
+above; it does not resolve the rubble gap. See the [registered rule](../../plans/artifacts/69-closed-transition-contract/PROPOSAL-EXTRACTION-PREREGISTRATION.md)
+and [result](../../plans/artifacts/69-closed-transition-contract/PROPOSAL-EXTRACTION-RESULT.md).
+
+**Pillar-pair source-boundary correction, 2026-09-24:** the 8bd4d0f1 T29
+`ajar -> closed` **aperture** label in the deterministic fixture is synthetic.
+The later persisted narration says "vedando por completo o acesso", which
+closes **access**, not necessarily the named opening's aperture. Neither
+source boundary unambiguously labels that aperture. T29 `scene_blocking` leaves a narrow
+basal gap **before** the decisions, then an event says blocks obstruct it and
+an observation routes Liora's calls through it. The pre-decision gap can be
+blocked later without contradiction; sound transmission alone cannot establish
+physical passage. The proposal does not unambiguously assert a complete seal.
+The accepted T29 `scene_update` repeats `pilar_rachado:
+desabado`, while the prose again depicts blocks falling; whether a whole
+pillar falls twice or remnants move is unresolved by that wording. The fixture
+still proves duplicate rejection and an independently chosen legal transition
+at the storage boundary. It does **not** prove a producer can extract that
+legal transition from the Director output or correct prose before render.
+See the corrected [pillar-pair result](../../plans/artifacts/69-closed-transition-contract/PILLAR-PAIR-RESULT.md).
+
+**Durable growth boundary, 2026-09-21:** a code-path audit finds no cardinality
+branch in physical registration, `asdict` serialization, current-schema
+reconstruction or `save_game`/`load_game`: every map entry is copied and
+validated. A regression now registers 41 entities, persists them through that
+path and requires the exact 41 IDs after load, one above the descriptive fact
+bag's separate `_MAX_PHYSICAL_FACTS = 40` cap. The checklist's old eviction
+concern is therefore resolved for current physical-state persistence by a
+no-eviction ownership contract and a regression at the known cap, rather than
+telemetry around lossy eviction. This does not establish a practical maximum or
+cover memory, large-manifest latency, runtime registration or future persistence
+paths; prompt projection remains a separate bounded read concern.
+`uv run pytest -q` passes 1,191 tests with 2 LLM tests deselected; see the
+[growth-boundary result](../../plans/artifacts/69-closed-transition-contract/PERSISTENCE-GROWTH-RESULT.md).
+
+**Active-only catalogue stopped; recorded escalation decomposed, 2026-09-21:**
+the active-only prompt candidate failed its fixed boundary. All 20 calls were
+technically valid, but the model selected the active C2-G label in 1/4 calls and
+the blind reader found the target in 2/4 C2-G prose beats, below both 3/4
+requirements; C1-G also had one blind-reader agency flag against zero in C1-A.
+The separate full-versus-active contrast remained undiagnosed because C1-A
+itself had future-test intrusion in 2/4. No schema or activation resolver for
+this candidate follows. A source read then interpreted T29's later persisted
+narration as sealing an independent rubble gap. The 2026-09-24 correction above
+limits that reading to **access** in prose; the fixture's aperture closure is
+synthetic, and the accepted proposal's final gap passability is unresolved.
+A deterministic fixture rejects a repeated pillar state, preserves its T28
+provenance and applies a separately chosen gap `ajar -> closed` transition; the
+existing synthetic `intact -> damaged -> destroyed` path also passes. This
+completes storage-fixture coverage, not source-grounded proposal extraction from
+the recorded pair. It also records an open producer requirement: because the
+batch API rolls back every member when one is invalid, a mixed batch of a
+repeated state and an independently legal change would discard both; a future
+producer must separate, correct or retry that batch before commit.
+`uv run pytest -q` passed 1,190
+tests with 2 LLM tests deselected; that validates deterministic behavior only.
+See the [active-only result](../../plans/artifacts/69-closed-transition-contract/ACTIVE-OBJECTIVE-RESULT.md)
+and [pillar-pair result](../../plans/artifacts/69-closed-transition-contract/PILLAR-PAIR-RESULT.md).
+
+**Typed transition rejection, 2026-09-21:** refused transitions in the physical
+engine now raise `PhysicalTransitionRejectionError`; registration and
+whole-store validation remain separate failures. This satisfies the
+component-level deterministic rejection item below. It does not mitigate the
+live repetition by itself: no model target is selected and no pre-render path
+omits or corrects an event whose state change was refused. The adopted next
+diagnostic is a newly pre-registered active-only catalogue ablation, testing the
+hypothesis that exposing a future objective contributed to the C1 outputs; it
+is not an approved producer design. See the [Runner transition result](../../plans/artifacts/69-closed-transition-contract/RUNNER-TRANSITION-RESULT.md)
+and [objective-catalogue rejection](../../plans/artifacts/69-closed-transition-contract/OBJECTIVE-CATALOG-RESULT.md).
+
+**Objective-catalogue screen, 2026-09-21:** under its pre-registered decision
+rule, the tested prompt shape stopped. All eight candidate responses were
+schema-valid, but the required context label appeared in only 2/4 calls before
+selection and 2/4 calls during the artifact test, below the required 3/4 in
+each context. This is a result for two frozen payloads from one session, not a
+model-reliability estimate, and no schema or runtime target path followed. Per
+the existing closure criteria for duplicate rejection and legal escalation,
+the next action is to exercise both across consecutive Runner submissions using
+the bootstrapped fixture. See the [objective-catalogue result](../../plans/artifacts/69-closed-transition-contract/OBJECTIVE-CATALOG-RESULT.md).
+
+**Deterministic bootstrap, 2026-09-21:** scenario manifests now materialize
+typed physical fixtures as validated turn-zero durable state. The HTTP, direct
+Runner and setup UI paths preserve the manifest; partial custom sessions cannot
+inherit unrelated default fixtures; structural validation runs after the
+session, turn and undo mutation hooks; and a hardcoded test hook proves a legal
+turn-1 transition persists and undoes exactly. The full non-LLM suite passes
+1,182 tests. This still supplies no model producer, prompt projection, dynamic
+entity creation, roteiro target or narrative-quality result, so Task 69 remains
+open. Raw model-authored physical triples are withdrawn because they would
+expose internal IDs and leave target selection unvalidated. The next action is
+a pre-registered real-payload screen of a scenario-owned, prompt-safe objective
+catalogue before any roteiro schema change. See the [bootstrap result](../../plans/artifacts/69-closed-transition-contract/BOOTSTRAP-RESULT.md)
+and [durable-state interface](../../plans/artifacts/69-closed-transition-contract/DURABLE-STATE-INTERFACE.md).
+
+**Durable-state foundation, 2026-09-20:** schema 16 persists typed
+physical-world entities as independent dimensions with explicit transition
+graphs, caller-beat provenance, atomic batches and pre-beat undo snapshots. The
+first single-enum draft was withdrawn after a content critic found that it
+collapsed independent properties such as aperture, security and integrity.
+At that checkpoint, focused transition, serialization and undo tests passed,
+and the full non-LLM suite passed 1,167 tests with its two marked LLM tests
+deselected. It established an enforceable storage interface, not evidence of
+narrative improvement. See the [foundation result](../../plans/artifacts/69-closed-transition-contract/FOUNDATION-RESULT.md)
+and [durable-state interface](../../plans/artifacts/69-closed-transition-contract/DURABLE-STATE-INTERFACE.md).
+
+**Suffix-veto correction, 2026-09-14:** removed the rule that inferred
+per-character transient state from new fact-key suffixes. A controlled replay
+of d5a2ccf0 T8's recorded delta drops `doors_state: trancadas` with the archived
+pre-change predicate and preserves it with the new predicate, with no other
+fact difference. An isolated save/load check also preserves it. The historical
+snapshot and next request lack the key, but that observation plus the replay
+does not prove the full old execution path. A content reader reviewed 11
+selected calls across three sessions and found both useful facts and duplication;
+the separate similarity check remains unchanged and unvalidated by this read.
+The full suite passes 1,141 tests. No narrative benefit or closure of 69 follows.
+See [the report and critic qualifications](../../plans/artifacts/69-fact-intake-read/REPORT.md).
+
+**Deterministic eviction correction, 2026-09-14:** an updated fact now moves
+to the latest write position, and the cap is enforced after the complete delta.
+Before the fix, rewriting the oldest fact then adding one could discard the
+fresh update; adding before deleting could evict a fact unnecessarily. Both
+regressions fail before and pass after the fix; the reverse-order control also
+passes. The full suite passes 1,136 tests and a real isolated save/load check
+preserves the order. This does not establish a narrative benefit or close 69.
+The accompanying Director prompt screen has only two valid baseline responses
+and stops below its registered minimum of three. Its source-reading deviation
+and corrected V8 judgment remain explicit in the [report](../../plans/artifacts/69-state-delta-contract/REPORT.md).
+
+**Replan-context diagnostic, 2026-09-14:** adding the full physical-facts
+dictionary to fb62cc2f T7 did not validate a runtime change. All four outputs
+per arm are schema-valid, but candidate V5 calls the explicitly closed arches
+“still open”. The original arm also contains continuity defects. The report
+preserves the late protocol clarification and critics' dispute over the word
+“regression”; it does not establish that the candidate is worse than baseline.
+A separate deterministic replay reproduces retention of the messenger's old
+location beside his new arrival under a different key, without establishing
+that this caused the replanner defect. See the [result and blind readings](../../plans/artifacts/69-replan-physical-context/REPORT.md).
+
+**Fresh current-engine case, 2026-09-14:** fb62cc2f T7 contains the explicit
+physical fact `porta_leste = aberta de par em par` and a roteiro beat assuming
+Holt was sealing that door with a bar. The accepted Director then supplies
+the bar bending and door breaking. A text-only reader noticed the unexplained
+change before the source comparison. This supplied the replan-context
+diagnostic above; the observation does not establish that
+adding state will fix it. See the [live result and source trace](../../plans/artifacts/77-p3-input-dispatch/LIVE-RESULT.md).
+
+**Movement-contract diagnostic, 2026-09-14:** the 8bd4d0f1 T21 replay did not
+reproduce Liora's historical unsupported move: all four original responses
+and both returned candidate responses keep her in the inner corridor. Two
+candidate calls exhausted connection retries without an HTTP response. The
+registered baseline-reproduction and completion requirements both fail; no
+prompt correction is validated. See the [individual fields and literary read](../../plans/artifacts/69-movement-event-contract/REPORT.md).
+
+**Prose-history diagnostic, 2026-09-14:** removing the transcript from the
+d5a2ccf0 T32 prose request did not meet the registered screen: the original
+arm has four schema-valid responses, the ablated arm only two, below the
+minimum of three. Report critics also disputed whether Link's wall contact
+constitutes a new arrival or a posture adjustment; those cases remain
+ambiguous. A further collapse praised as progression by the literary reader
+was absent from the renderer's confirmed events. No history removal or quality
+gain follows. See the [report with source corrections and disputed readings](../../plans/artifacts/69-projectile-boundary/REPORT.md).
+
+**Plan-precedence result, reviewed 2026-09-14:** the second candidate also
+failed its fixed screen: on the roof payload the source-checked valid outputs
+contain three original restagings, two with the candidate, and none with the
+complete planning block removed. The candidate required at most one. The
+no-plan continuations still include “ninguém desceu” after Maelis descended
+and an unexplained return to descent; the diagnostic contrast is not a quality
+verdict or a reason to delete the feature. Both candidates remain unvalidated.
+The registered stop ends wording trials on these two frozen payloads. See the
+[report, individual classifications and limits](../../plans/artifacts/69-plan-precedence/REPORT.md).
+
+**Heading candidate, 2026-09-05:** the resumed model comparison meets its
+completion/schema requirement but fails its predeclared qualitative veto. In
+the roof continuation B3, Maelis redirects evacuation from the patio to stands
+that the same output calls corroded and unstable, without explaining the change.
+This is a source-checked contextual concern, not a demonstrated causal heading
+effect. The candidate remains isolated; main runtime code is unchanged. The
+[report and source check](../../plans/artifacts/69-anchor-heading-replay/REPORT.md)
+retain the original HTTP 402 execution and the separately completed comparison.
+The lexical mismatch still reproduces an unsupported “Not in play yet” claim
+about a confirmed gate closure; the proposed heading correction is unvalidated.
+
+**Evacuation replay, 2026-09-05:** the text-selected bb72dc94 T10 replay failed
+its preregistered follow-up criterion. The original arm produced one schema-valid
+formation reset, one schema-valid continuation, one invalid continuation
+projection and one connection failure. Deleting two pending-planning lines
+produced three ambiguous continuations and one connection failure. The text
+reader retained coherent action alongside unexplained reversals of order and
+position: a continuation can preserve formed groups while reversing the
+authorization to leave. No deletion or narrative-quality gain is validated.
+See the [report and literary read](../../plans/artifacts/69-evacuation-input-replay/REPORT.md).
+
+**Content evidence, 2026-09-05:** a separate text-only sequence read found a
+concrete reset in bb72dc94: T9 supplies forming and departing groups through
+`time_skip_summary`, materialized into the prose request; T10 sets
+`group_formation` to “hesitante, quartetos ainda não formados”. T7→T8 also repeats
+the messenger's fainting, with additional holder/posture discontinuity in prose.
+The [read and boundary trace](../../plans/artifacts/79-content-read/REPORT.md)
+provide investigation cases, not a capacity diagnosis or a corpus rate. This
+cross-reference keeps continuity evidence in the existing investigation.
+
+> **Update, 2026-09-05: capacity remains undiagnosed.** The promised
+> session-cohort comparison has been run. Its lexical flags are not a semantic
+> restaging rate, and the fixed contextual read of the earliest flagged pair
+> in each of 16 measurable below-threshold sessions found no unequivocal
+> re-staging of a completed physical event. That leaves the registered
+> threshold-necessity question unresolved; it does not establish absence of
+> narrative repetition. See [the cohort report](../../plans/artifacts/69-session-cohorts/REPORT.md).
+> The historical “capacity excluded”, “at most a minority” and “retrieval
+> already works” conclusions below are withdrawn as causal conclusions:
+> visible text does not establish its use, and the new cohort read supplies
+> no causal comparison. The historical visibility observations remain.
+> The [ceiling replay](../../plans/artifacts/69-roof-input-replay/REPORT.md)
+> also did not pass its fixed follow-up gate: both selected unchanged payloads
+> produced one clear RESET in four calls, with ambiguity retained. No prompt
+> deletion is validated. The state/planning conflict remains a hypothesis.
+
 > **Status:** open. **Wave 2, second as of 2026-08-13** (behind 79, which has the
 > only established mechanism in the phase). Symptom re-measured post-wave-1 and
 > still real: 97 of 987 Director events re-proposed within three turns. Its
@@ -38,7 +374,8 @@
 >
 > **The thesis of this task is unharmed and better aimed:** settled state has to
 > become **binding on the output**, not easier to retrieve. Retrieval already
-> works and is already ignored.
+> works and is already ignored. **This inference is withdrawn, 2026-09-05:
+> visible text does not establish retrieval or use.**
 >
 > ⚠ **And roughly half of this task's headline symptom belongs elsewhere.**
 > 43.4% of the flagged pairs are the Director re-summarising **speech**, not
@@ -84,7 +421,9 @@ stops assigning weight to anything, including the next death.
 
 and the Director then emitted *"O teto da câmara oculta desaba com um rugido…
 enquanto a entrada fica soterrada por blocos."* Same at T35. This is the
-**post-R0 engine**, with no mandatory `UPCOMING EVENT` injection on those turns.
+**post-R0 engine**. **Correction, 2026-09-05:** T34 does have an
+`UPCOMING EVENT` block, a clock signal requesting time compression. It does not
+command the roof collapse. The earlier literal no-block claim is withdrawn.
 The state channel said the ceiling had already fallen, in the same message, and
 the Director staged it again.
 
@@ -114,7 +453,11 @@ At T33, T34 and T35 the ROTEIRO block of the same prompt carried, together:
 
 The prompt asserts *"this is the current beat"* and *"this is not in play yet"*
 about the same event, in the same message, while `physical_facts` says it has
-already happened. The anchor matcher cannot close the beat because
+already happened. **Correction, 2026-09-05:** the juxtaposition is observed; interpreting it as
+a semantic conflict and causal loop remains a hypothesis after the ceiling
+replay above. The historical mechanism claim follows for context.
+
+The anchor matcher cannot close the beat because
 "pedras do teto desabado" does not lexically match "O teto da câmara oculta
 desaba", so coverage never completes and the turn clock forces a replan that
 regenerates the same standoff.
@@ -153,7 +496,8 @@ output may not.
 - **`burst.event_texts` dies every submission** (`runner.py:1163-1169`). It only
   exists `if multi_beat`, so cross-submission re-proposal has no barrier at all.
   A durable equivalent is part of this task.
-- **`scene.physical_facts` saturation — DEMOTED TO HYGIENE 2026-08-13.** The
+- **`scene.physical_facts` saturation — historical HYGIENE demotion, 2026-08-13.**
+  **Causal exclusion withdrawn 2026-09-05; see the cohort report above.** The
   visibility read above excludes it as the mechanism: 17 of 18 re-proposals
   happen with the original still in the prompt. Over all 33 sessions, **15 reach
   the 40-key cap and 18 never do**, at a median 69% through the session. Measure
@@ -195,16 +539,20 @@ output may not.
 
 ## Closure evidence required
 
-- [ ] a re-proposed transition into a state already held is rejected or corrected
+- [x] a re-proposed transition into a state already held is rejected or corrected
       deterministically, with a test per transition family;
-- [ ] a genuine escalation is **not** blocked — the T28→T29 pillar pair and a
-      seeded crack→collapse both pass;
+- [x] an independently chosen legal transition is **not** blocked at the
+      storage boundary — the source-inspired pillar duplicate plus synthetic
+      gap closure and a seeded crack→collapse both pass; accepted-T29 gap
+      extraction remains unproved;
 - [ ] the input contradiction is closed: a beat whose anchors are already
       satisfied cannot be re-issued as "not in play yet";
 - [ ] cross-submission coverage: the same event proposed in two consecutive
       submissions is caught;
-- [ ] eviction instrumented before any state is trusted to persist;
-- [ ] the storage model written down here as an interface, **before** 72 or 66
+- [x] eviction disposition explicit before state is trusted to persist: the
+      authoritative store has no eviction and preserves 41 exact IDs across
+      save/load, beyond the separate 40-key descriptive-fact cap;
+- [x] the storage model written down here as an interface, **before** 72 or 66
       designs against it;
 - [ ] measured on a live cell: the ceiling-family cluster does not recur, judged
       with the fixed `cluster_max`/`cluster_span` from task 68 and a blind read
@@ -216,15 +564,13 @@ output may not.
 the restaging cluster count does not fall, the state model is not the mechanism
 and the production mandate (task 72) is carrying all of it.
 
-## Related: 69, 72 and 77 are one shape
+## Related: historical shared-state hypothesis, not a diagnosis
 
-**The engine keeps no record of what has already been settled.** Task 69 is a
-resolved event re-proposed (the ceiling collapses three times). Task 77 is an
-issued order never enacted (the room is sent through a gate four times and
-nobody moves). Task 72 is the durable structure that would hold either.
-
-They are deliberately **not merged**: 77 has evidence and 72 has a design, and
-merging them would cost the evidence its own name and make 72 unfalsifiable.
+Task 69 contains resolved events re-proposed. Task 77's cited passages include
+repeated orders, but the 2026-09-24 content read also found movement, resistance
+and uncertain group identity; it did not establish that nobody crossed or that
+missing commitment state caused those passages. Task 72 proposes such durable
+state. These remain separate questions rather than one established mechanism.
 
 ## Measured and rejected — the saturation test, 2026-08-13
 
@@ -421,6 +767,11 @@ third direction. Counted against this task's hypothesis anyway, because rounding
 against yourself is the only honest direction.
 
 ### What this does to task 69
+
+> **Correction, 2026-09-05:** the causal conclusions in this historical section
+> are withdrawn. Neither prompt visibility nor the new cohort comparison
+> establishes that memory/attention is irrelevant, or validates binding-output
+> storage as the remedy. See the update and cohort report at the top.
 
 **The thesis survives and the sub-story dies.** *"Closed transitions constrain
 the output"* is exactly what a defect where the Director can see the fact and

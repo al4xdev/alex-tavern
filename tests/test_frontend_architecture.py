@@ -102,6 +102,55 @@ def test_frontend_modules_use_explicit_imports_instead_of_shared_app_globals() -
     assert "import * as Onboarding from './onboarding.js';" in app_source
 
 
+def test_durable_state_manifest_round_trips_scenarios_and_snapshots() -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is required for frontend module checks")
+    module_uri = (STATIC / "durable-state-manifest.js").as_uri()
+    script = f"""
+        import assert from 'node:assert/strict';
+        import {{ clonePhysicalEntities, manifestFromDurableState }} from '{module_uri}';
+
+        const authored = [{{
+            entity_id: 'door', key: 'hall.door', kind: 'passage', scene_key: 'hall',
+            dimensions: {{ aperture: 'closed' }},
+        }}];
+        const cloned = clonePhysicalEntities(authored);
+        cloned[0].dimensions.aperture = 'open';
+        assert.equal(authored[0].dimensions.aperture, 'closed');
+
+        const exported = manifestFromDurableState({{ physical_entities: {{
+            'z-door': {{
+                entity_id: 'z-door', key: 'hall.door', kind: 'passage', scene_key: 'hall',
+                registered_turn_number: 0, registered_update_id: 'bootstrap:z-door',
+                dimensions: {{ aperture: {{
+                    state: 'open', updated_turn_number: 4,
+                    updated_update_id: 'turn-4', updated_transition_id: 'open-door',
+                }} }},
+            }},
+            'a-roof': {{
+                entity_id: 'a-roof', key: 'hall.roof', kind: 'structure', scene_key: 'hall',
+                registered_turn_number: 0, registered_update_id: 'bootstrap:a-roof',
+                dimensions: {{ integrity: {{
+                    state: 'damaged', updated_turn_number: 3,
+                    updated_update_id: 'turn-3', updated_transition_id: 'damage-roof',
+                }} }},
+            }},
+        }} }});
+        assert.deepEqual(exported, [
+            {{ entity_id: 'a-roof', key: 'hall.roof', kind: 'structure', scene_key: 'hall',
+               dimensions: {{ integrity: 'damaged' }} }},
+            {{ entity_id: 'z-door', key: 'hall.door', kind: 'passage', scene_key: 'hall',
+               dimensions: {{ aperture: 'open' }} }},
+        ]);
+    """
+    subprocess.run(
+        [node, "--no-warnings", "--input-type=module", "-e", script],
+        check=True,
+        cwd=ROOT,
+    )
+
+
 def test_i18n_is_versioned_and_available_in_the_offline_shell() -> None:
     i18n_source = (STATIC / "i18n.js").read_text(encoding="utf-8")
     service_worker = (STATIC / "sw.js").read_text(encoding="utf-8")

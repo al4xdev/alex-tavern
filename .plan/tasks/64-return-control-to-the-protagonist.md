@@ -1,5 +1,28 @@
 # Task 64 — Return control to the protagonist
 
+> **2026-09-24, calibration screen stopped.** A preregistered five-payload,
+> 40-call wording comparison had 37/40 valid Director decisions despite 40 HTTP
+> 200 responses (two overlong speaker queues and one response with extra data
+> after its JSON object). The technical gate required 40/40; no blind reader was
+> invoked, no candidate wording was adopted and no later gate was evaluated.
+> Descriptively, the archived positive-control and one negative-control payload
+> reproduced their expected A-arm boolean in only 1/4 fresh calls each. The
+> preregistration closes these payloads to a third wording trial. The task
+> remains open; a further hypothesis needs a new source reading at the Director
+> decision boundary and new cases. See the [result](../../plans/artifacts/64-return-control-calibration/RESULT.md).
+>
+> **Cohort count correction, same day.** Re-reading the nine retained session
+> states and Director logs yields **314 committed decisions**, not the previously
+> quoted 323. The earlier calculation was not recovered (323 happens to equal
+> the sum of each `revision + 1`). One valid but uncommitted `d0cc98e5` T37
+> response is excluded. The retained sessions still have 10 turns with
+> `return_control=true`, 10 with the protagonist routed, and 20 distinct turns
+> across the two Runner handoff routes. **0/9 sessions lack both routes; 2/9 lack
+> the boolean route alone.** Retire the old pooled-turn p-values: turns within a
+> session are clustered, and 323 is not reproduced from these files. See the
+> [auditor](../../plans/artifacts/64-return-control-calibration/audit_post70.py)
+> and [per-session result](../../plans/artifacts/64-return-control-calibration/RESULT.md).
+>
 > **Status:** open, **and now re-scoped by measurement.** **Wave 2, after 69.**
 > The battery this task demanded has run (2026-08-12, nine sessions): the
 > never-returned count is **5 of 12 → 0 of 9**, and reading every
@@ -37,15 +60,19 @@ and treat the table below as the pre-70 baseline rather than the current state.
 
 ## ✅ The battery has run — 2026-08-12, nine post-70 sessions
 
-323 Director turns across nine sessions (`34390b86`, `d0cc98e5`, `00997daa`,
+314 committed Director turns in the currently retained nine sessions (`34390b86`, `d0cc98e5`, `00997daa`,
 `b11b38dc`, `55d03896`, `21f7c4e1`, `c76037ff`, `09aabf25`, `54bcdace`).
 
-| signal | pre-70 (482 turns, 12 sessions) | **post-70 (323 turns, 9)** | |
-|---|---|---|---|
-| `return_control=True` | 5 (1.0%) | **10 (3.1%)** | p = 0.059 |
-| controlled character routed | 11 (2.3%) | **10 (3.1%)** | — |
-| either path | 16 (3.3%) | **20 (6.2%)** | p = 0.057 |
-| **sessions where control NEVER returned** | **5 of 12** | **0 of 9** | **p = 0.045** |
+| signal | pre-70 (482 turns, 12 sessions) | **retained post-70 (314 turns, 9 sessions)** |
+|---|---|---|
+| `return_control=True` | 5 (1.0%) | **10 (3.2%)** |
+| controlled character routed | 11 (2.3%) | **10 (3.2%)** |
+| either path | 16 (3.3%) | **20 (6.4%)** |
+| **sessions where neither route returned control** | **5 of 12** | **0 of 9** |
+
+The older 323-turn total and its pooled-turn p-values are superseded for these
+retained files; the difference's original derivation remains unknown. These
+fractions describe the archive and do not give independent turn-level evidence.
 
 **The number this task said needed a battery is now zero.** Every one of the
 nine sessions hands control back at least once. That was the strongest single

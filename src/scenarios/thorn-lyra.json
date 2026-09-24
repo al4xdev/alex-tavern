@@ -19,5 +19,16 @@
   "character_preset_ids": {
     "C1": "thorn-lyra-c1",
     "C2": "thorn-lyra-c2"
-  }
+  },
+  "physical_entities": [
+    {
+      "entity_id": "thorn-lyra-main-hall-door",
+      "key": "thorn-lyra.main-hall.door",
+      "kind": "passage",
+      "scene_key": "thorn-lyra.main-hall",
+      "dimensions": {
+        "aperture": "closed"
+      }
+    }
+  ]
 }

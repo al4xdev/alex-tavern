@@ -26,6 +26,7 @@ from src.config import (
     public_config,
     resolve_active_config,
 )
+from src.durable_state import PhysicalDimension, PhysicalKind
 from src.llm.debug_log import read_entries
 from src.models import Scene, dict_to_character, game_state_to_dict
 from src.paths import EXPERIENCES_DIR, STATIC_DIR
@@ -284,6 +285,16 @@ class SceneInput(BaseModel):
     positions: dict[str, str] = Field(default_factory=dict)
 
 
+class PhysicalEntityInput(StrictModel):
+    """Provenance-free physical entity authored by a scenario."""
+
+    entity_id: str
+    key: str
+    kind: PhysicalKind
+    scene_key: str | None = None
+    dimensions: dict[PhysicalDimension, str]
+
+
 class StartSessionRequest(BaseModel):
     controlled_character_id: str | None = None
     characters: dict[str, CharacterInput] | None = None
@@ -291,6 +302,7 @@ class StartSessionRequest(BaseModel):
     narrator_directives: str | None = None
     scenario_name: str | None = None
     character_preset_ids: dict[str, str] = Field(default_factory=dict)
+    physical_entities: list[PhysicalEntityInput] | None = None
 
 
 class StartSessionResponse(BaseModel):
@@ -532,6 +544,13 @@ async def start_session(req: StartSessionRequest) -> dict:
         ),
         "scenario_source_id": req.scenario_name or "",
     }
+    manifest = req.physical_entities
+    if manifest is None and scenario_data:
+        manifest = scenario_data.get("physical_entities")
+    if manifest is not None:
+        cfg["physical_entities"] = [
+            dump(entity) if isinstance(entity, BaseModel) else entity for entity in manifest
+        ]
     if characters:
         cfg["characters"] = characters
     if scene:
