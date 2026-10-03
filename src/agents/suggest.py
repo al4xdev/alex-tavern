@@ -1,76 +1,58 @@
-"""Move suggestions: three drafts written from inside one character's head.
-
-This is deliberately NOT the Narrator. The feature predates the split into
-Director / Prose / Character and was implemented as an omniscient Narrator call
-reusing `_build_user_prompt`, which handed it every character sheet, every
-private thought and the whole roteiro — 42k to 65k characters per call to
-produce three short lines, and the model kept proposing the same tactic because
-it was reasoning about the *world* instead of about one person's options.
-
-The boundary here is the one the Character agent already trusts: what this
-character perceives, via `_format_history_for_character` and `record_visible_to`.
-Nothing is persisted and nothing is executed — a suggestion is an editable
-draft, and the decision stays with whoever asked for it.
-"""
+"""Three coordinated editable alternatives using the normal Character prompt."""
 
 from __future__ import annotations
 
 import httpx
 
-from src.agents.character import _format_history_for_character
-from src.llm.client import call_agent, normalize_generated_text
-from src.models import (
-    Character,
-    CharacterPerspective,
-    Scene,
-    TurnRecord,
+from src.agents.character import (
+    _echoed_output_field,
+    _leaked_secret_tokens,
+    _normalize_output,
+    _promote_physical_sentences,
+    build_character_json_schema,
+    build_character_messages,
 )
+from src.agents.perspective import project_text_for_viewer
+from src.confidentiality import redact_tokens
+from src.llm.client import call_agent
+from src.models import Character, CharacterPerspective, Scene, TurnRecord
 
-# Three short speech/action pairs never need the Director's budget. Fixed rather
-# than derived from config so one long-context provider cannot silently turn a
-# helper into the most expensive call of the turn.
-SUGGESTION_MAX_TOKENS = 1024
-SUGGESTION_HISTORY_TOKENS = 1024
-
-# The first-person rule in the system prompt below is measured, not assumed:
-# without it, 6 of 20 action drafts opened with the character's own name
-# ("Thorn approaches the bar"), which is used verbatim as that character's own
-# act and reads as them narrating themselves. With it, 0 of 21. Measured on a
-# session whose configured language and scenario language matched, because the
-# first sighting was in a mismatched session and a mismatch is misuse, not a
-# defect.
-
-_SYSTEM = """\
-You draft three possible next moves for ONE character in a roleplay scene, from
-inside that character's head. You are not narrating and not deciding: each move
-is an editable draft the character could choose right now.
-
-Rules:
-- Use ONLY what this character knows, perceives and can physically do from where
-  they are. Never use information they were not told and never invent a fact
-  about the world.
-- The three moves must be MATERIALLY different — a different intention, target
-  or register each time. Three phrasings of the same tactic is a failed answer.
-- Cover different registers across the three: for example one that speaks, one
-  that acts physically, one that does neither loudly (observe, withdraw, wait).
-- The three moves must also engage three DIFFERENT targets: one directed at a
-  specific person, one at the physical scene or an object, and one at nobody
-  (the character alone: withdrawing, watching, thinking it over). Never open
-  all three by addressing the same person.
-- Keep each field short and concrete: one sentence, no stage directions, no
-  narration of anyone else's reaction.
-- "speech" is what the character says aloud, or an empty string. "action" is
-  what they physically do, or an empty string. At least one of the two must be
-  non-empty in every move.
-- Write "action" in the FIRST PERSON, as the character stating what they do:
-  "I draw my sword", never "he draws his sword" and never their own name. The
-  draft is used verbatim as that character's own act, so a report about them
-  reads as them narrating themselves.
+_ALTERNATIVES = """For this request, return THREE alternative next moves for yourself,
+not one response and not a sequence of events. Each uses the normal speech,
+thought and action_intent fields. None of these moves has happened.
+Choose three materially different intentions that fit your personality and
+what is happening NOW. They must not repeat the same question, warning or
+promise in different words. Include a conversational option, a physical
+attempt, and a reflective or observant option when appropriate to this scene.
+A quiet option may have only thought; do not force speech into every option.
+Your thought explains your immediate personal motivation, rather than reciting
+your biography. Your action_intent never determines another person's action
+or assumes success. Return the three options in the suggestions array.
 """
 
 
+def build_suggestion_context(
+    scene: Scene,
+    characters: dict[str, Character],
+    target_id: str,
+    narrator_directives: str = "",
+    viewer_perspective: CharacterPerspective | None = None,
+) -> str:
+    """Keep the helper's shared setting; omit unscoped facts in split scenes."""
+    context = f"Current setting: {scene.location} | {scene.time_of_day}"
+    # In a flat scene the existing helper treats these as shared surroundings.
+    # A split scene has no per-fact witness metadata; do not hand every room's
+    # facts to a single character. Their perceived history and memory remain.
+    if not scene.zones and scene.physical_facts:
+        context += "\nCurrent surroundings:\n" + "\n".join(
+            f"- {key}: {value}" for key, value in scene.physical_facts.items()
+        )
+    if narrator_directives.strip():
+        context += "\nWORLD RULES (tone and setting):\n" + narrator_directives.strip()
+    return project_text_for_viewer(context, characters, viewer_perspective, viewer_id=target_id)
+
+
 def build_suggestion_schema() -> dict:
-    """Exactly three moves, each a speech/action pair."""
     return {
         "name": "character_move_suggestions",
         "schema": {
@@ -78,78 +60,15 @@ def build_suggestion_schema() -> dict:
             "properties": {
                 "suggestions": {
                     "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "speech": {"type": "string"},
-                            "action": {"type": "string"},
-                        },
-                        "required": ["speech", "action"],
-                        "additionalProperties": False,
-                    },
+                    "items": build_character_json_schema()["schema"],
                     "minItems": 3,
                     "maxItems": 3,
-                },
+                }
             },
             "required": ["suggestions"],
             "additionalProperties": False,
         },
     }
-
-
-def build_suggestion_messages(
-    scene: Scene,
-    characters: dict[str, Character],
-    target_id: str,
-    history: list[TurnRecord],
-    narrator_directives: str = "",
-    viewer_perspective: CharacterPerspective | None = None,
-) -> list[dict[str, str]]:
-    """The whole context: this character's own sheet, their scene, their history.
-
-    Every other character's mind, notes and private thoughts are absent by
-    construction — they are never read here, so no instruction has to protect
-    them.
-    """
-    character = characters[target_id]
-    lines = [
-        f"YOU ARE: {character.mind.name}",
-        f"PERSONALITY: {character.mind.personality}",
-        f"CURRENT MOOD: {character.mind.current_mood}",
-    ]
-    if character.mind.knowledge:
-        lines.append("WHAT YOU KNOW:")
-        lines.extend(f"  - {fact}" for fact in character.mind.knowledge)
-    lines.append(f"YOU ARE WEARING: {character.body.outfit}")
-    lines.append("")
-    lines.append(f"WHERE YOU ARE: {scene.location} | {scene.time_of_day}")
-    if scene.physical_facts:
-        lines.append("WHAT YOU CAN SEE AROUND YOU:")
-        lines.extend(f"  - {key}: {value}" for key, value in scene.physical_facts.items())
-    lines.append("")
-    lines.append("WHAT YOU HAVE PERCEIVED (oldest to newest):")
-    lines.append(
-        _format_history_for_character(
-            history,
-            characters,
-            target_id,
-            target_id,
-            context_max=None,
-            max_tokens_character=SUGGESTION_HISTORY_TOKENS,
-            viewer_perspective=viewer_perspective,
-        )
-    )
-    if narrator_directives.strip():
-        lines.append("")
-        lines.append("WORLD RULES (tone and setting you live under):")
-        lines.append(narrator_directives.strip())
-    lines.append("")
-    lines.append("Give three materially different moves you could make right now.")
-
-    return [
-        {"role": "system", "content": _SYSTEM},
-        {"role": "user", "content": "\n".join(lines)},
-    ]
 
 
 async def suggest_moves(
@@ -163,24 +82,77 @@ async def suggest_moves(
     session_id: str = "",
     turn_number: int = 0,
     viewer_perspective: CharacterPerspective | None = None,
+    dispositions=None,  # noqa: ANN001 — same state accepted by Character.act
 ) -> list[dict[str, str]]:
-    """Three editable drafts for ``target_id``. Persists nothing, executes nothing."""
-    result = await call_agent(
-        client,
-        config,
-        build_suggestion_messages(
-            scene, characters, target_id, history, narrator_directives, viewer_perspective
-        ),
-        agent="suggest_moves",
-        json_schema=build_suggestion_schema(),
-        max_tokens=SUGGESTION_MAX_TOKENS,
-        session_id=session_id,
-        turn_number=turn_number,
+    """Three speech/thought/action drafts. Persists no state and executes nothing."""
+    context = build_suggestion_context(
+        scene, characters, target_id, narrator_directives, viewer_perspective
     )
-    return [
-        {
-            "speech": normalize_generated_text(item.get("speech", "")).strip(),
-            "action": normalize_generated_text(item.get("action", "")).strip(),
-        }
-        for item in result.get("suggestions", [])
-    ]
+    messages = build_character_messages(
+        characters[target_id],
+        context,
+        history,
+        characters,
+        target_id,
+        target_id,
+        config,
+        scene=scene,
+        viewer_perspective=viewer_perspective,
+        dispositions=dispositions,
+    )
+    messages[-1]["content"] += "\n\n" + _ALTERNATIVES
+    correction = ""
+    for attempt in range(2):
+        request = [dict(message) for message in messages]
+        request[-1]["content"] += correction
+        result = await call_agent(
+            client,
+            config,
+            request,
+            agent="suggest_moves",
+            json_schema=build_suggestion_schema(),
+            max_tokens=3 * config.get("max_tokens_character", 1024),
+            session_id=session_id,
+            turn_number=turn_number,
+            guard_retry="suggestion_output" if correction else "",
+        )
+        outputs = []
+        issues = []
+        for item in result["suggestions"]:
+            try:
+                output = _normalize_output(item)
+            except ValueError:
+                if attempt == 0:
+                    issues.append("Keep movement only in action_intent; fill at least one field.")
+                    continue
+                output = _normalize_output(_promote_physical_sentences(item))
+            leaked = _leaked_secret_tokens(
+                output["speech"], history, characters, target_id, target_id, None, scene
+            )
+            echoed = _echoed_output_field(output, history, target_id)
+            if attempt == 0 and (leaked or echoed):
+                issues.append(
+                    "Do not expose whispered secrets in speech or repeat recent sentences."
+                )
+            elif leaked:
+                output = {**output, "speech": redact_tokens(output["speech"] or "", leaked)}
+            if attempt == 1 and echoed:
+                other = "speech" if echoed == "thought" else "thought"
+                if output.get(other):
+                    if echoed == "thought":
+                        output["thought"] = None
+                    else:
+                        output["speech"] = None
+            outputs.append(output)
+        if issues:
+            correction = "\nCORRECTION:\n" + "\n".join(dict.fromkeys(issues))
+            continue
+        return [
+            {
+                "speech": item["speech"] or "",
+                "thought": item["thought"] or "",
+                "action": item["action_intent"] or "",
+            }
+            for item in outputs
+        ]
+    raise ValueError("Invalid Character suggestions after correction")

@@ -544,12 +544,13 @@ The action menu next to Send provides two explicit routing controls:
   the Narrator, that collapses whatever `next_speakers` queue the Director actually chose down
   to that one speaker. If the forced speaker is the human-controlled character, the runner still
   pauses instead of generating for them — agency is never bypassed by this mechanism.
-- **Suggest** — a separate endpoint that asks the (still fully blind) Director for three
-  candidate `{speech, action}` pairs for the human-controlled character, worded generically
-  ("suggest three plausible next moves for C1"), never revealing that character is the human.
-  Nothing is persisted by this call; the frontend fills speech/action and clears the private
-  thought field, while the human still
-  has to press send, so it enters the world through the completely normal path.
+- **Suggest** — a separate endpoint that uses the normal Character prompt to generate three coordinated
+  alternatives for the controlled character, including dialogue, physical attempts and
+  reflection. Each uses the character's own knowledge, perceived history,
+  durable memory and relationships, with Character validation for movement, repetition and whispered secrets.
+  The agent never learns that a human controls the character. Each draft contains
+  `{speech, thought, action}`; the frontend fills all three editable fields without sending.
+  No draft changes session state. Actions are intentions whose outcomes remain with the world.
 
 An entirely empty turn is rejected. A force-speaker override is meaningful only with observable
 speech or action; a thought-only submission remains private, is persisted as its own undoable

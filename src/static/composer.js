@@ -180,16 +180,23 @@ export function renderSuggestions(suggestions) {
         else bindTranslation(label, 'suggestion.fallback', { number: i + 1 });
         btn.appendChild(label);
 
+        if (s.thought) {
+            const thought = document.createElement('span');
+            thought.className = 'opt-desc';
+            thought.textContent = `💭 ${s.thought}`;
+            btn.appendChild(thought);
+        }
+
         if (s.action) {
             const desc = document.createElement('span');
             desc.className = 'opt-desc';
             desc.textContent = `🎬 ${s.action}`;
             btn.appendChild(desc);
         }
-        // Fills both boxes — does not send on its own, the player confirms on Send.
+        // Fills all three boxes — does not send on its own, the player confirms on Send.
         btn.addEventListener('click', () => {
             inputSpeech.value = s.speech || '';
-            inputThought.value = '';
+            inputThought.value = s.thought || '';
             inputAction.value = s.action || '';
             clearSuggestions();
             if (!isCompactLayout()) inputSpeech.focus();

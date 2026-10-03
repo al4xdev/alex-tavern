@@ -2224,14 +2224,14 @@ class Runner:
             return {"undone": True, "state": game_state_to_dict(game)}
 
     async def suggest_actions(self, session_id: str) -> dict:
-        """Asks the (blind) Narrator for possible move suggestions for the controlled character.
+        """Asks Character for three editable alternatives for the controlled character.
 
         Manual trigger "suggest to me" (Task 6): does not persist anything — just returns
-        suggestions for the frontend to fill the speech/action input boxes. The Narrator
+        suggestions for the frontend to fill the speech/thought/action input boxes. The agent
         does not know the target character is the human.
 
         Returns:
-            Dict with ``suggestions`` (list of ``{"speech", "action"}``).
+            Dict with ``suggestions`` (list of ``{"speech", "thought", "action"}``).
         """
         async with session_lock(session_id):
             game = load_game(session_id)
@@ -2251,6 +2251,7 @@ class Runner:
                 session_id=game.session_id,
                 turn_number=turn_number,
                 viewer_perspective=game.character_perspectives.get(target_id),
+                dispositions=game.dispositions,
             )
             suggestions = await self.plugins.hooks.filter(
                 Hook.SUGGESTIONS_OUTPUT,

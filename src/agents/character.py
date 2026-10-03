@@ -246,9 +246,7 @@ def _build_present_roster(
     """
     if scene is None:
         return ""
-    others = [
-        cid for cid in scene.present_characters if cid != character_id and cid in characters
-    ]
+    others = [cid for cid in scene.present_characters if cid != character_id and cid in characters]
     if not others:
         return "WHO IS HERE WITH YOU: nobody else. You are alone in this place."
     names = ", ".join(_roster_label(cid, viewer_perspective) for cid in others)
@@ -553,6 +551,68 @@ def _leaked_secret_tokens(
     return secret & tokens(speech)
 
 
+def build_character_messages(
+    character: Character,
+    context: str,
+    history: list[TurnRecord],
+    characters: dict[str, Character],
+    controlled_id: str,
+    character_id: str,
+    config: dict,
+    scene: Scene | None = None,
+    reply_audience: list[str] | None = None,
+    viewer_perspective=None,
+    dispositions=None,  # noqa: ANN001
+    alignment_impulse: str = "",
+    speech_intents: list[str] | None = None,
+) -> list[dict[str, str]]:
+    """Shared Character prompt for an ordinary response or editable alternatives."""
+    max_tokens_character = config.get("max_tokens_character", 1024)
+    history_text = _format_history_for_character(
+        history,
+        characters,
+        controlled_id,
+        character_id,
+        context_max=config.get("context_max"),
+        max_tokens_character=max_tokens_character,
+        viewer_perspective=viewer_perspective,
+    )
+    messages = [
+        {"role": "system", "content": _build_system_prompt(character)},
+        {
+            "role": "user",
+            "content": _build_user_prompt(
+                context,
+                history_text,
+                character.mind.current_mood,
+                present_roster=_build_present_roster(
+                    scene, characters, character_id, controlled_id, viewer_perspective
+                ),
+                whisper_note=_whisper_turn_note(
+                    reply_audience,
+                    characters,
+                    controlled_id,
+                    character_id,
+                    viewer_perspective=viewer_perspective,
+                ),
+                ledger_memory=_ledger_memory_text(viewer_perspective),
+                disposition_note=_build_disposition_note(
+                    dispositions,
+                    character_id,
+                    scene,
+                    characters,
+                    controlled_id,
+                    viewer_perspective=viewer_perspective,
+                ),
+                alignment_impulse=alignment_impulse,
+                speech_mandate=_speech_mandate_note(list(speech_intents or [])),
+            ),
+        },
+    ]
+
+    return messages
+
+
 async def act(
     client: httpx.AsyncClient,
     character: Character,
@@ -607,47 +667,21 @@ async def act(
         with those tokens redacted.
     """
     max_tokens_character = config.get("max_tokens_character", 1024)
-    history_text = _format_history_for_character(
+    messages = build_character_messages(
+        character,
+        context,
         history,
         characters,
         controlled_id,
         character_id,
-        context_max=config.get("context_max"),
-        max_tokens_character=max_tokens_character,
-        viewer_perspective=viewer_perspective,
+        config,
+        scene,
+        reply_audience,
+        viewer_perspective,
+        dispositions,
+        alignment_impulse,
+        speech_intents,
     )
-    messages = [
-        {"role": "system", "content": _build_system_prompt(character)},
-        {
-            "role": "user",
-            "content": _build_user_prompt(
-                context,
-                history_text,
-                character.mind.current_mood,
-                present_roster=_build_present_roster(
-                    scene, characters, character_id, controlled_id, viewer_perspective
-                ),
-                whisper_note=_whisper_turn_note(
-                    reply_audience,
-                    characters,
-                    controlled_id,
-                    character_id,
-                    viewer_perspective=viewer_perspective,
-                ),
-                ledger_memory=_ledger_memory_text(viewer_perspective),
-                disposition_note=_build_disposition_note(
-                    dispositions,
-                    character_id,
-                    scene,
-                    characters,
-                    controlled_id,
-                    viewer_perspective=viewer_perspective,
-                ),
-                alignment_impulse=alignment_impulse,
-                speech_mandate=_speech_mandate_note(list(speech_intents or [])),
-            ),
-        },
-    ]
 
     last_error: ValueError | None = None
     correction: str | None = None
