@@ -1,0 +1,5 @@
+manifest.json
+runs/
+graded-results.json
+reader-packet.json
+__pycache__/
