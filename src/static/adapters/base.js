@@ -6,6 +6,8 @@ const INTEGER_FIELDS = new Set([
     'context_max',
     'max_tokens_narrator',
     'max_tokens_character',
+    'narrator_min_words',
+    'character_max_sentences',
     'summarizer_max_tokens',
 ]);
 
@@ -22,6 +24,8 @@ function makeElement(tag, className = '', text = '') {
 
 export function standardGenerationFields() {
     return [
+        { key: 'narrator_min_words', labelKey: 'provider.narratorMinWords', type: 'number', min: 1 },
+        { key: 'character_max_sentences', labelKey: 'provider.characterMaxSentences', type: 'number', min: 1 },
         { key: 'context_max', labelKey: 'provider.context', type: 'number', min: 1 },
         { key: 'max_tokens_narrator', labelKey: 'provider.narrator', type: 'number', min: 1 },
         { key: 'max_tokens_character', labelKey: 'provider.character', type: 'number', min: 1 },

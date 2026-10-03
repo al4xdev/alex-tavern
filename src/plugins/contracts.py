@@ -75,7 +75,7 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
         "value": "dict",
         "context": ["game", "turn_number", "runner"],
         "commit": "before",
-        "description": "Rewrite speech, thought, action, routing, hint, or skip.",
+        "description": "Rewrite speech, thought, action, routing, event, or skip.",
     },
     "narrator.output": {
         "kind": "filter",

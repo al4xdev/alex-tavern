@@ -70,7 +70,7 @@ const state = {
     compactionAbortController: null,
     compactionDepth: 0,
     busy: false,
-    narratorHint: '',       // pending narrator event hint for next turn
+    storyEvent: '',       // pending narrator event hint for next turn
     suggestionsLoading: false, // a suggestion fetch is in flight (manual or plugin preload)
     lastEchoMessage: null,  // optimistic player bubble updated with effective input
     playerHasSpoken: false, // derived from canonical history; controls observer warning only

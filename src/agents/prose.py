@@ -59,11 +59,6 @@ PROSE_SYSTEM = (
     "  cut between separated spaces explicitly.\n"
     "- You are omniscient for identities: always name characters by their\n"
     "  canonical names and never describe anyone as unknown or unidentified.\n"
-    # Verbosity floor (Task 42): measured on real payloads, deepseek renders
-    # ~120-270 chars without it; this single line at the END of the prompt
-    # (position matters) lifted narration to ~570-1250 chars, 3/3 on two
-    # scenes. A floor, never a cap - small beats still come out shorter.
-    "- Narrate at least 150 words; a beat deserves full paragraphs.\n"
 )
 
 
@@ -219,9 +214,7 @@ def _staging_lines(
         return []
     zones = scene.zones
     if viewers is not None:
-        occupied = {
-            position for cid, position in scene.positions.items() if cid in viewers
-        }
+        occupied = {position for cid, position in scene.positions.items() if cid in viewers}
         zones = {zone: audible for zone, audible in zones.items() if zone in occupied}
         if not zones:
             return []
@@ -319,6 +312,7 @@ def build_prose_messages(
     viewers: set[str] | None = None,
     blocking: dict[str, str] | None = None,
     staging_viewers: set[str] | None = None,
+    min_words: int = 150,
 ) -> list[dict]:
     """Reader-entitled inputs only.
 
@@ -406,8 +400,13 @@ def build_prose_messages(
         + "\n\n"
         "CONFIRMED EVENTS OF THIS BEAT (narrate exactly these):\n" + "\n".join(event_lines)
     )
+    # Keep the configurable word floor at the end of the stable system prompt.
     return [
-        {"role": "system", "content": PROSE_SYSTEM},
+        {
+            "role": "system",
+            "content": PROSE_SYSTEM
+            + f"- Narrate at least {min_words} words; a beat deserves full paragraphs.\n",
+        },
         {"role": "user", "content": user},
     ]
 
@@ -530,6 +529,7 @@ async def render_narration(
         events,
         context_max=config.get("context_max"),
         max_tokens=max_tokens,
+        min_words=config.get("narrator_min_words", 150),
         viewers=viewers,
         blocking=blocking,
         staging_viewers=staging_viewers,

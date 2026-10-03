@@ -56,14 +56,28 @@ def test_turn_input_markers_recover_exact_payload_without_state() -> None:
         {
             "turn_number": 1,
             "agent": "turn_input",
-            "input": {"speech": "Speak", "thought": "", "action": "", "force_speaker": None},
+            "input": {
+                "speech": "Speak",
+                "thought": "",
+                "action": "",
+                "force_speaker": None,
+                "event": "",
+                "skip": False,
+            },
             "effective_force_speaker": None,
         },
         {"turn_number": 1, "agent": "narrator", "response": "{}"},
         {
             "turn_number": 2,
             "agent": "turn_input",
-            "input": {"speech": "", "thought": "", "action": "Move", "force_speaker": "C2"},
+            "input": {
+                "speech": "",
+                "thought": "",
+                "action": "Move",
+                "force_speaker": "C2",
+                "event": "",
+                "skip": False,
+            },
             "effective_force_speaker": "C2",
         },
     ]
@@ -74,9 +88,9 @@ def test_turn_input_markers_recover_exact_payload_without_state() -> None:
         ("Speak", "", "", None),
         ("", "", "Move", "C2"),
     ]
-    # Old-format markers (no narrator_hint/skip) get safe defaults
+    # Current-format markers retain explicitly empty event/skip values
     for turn in turns:
-        assert turn.narrator_hint == ""
+        assert turn.event == ""
         assert turn.skip is False
 
 
@@ -85,7 +99,14 @@ def test_turn_input_markers_recover_thought() -> None:
         {
             "turn_number": 1,
             "agent": "turn_input",
-            "input": {"speech": "Speak", "thought": "Plan", "action": "Act", "force_speaker": None},
+            "input": {
+                "speech": "Speak",
+                "thought": "Plan",
+                "action": "Act",
+                "force_speaker": None,
+                "event": "",
+                "skip": False,
+            },
             "effective_force_speaker": None,
         }
     ]
@@ -94,8 +115,8 @@ def test_turn_input_markers_recover_thought() -> None:
     assert turns[0].thought == "Plan"
 
 
-def test_turn_input_markers_recover_narrator_hint_and_skip() -> None:
-    """New-format markers with narrator_hint and skip preserve their values."""
+def test_turn_input_markers_recover_event_and_skip() -> None:
+    """New-format markers with event and skip preserve their values."""
     records = [
         {
             "turn_number": 1,
@@ -105,7 +126,7 @@ def test_turn_input_markers_recover_narrator_hint_and_skip() -> None:
                 "thought": "",
                 "action": "",
                 "force_speaker": None,
-                "narrator_hint": "Storm approaches.",
+                "event": "Storm approaches.",
                 "skip": False,
             },
         },
@@ -117,15 +138,15 @@ def test_turn_input_markers_recover_narrator_hint_and_skip() -> None:
                 "thought": "",
                 "action": "",
                 "force_speaker": None,
-                "narrator_hint": "",
+                "event": "",
                 "skip": True,
             },
         },
     ]
     turns = build_recorded_turns_from_turn_inputs(records)
-    assert turns[0].narrator_hint == "Storm approaches."
+    assert turns[0].event == "Storm approaches."
     assert turns[0].skip is False
-    assert turns[1].narrator_hint == ""
+    assert turns[1].event == ""
     assert turns[1].skip is True
 
 
@@ -152,7 +173,14 @@ def test_turn_input_markers_reject_duplicate_turns() -> None:
     marker = {
         "turn_number": 1,
         "agent": "turn_input",
-        "input": {"speech": "Speak", "thought": "", "action": "Act", "force_speaker": None},
+        "input": {
+            "speech": "Speak",
+            "thought": "",
+            "action": "Act",
+            "force_speaker": None,
+            "event": "",
+            "skip": False,
+        },
     }
 
     with pytest.raises(ReplaySessionError, match="Duplicate"):

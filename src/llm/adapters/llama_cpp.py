@@ -22,6 +22,8 @@ class LlamaCppAdapter:
         "model": "",
         "context_max": 98304,
         "max_tokens_narrator": 24576,
+        "narrator_min_words": 150,
+        "character_max_sentences": 3,
         "max_tokens_character": 12288,
         "summarizer_max_tokens": 2048,
         "llm_timeout_seconds": 60.0,

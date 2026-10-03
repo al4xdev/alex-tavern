@@ -110,6 +110,7 @@ async def chat_completion(
     )
     messages = prepared.messages
     response_format = prepared.response_format
+    max_tokens = max(max_tokens, prepared.minimum_max_tokens)
     payload: dict[str, Any] = {
         "model": model,
         "messages": messages,

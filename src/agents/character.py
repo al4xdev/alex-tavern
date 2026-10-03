@@ -128,7 +128,7 @@ def _normalize_output(result: dict) -> CharacterOutput:
     return {"speech": speech, "thought": thought, "action_intent": action_intent}
 
 
-def _build_system_prompt(character: Character) -> str:
+def _build_system_prompt(character: Character, max_sentences: int = 3) -> str:
     """Build the stable Character prefix; changing state belongs in the user suffix."""
     return (
         f"You are {character.mind.name}. Stay in character at all times.\n"
@@ -177,7 +177,7 @@ def _build_system_prompt(character: Character) -> str:
         "  score). Take a concrete step toward that aim THIS turn (ask, prod,\n"
         "  propose, or attempt an action) instead of only commenting on the\n"
         "  moment. Vary how you push; never restate a point you already made.\n"
-        "- Keep responses to 1-3 sentences.\n"
+        f"- Keep responses to 1-{max_sentences} sentences.\n"
         "- You may address other characters directly.\n"
     )
 
@@ -578,7 +578,12 @@ def build_character_messages(
         viewer_perspective=viewer_perspective,
     )
     messages = [
-        {"role": "system", "content": _build_system_prompt(character)},
+        {
+            "role": "system",
+            "content": _build_system_prompt(
+                character, max_sentences=config.get("character_max_sentences", 3)
+            ),
+        },
         {
             "role": "user",
             "content": _build_user_prompt(

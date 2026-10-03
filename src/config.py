@@ -180,6 +180,12 @@ def validate_config(value: dict[str, Any]) -> dict[str, Any]:
             "max_tokens_character": _positive_integer(
                 raw.get("max_tokens_character"), f"providers.{name}.max_tokens_character"
             ),
+            "narrator_min_words": _positive_integer(
+                raw.get("narrator_min_words"), f"providers.{name}.narrator_min_words"
+            ),
+            "character_max_sentences": _positive_integer(
+                raw.get("character_max_sentences"), f"providers.{name}.character_max_sentences"
+            ),
             "summarizer_max_tokens": _positive_integer(
                 raw.get("summarizer_max_tokens"), f"providers.{name}.summarizer_max_tokens"
             ),

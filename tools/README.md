@@ -82,8 +82,8 @@ uv run python tools/replay_session.py .data/sessions/<source-id>/debug.jsonl
 
 The driver:
 
-1. reads exact speech, private thought, action, and force-speaker values from required
-   `turn_input` markers (older markers default missing `thought` to an empty string);
+1. reads exact speech, private thought, action, force-speaker, event, and skip values
+   from current `turn_input` markers; missing event fields are rejected;
 2. resets the replay cursor;
 3. starts a fresh `thorn-lyra` session through the API;
 4. submits every recorded turn and immediately reads the resulting session state;

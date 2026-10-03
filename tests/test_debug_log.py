@@ -19,20 +19,27 @@ def _emit_one_of_each() -> None:
     debug_log.log_compact(
         SESSION, 2, 4, 6, checkpoint_id="c000001", trigger="manual", turn_number=3
     )
-    debug_log.log_drive_decision(
-        SESSION, 3, fired=False, probability=0.1, quiet_turns=1, roll=0.9
-    )
+    debug_log.log_drive_decision(SESSION, 3, fired=False, probability=0.1, quiet_turns=1, roll=0.9)
     debug_log.log_time_skip(SESSION, 3, ticks=2, summary="a noite avanca", narrative_tick_after=9)
     debug_log.log_burst(SESSION, 3, beat_count=2, stop_reason="beat_settled", first_turn=2)
     debug_log.log_unanswered_player(SESSION, 3, present_characters=2)
     debug_log.log_roteiro_decision(
-        SESSION, 3, action="replan_beat", reason="stall", beat_id="b1",
-        anchors_missing=[], actors_missing=[],
+        SESSION,
+        3,
+        action="replan_beat",
+        reason="stall",
+        beat_id="b1",
+        anchors_missing=[],
+        actors_missing=[],
     )
     debug_log.log_whisper_output_guard(SESSION, 3, "C1", "retried", ["X-9"], 1)
     debug_log.log_compaction_status(
-        SESSION, 3, status="not_needed", trigger="automatic",
-        estimated_context_tokens=10, threshold_tokens=99,
+        SESSION,
+        3,
+        status="not_needed",
+        trigger="automatic",
+        estimated_context_tokens=10,
+        threshold_tokens=99,
     )
     debug_log.log_restore_compaction(SESSION, True, "", 3)
     debug_log.log_presence_change(
@@ -40,12 +47,23 @@ def _emit_one_of_each() -> None:
     )
     debug_log.log_presence_undo(SESSION, True, "", 3)
     debug_log.log_command_input(
-        SESSION, 3, operation_id="op1", command="dice", plugin_id="p", plugin_version="1.0.0",
+        SESSION,
+        3,
+        operation_id="op1",
+        command="dice",
+        plugin_id="p",
+        plugin_version="1.0.0",
         input_metadata={},
     )
     debug_log.log_command_result(
-        SESSION, 3, operation_id="op1", command="dice", plugin_id="p", plugin_version="1.0.0",
-        status="ok", result_kind="core/text",
+        SESSION,
+        3,
+        operation_id="op1",
+        command="dice",
+        plugin_id="p",
+        plugin_version="1.0.0",
+        status="ok",
+        result_kind="core/text",
     )
 
 

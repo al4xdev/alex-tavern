@@ -34,7 +34,7 @@ let pointerStartX = null;
 
 /**
  * @param {object} options
- * @param {object} options.state the shared app state (sessionId, narratorHint)
+ * @param {object} options.state the shared app state (sessionId, storyEvent)
  * @param {(on: boolean) => void} options.setLoading
  * @param {(message: string, type?: string, ms?: number) => void} options.notify
  * @param {() => Promise<void>} options.skipTurn confirms an opening as a turn
@@ -152,7 +152,7 @@ async function startWithOpening() {
     if (!opening || busy || !state.sessionId) return;
     busy = true;
     render();
-    state.narratorHint = opening;
+    state.storyEvent = opening;
     await deps.skipTurn();
     if (state.lastTurnFailed) {
         busy = false;

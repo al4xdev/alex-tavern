@@ -136,11 +136,11 @@ def test_blank_ui_key_preserves_persisted_secret(tmp_path: Path) -> None:
     assert merged["schema_version"] == CONFIG_SCHEMA_VERSION
 
 
-def test_config_rejects_reasoning_for_deepseek() -> None:
+def test_config_requires_reasoning_for_deepseek() -> None:
     value = deepcopy(DEFAULT_CONFIG)
-    value["providers"]["deepseek"]["thinking_enabled"] = True
+    value["providers"]["deepseek"]["thinking_enabled"] = False
 
-    with pytest.raises(ConfigValidationError, match="must remain False"):
+    with pytest.raises(ConfigValidationError, match="must remain True"):
         save_config(value, Path("/unused"))
 
 
@@ -153,7 +153,13 @@ def test_config_rejects_deepseek_without_key_when_active() -> None:
 
 
 @pytest.mark.asyncio
-async def test_deepseek_adapts_json_schema_and_disables_thinking() -> None:
+@pytest.mark.parametrize(
+    ("thinking_enabled", "requested_tokens", "effective_tokens"),
+    [(True, 64, 8192), (True, 24576, 24576), (False, 1024, 1024)],
+)
+async def test_deepseek_adapts_schema_and_reasoning_budget(
+    thinking_enabled: bool, requested_tokens: int, effective_tokens: int
+) -> None:
     requests: list[httpx.Request] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -182,7 +188,8 @@ async def test_deepseek_adapts_json_schema_and_disables_thinking() -> None:
             provider="deepseek",
             api_base="https://api.deepseek.com",
             api_key="test-key",
-            thinking_enabled=False,
+            thinking_enabled=thinking_enabled,
+            max_tokens=requested_tokens,
         )
 
     assert result == {"ok": True, "label": "flash"}
@@ -191,7 +198,9 @@ async def test_deepseek_adapts_json_schema_and_disables_thinking() -> None:
     payload = json.loads(request.content)
     assert str(request.url) == "https://api.deepseek.com/chat/completions"
     assert request.headers["authorization"] == "Bearer test-key"
-    assert payload["thinking"] == {"type": "disabled"}
+    assert payload["thinking"] == {"type": "enabled" if thinking_enabled else "disabled"}
+    assert payload["max_tokens"] == effective_tokens
+    assert payload.get("reasoning_effort") == ("high" if thinking_enabled else None)
     assert payload["response_format"] == {"type": "json_object"}
     assert "conforms exactly to this JSON Schema" in payload["messages"][0]["content"]
 

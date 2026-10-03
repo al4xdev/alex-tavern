@@ -230,7 +230,7 @@ export async function suggestForMe() {
 export function openHintPopup() {
     hideActionPopup();
     hintOverlay.classList.add('active');
-    hintTextarea.value = state.narratorHint || '';
+    hintTextarea.value = state.storyEvent || '';
     hintTextarea.focus();
     refreshHintSendLabel();
 }
@@ -251,7 +251,7 @@ function closeHintPopup() {
 
 function sendHint() {
     const text = hintTextarea.value.trim();
-    state.narratorHint = text;
+    state.storyEvent = text;
     
     const shouldSkip = autoSkipOnHintClose;
     closeHintPopup(); // This resets the flag, so we checked it first
@@ -373,7 +373,7 @@ export async function skipTurn() {
             thought: '',
             action: '',
             skip: true,
-            narrator_hint: state.narratorHint || undefined,
+            event: state.storyEvent || undefined,
             // Single source of truth is the select control; a dead
             // state.forceSpeaker read here silently dropped the force on
             // every skip turn (Task 28 regression).
@@ -401,7 +401,7 @@ export async function skipTurn() {
             } catch { /* non-critical */ }
         }
 
-        state.narratorHint = '';
+        state.storyEvent = '';
         state.lastTurnFailed = false;
         state.canUndo = true;
         updateActionPopup();
@@ -447,7 +447,7 @@ export async function undoLastTurn() {
             inputThought.value = state.lastInputs.thought || '';
             inputAction.value = state.lastInputs.action || '';
             if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
-            state.narratorHint = state.lastInputs.narratorHint || '';
+            state.storyEvent = state.lastInputs.storyEvent || '';
             if (!isCompactLayout()) inputSpeech.focus();
         }
 
@@ -467,7 +467,7 @@ export function retryTurn() {
     inputThought.value = state.lastInputs.thought || '';
     inputAction.value = state.lastInputs.action || '';
     if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
-    state.narratorHint = state.lastInputs.narratorHint || '';
+    state.storyEvent = state.lastInputs.storyEvent || '';
     sendTurn(true);
 }
 
@@ -479,7 +479,7 @@ export async function sendTurn(isRetry = false) {
     const action = inputAction.value.trim();
     const forceSpeaker = forceSpeakerSelect ? forceSpeakerSelect.value : '';
     const whisperAudience = getWhisperAudience();
-    if (!speech && !thought && !action && !state.narratorHint) {
+    if (!speech && !thought && !action && !state.storyEvent) {
         deps.notify(t('action.inputRequired'), 'info', 2500);
         return;
     }
@@ -489,7 +489,7 @@ export async function sendTurn(isRetry = false) {
     }
 
     // Save inputs for potential retry
-    state.lastInputs = { speech, thought, action, forceSpeaker, narratorHint: state.narratorHint };
+    state.lastInputs = { speech, thought, action, forceSpeaker, storyEvent: state.storyEvent };
 
     if (isCompactLayout()) {
         inputArea.classList.add('collapsed');
@@ -523,7 +523,7 @@ export async function sendTurn(isRetry = false) {
             thought: thought || '',
             action: action || '',
             force_speaker: forceSpeaker || undefined,
-            narrator_hint: state.narratorHint || undefined,
+            event: state.storyEvent || undefined,
             audience: whisperAudience.length ? whisperAudience : undefined,
         };
         payload = await PluginRuntime.runHook('turn.input', payload, { state });
@@ -568,7 +568,7 @@ export async function sendTurn(isRetry = false) {
         inputSpeech.value = '';
         inputThought.value = '';
         inputAction.value = '';
-        state.narratorHint = '';
+        state.storyEvent = '';
         if (!isCompactLayout()) inputSpeech.focus();
         state.lastTurnFailed = false;
         state.canUndo = true;

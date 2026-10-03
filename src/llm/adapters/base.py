@@ -72,6 +72,7 @@ class PreparedRequest:
     messages: list[dict]
     response_format: dict[str, Any] | None
     extra_payload: dict[str, Any]
+    minimum_max_tokens: int = 0
 
 
 @dataclass(frozen=True, slots=True)

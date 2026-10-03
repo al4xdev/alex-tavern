@@ -7,10 +7,10 @@ export const deepSeekAdapter = createProviderAdapter({
     badge: 'CLOUD',
     orbitClass: 'provider-orbit-cloud',
     statusClass: 'cloud',
-    forcedSettings: { thinking_enabled: false },
+    forcedSettings: { thinking_enabled: true },
     notice: {
         icon: '◌',
-        textKey: 'provider.reasoningDisabled',
+        textKey: 'provider.reasoningEnabled',
     },
     fields: [
         {

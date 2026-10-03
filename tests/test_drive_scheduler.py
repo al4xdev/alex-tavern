@@ -22,7 +22,6 @@ async def _fake_prose() -> str:
     return "Narracao de teste."
 
 
-
 CHARACTERS = make_cast("Rui", "Marta")
 SCENE = Scene(
     location="Estalagem",
@@ -170,6 +169,12 @@ class TestRunnerInjection:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return director_beat(narration="Segue.", next_speakers=["Narrator"])
 
+        from tests.factories import make_event_roteiro
+
+        async def rewrite(client, game, event, config, turn_number):
+            return make_event_roteiro(event, turn_number)
+
+        monkeypatch.setattr(runner_mod, "rewrite_future_from_event", rewrite)
         monkeypatch.setattr(runner_mod, "evaluate_event_hazard", fake_hazard)
 
         async with httpx.AsyncClient() as client:
@@ -189,7 +194,7 @@ class TestRunnerInjection:
             )
             try:
                 await runner.player_turn(sid, speech="Oi.")
-                await runner.player_turn(sid, skip=True, narrator_hint="Evento manual do jogador.")
+                await runner.player_turn(sid, skip=True, event="Evento manual do jogador.")
                 await runner.player_turn(sid, skip=True)
                 game = await runner.get_state(sid)
             finally:

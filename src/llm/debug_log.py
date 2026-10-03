@@ -71,7 +71,7 @@ def log_turn_input(
     thought: str,
     action: str,
     requested_force_speaker: str | None,
-    narrator_hint: str = "",
+    event: str = "",
     skip: bool = False,
 ) -> None:
     """Append the exact API turn payload before any LLM call for that turn."""
@@ -84,7 +84,7 @@ def log_turn_input(
             "thought": thought,
             "action": action,
             "force_speaker": requested_force_speaker,
-            "narrator_hint": narrator_hint,
+            "event": event,
             "skip": skip,
         },
     )
@@ -559,9 +559,7 @@ def log_presence_change(
     )
 
 
-def log_presence_undo(
-    session_id: str, restored: bool, reason: str, turn_number: int = 0
-) -> None:
+def log_presence_undo(session_id: str, restored: bool, reason: str, turn_number: int = 0) -> None:
     _emit(session_id, "presence_undo", turn_number, restored=restored, reason=reason)
 
 

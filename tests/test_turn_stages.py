@@ -41,7 +41,7 @@ def _turn(**overrides: object) -> TurnInput:
         "thought": "",
         "action": "",
         "force_speaker": None,
-        "narrator_hint": "",
+        "event": "",
         "skip": True,
         "audience": None,
         "transformed_fields": [],
@@ -57,12 +57,26 @@ def runner() -> Runner:
 
 
 class TestBeatHintPrecedence:
-    async def test_a_hint_the_player_wrote_is_never_overridden(self, runner: Runner) -> None:
+    async def test_manual_event_rewrites_once_without_direct_hint(self, runner, monkeypatch):
+        from src import runner as runner_mod
+        from tests.factories import make_event_roteiro
+
+        calls = []
+
+        async def rewrite(client, game, event, config, turn_number):
+            calls.append(event)
+            return make_event_roteiro(event, turn_number)
+
+        monkeypatch.setattr(runner_mod, "rewrite_future_from_event", rewrite)
+        game = _game()
         hint, injected, control = await runner._resolve_beat_hint(
-            _game(), 1, 0, _turn(), "A storm nears."
+            game, 1, 0, _turn(), "A storm nears."
         )
-        assert hint == "A storm nears."
+        assert calls == ["A storm nears."]
+        assert game.roteiro.premise == "A storm nears."
+        assert hint == ""
         assert injected is False
+        assert control is False
 
     async def test_a_bare_skip_falls_back_to_the_time_compression_invite(
         self, runner: Runner
@@ -109,6 +123,14 @@ class TestBeatHintPrecedence:
     async def test_the_watcher_speaks_only_when_nothing_else_did(
         self, runner: Runner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        from src import runner as runner_mod
+        from tests.factories import make_event_roteiro
+
+        async def rewrite(client, game, event, config, turn_number):
+            return make_event_roteiro(event, turn_number)
+
+        monkeypatch.setattr(runner_mod, "rewrite_future_from_event", rewrite)
+
         async def recovery(*_args: object, **_kwargs: object) -> str:
             return "A porta range."
 
@@ -124,7 +146,7 @@ class TestBeatHintPrecedence:
         hint, injected, control = await runner._resolve_beat_hint(
             _game(), 1, 0, _turn(skip=False, speech="Boa noite."), "O sino toca."
         )
-        assert (hint, injected) == ("O sino toca.", False)
+        assert (hint, injected) == ("", False)
 
 
 class TestBurstStopConditions:

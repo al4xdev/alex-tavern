@@ -25,9 +25,11 @@ class DeepSeekAdapter:
         "api_base": "https://api.deepseek.com",
         "api_key": "",
         "model": "deepseek-v4-flash",
-        "thinking_enabled": False,
+        "thinking_enabled": True,
         "context_max": 524288,
         "max_tokens_narrator": 24576,
+        "narrator_min_words": 150,
+        "character_max_sentences": 3,
         "max_tokens_character": 12288,
         "summarizer_max_tokens": 2048,
         "llm_timeout_seconds": 60.0,
@@ -35,7 +37,7 @@ class DeepSeekAdapter:
     secret_fields: tuple[str, ...] = ("api_key",)
     model_required = True
     requires_secret_when_active = True
-    forced_settings: dict[str, Any] = {"thinking_enabled": False}
+    forced_settings: dict[str, Any] = {"thinking_enabled": True}
 
     def completion_url(self, api_base: str) -> str:
         return f"{api_base.rstrip('/')}/chat/completions"
@@ -79,7 +81,12 @@ class DeepSeekAdapter:
         return PreparedRequest(
             messages=prepared_messages,
             response_format=prepared_format,
-            extra_payload={"thinking": {"type": "enabled" if thinking_enabled else "disabled"}},
+            extra_payload={
+                "thinking": {"type": "enabled" if thinking_enabled else "disabled"},
+                **({"reasoning_effort": "high"} if thinking_enabled else {}),
+            },
+            # The API counts reasoning and final JSON in the same output budget.
+            minimum_max_tokens=8192 if thinking_enabled else 0,
         )
 
     def extract_response(self, response: object) -> ParsedResponse:

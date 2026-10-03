@@ -81,9 +81,9 @@ async def run_arm(arm: str) -> str:
             hint = pending_hint
             pending_hint = ""
             if kind == "speech":
-                result = await runner.player_turn(sid, speech=text, narrator_hint=hint)
+                result = await runner.player_turn(sid, speech=text, event=hint)
             else:
-                result = await runner.player_turn(sid, skip=True, narrator_hint=hint)
+                result = await runner.player_turn(sid, skip=True, event=hint)
             turn = result["turn_number"]
             if not watched:
                 continue

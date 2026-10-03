@@ -121,6 +121,12 @@ def _stub_perspective_agents(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep legacy Runner tests isolated from new internal LLM boundaries."""
     import src.runner as runner_mod
     from src.models import CharacterPerspective, PersonView
+    from tests.factories import make_event_roteiro
+
+    async def fake_event_plan(client, game, event, config, turn_number):
+        return make_event_roteiro(event, turn_number)
+
+    monkeypatch.setattr(runner_mod, "rewrite_future_from_event", fake_event_plan)
 
     async def fake_initialize(
         client,
@@ -1089,7 +1095,7 @@ class TestRunnerLogic:
             "thought": "",
             "action": "",
             "force_speaker": "C2",
-            "narrator_hint": "",
+            "event": "",
             "skip": False,
         }
         assert markers[1]["agent"] == "turn_input_effective"
@@ -1308,9 +1314,9 @@ class TestCompactSession:
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["summary"] = game.story_summary
             return director_beat(
-                       next_speakers=["C2"],
-                       perception_events=[_perception_event("The sealed gate is visible.", "C2")],
-                   )
+                next_speakers=["C2"],
+                perception_events=[_perception_event("The sealed gate is visible.", "C2")],
+            )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202
             captured["context"] = context
@@ -1874,9 +1880,9 @@ class TestCustomSessionAndDebug:
 
         async def fake_json(client, config, messages, **kwargs):  # noqa: ANN001, ANN202, ARG001
             return director_beat(
-                       next_speakers=["C3"],
-                       perception_events=[_perception_event("ctx", "C3")],
-                   )
+                next_speakers=["C3"],
+                perception_events=[_perception_event("ctx", "C3")],
+            )
 
         monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         chars = {"C3": _custom_char("Caius")}
@@ -1929,9 +1935,9 @@ class TestCustomSessionAndDebug:
             captured["messages"] = messages
             captured["json_schema"] = kwargs["json_schema"]
             return director_beat(
-                       next_speakers=["C1"],
-                       perception_events=[_perception_event("Only C2 can perceive this.", "C2")],
-                   )
+                next_speakers=["C1"],
+                perception_events=[_perception_event("Only C2 can perceive this.", "C2")],
+            )
 
         monkeypatch.setattr(narrator_mod, "call_agent", fake_json)
         result = await narrator_mod.narrate(
@@ -2565,12 +2571,19 @@ class TestEdgeCases:
         assert game.history[0].scene_snapshot.physical_facts["door"] == "closed"
 
     @pytest.mark.asyncio
-    async def test_narrator_hint_propagates_to_narrator(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:  # noqa: ANN001
-        """narrator_hint passado no player_turn chega ao _call_narrator."""
+    async def test_event_replans_before_director(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """The planner receives the event; the Director receives only the new plan."""
+
+        from src import runner as runner_mod
+        from tests.factories import make_event_roteiro
 
         captured: dict[str, object] = {}
+
+        async def rewrite(client, game, event, config, turn_number):
+            captured["event"] = event
+            return make_event_roteiro(event, turn_number)
+
+        monkeypatch.setattr(runner_mod, "rewrite_future_from_event", rewrite)
 
         async def fake_narrator(
             game,
@@ -2579,7 +2592,8 @@ class TestEdgeCases:
             narrator_hint="",
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
-            captured["narrator_hint"] = narrator_hint
+            assert narrator_hint == ""
+            assert game.roteiro.premise == captured["event"]
             return director_beat(next_speakers=["C1"])
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -2589,16 +2603,25 @@ class TestEdgeCases:
             await runner.player_turn(
                 session_id=sid,
                 speech="Hello.",
-                narrator_hint="A storm approaches from the east.",
+                event="A storm approaches from the east.",
             )
-            assert captured.get("narrator_hint") == "A storm approaches from the east."
+            assert captured.get("event") == "A storm approaches from the east."
         finally:
             delete_session(sid)
 
     @pytest.mark.asyncio
-    async def test_narrator_hint_only_turn_no_speech(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
-        """narrator_hint como único conteúdo do turno não é rejeitado e chega ao narrador."""
+    async def test_event_only_turn_no_speech(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+        """An event-only submission creates a plan without duplicate direct injection."""
+        from src import runner as runner_mod
+        from tests.factories import make_event_roteiro
+
         captured: dict[str, object] = {}
+
+        async def rewrite(client, game, event, config, turn_number):
+            captured["event"] = event
+            return make_event_roteiro(event, turn_number)
+
+        monkeypatch.setattr(runner_mod, "rewrite_future_from_event", rewrite)
 
         async def fake_narrator(
             game,
@@ -2607,7 +2630,8 @@ class TestEdgeCases:
             narrator_hint="",
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
-            captured["narrator_hint"] = narrator_hint
+            assert narrator_hint == ""
+            assert game.roteiro.premise == captured["event"]
             return director_beat(next_speakers=["C1"])
 
         runner = Runner(httpx.AsyncClient(), {})  # type: ignore[arg-type]
@@ -2616,21 +2640,21 @@ class TestEdgeCases:
         try:
             await runner.player_turn(
                 session_id=sid,
-                narrator_hint="Wind picks up.",
+                event="Wind picks up.",
             )
-            assert captured.get("narrator_hint") == "Wind picks up."
-            assert captured.get("narrator_hint")  # non-empty
+            assert captured.get("event") == "Wind picks up."
+            assert captured.get("event")  # non-empty
         finally:
             delete_session(sid)
 
-    def test_pydantic_turn_request_accepts_narrator_hint(self) -> None:
-        """PlayerTurnRequest deserializa narrator_hint e skip corretamente."""
+    def test_pydantic_turn_request_accepts_event(self) -> None:
+        """PlayerTurnRequest deserializa event e skip corretamente."""
         from src.main import PlayerTurnRequest
 
         body = PlayerTurnRequest(
-            narrator_hint="Something is coming.",
+            event="Something is coming.",
         )
-        assert body.narrator_hint == "Something is coming."
+        assert body.event == "Something is coming."
         assert body.skip is False
 
     def test_pydantic_turn_request_accepts_skip_without_content(self) -> None:
@@ -2641,12 +2665,12 @@ class TestEdgeCases:
         assert body.skip is True
         # não levanta — skip=true bypassa o validator
 
-    def test_pydantic_turn_request_logs_narrator_hint(self) -> None:
-        """PlayerTurnRequest com narrator_hint preenche o campo no debug log input."""
+    def test_pydantic_turn_request_logs_event(self) -> None:
+        """PlayerTurnRequest com event preenche o campo no debug log input."""
         from src.main import PlayerTurnRequest
 
-        body = PlayerTurnRequest(narrator_hint="A storm approaches.")
-        assert body.narrator_hint == "A storm approaches."
+        body = PlayerTurnRequest(event="A storm approaches.")
+        assert body.event == "A storm approaches."
 
     def test_pydantic_turn_request_rejects_unknown_field(self) -> None:
         """Campo desconhecido é rejeitado por extra='forbid'."""
@@ -2662,7 +2686,7 @@ class TestEdgeCases:
     @pytest.mark.parametrize(
         ("kwargs", "message"),
         [
-            ({}, "needs speech, thought, action, narrator_hint, or skip"),
+            ({}, "needs speech, thought, action, event, or skip"),
             ({"skip": True, "speech": "Don't ignore me"}, "skip cannot be combined"),
             ({"skip": True, "thought": "I think"}, "skip cannot be combined"),
             ({"skip": True, "action": "Move"}, "skip cannot be combined"),
@@ -2682,12 +2706,12 @@ class TestEdgeCases:
             await runner.client.aclose()
 
     def test_pydantic_turn_request_accepts_skip_with_hint(self) -> None:
-        """skip=True + narrator_hint é aceito."""
+        """skip=True + event é aceito."""
         from src.main import PlayerTurnRequest
 
-        body = PlayerTurnRequest(skip=True, narrator_hint="Storm passes.")
+        body = PlayerTurnRequest(skip=True, event="Storm passes.")
         assert body.skip is True
-        assert body.narrator_hint == "Storm passes."
+        assert body.event == "Storm passes."
 
 
 class TestHttpBoundary:
@@ -2717,9 +2741,7 @@ class TestHttpBoundary:
 
         assert response.status_code == 200
         state = response.json()["state"]
-        entity = state["durable_state"]["physical_entities"][
-            "thorn-lyra-main-hall-door"
-        ]
+        entity = state["durable_state"]["physical_entities"]["thorn-lyra-main-hall-door"]
         assert entity["registered_turn_number"] == 0
         assert entity["dimensions"]["aperture"]["state"] == "closed"
         delete_session(response.json()["session_id"])
@@ -2739,7 +2761,8 @@ class TestHttpBoundary:
             narrator_hint="",
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
-            captured["narrator_hint"] = narrator_hint
+            captured["event"] = game.roteiro.premise
+            assert narrator_hint == ""
             return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
@@ -2762,13 +2785,13 @@ class TestHttpBoundary:
             # Turn with only narrator_hint
             turn_resp = await http.post(
                 f"/session/{sid}/turn",
-                json={"narrator_hint": "A storm approaches."},
+                json={"event": "A storm approaches."},
             )
             assert turn_resp.status_code == 200
             await llm_client.aclose()
 
         delete_session(sid)
-        assert captured.get("narrator_hint") == "A storm approaches."
+        assert captured.get("event") == "A storm approaches."
 
     @pytest.mark.asyncio
     async def test_a_domain_rule_violation_still_answers_422(self) -> None:
@@ -2858,7 +2881,8 @@ class TestHttpBoundary:
             narrator_hint="",
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
-            captured["narrator_hint"] = narrator_hint
+            captured["event"] = game.roteiro.premise
+            assert narrator_hint == ""
             return director_beat(next_speakers=["C1"])
 
         llm_client = httpx.AsyncClient()
@@ -2880,14 +2904,14 @@ class TestHttpBoundary:
                 f"/session/{sid}/turn",
                 json={
                     "action": "Draws sword",
-                    "narrator_hint": "A bird screeches.",
+                    "event": "A bird screeches.",
                 },
             )
             assert turn_resp.status_code == 200
             await llm_client.aclose()
 
         delete_session(sid)
-        assert captured.get("narrator_hint") == "A bird screeches."
+        assert captured.get("event") == "A bird screeches."
 
     @pytest.mark.asyncio
     async def test_empty_body_returns_422(self) -> None:
@@ -2991,7 +3015,8 @@ class TestHttpBoundary:
             narrator_hint="",
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
-            captured["narrator_hint"] = narrator_hint
+            captured["event"] = game.roteiro.premise
+            assert narrator_hint == ""
             captured["called"] = True
             return director_beat(next_speakers=["C1"])
 
@@ -3012,14 +3037,14 @@ class TestHttpBoundary:
 
             turn_resp = await http.post(
                 f"/session/{sid}/turn",
-                json={"skip": True, "narrator_hint": "Storm fades."},
+                json={"skip": True, "event": "Storm fades."},
             )
             assert turn_resp.status_code == 200
             await llm_client.aclose()
 
         delete_session(sid)
         assert captured.get("called") is True
-        assert captured.get("narrator_hint") == "Storm fades."
+        assert captured.get("event") == "Storm fades."
 
     @pytest.mark.asyncio
     async def test_thought_with_hint_calls_narrator(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
@@ -3036,7 +3061,8 @@ class TestHttpBoundary:
             narrator_hint="",
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
-            captured["narrator_hint"] = narrator_hint
+            captured["event"] = game.roteiro.premise
+            assert narrator_hint == ""
             captured["called"] = True
             return director_beat(next_speakers=["C1"])
 
@@ -3059,7 +3085,7 @@ class TestHttpBoundary:
                 f"/session/{sid}/turn",
                 json={
                     "thought": "I am afraid.",
-                    "narrator_hint": "A storm begins.",
+                    "event": "A storm begins.",
                 },
             )
             assert turn_resp.status_code == 200
@@ -3067,7 +3093,7 @@ class TestHttpBoundary:
 
         delete_session(sid)
         assert captured.get("called") is True
-        assert captured.get("narrator_hint") == "A storm begins."
+        assert captured.get("event") == "A storm begins."
 
     @pytest.mark.asyncio
     async def test_hint_only_with_force_speaker(self, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
@@ -3085,11 +3111,12 @@ class TestHttpBoundary:
             **kwargs,  # noqa: ANN001, ANN003, ANN202
         ) -> dict:
             captured["forced_speaker"] = forced_speaker
-            captured["narrator_hint"] = narrator_hint
+            captured["event"] = game.roteiro.premise
+            assert narrator_hint == ""
             return director_beat(
-                       next_speakers=["C1"],
-                       perception_events=[_perception_event("Lyra approaches you.", "C2")],
-                   )
+                next_speakers=["C1"],
+                perception_events=[_perception_event("Lyra approaches you.", "C2")],
+            )
 
         llm_client = httpx.AsyncClient()
         runner = Runner(llm_client, {})
@@ -3120,7 +3147,7 @@ class TestHttpBoundary:
             turn_resp = await http.post(
                 f"/session/{sid}/turn",
                 json={
-                    "narrator_hint": "Lyra enters.",
+                    "event": "Lyra enters.",
                     "force_speaker": "C2",
                 },
             )
@@ -3129,7 +3156,7 @@ class TestHttpBoundary:
 
         delete_session(sid)
         assert captured.get("forced_speaker") == "C2"
-        assert captured.get("narrator_hint") == "Lyra enters."
+        assert captured.get("event") == "Lyra enters."
 
     @pytest.mark.asyncio
     async def test_version_endpoint(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -3176,7 +3203,7 @@ class TestDynamicConfigAndScenarios:
         assert cfg["active_provider"] == "llama_cpp"
         assert cfg["providers"]["llama_cpp"]["api_base"] == "http://localhost:8888/v1"
         assert cfg["providers"]["deepseek"]["model"] == "deepseek-v4-flash"
-        assert cfg["providers"]["deepseek"]["thinking_enabled"] is False
+        assert cfg["providers"]["deepseek"]["thinking_enabled"] is True
         assert path.exists()
 
     def test_session_request_accepts_only_canonical_nested_characters(self) -> None:

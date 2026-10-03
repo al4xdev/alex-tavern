@@ -331,7 +331,7 @@ class PlayerTurnRequest(StrictModel):
     thought: str = ""
     action: str = ""
     force_speaker: str | None = None
-    narrator_hint: str = ""
+    event: str = ""
     skip: bool = False
     # Whisper: character IDs that perceive this turn's speech/action. None = public.
     audience: list[str] | None = None
@@ -576,7 +576,7 @@ async def player_turn(session_id: str, body: PlayerTurnRequest) -> dict:
         thought=body.thought,
         action=body.action,
         force_speaker=body.force_speaker,
-        narrator_hint=body.narrator_hint,
+        event=body.event,
         skip=body.skip,
         audience=body.audience,
     )
@@ -663,9 +663,7 @@ async def _compaction_event_stream(runner: Runner, session_id: str):  # noqa: AN
             if operation.done() and queue.empty():
                 break
             try:
-                event = await asyncio.wait_for(
-                    queue.get(), timeout=COMPACTION_KEEPALIVE_SECONDS
-                )
+                event = await asyncio.wait_for(queue.get(), timeout=COMPACTION_KEEPALIVE_SECONDS)
             except TimeoutError:
                 yield ": keepalive\n\n"
                 continue

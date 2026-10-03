@@ -228,7 +228,7 @@ class TestOpeningFrontend:
         ):
             assert f'id="{element_id}"' in html
         assert "/opening-suggestions" in api
-        assert "state.narratorHint = opening;\n    await deps.skipTurn();" in source
+        assert "state.storyEvent = opening;\n    await deps.skipTurn();" in source
         # The carousel is ephemeral: it lives in module state and is never persisted.
         assert "localStorage" not in source
         assert "pointerdown" in source and "ArrowLeft" in source and "ArrowRight" in source

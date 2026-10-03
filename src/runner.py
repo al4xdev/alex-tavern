@@ -93,6 +93,7 @@ from src.models import (
     GameState,
     Player,
     PresenceEditEntry,
+    Scene,
     TurnRecord,
     default_present_characters,
     dict_to_disposition_state,
@@ -121,6 +122,7 @@ from src.roteiro import (
     evaluate_roteiro,
     generate_roteiro,
     replan_roteiro,
+    rewrite_future_from_event,
 )
 from src.store.locks import session_lock
 from src.store.sessions import (
@@ -426,19 +428,20 @@ def _carries_intent(spoken: str, intent: str) -> bool:
     return len(shared) / len(wanted) >= _INTENT_CARRIED_RATIO
 
 
-def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None, DurableState]:
-    """The clock, screenplay and durable state before this beat starts."""
+def _undo_anchor(game: GameState) -> tuple[int, dict[str, Any] | None, DurableState, Scene]:
+    """The clock, screenplay, durable state and scene before this beat starts."""
     return (
         game.narrative_tick,
         asdict(game.roteiro) if game.roteiro is not None else None,
         copy.deepcopy(game.durable_state),
+        copy.deepcopy(game.scene),
     )
 
 
 def _stamp_undo_anchor(
     game: GameState,
     step: int,
-    anchor: tuple[int, dict[str, Any] | None, DurableState],
+    anchor: tuple[int, dict[str, Any] | None, DurableState, Scene],
 ) -> None:
     """Write pre-beat state onto every record of this beat.
 
@@ -446,13 +449,14 @@ def _stamp_undo_anchor(
     before the Director runs, the narration after - so the anchor is stamped
     once, at commit, instead of being read from a moving ``game``.
     """
-    tick, roteiro, durable_state = anchor
+    tick, roteiro, durable_state, scene = anchor
     for record in reversed(game.history):
         if record.turn_number != step:
             break
         record.narrative_tick_snapshot = tick
         record.roteiro_snapshot = copy.deepcopy(roteiro)
         record.durable_state_snapshot = copy.deepcopy(durable_state)
+        record.scene_snapshot = copy.deepcopy(scene)
 
 
 def _current_turn(game: GameState) -> int:
@@ -481,15 +485,15 @@ def _adopt_state(target: GameState, source: GameState) -> None:
 class TurnInput:
     """One submitted move, after the plugin filter and routing resolution.
 
-    ``narrator_hint`` is the PENDING hint the first beat starts from; a burst's
-    later beats resolve their own (see ``Runner._resolve_beat_hint``).
+    ``event`` is a manual change consumed once by the planner on the first
+    beat. Later burst beats resolve autonomous stimuli separately.
     """
 
     speech: str
     thought: str
     action: str
     force_speaker: str | None
-    narrator_hint: str
+    event: str
     skip: bool
     audience: list[str] | None
     transformed_fields: list[str]
@@ -656,9 +660,7 @@ class Runner:
             cfg["physical_entities"]
             if "physical_entities" in cfg
             else (
-                (scenario_data or {}).get("physical_entities", [])
-                if wholly_default_session
-                else []
+                (scenario_data or {}).get("physical_entities", []) if wholly_default_session else []
             )
         )
         durable_state = bootstrap_physical_entities(
@@ -796,7 +798,7 @@ class Runner:
         thought: str = "",
         action: str = "",
         force_speaker: str | None = None,
-        narrator_hint: str = "",
+        event: str = "",
         skip: bool = False,
         audience: list[str] | None = None,
     ) -> dict:
@@ -838,8 +840,8 @@ class Runner:
         if skip:
             if speech.strip() or thought.strip() or action.strip():
                 raise ValueError("skip cannot be combined with speech, thought, or action")
-        elif not any(value.strip() for value in (speech, thought, action, narrator_hint)):
-            raise ValueError("A turn needs speech, thought, action, narrator_hint, or skip")
+        elif not any(value.strip() for value in (speech, thought, action, event)):
+            raise ValueError("A turn needs speech, thought, action, event, or skip")
         async with session_lock(session_id):
             game = load_game(session_id)
             if game is None:
@@ -854,7 +856,7 @@ class Runner:
                 thought=thought,
                 action=action,
                 force_speaker=force_speaker,
-                narrator_hint=narrator_hint,
+                event=event,
                 skip=skip,
                 audience=self._validate_audience(game, audience, speech, action),
             )
@@ -870,7 +872,7 @@ class Runner:
             if turn.skip and not turn.effective_force_speaker:
                 max_beats = max(1, int(self.config.get("autonomous_burst_max_beats", 1)))
             burst = BurstState()
-            pending_hint = turn.narrator_hint
+            pending_hint = turn.event
             for beat_index in range(max_beats):
                 if beat_index:
                     step = _next_turn_number(game)
@@ -932,8 +934,8 @@ class Runner:
                 speech_intents = self._admissible_speech_intents(game, narrator_raw, step)
                 owners = set(self._callable_speakers(game, queue))
                 mandates: dict[str, list[str]] = {}
-                for event, spoken, _ in speech_intents:
-                    subject = str(event["subject_id"])
+                for speech_event, spoken, _ in speech_intents:
+                    subject = str(speech_event["subject_id"])
                     if subject in owners:
                         mandates.setdefault(subject, []).append(spoken)
                 character_responses = await self._run_speaker_queue(
@@ -1039,7 +1041,7 @@ class Runner:
         thought: str,
         action: str,
         force_speaker: str | None,
-        narrator_hint: str,
+        event: str,
         skip: bool,
         audience: list[str] | None,
     ) -> TurnInput:
@@ -1053,7 +1055,7 @@ class Runner:
             "thought": thought,
             "action": action,
             "force_speaker": force_speaker,
-            "narrator_hint": narrator_hint,
+            "event": event,
             "skip": skip,
         }
         original = copy.deepcopy(raw)
@@ -1064,7 +1066,7 @@ class Runner:
             thought=thought,
             action=action,
             requested_force_speaker=force_speaker,
-            narrator_hint=narrator_hint,
+            event=event,
             skip=skip,
         )
         filtered = await self.plugins.hooks.filter(
@@ -1080,7 +1082,7 @@ class Runner:
             thought=str(filtered["thought"]),
             action=str(filtered["action"]),
             force_speaker=resolved_force,
-            narrator_hint=str(filtered["narrator_hint"]),
+            event=str(filtered["event"]),
             skip=bool(filtered["skip"]),
             audience=audience,
             transformed_fields=[
@@ -1137,7 +1139,6 @@ class Runner:
             max_tokens_narrator=max_tokens,
             story_summary=probe.story_summary,
             forced_speaker=turn.effective_force_speaker,
-            narrator_hint=turn.narrator_hint,
         )
         estimated = estimate_prompt_tokens(messages) + max_tokens
         threshold = int(
@@ -1231,13 +1232,13 @@ class Runner:
     ) -> tuple[str, bool, bool]:
         """Decide this beat's UPCOMING EVENT line, and whether the code injected it.
 
-        Four producers share one blind channel, in strict precedence:
+        A manual event replaces future planning before any automatic producer.
+        Autonomous producers share one blind Director channel, in precedence:
 
-        1. the hint the player wrote (or a plugin set) — never overridden;
-        2. the drive scheduler's autonomous event (Task 33), first beat of a skip;
-        3. the time-compression invite (Task 40 v2), same position;
-        4. the act deadline's staged world_event (Task 40), any beat;
-        5. the watcher's causal disruption (Task 33b), the semantic fallback that
+        1. the drive scheduler's autonomous event (Task 33), first beat of a skip;
+        2. the time-compression invite (Task 40 v2), same position;
+        3. the act deadline's staged world_event (Task 40), any beat;
+        4. the watcher's causal disruption (Task 33b), the semantic fallback that
            only speaks when everything gentler left the scene standing still.
 
         Returns the hint, whether it came from the world rather than the human
@@ -1246,6 +1247,23 @@ class Runner:
         Director, it is not something a character can perceive, so it must not be
         held to the event-materialization contract.
         """
+        if beat_index == 0 and pending.strip():
+            game.roteiro = await rewrite_future_from_event(
+                self.client, game, pending, self.config, step
+            )
+            log_roteiro_decision(
+                game.session_id,
+                step,
+                action="event_rewrite",
+                reason="event",
+                beat_id=game.roteiro.beat.beat_id if game.roteiro.beat else "none",
+                anchors_missing=[],
+                actors_missing=[],
+            )
+            # The Director receives only the rewritten roteiro. Neither the
+            # original request nor an old deadline is injected a second time.
+            return "", False, False
+
         hint = pending
         injected = False
         is_control_signal = False
@@ -1458,9 +1476,7 @@ class Runner:
             game.scene.zones[zone] = merged
 
     @staticmethod
-    def _open_new_zones(
-        game: GameState, zone_moves: dict[str, str], new_zones: list[str]
-    ) -> None:
+    def _open_new_zones(game: GameState, zone_moves: dict[str, str], new_zones: list[str]) -> None:
         """Create each new zone already audible from where its movers came.
 
         A new zone used to start deaf to everything, and the Director was told so
@@ -1485,9 +1501,7 @@ class Runner:
                 for mover, destination in zone_moves.items()
                 if destination == zone
             }
-            audible = sorted(
-                origin for origin in origins if origin and origin in game.scene.zones
-            )
+            audible = sorted(origin for origin in origins if origin and origin in game.scene.zones)
             game.scene.zones[zone] = audible
             for origin in audible:
                 if zone not in game.scene.zones[origin]:
@@ -1704,14 +1718,10 @@ class Runner:
                 history_scope = tuple(
                     id(r) for r in prose_history_for_viewers(game.history, readers)
                 )
-                event_scope = tuple(
-                    id(e) for e in prose_events_for_viewers(events or [], readers)
-                )
+                event_scope = tuple(id(e) for e in prose_events_for_viewers(events or [], readers))
                 groups.setdefault((history_scope, event_scope), set()).add(viewer)
             refined.extend(
-                group
-                for group in groups.values()
-                if controlled in group or has_events(list(group))
+                group for group in groups.values() if controlled in group or has_events(list(group))
             )
         if len(clusters) == 1 and len(refined) == 1 and refined[0] == set(clusters[0]):
             return [None]
@@ -2140,7 +2150,6 @@ class Runner:
             burst.stop_reason = "beat_settled"
             return True
         return False
-
 
     async def get_state(self, session_id: str) -> GameState | None:
         """Load one consistent state snapshot after active mutations finish."""
@@ -2884,7 +2893,7 @@ class Runner:
         replan budget is spent per ACTION, so a multi-beat continuation costs it
         exactly one — see ``evaluate_roteiro``.
         """
-        if not bool(self.config.get("roteiro_enabled", False)):
+        if game.roteiro is None and not bool(self.config.get("roteiro_enabled", False)):
             return None
         next_turn = (game.history[-1].turn_number + 1) if game.history else 1
         if game.roteiro is None:

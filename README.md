@@ -141,7 +141,7 @@ Open the gear menu to choose the AI engine and edit its server-owned settings. T
 installs and activates the reviewed **Before the War** Experience, then creates
 `.data/config.json`; provider configuration and API keys live only there, never in browser storage.
 llama.cpp remains available as a local engine, while DeepSeek uses
-`deepseek-v4-flash` with thinking explicitly disabled.
+`deepseek-v4-flash` with thinking enabled at `high` effort.
 
 The same menu also selects the interface language. English is the default and fallback;
 Portuguese browsers start in Portuguese. Changing the interface between `en` and `pt-BR` updates
@@ -284,7 +284,9 @@ is not required for correctness.
 ```mermaid
 graph TD
     A[Human submits speech, private thought, and/or action] --> B{Input kind?}
-    B -->|Skip with no hint| DS{Drive scheduler fires?}
+    B -->|Manual event| RP[Planner rewrites unplayed future]
+    RP --> C
+    B -->|Skip with no event| DS{Drive scheduler fires?}
     DS -->|yes| DE[Event seed call: one external world event]
     DS -->|no| TS[Time-compression invite on the hint channel]
     B -->|Speech, action, or thought| CK
@@ -481,6 +483,12 @@ behavior, not a bug. Real people do not know a screenplay exists, and independen
 argue, cancel the planned action, or take the story somewhere chaotic even while the Director is
 trying to advance a beat.
 
+Roteiro schemas describe each field locally: `act_completed` explains both boolean values,
+`beat` refers to that decision, and numeric budgets/deadlines state their units and ranges.
+These descriptions guide the model; they do not validate narrative correctness.
+Next-beat planning labels the superseded guidance `PREVIOUS BEAT PLAN` and places
+confirmed recent events after that plan and its status.
+
 Alex Tavern therefore treats “should characters serve the drama?” as an explicit product choice
 instead of hiding the railroading. **Free simulation** preserves independent action but may produce
 a quieter or less shaped story. **Directed play** gives characters local dramatic alignment while
@@ -538,12 +546,20 @@ without guessing how many visible messages a step produced.
 
 ## 🎯 Manual Trigger System (force speaker & suggestions)
 
-The action menu next to Send provides two explicit routing controls:
+The action menu next to Send provides explicit routing and story controls:
 
 - **Force speaker** — an optional field on the turn request naming a present character id, or
   the Narrator, that collapses whatever `next_speakers` queue the Director actually chose down
   to that one speaker. If the forced speaker is the human-controlled character, the runner still
   pauses instead of generating for them — agency is never bypassed by this mechanism.
+- **Event** — the turn request's `event` is a mandatory change to the world's future.
+  The planner replaces the current and future acts, preserving confirmed history and
+  completed acts. The first manifestation starts in the next turn; stated progression
+  is carried by the new acts and rolling beats. The Director receives only this adapted
+  roteiro, without a second direct event hint. Sending an event starts planning for that
+  session even if automatic planning is disabled. Undo restores the previous roteiro.
+  Counts and durations are narrative instructions to the planner, not a separate
+  deterministic effect counter.
 - **Suggest** — a separate endpoint that uses the normal Character prompt to generate three coordinated
   alternatives for the controlled character, including dialogue, physical attempts and
   reflection. Each uses the character's own knowledge, perceived history,
@@ -575,8 +591,8 @@ and state-operation markers such as undo, compaction, and restore. A redacted ex
 this:
 
 ```jsonl
-{"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como esta, Lyra?","thought":"Ela parece preocupado.","action":"Observo o rosto dela.","force_speaker":"C2","narrator_hint":"","skip":false}}
-{"ts":"2026-07-12T22:02:01Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input_effective","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2","narrator_hint":"","skip":false},"effective_force_speaker":"C2","transformed_fields":["speech","thought"]}
+{"ts":"2026-07-12T22:02:00Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input","input":{"speech":"Como esta, Lyra?","thought":"Ela parece preocupado.","action":"Observo o rosto dela.","force_speaker":"C2","event":"","skip":false}}
+{"ts":"2026-07-12T22:02:01Z","session_id":"a1b2c3d4","turn_number":12,"agent":"turn_input_effective","input":{"speech":"Como está, Lyra?","thought":"Ela parece preocupada.","action":"Observo o rosto dela.","force_speaker":"C2","event":"","skip":false},"effective_force_speaker":"C2","transformed_fields":["speech","thought"]}
 {"ts":"2026-07-12T22:02:03Z","session_id":"a1b2c3d4","turn_number":12,"agent":"character:Lyra","provider":"deepseek","model":"deepseek-v4-flash","request":{"messages":[{"role":"system","content":"[full system prompt]"},{"role":"user","content":"[full filtered context]"}],"max_tokens":1024,"response_format":{"type":"json_object"},"provider_options":{"api_base":"https://api.deepseek.com","thinking_enabled":false}},"response":"{\"speech\":\"Estou bem.\",\"thought\":\"Ele parece preocupado.\"}","usage":{"prompt_tokens":604,"completion_tokens":18,"total_tokens":622,"prompt_cache_hit_tokens":512,"prompt_cache_miss_tokens":92},"prompt_cache":{"hit_tokens":512,"miss_tokens":92},"error":null,"error_type":null,"duration_ms":2650.4,"attempt_number":1,"prompt_chars":2418,"prompt_estimated_tokens":604}
 ```
 
@@ -836,7 +852,7 @@ and startup. It used to be a single 2400-line file; the split is what made the f
 by boundary assertions at all. Current behavior includes:
 
 - an empty-session opening picker that generates three ephemeral, scenario-only sparks and starts
-  the selected one through the existing Narrator-hint plus Continue path;
+  the selected one through the manual event plus Continue path;
 - an observer warning in the speech box until the player first speaks, making explicit that
   Continue can let the world and its characters carry the story without player intervention;
 - English and Brazilian Portuguese catalogs, browser-locale detection, safe English fallback,
@@ -1096,7 +1112,7 @@ Player turn / suggestion / compaction
                     ▼                       ▼
             LlamaCppAdapter          DeepSeekAdapter
             native json_schema       Bearer authentication
-            no required secret       forced non-reasoning mode
+            no required secret       reasoning enabled, high effort
             local/network host       json_object adaptation
 ```
 
@@ -1195,20 +1211,22 @@ base belongs to the provider config, not to the global HTTP client.
 
 ### DeepSeek compatibility
 
-The adapter contract is based on direct DeepSeek API capability checks. The [DeepCode](https://github.com/lessweb/deepcode-cli/blob/main/RELEASE_en.md) project was
-also consulted as an external behavioral reference for the model identifier and provider-specific
-non-reasoning payload; it is not copied or included as a runtime dependency:
+The adapter contract is based on direct DeepSeek API capability checks and the
+[official thinking-mode contract](https://api-docs.deepseek.com/guides/thinking_mode/):
 
 ```json
 {
   "model": "deepseek-v4-flash",
-  "thinking": {"type": "disabled"}
+  "thinking": {"type": "enabled"},
+  "reasoning_effort": "high"
 }
 ```
 
-Alex Tavern selects `deepseek-v4-flash`, and `thinking_enabled` is forced to `false` by both
-defaults and validation. A submitted configuration cannot silently enable reasoning for this
-integration.
+Alex Tavern selects `deepseek-v4-flash`, and `thinking_enabled` is required to be `true`
+by both provider adapters and backend validation. The adapter requests `high` effort.
+Reasoning and final JSON share the API output budget, so the adapter declares a minimum
+of 8192 tokens; the shared client preserves larger configured limits and logs the effective
+budget. Direct diagnostic calls can explicitly disable thinking for comparisons.
 
 The supported capability boundary is:
 
@@ -1218,7 +1236,7 @@ The supported capability boundary is:
 | Bearer API key required | No | Yes |
 | `response_format: json_object` | Yes | Yes |
 | `response_format: json_schema` | Yes | Rejected by the probed API |
-| Explicit thinking control | Not needed here | `thinking.type = disabled` |
+| Explicit thinking control | Not needed here | Enabled, `reasoning_effort = high` |
 
 DeepSeek returned HTTP 400 for `response_format: json_schema`, so pretending the two APIs are
 identical would either break structured calls or weaken application contracts. Instead, the
@@ -1226,7 +1244,7 @@ adapter performs a capability-preserving transformation:
 
 1. Serialize the requested schema compactly into the system instruction.
 2. Ask DeepSeek for `response_format: {"type": "json_object"}`.
-3. Include `thinking: {"type": "disabled"}`.
+3. Include `thinking: {"type": "enabled"}` and `reasoning_effort: "high"`.
 4. Authenticate only inside the adapter with `Authorization: Bearer <key>`.
 5. Let the shared client parse and validate the returned object locally against the original
    schema.
@@ -1267,6 +1285,8 @@ is:
       "context_max": 98304,
       "max_tokens_narrator": 24576,
       "max_tokens_character": 12288,
+      "narrator_min_words": 150,
+      "character_max_sentences": 3,
       "summarizer_max_tokens": 1024,
       "llm_timeout_seconds": 60.0
     },
@@ -1274,16 +1294,24 @@ is:
       "api_base": "https://api.deepseek.com",
       "api_key": "<stored only on the server>",
       "model": "deepseek-v4-flash",
-      "thinking_enabled": false,
+      "thinking_enabled": true,
       "context_max": 524288,
       "max_tokens_narrator": 24576,
       "max_tokens_character": 12288,
+      "narrator_min_words": 150,
+      "character_max_sentences": 3,
       "summarizer_max_tokens": 1024,
       "llm_timeout_seconds": 60.0
     }
   }
 }
 ```
+
+The provider model panel also exposes `narrator_min_words` (default 150) and
+`character_max_sentences` (default 3). These positive integer settings guide the
+prose and shared Character prompts, including editable move suggestions. They
+are prompt instructions, separate from output token ceilings; no text is truncated
+to enforce them. Current provider configs must include both fields.
 
 Writes use a temporary file, flush and `fsync`, then atomically replace the destination. The single
 explicit v1 to v2 migration recognizes the original unversioned shape, applies the mandatory

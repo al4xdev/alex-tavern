@@ -13,6 +13,7 @@ never a character prompt, never the prose renderer (it contains spoilers).
 
 from __future__ import annotations
 
+import json
 import unicodedata
 from dataclasses import dataclass
 from difflib import SequenceMatcher
@@ -68,7 +69,6 @@ MIN_BUDGET_TURNS = 2
 MAX_BUDGET_TURNS = 10
 MAX_ANCHORS = 5
 _ANCHOR_FUZZY_THRESHOLD = 0.85
-
 
 
 def _normalize(text: str) -> str:
@@ -270,9 +270,7 @@ def evaluate_roteiro(
     # spent the action. Without it the burst outruns the action clock entirely
     # and the Director re-stages one tableau for five turns.
     stall_at = min(roteiro.beat.budget_turns, HARD_BEAT_ACTION_CAP)
-    stalled = (
-        progress.actions_elapsed >= stall_at or progress.turns_elapsed >= HARD_BEAT_TURN_CAP
-    )
+    stalled = progress.actions_elapsed >= stall_at or progress.turns_elapsed >= HARD_BEAT_TURN_CAP
     # Both halves in turns. `disengaged_streak` was always counted in turns, so
     # pairing it with an action counter was a unit mismatch that only ever
     # worked because the removed fallback made the action counter read turns.
@@ -334,13 +332,41 @@ def describe_roteiro_for_director(roteiro: Roteiro, characters: dict) -> list[st
 # Generation (structured LLM calls; validated and clamped deterministically)
 # ---------------------------------------------------------------------------
 
-_BEAT_SCHEMA_PROPERTIES = {
-    "beat_id": {"type": "string"},
-    "intent": {"type": "string"},
-    "expected_actors": {"type": "array", "items": {"type": "string"}},
-    "expected_anchors": {"type": "array", "items": {"type": "string"}},
-    "exit_condition": {"type": "string"},
-    "budget_turns": {"type": "integer"},
+_BEAT_SCHEMA_PROPERTIES: dict[str, dict] = {
+    "beat_id": {"type": "string", "description": "Identifier for this planned 'beat'."},
+    "intent": {
+        "type": "string",
+        "description": (
+            "Situation this 'beat' will develop from confirmed events, "
+            "preserving each character's choices."
+        ),
+    },
+    "expected_actors": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": (
+            "Character IDs to give stage time in this 'beat'; "
+            "their decisions and speech remain free."
+        ),
+    },
+    "expected_anchors": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Two to four concrete elements introduced or changed by this 'beat'.",
+    },
+    "exit_condition": {
+        "type": "string",
+        "description": (
+            "Observable condition that will end this 'beat'. "
+            "A future target, not an already confirmed event."
+        ),
+    },
+    "budget_turns": {
+        "type": "integer",
+        "description": (
+            "Action budget for this 'beat': 2 for a brief beat, up to 10 for a long beat."
+        ),
+    },
 }
 _BEAT_REQUIRED = ["beat_id", "intent", "expected_actors", "expected_anchors", "exit_condition"]
 
@@ -401,7 +427,9 @@ def _validate_acts(raw_acts: object) -> list[RoteiroAct]:
     return acts
 
 
-def _story_context_lines(game: GameState, recent_turns: int = 12) -> list[str]:
+def _story_context_lines(
+    game: GameState, recent_turns: int = 12, *, include_recent_events: bool = True
+) -> list[str]:
     lines = [
         f"LOCATION: {game.scene.location} | TIME: {game.scene.time_of_day}",
         "CHARACTERS (nobody's decisions are ever planned):",
@@ -415,10 +443,11 @@ def _story_context_lines(game: GameState, recent_turns: int = 12) -> list[str]:
         lines.append(f"WORLD DIRECTIVES: {game.narrator_directives.strip()[:600]}")
     if game.story_summary.strip():
         lines.append(f"STORY SO FAR: {game.story_summary.strip()[:600]}")
-    events = recent_event_lines(game, limit=recent_turns)
-    if events:
-        lines.append(RECENT_EVENTS_HEADER)
-        lines.extend(events)
+    if include_recent_events:
+        events = recent_event_lines(game, limit=recent_turns)
+        if events:
+            lines.append(RECENT_EVENTS_HEADER)
+            lines.extend(events)
     return lines
 
 
@@ -438,33 +467,49 @@ _ARCHITECT_RULES = (
     "  character telling backstory, lore, or history, or the cast discussing the\n"
     "  past. Reveal the past ONLY through a present physical event the scene can\n"
     "  show. A beat is something that HAPPENS, not something explained.\n"
-    "- expected_actors: character IDs who should get stage time during the\n"
-    "  beat. Naming someone here is a request for presence, never a script.\n"
-    "- expected_anchors: 2-4 short CONCRETE tokens (objects, places, names) that\n"
-    "  physically ENTER or CHANGE in the scene when the beat lands, not topics\n"
-    "  of conversation. Measurable, not abstract.\n"
-    "- exit_condition: one observable sentence describing how the beat ends.\n"
-    "- budget_turns: how many turns the beat deserves (2-10).\n"
-    "- Each act declares duration_ticks (2-8 turns it deserves) and world_event:\n"
-    "  ONE concrete event the WORLD performs to force the act's conclusion if\n"
-    "  the cast has not finished by then (the bell rings and the first pair is\n"
-    "  announced; the guards arrive; the fire reaches the door). The world\n"
-    "  never waits for conversation to finish. It must CONCLUDE this act's\n"
-    "  business, not open an unrelated thread.\n"
     "- Write beat text in the language of the scene.\n"
 )
 
 
-def build_roteiro_messages(game: GameState) -> list[dict]:
-    system = (
-        _ARCHITECT_RULES
-        + "Produce the full roteiro: a premise (2-3 sentences of where this story\n"
-        "is going), 3 acts (act_id, summary, exit_condition), and the FIRST\n"
-        "beat contract for act 1."
-    )
+_EVENT_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "event": {
+            "type": "string",
+            "description": (
+                "Mandatory change to the world's future, not a suggestion. "
+                "The first manifestation must happen in the next turn, starting "
+                "in first_beat. Incorporate any stated progression, duration or "
+                "repetition into the acts and subsequent situations. Replace "
+                "incompatible future plans, preserving confirmed past events. "
+                "This instruction has not happened yet: the Director must realize it. "
+                "Do not describe its future consequences as already confirmed facts."
+            ),
+        },
+    },
+    "required": ["event"],
+    "additionalProperties": False,
+}
+
+
+def build_roteiro_messages(game: GameState, *, event: str = "") -> list[dict]:
+    system = _ARCHITECT_RULES + "Produce the full roteiro."
+    lines = _story_context_lines(game)
+    if event:
+        system += "\nInterpret the additional input using this contract:\n" + json.dumps(
+            _EVENT_INPUT_SCHEMA, ensure_ascii=False
+        )
+        if game.roteiro is not None:
+            lines.append("PREVIOUS FUTURE PLAN (replace where incompatible):")
+            lines.append(f"Premise: {game.roteiro.premise}")
+            lines.extend(
+                f"Act: {act.summary} | ends when: {act.exit_condition}"
+                for act in game.roteiro.acts[game.roteiro.act_index :]
+            )
+        lines.append("ADDITIONAL INPUT:\n" + json.dumps({"event": event}, ensure_ascii=False))
     return [
         {"role": "system", "content": system},
-        {"role": "user", "content": "\n".join(_story_context_lines(game))},
+        {"role": "user", "content": "\n".join(lines)},
     ]
 
 
@@ -474,17 +519,44 @@ def build_roteiro_schema() -> dict:
         "schema": {
             "type": "object",
             "properties": {
-                "premise": {"type": "string"},
+                "premise": {
+                    "type": "string",
+                    "description": "Story direction in two or three sentences.",
+                },
                 "acts": {
                     "type": "array",
+                    "description": "Three planned acts in story order.",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "act_id": {"type": "string"},
-                            "summary": {"type": "string"},
-                            "exit_condition": {"type": "string"},
-                            "duration_ticks": {"type": "integer"},
-                            "world_event": {"type": "string"},
+                            "act_id": {
+                                "type": "string",
+                                "description": "Identifier for this act in 'acts'.",
+                            },
+                            "summary": {
+                                "type": "string",
+                                "description": "Situation and objective to develop in this act.",
+                            },
+                            "exit_condition": {
+                                "type": "string",
+                                "description": "Observable condition that completes this act.",
+                            },
+                            "duration_ticks": {
+                                "type": "integer",
+                                "description": (
+                                    "Narrative-clock ticks before 'world_event': "
+                                    "0 disables the deadline; normally 2 to 8, "
+                                    "smaller sooner and larger later."
+                                ),
+                            },
+                            "world_event": {
+                                "type": "string",
+                                "description": (
+                                    "Concrete world event staged when 'duration_ticks' expires, "
+                                    "concluding this act's business "
+                                    "without scripting character choices."
+                                ),
+                            },
                         },
                         "required": [
                             "act_id",
@@ -498,7 +570,14 @@ def build_roteiro_schema() -> dict:
                 },
                 "first_beat": {
                     "type": "object",
-                    "properties": _BEAT_SCHEMA_PROPERTIES,
+                    "description": "First situation to develop in the first act of 'acts'.",
+                    "properties": {
+                        name: {
+                            **prop,
+                            "description": prop["description"].replace("'beat'", "'first_beat'"),
+                        }
+                        for name, prop in _BEAT_SCHEMA_PROPERTIES.items()
+                    },
                     "required": _BEAT_REQUIRED,
                     "additionalProperties": False,
                 },
@@ -514,13 +593,15 @@ async def generate_roteiro(
     game: GameState,
     config: dict,
     turn_number: int,
+    *,
+    event: str = "",
 ) -> Roteiro:
     """Compile the initial roteiro (premise + acts + first beat) for a session."""
     result = await call_agent(
         client,
         config,
-        build_roteiro_messages(game),
-        agent="roteiro:compile",
+        build_roteiro_messages(game, event=event),
+        agent="roteiro:event" if event else "roteiro:compile",
         json_schema=build_roteiro_schema(),
         max_tokens=1536,
         session_id=game.session_id,
@@ -538,6 +619,30 @@ async def generate_roteiro(
         beat=beat,
         beat_started_turn=turn_number,
     )
+
+
+async def rewrite_future_from_event(
+    client: httpx.AsyncClient,
+    game: GameState,
+    event: str,
+    config: dict,
+    turn_number: int,
+) -> Roteiro:
+    """Replace unplayed direction once; the Runner owns the request and transaction."""
+    event = event.strip()
+    if not event:
+        raise ValueError("A story event must not be empty")
+    old = game.roteiro
+    replacement = await generate_roteiro(client, game, config, turn_number, event=event)
+    completed = old.acts[: old.act_index] if old is not None else []
+    replacement.acts = completed + replacement.acts
+    replacement.act_index = len(completed)
+    replacement.act_started_tick = game.narrative_tick
+    replacement.cooldown_until_turn = turn_number + COOLDOWN_TURNS
+    if old is not None:
+        old_id = old.beat.beat_id if old.beat is not None else "none"
+        replacement.beat_log = (old.beat_log + [f"{old_id}: event_rewrite"])[-20:]
+    return replacement
 
 
 def build_next_beat_messages(
@@ -571,7 +676,7 @@ def build_next_beat_messages(
             "directly from that event."
         ),
     }.get(reason, reason)
-    lines = _story_context_lines(game)
+    lines = _story_context_lines(game, include_recent_events=False)
     lines.append("")
     lines.append(f"PREMISE: {roteiro.premise}")
     for index, item in enumerate(roteiro.acts):
@@ -580,25 +685,30 @@ def build_next_beat_messages(
             f"ACT {item.act_id}: {item.summary} | exits when: {item.exit_condition}{marker}"
         )
     if beat is not None:
-        lines.append(f"CURRENT BEAT ({beat.beat_id}): {beat.intent} | exit: {beat.exit_condition}")
+        lines.append(
+            f"PREVIOUS BEAT PLAN ({beat.beat_id}): {beat.intent} | exit: {beat.exit_condition}"
+        )
     if roteiro.beat_log:
         lines.append("BEAT LOG: " + "; ".join(roteiro.beat_log[-6:]))
     lines.append(f"STATUS: {status}")
+    events = recent_event_lines(game)
+    if events:
+        lines.append("")
+        lines.append(RECENT_EVENTS_HEADER)
+        lines.extend(events)
     if scope == "act":
         task = (
             "The current act plan no longer fits the story. Rewrite the acts that\n"
             "come AFTER the current one (keep the premise; the current act and any\n"
             "already played stay as they are — do NOT restate them). Then produce\n"
-            "the next beat contract. Also return act_completed for whether the\n"
-            "current act's exit condition has been met."
+            "the next beat contract."
         )
     else:
         task = (
             "Produce the NEXT beat contract. Follow STATUS above: if the scene\n"
             "stalled, the beat must be a concrete disruption that changes the\n"
             "subject, even mid-act; otherwise continue the current act (or open the\n"
-            "next act if its exit condition has been met). Set act_completed\n"
-            "accordingly."
+            "next act if its exit condition has been met)."
         )
     return [
         {"role": "system", "content": _ARCHITECT_RULES + task},
@@ -608,9 +718,20 @@ def build_next_beat_messages(
 
 def build_next_beat_schema(scope: str) -> dict:
     properties: dict = {
-        "act_completed": {"type": "boolean"},
+        "act_completed": {
+            "type": "boolean",
+            "description": (
+                "true: the current act's exit condition was satisfied by confirmed events. "
+                "false: that condition has not yet been satisfied."
+            ),
+        },
         "beat": {
             "type": "object",
+            "description": (
+                "Next situation to develop. If 'act_completed' is true, develop the next "
+                "available act; if false, continue the current act. "
+                "Start from the confirmed world state."
+            ),
             "properties": _BEAT_SCHEMA_PROPERTIES,
             "required": _BEAT_REQUIRED,
             "additionalProperties": False,
@@ -619,6 +740,7 @@ def build_next_beat_schema(scope: str) -> dict:
     required = ["act_completed", "beat"]
     if scope == "act":
         properties["acts"] = build_roteiro_schema()["schema"]["properties"]["acts"]
+        properties["acts"]["description"] = "Rewritten acts after the current act, in story order."
         required.append("acts")
     return {
         "name": "roteiro_next_beat",

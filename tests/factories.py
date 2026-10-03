@@ -192,3 +192,24 @@ class FakeDirector:
     @property
     def call_count(self) -> int:
         return len(self.calls)
+
+
+def make_event_roteiro(event: str, turn_number: int = 1):
+    """A planned intervention for tests that do not exercise the model boundary."""
+    from src.models import Roteiro, RoteiroAct, RoteiroBeat
+
+    return Roteiro(
+        premise=event,
+        acts=[RoteiroAct(act_id="event-act", summary=event, exit_condition="Effect resolves")],
+        act_index=0,
+        beat=RoteiroBeat(
+            beat_id="event-beat",
+            intent=event,
+            expected_actors=[],
+            expected_anchors=[event],
+            exit_condition="First manifestation",
+            budget_turns=10,
+        ),
+        beat_started_turn=turn_number,
+        cooldown_until_turn=turn_number + 2,
+    )

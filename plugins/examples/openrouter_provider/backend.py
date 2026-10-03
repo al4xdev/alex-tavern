@@ -19,6 +19,8 @@ class OpenRouterAdapter:
         "context_max": 131072,
         "max_tokens_narrator": 4096,
         "max_tokens_character": 2048,
+        "narrator_min_words": 150,
+        "character_max_sentences": 3,
         "summarizer_max_tokens": 2048,
         "llm_timeout_seconds": 90.0,
     }
