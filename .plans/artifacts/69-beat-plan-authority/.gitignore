@@ -1,0 +1,13 @@
+# Local wire payloads, envelopes, manifests and reader packets.
+*.json
+production_roteiro_frozen.py
+
+phantom_reaction_screen_frozen.py
+phantom_reaction_screen_run2_frozen.py
+
+speech_basis_screen_frozen.py
+speech_basis_full_turn_frozen.py
+
+speech_extraction_diagnostic_frozen.py
+
+speech_extraction_references_v2_frozen.py

@@ -328,7 +328,9 @@ timing and pressure but never in content:
    Receives ONLY what a reader is entitled to: the public scene, cast appearance (no minds), a
    reader-facing transcript whose spoken lines are content-free markers, and the confirmed
    events (speech events staged without their words). Dialogue inside narration is impossible
-   by construction — the words are simply never loaded.
+   by construction — the words are simply never loaded. Co-located readers with
+   different history or event audiences receive separate renders; their shared
+   visible cast remains on stage, while restricted information stays with its readers.
 3. **Character calls**, in queue order, each hearing the previous replies. A character receives
    its own mind, its **perspective-ledger projection** (a stranger stays "o homem de camisa
    aberta" until a name is learned from a perceived event — false names included), its private

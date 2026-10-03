@@ -1,5 +1,15 @@
 # Task 80 — The narration does not convey space
 
+**One source-grounded omission, 2026-09-25:** archived `d5a2ccf0` T6 moved
+Garran into a new corridor. The raw prose narrated his crossing, but the
+persisted viewer prose lost that sentence to the current offstage guard and
+begins with an orphan `ele`. Replaying the guard reproduces the exact saved
+text; an independent fiction reader found the crossing lost, not a harmless
+step omission. This is one verified example with a local deterministic
+cause, **not** restoration of the withdrawn 35/40 rate and not evidence that
+all omitted movement should be narrated. See the
+[source finding](../../plans/artifacts/69-closed-transition-contract/T6-GARRAN-CROSSING-STRIPPED-FINDING.md).
+
 > **2026-09-05: quantitative support withdrawn; hypothesis remains in backlog.**
 > The old 35/40 came from targets such as C11, not canonical character names.
 > The collector read the wrong schema level. Those outputs cannot establish

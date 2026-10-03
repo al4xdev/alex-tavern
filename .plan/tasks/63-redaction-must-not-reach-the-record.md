@@ -118,8 +118,10 @@ dropped", option 4 ships. If it is twenty, it does not.~~
 > easier — Case 20's rule against buying quiet instead of movement, and the exact
 > shape the withdrawn `NSR` gate would have scored as an improvement.
 >
-> **Option 2 (count narration as known) still ships alongside**, because the
-> laundering asymmetry is a real defect independent of where redaction runs.
+> ~~**Option 2 (count narration as known) still ships alongside**~~ was the
+> 2026-08-05 decision. **Withdrawn 2026-10-01:** a later source read found a
+> possible true containment catch, and counting all narration as known could
+> launder a prior leak. See the source correction below.
 > **Option 3 (anchor inside the event)** is now optional: it narrowed the payload
 > set to make dropping survivable, and nothing is being dropped.
 >
@@ -245,12 +247,11 @@ its scale fell from 87 occurrences across two persistence channels to 3 in one
 cosmetic one, and the decided fix (option 1, per-viewer projection) was
 architecture sized against the *persistence* damage that no longer exists.
 
-**Re-scope before implementing.** The cheap remaining fix is likely **option 2
-alone** (count narration as known), which is the laundering asymmetry that makes
-prose vocabulary eligible in the first place — and the blind prose renderer
-*cannot* launder a thought it never receives, which is what made option 2 look
-risky when the guard was doing more work. Option 1's per-viewer projection is
-now a large change against a 3-occurrence cosmetic defect.
+**Re-scope before implementing.** ~~The cheap remaining fix is likely **option 2
+alone** (count narration as known).~~ **Withdrawn 2026-10-01:** the source
+correction below leaves the safe fix open; a narration leak could be laundered
+on a later turn. Option 1's per-viewer projection remains a larger change than
+the observed residual, but size alone does not choose a containment design.
 
 *Caveat on strength:* one 40-turn cell, one scenario, one model. Zero on two
 channels is a strong signal, and 3 in narration is a small sample of a rate.
@@ -275,3 +276,21 @@ channels is a strong signal, and 3 in narration is a small sample of a rate.
 **The measurement that would falsify this task:** if the scanner shows the marker
 never reaches a persisted record or the ledger after task 65 lands, this is a
 prose-rendering cosmetic issue and drops out of wave 1.
+
+## Source correction, 2026-10-01
+
+The later suggestion above that **option 2 alone is likely cheap** is not an
+accepted fix. A source read of the six surviving cases found the exact raw
+Director words and earlier private-thought matches; five cuts visibly remove
+ordinary action or connective words. The sixth, `d0cc98e5` T21's “sino
+rachado,” may be a genuine thought-containment catch: Maelis thought that
+specific detail at T3, and this read did not establish that it was public.
+The case table and focused guard replay are in
+`plans/artifacts/63-redaction-source-audit/SIX-CASE-READ.md`.
+
+Counting all prior narration as known could launder a private detail if the
+Director first leaked it into narrated prose. That is a **boundary theory**,
+not a measured exploit; the existing `known_tokens` contract deliberately
+excludes narration. The next candidate must be checked against both the five
+ordinary-word collisions and a seeded private-detail containment case before
+it replaces the guard. The persisted Narrator reports remain in scope.

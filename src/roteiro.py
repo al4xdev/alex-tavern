@@ -132,23 +132,28 @@ def _beat_records(history: list[TurnRecord], since_turn: int) -> list[TurnRecord
     ]
 
 
-def collect_beat_evidence(roteiro: Roteiro, texts: list[str]) -> list[str]:
+def collect_beat_evidence(
+    roteiro: Roteiro, texts: list[str], *, scene_update_keys: tuple[str, ...] = ()
+) -> list[str]:
     """Anchors of the current beat newly witnessed in ``texts`` (never duplicated).
 
-    Called by the runner with the AUTHORITATIVE evidence of a beat: the typed
-    perception events the Director staged, plus what the characters themselves
-    said or did. Deliberately not the prose: the renderer paraphrases, and
-    audible speech never reaches it at all — measuring coverage there punished
-    the Director for obeying (a whole beat's murmur staged three times, unseen).
+    Called by the runner with the accepted events, character responses and
+    scene keys updated in this beat. A scene key covers an anchor only when its
+    whole underscore-separated name equals the anchor, not by fuzzy matching.
+    Prose is excluded: it paraphrases events and never receives audible speech.
     """
     beat = roteiro.beat
     if beat is None:
         return []
+    updated_keys = {_normalize(key.replace("_", " ")) for key in scene_update_keys}
     return [
         anchor
         for anchor in beat.expected_anchors
         if anchor not in roteiro.anchors_seen
-        and any(anchor_matched(anchor, text) for text in texts)
+        and (
+            _normalize(anchor) in updated_keys
+            or any(anchor_matched(anchor, text) for text in texts)
+        )
     ]
 
 

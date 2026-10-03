@@ -1,5 +1,17 @@
 # Task 81 — The narration and the state change describe different events
 
+**Second source-checked divergence, 2026-09-25:** archived `null-P1-r1/7fd84e9a`
+T35 persisted prose says Liora crosses the blue gate gap and disappears into
+the tunnel; the accepted Director decision has `zone_moves: null`. The T36
+Director request still lists her as a salon occupant. T37 later says she is
+already beyond the gate and moves her to the tunnel; T38's input reflects that
+position. An isolated fiction-only reader placed her in the tunnel at the end
+of the T35 sentence. A separate report critic raised a narrower in-progress
+reading; the exact prose and next-turn ordinary salon occupancy favor the
+completed-crossing interpretation. This is one session, **not** a rate or a
+diagnosis of the prompt, model or Runner. See the
+[source finding](../../plans/artifacts/69-closed-transition-contract/T35-LIORA-SPACE-FINDING.md).
+
 **T23 early-render candidate WITHDRAWN, 2026-09-24:** the initial reading of
 `p1-archive/07218133` T23 omitted the Director's `time_skip_summary`, which
 explicitly reveals the second team. The actual prose request includes that

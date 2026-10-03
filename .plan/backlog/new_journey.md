@@ -22,7 +22,7 @@ coherent journey, explains why each plugin was chosen, and gives visible credit 
 
 The intended composition includes, subject to future evidence and review:
 
-- Celestial as the agentic configuration command center and plugin host;
+- Celestial as the central adventure hub, world orchestrator, and plugin host;
 - the RAG plugin proven during the v1 cycle;
 - a new visual theme delivered as a plugin rather than a replacement for the base theme;
 - Celestial satellite plugins or other first-party/curated plugins that materially improve the
@@ -99,7 +99,7 @@ New Journey must preserve that separation:
 - **theme plugin:** visual transformation activated by the Experience;
 - **character preset:** reusable character content owned by the preset store;
 - **scenario:** world/story setup owned by scenario storage;
-- **Celestial:** agentic configuration plugin and host for declared satellite plugins.
+- **Celestial:** central adventure hub, world orchestrator agent, and host for declared satellite plugins.
 
 If New Journey needs richer metadata for credits, rationale, release identity, compatibility, or
 dependency review, investigate a generic Experience contract extension. Do not add fields or UI
@@ -348,22 +348,25 @@ patches use valid versions such as `1.5.1`, `1.5.2`, and later `1.5.x` releases.
 
 This section summarizes S02; S02 remains the authoritative detailed exploration.
 
-Celestial is envisioned as a full-screen `/chat` configuration command center, effectively an
-agentic tool comparable in ambition to a coding agent inside Alex Tavern. It uses the configured
-provider through server-owned secrets, receives project skills and typed tools, supports `/plan`,
-can inspect and prepare coordinated configuration changes, and never applies a mutation without an
-exact visible user approval.
+Celestial is envisioned as the **Central Adventure Hub and World Orchestrator**, serving as the central
+conversational command post where the player interacts with an orchestrator agent managing adventures
+within a world. Rather than confining the entire campaign to a single endless session that accumulates
+unbounded context, Celestial breaks play into modular, sequential, and derived adventures.
 
-Celestial is also a host plugin. Satellite plugins may contribute skills, resources, tools,
-workflows, integrations, or UI through a versioned Celestial extension contract. They declare a
-compatible Celestial dependency; missing or incompatible hosts must be explained before activation.
-The core supplies only generic dependency, service-discovery, lifecycle, attribution, and approval
-mechanics. It does not learn Celestial satellite identities.
+The orchestrator leverages proven **agent harness patterns** (deliberative looping logic, structured
+reasoning cycles, multi-step tool execution) while preserving Tavern's lean, dependency-free core. It handles
+**selective context migration** between adventures, tracks **temporal global world variables**, and manages
+**entity and character versioning** (e.g. `v1 -> v2` when clothing tears or physical facts alter) to
+preserve historical fidelity across the campaign timeline.
 
-Celestial has its own `alex-tavern-celestial` repository. New Journey includes a pinned reviewed
-Celestial release and explains why it was selected. Celestial remains an ordinary plugin despite
-its scale: no secret provider access, private core imports, automatic writes, or hardcoded core/UI
-branches.
+Celestial remains a host plugin: satellite plugins may contribute skills, resources, tools, workflows,
+integrations, or UI through a versioned Celestial extension contract. They declare a compatible Celestial
+dependency; missing or incompatible hosts must be explained before activation. The core supplies only generic
+dependency, service-discovery, lifecycle, attribution, and approval mechanics.
+
+Celestial has its own `alex-tavern-celestial` repository. New Journey includes a pinned reviewed Celestial
+release and explains why it was selected. Celestial remains an ordinary plugin despite its scale: no secret
+provider access, private core imports, automatic writes, or hardcoded core/UI branches.
 
 </details>
 

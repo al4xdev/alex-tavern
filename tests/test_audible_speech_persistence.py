@@ -76,7 +76,8 @@ async def test_audible_speech_event_reaches_history(monkeypatch) -> None:  # noq
         )
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(
-            runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
+            runner, "_render_narration",
+            lambda game, events, turn_number, viewers=None, **kwargs: _fake_prose(),
         )
         try:
             await runner.player_turn(sid, speech="Leio a cifra decifrada em voz alta.")
@@ -133,7 +134,8 @@ async def test_whisper_narration_audible_speech_is_not_persisted(monkeypatch) ->
         )
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(
-            runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
+            runner, "_render_narration",
+            lambda game, events, turn_number, viewers=None, **kwargs: _fake_prose(),
         )
         try:
             # Turn 1: the player whispers the secret to C2 only (a whisper record).
@@ -216,7 +218,8 @@ async def _turn_with_event(  # noqa: ANN001
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(runner, "_call_character", fake_character)
         monkeypatch.setattr(
-            runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
+            runner, "_render_narration",
+            lambda game, events, turn_number, viewers=None, **kwargs: _fake_prose(),
         )
         try:
             await runner.player_turn(sid, speech="Observo a sala.")
@@ -425,7 +428,8 @@ async def test_routed_intents_are_gathered_not_serial(monkeypatch) -> None:  # n
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(runner, "_call_character", fake_character)
         monkeypatch.setattr(
-            runner, "_render_narration", lambda game, events, turn_number: _fake_prose()
+            runner, "_render_narration",
+            lambda game, events, turn_number, viewers=None, **kwargs: _fake_prose(),
         )
         try:
             await runner.player_turn(sid, speech="Observo a sala.")

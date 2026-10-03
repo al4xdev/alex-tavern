@@ -70,14 +70,169 @@ afternoon instead of a week.
 
 ## Where the work is
 
+**Task 69 update, 2026-09-24:** a manually written contradiction report on
+the archived T38 Director draft gave 4/4 coherent full-draft retries versus
+0/4 with generic feedback; all eight passed the current JSON schema and a
+blind reader inspected the full draft. This is local steerability after a
+human supplied the blocked-gate diagnosis, **not** an automatic producer or
+detector. A later independent reporter screen tested that boundary and failed,
+as recorded below. See
+`plans/artifacts/69-closed-transition-contract/T38-MANUAL-RETRY-RESULT.md`.
+
+**Task 69 update, 2026-09-25:** the independent reporter screen is incomplete
+(21/28 technically valid); its valid archived responses missed the kennel
+repeat and left T38's separate repeated closure out of the report. It cannot
+yet supply the manual correction. See
+`plans/artifacts/69-closed-transition-contract/WHOLE-DRAFT-REPORTER-RESULT.md`.
+
+**Task 69 update, 2026-09-25:** the Director-authored gate-proposal screen
+exposed repeated closures with matching tags in blue T38, but one kennel T34
+proposal quoted an event absent from its draft and another labelled ongoing
+sealing as a new aperture closure. Public actor attribution also failed.
+This selected eight-draft screen is incomplete under its frozen technical
+rule; no producer or automatic retry follows. See
+`plans/artifacts/69-closed-transition-contract/DIRECTOR-PROPOSALS-RESULT.md`.
+
+**Task 69 update, 2026-09-25:** a counterfactual authoritative-transaction
+screen got expected ordered gate operations on four outcome-specified scenes,
+but its V2 final prose had two invalid envelopes and one valid narration that
+re-opened a gate already open at beat start. A different narration supplied an
+unconfirmed earlier ice seal. The technical gate and whole-prose fidelity
+failed locally; no runtime producer or reliability claim follows. See
+`plans/artifacts/69-closed-transition-contract/AUTHORITATIVE-TRANSACTION-RESULT.md`.
+
+**Task 69 update, 2026-09-25:** a renderer time-packet A/B reused four fixed
+Director transactions. The B packet passed the local narration schema in
+16/16 preserved outputs (A 12/16), but a blind fiction read found unconfirmed
+recently melted ice in B, plus unsupported trees at the tunnel gate. A
+second reader disputed stronger spatial contradiction labels. English prose
+appeared in both arms because the fixture omitted the shared client's
+language instruction; its counts are not a candidate language result. The
+registered content gate failed. No runtime
+renderer packet or physical-state producer follows; the fixture supplied
+the viewer roster directly, so production-cluster occurrence is unproven. See
+`plans/artifacts/69-closed-transition-contract/RENDERER-TIME-PACKET-RESULT.md`.
+
+**Task 69 source check, 2026-09-25:** archived `ea6620fb` T12 confirms Bruna
+crossing into a new corridor while its real prose prompt omits her from the
+post-move present-action roster. The actual narration nevertheless includes
+her crossing. A content critic read this as unresolved beat-time wording,
+not a proven instruction contradiction or fiction failure. See
+`plans/artifacts/69-closed-transition-contract/T12-BRUNA-RENDERER-BOUNDARY-FINDING.md`.
+
+**Task 69/80 source check, 2026-09-25:** `d5a2ccf0` T6 confirms Garran
+crossing into a corridor. Raw prose narrated it; persisted prose lost its
+first sentence and begins with an orphan `ele`. Replaying the current
+offstage filter on the raw text returns the persisted text exactly, and a
+fiction-only reader judged the crossing materially lost. This is one real
+deterministic failure at the post-move renderer boundary, not a rate. See
+`plans/artifacts/69-closed-transition-contract/T6-GARRAN-CROSSING-STRIPPED-FINDING.md`.
+
+**Task 69 update, 2026-09-25:** an actual T6 prose replay compared current
+post-render filtering with a time-scoped instruction and mover exemption.
+All eight curls passed schema. Blind reading found the named crossing in
+current-filter prose 1/4 and in candidate prose 4/4, but the candidate also
+narrated Garran after reaching a corridor outside the origin audience. Its
+registered content gate failed; no runtime change follows. See
+`plans/artifacts/69-closed-transition-contract/T6-TRANSIT-EXEMPTION-RESULT.md`.
+
+**Task 69 content check, 2026-09-25:** simple concatenation of T6's three
+origin-witnessed event texts preserves the crossing and pronoun antecedents,
+but a fiction-only reader found it too abrupt for finished prose. Event-local
+reader-ready narration is a candidate to test, not a validated solution. See
+`plans/artifacts/69-closed-transition-contract/T6-EVENT-UNITS-READ.md`.
+
+**Task 69 update, 2026-09-27:** the T6 event-local reader-unit screen retained
+Garran's named crossing in four joined outputs. Its registered content gate
+failed: one output omitted the block's confirmed several-metre roll, another
+omitted Elowen's stabilization prayer. A reader also noticed repeated dust
+and lamp imagery across units. The mover binding was manual and only the
+origin view was tested. No runtime producer follows; see
+`plans/artifacts/69-closed-transition-contract/T6-EVENT-LOCAL-RESULT.md`.
+
+**Task 69 update, 2026-09-28:** a real-source typed-transaction producer
+screen failed its frozen gate. Blue T38 produced no mechanically accepted
+final chain in four tries, including two schema-invalid first outputs; a
+rejected draft hid Téo's crossing in untyped text. Legal T8 kept the main
+gate opening in four mechanically valid outputs but omitted or changed
+Maelis/Garran material in three raw Director step lists. Character speech
+was not generated for those candidates. The assembler also had a deterministic
+grammar defect, so its awkward gate sentences are not model-quality evidence.
+No runtime producer follows; see
+`plans/artifacts/69-closed-transition-contract/REAL-TRANSACTION-PRODUCER-RESULT.md`.
+
+**Task 69 physical-only screen, 2026-09-28:** source-grounded T38 gate/attempt
+labels matched in 4/4 calls without the rejected draft and 4/4 with it; the
+legal T8 opening matched in 4/4. This tests a manually identified single gate
+and actor, not event prose or an integrated producer. Next test whether full
+Director drafts respect those labels while retaining scene content. See
+`plans/artifacts/69-closed-transition-contract/PHYSICS-ONLY-DRAFT-AB-RESULT.md`.
+
+**Task 69 full-draft follow-up, 2026-09-28:** eight real T38 retries were
+technically valid but 0/4 coherent in both generic and three-label arms.
+The label arm kept Téo in the hall after a blocked attempt, yet all four
+drafts still restaged the completed T37 blue-gate closure. The isolated
+physical selector is therefore insufficient as complete-draft feedback; no
+runtime producer follows. See
+`plans/artifacts/69-closed-transition-contract/T38-LABEL-CONDITIONED-RETRY-RESULT.md`.
+
+**Task 69 event-delta follow-up, 2026-09-28:** a direct T38 A/B differing
+only by `aperture_delta=none` left two of four B drafts re-closing the
+already sealed gate; two did not. The four A drafts re-closed it. A T8
+legal-opening packet produced one malformed JSON response, so the all-12
+technical gate failed; two of its three valid Director rewrites omitted
+shield handling, and one omitted Maelis's proposed speech intent while
+still routing her. No Character call ran. These readings are diagnostic, not an admitted
+full-draft contract. See
+`plans/artifacts/69-closed-transition-contract/EVENT-DELTA-FEEDBACK-RESULT.md`.
+
+**Task 69 boundary, 2026-09-28:** code review found durable physical state
+bootstrapped and validated but not applied from Director proposals. Its free
+event text still feeds prose, so state labels by themselves have not closed
+reader-visible contradictions in the local screens. A selected-source
+inventory of T38/T8/T6 plus conversational T23 frames a possible full-event
+program feasibility test; that architecture is a hypothesis, not admitted
+runtime work. See
+`plans/artifacts/69-closed-transition-contract/SEMANTIC-PROGRAM-COVERAGE-INVENTORY.md`.
+
+**Task 69 hand-bound screen, 2026-09-28:** four selected event programs
+(T38/T8/T6/T23) rendered once under a frozen template grammar, then were
+read for continuity and fiction. The continuity reader accepted the
+obligations supplied for all four, but T6's far-side position was outside
+that packet. The fiction reader rejected all four as finished RPG prose;
+repetition, dialogue pre-announcement and checklist cadence were visible.
+This exact pair fails the registered gate. Neither model-program production
+nor complete event coverage was validated; no runtime implementation follows.
+See `plans/artifacts/69-closed-transition-contract/SEMANTIC-PROGRAM-FEASIBILITY-RESULT.md`.
+
+**Task 69 T38 follow-up, 2026-09-28:** the program × style-reference
+curl screen failed its all-valid gate (15/16) and had three clear
+counterfactual L transition/order errors: two newly opened an already
+ajar gate and one closed before Téo crossed. All eight S outputs avoided
+new closure and crossing locally, but most were rejected as finished
+fiction. In a separate one-shot packet-only authoring screen, the
+continuity reader accepted both S and L, while the fiction reader
+rejected S as report-like and accepted L. One author cannot establish
+impossibility; neither candidate enters runtime. Task 69 remains open.
+See `plans/artifacts/69-closed-transition-contract/T38-PROGRAM-STYLE-CROSS-RESULT.md`
+and `T38-CONSTRUCTIVE-PACKET-RESULT.md`.
+
+**Per-viewer guard correction, 2026-10-01:** when every sentence in a
+cluster's prose was filtered as offstage, `render_narration` restored the
+entire raw draft. It now returns empty; a split-turn integration test
+confirms the Runner persists no narration record for that cluster. This is
+a deterministic boundary repair with no measured live frequency, and T6's
+witnessed crossing stripped from mixed prose remains open. See
+`plans/artifacts/69-closed-transition-contract/OFFSTAGE-EMPTY-FALLBACK-RESULT.md`.
+
 | task | where | state |
 |---|---|---|
 | **79** blocking as durable state | `tasks/` | **Cheap half SHIPPED.** Blocking reaches the prose renderer, filtered per cluster, nothing persisted. The **schema bump is deferred** — see `para-o-dono/79-blocking-shape.md` for the owner's answers and the re-pricing |
-| **69** physical state as a closed transition | `tasks/` | Schema-16 durable storage and deterministic fixtures exist; **no model producer**. Two earlier local proposal screens met narrow fixture rules; T29 gap stayed unscored, and the second covered one hall gate. Source reading found T32's persisted physical contradiction, T37→T38's blue-gate closure repeated across a time skip, and a separate kennel-gate session with persisted closure at T33/T34/T35. The blue-gate duplicate and action-only screens then failed semantic gates despite 16/16 valid calls each. A 12-turn purposive retry read supplies no prevalence or retry-causation claim; its T23 early-render verdict was withdrawn after the omitted time-skip event was found in the real prose request. The retry replay (7/8 valid) and curated fidelity-reader screen (6/12 valid) were incomplete. No runtime change followed. See `plans/artifacts/69-closed-transition-contract/T34-T35-KENNEL-GATE-REPEAT-FINDING.md` |
-| **64** return control | `tasks/` | Calibration corrected the historical denominator; a contract-wording screen stopped below its technical-validity gate, so no wording shipped. See `plans/artifacts/64-return-control-calibration/` |
+| **69** physical state as a closed transition | `tasks/` | Schema-16 durable storage and deterministic fixtures exist; **no model producer**. T29 gap remains unscored. Source reads found T32's persisted contradiction, T37→T38's repeated blue closure and a separate kennel-gate session with persisted closure at T33/T34/T35. In T38, deleting the closure event alone leaves a repeated crossing; its real request contains a closed gate, a stale all-open fact and Téo's unresolved crossing intent. Changing only the stale fact did not remove closure repetition in the B arm of a real-payload replay (4/4); the causal contribution remains undiagnosed, and the replay used only minimal JSON validation. Blue-gate duplicate and action-only screens failed semantic gates. Manually bound admission (86/88 valid) exposed wrong-gate extraction and checker acceptance of inadequate offered support. Support-only and context A/B checker runs were incomplete. A two-channel checker passed 32/32 technical calls but failed its semantic gate on correction/reopening sequences. A two-stage screen passed 52/52 technical calls and handled correction versus reopening, but admitted antecedent-free T37 evidence for the blue gate in Stage A. The later identity/aspect screen was incomplete (33/36) and again bound an ungrounded or competing `o portão` to blue. Content readers disagree on the longer T37 offer's anaphora; it is not calibrated ground truth. T23's alleged early reveal was withdrawn after its time-skip event was found in the real prose request. No prevalence estimate or runtime change. See `plans/artifacts/69-closed-transition-contract/T38-STALE-FACT-AB-RESULT.md` and `IDENTITY-ASPECT-RESULT.md` |
+| **64** return control | `tasks/` | Calibration corrected the historical denominator; a contract-wording screen stopped below its technical-validity gate, so no wording shipped. A T11 source read found the boolean's named-person criterion has no target field even when its scene addresses NPCs and control goes to Link. Handoff quality remains unjudged by an interactive reader. See `plans/artifacts/64-return-control-calibration/` |
 | **77** the order nobody executes | `tasks/` | **Open research.** Three cited passages and one reconstructed candidate were read as fiction. Historical 13/33 is uncalibrated and its selector unrecovered; explicit reconstruction finds 27/15, with neither count estimating defect prevalence. Cause unknown; see `plans/artifacts/77-content-audit/REPORT.md` |
 | **72** commitments as state | `tasks/` | Gated on "do stalls survive 69" |
-| **80, 81, 82** narration/state findings | `backlog/` | Opened out of 79's and 69's method sections. **80** spatial omission hypothesis, former n=40 judge baseline withdrawn; **81** has T32's source-checked creature-state/prose contradiction, mechanism undiagnosed; original actor, T29 gap and T23 early-render candidates remain withdrawn; **82** a Director event that reached nothing (n=1) |
+| **80, 81, 82** narration/state findings | `backlog/` | Opened out of 79's and 69's method sections. **80** spatial omission hypothesis, former n=40 judge baseline withdrawn; **81** has T32's source-checked creature-state/prose contradiction and T35 Liora crossing persisted one beat before her zone changed, both one-case observations with mechanism undiagnosed; original actor, T29 gap and T23 early-render candidates remain withdrawn; **82** a Director event that reached nothing (n=1) |
 
 **All three of 80-82 are n small and uninvestigated on purpose.** They are
 candidate findings, not defects, and each says in its own file what would kill it.

@@ -280,6 +280,34 @@ def _blocking_lines(
     ]
 
 
+def prose_history_for_viewers(
+    history: list[TurnRecord], viewers: set[str] | None
+) -> list[TurnRecord]:
+    """The exact history records eligible for a prose reader group."""
+    return [
+        record
+        for record in history
+        if (
+            record.content_type in ("narration", "speech")
+            or (record.content_type == "action" and record.audience is None)
+        )
+        and (viewers is None or any(record_visible_to(record, viewer) for viewer in viewers))
+    ]
+
+
+def prose_events_for_viewers(
+    events: list[dict[str, Any]], viewers: set[str] | None
+) -> list[dict[str, Any]]:
+    """Per-viewer event projection, shared with the Runner's grouping boundary."""
+    if viewers is None:
+        return events
+    return [
+        event
+        for event in events
+        if viewers & (set(event.get("witness_ids") or []) | {event.get("subject_id")})
+    ]
+
+
 def build_prose_messages(
     scene: Scene,
     characters: dict[str, Character],
@@ -290,6 +318,7 @@ def build_prose_messages(
     max_tokens: int = 1024,
     viewers: set[str] | None = None,
     blocking: dict[str, str] | None = None,
+    staging_viewers: set[str] | None = None,
 ) -> list[dict]:
     """Reader-entitled inputs only.
 
@@ -301,34 +330,25 @@ def build_prose_messages(
     narration — there is nothing loaded to re-voice. The same holds for
     ``audible_speech`` events, staged as content-free lines.
 
-    ``viewers`` (task 71) scopes every block to one perception cluster: the
-    cast, the staging, the transcript and the events. Left at ``None`` the
-    output is byte-identical to the pre-71 prompt, which is what keeps the
-    unsplit turns - the majority - on exactly the path they were on.
+    ``viewers`` scopes transcript and events to the readers receiving this
+    prose. ``staging_viewers`` can retain a larger physical group when co-located
+    readers have different private histories. It scopes visible cast, staging,
+    blocking and offstage filtering, never their history or event entitlement.
+    A fully public unsplit scene continues using ``viewers=None``.
 
     Scoping the TRANSCRIPT matters as much as scoping the events. A record
     carries the audience the engine computed for it, so a line spoken in the
     other half of a split scene is already marked unreachable; passing it in
     anyway would let the renderer allude to it even with the events clean.
     """
+    stage_scope = staging_viewers if staging_viewers is not None else viewers
     cast_lines = [
         f"  {character.mind.name}: {character.body.physical_description[:200]} | "
         f"wearing: {character.body.outfit[:120]}"
         for cid, character in characters.items()
-        if viewers is None or cid in viewers
+        if stage_scope is None or cid in stage_scope
     ]
-    visible = [
-        record
-        for record in history
-        if record.content_type in ("narration", "speech")
-        or (record.content_type == "action" and record.audience is None)
-    ]
-    if viewers is not None:
-        visible = [
-            record
-            for record in visible
-            if any(record_visible_to(record, viewer) for viewer in viewers)
-        ]
+    visible = prose_history_for_viewers(history, viewers)
     if context_max is not None:
         visible = trim_history_by_tokens(visible, context_max, max_tokens)
     transcript = [
@@ -340,24 +360,18 @@ def build_prose_messages(
     # in prose produced phantom unspecified speech ("Bento diz algo para Rui")
     # and narrated the protagonist's silence. The renderer only narrates
     # NON-SPEECH events.
-    scoped_events = events
-    if viewers is not None:
-        scoped_events = [
-            event
-            for event in events
-            if viewers & (set(event.get("witness_ids") or []) | {event.get("subject_id")})
-        ]
+    scoped_events = prose_events_for_viewers(events, viewers)
     event_lines = [
         f"  - ({event['event_kind']}) {_stage_event_content(event, characters, controlled_id)}"
         for event in scoped_events
         if event.get("event_kind") != "audible_speech"
     ] or ["  - Nothing new happens; render a short atmospheric beat."]
-    staging = _staging_lines(scene, characters, controlled_id, viewers)
+    staging = _staging_lines(scene, characters, controlled_id, stage_scope)
     staging_block = "\n".join(staging) + "\n\n" if staging else ""
     # Left at None the prompt is byte-identical to the pre-79 one, which is what
     # keeps every existing renderer and every archived comparison on their own
     # path — the same guarantee task 71 made for `viewers`.
-    blocking_lines = _blocking_lines(blocking or {}, characters, controlled_id, viewers)
+    blocking_lines = _blocking_lines(blocking or {}, characters, controlled_id, stage_scope)
     blocking_block = "\n".join(blocking_lines) + "\n\n" if blocking_lines else ""
     # Measured leak, session `c76037ff` 2026-08-12: scoping the cast, staging and
     # events is not enough, because the TRANSCRIPT reintroduces the other half.
@@ -369,9 +383,9 @@ def build_prose_messages(
     # her at all. Remembering her is right; narrating what she is doing now is
     # not, and the roster is the line that says which is which.
     roster_block = ""
-    if viewers is not None:
+    if stage_scope is not None:
         roster = ", ".join(
-            sorted(_canonical_name(cid, characters, controlled_id) for cid in viewers)
+            sorted(_canonical_name(cid, characters, controlled_id) for cid in stage_scope)
         )
         roster_block = (
             "IN THIS VIEW (the only people whose PRESENT actions you may narrate; "
@@ -463,9 +477,8 @@ def _strip_offstage_actors(
     the model does, which is the difference the project keeps re-learning: a
     prompt promise with no structure behind it loses (task 59, finding 1).
 
-    Mirrors `_strip_echoed_sentences` deliberately, including returning "" when
-    nothing survives so the caller keeps the draft: a leaking paragraph is worse
-    than no paragraph only if there IS another paragraph.
+    Return "" when nothing survives. A wholly offstage paragraph must not be
+    restored by the caller: the Runner can omit this cluster's narration.
     """
     patterns = _offstage_name_patterns(scene, characters, controlled_id, viewers)
     if not patterns:
@@ -505,7 +518,9 @@ async def render_narration(
     turn_number: int = 0,
     viewers: set[str] | None = None,
     blocking: dict[str, str] | None = None,
+    staging_viewers: set[str] | None = None,
 ) -> str:
+    history = prose_history_for_viewers(history, viewers)
     max_tokens = int(config.get("max_tokens_narrator", 2048))
     messages = build_prose_messages(
         scene,
@@ -517,6 +532,7 @@ async def render_narration(
         max_tokens=max_tokens,
         viewers=viewers,
         blocking=blocking,
+        staging_viewers=staging_viewers,
     )
     # Shared by the first attempt and the anti-repetition retry below.
     request_kwargs: dict[str, Any] = {
@@ -544,12 +560,11 @@ async def render_narration(
         narration = str(result.get("narration", "")).strip()
         if _repeats_prior_narration(narration, history):
             narration = _strip_echoed_sentences(narration, history) or narration
-    if viewers is not None:
+    stage_scope = staging_viewers if staging_viewers is not None else viewers
+    if stage_scope is not None:
         # Structural half of the cross-cluster guard; the roster block is the
         # instruction half. Measured 3 leaks in 32 split narrations with only
         # the instruction, all of them a remembered character shown acting in
         # the present.
-        narration = _strip_offstage_actors(
-            narration, scene, characters, controlled_id, viewers
-        ) or narration
+        narration = _strip_offstage_actors(narration, scene, characters, controlled_id, stage_scope)
     return normalize_generated_text(narration)

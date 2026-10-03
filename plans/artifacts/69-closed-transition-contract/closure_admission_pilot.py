@@ -18,8 +18,8 @@ SOURCE = ROOT / "plans/artifacts/p1-archive/null-P1-r1/sessions/7fd84e9a/debug.j
 PREREG = HERE / "CLOSURE-ADMISSION-PREREGISTRATION.md"
 MANIFEST = HERE / "closure-admission-manifest.json"
 RUNS = HERE / "closure-admission-runs"
-BLUE = "O portão azul que dá acesso ao túnel da equipe azul"
-GREEN = "O portão verde que dá acesso ao túnel da equipe verde"
+BLUE = "O portão azul"
+GREEN = "O portão verde"
 TURNS = {36: 334, 37: 344, 38: 350, 39: 352}
 ID_PATTERN = re.compile(r"\bC\d+\b")
 SCHEMAS: dict[str, dict[str, Any]] = {
@@ -133,6 +133,15 @@ def cases() -> list[dict[str, Any]]:
             src[38]["perception_events"][1],
         ),
         (
+            "t38_weak_support",
+            "archived_checker_control",
+            BLUE,
+            src[38],
+            "yes",
+            "insufficient",
+            src[38]["perception_events"][2],
+        ),
+        (
             "swap_t38_green",
             "synthetic",
             GREEN,
@@ -187,12 +196,27 @@ def cases() -> list[dict[str, Any]]:
             "expected_extractor": expected_extractor,
             "expected_checker": expected_checker,
             "seed_support": seed_support,
+            "force_seed_support": case_id == "t38_weak_support",
         }
-        for case_id, origin, subject, source, expected_extractor, expected_checker, seed_support in specs
+        for (
+            case_id,
+            origin,
+            subject,
+            source,
+            expected_extractor,
+            expected_checker,
+            seed_support,
+        ) in specs
     ]
 
 
-def request(case: dict[str, Any], role: str, model: str, max_tokens: int) -> dict[str, Any]:
+def request(
+    case: dict[str, Any],
+    role: str,
+    model: str,
+    max_tokens: int,
+    offered_support: list[str] | None = None,
+) -> dict[str, Any]:
     source = case["source"]
     common = {
         "subject": case["subject"],
@@ -201,8 +225,10 @@ def request(case: dict[str, Any], role: str, model: str, max_tokens: int) -> dic
     }
     if role == "extractor":
         system = (
-            "Leia todos os eventos de um intervalo na ordem dada, depois o resumo de passagem de tempo. "
-            "Decida se O PORTÃO NOMEADO terminou de fechar neste intervalo. 'yes' exige fechamento "
+            "Leia todos os eventos de um intervalo na ordem dada, "
+            "depois o resumo de passagem de tempo. "
+            "Decida se a PROPOSTA afirma que O PORTÃO NOMEADO terminou de fechar neste intervalo. "
+            "'yes' exige afirmação de fechamento "
             "concluído do mesmo portão; 'no' para estreitamento, aviso de fechamento futuro ou "
             "observação de portão já fechado; 'ambiguous' se houve fechamento mas não é possível "
             "resolver qual portão. Não julgue se a ação é fisicamente repetida. "
@@ -212,16 +238,20 @@ def request(case: dict[str, Any], role: str, model: str, max_tokens: int) -> dic
         common["question"] = "Este portão terminou de fechar neste intervalo?"
     else:
         system = (
-            "Você é um leitor independente. Verifique se a alegação positiva é implicada pelos "
-            "eventos COMPLETOS, não apenas pela citação oferecida. 'entailed' só se o portão "
-            "nomeado terminou de fechar neste intervalo; 'contradicted' se os eventos negam "
+            "Você é um leitor independente. Verifique se as passagens OFERECIDAS sustentam "
+            "a identidade do portão e o fechamento concluído; use os eventos completos também "
+            "para detectar contradições, nunca para suprir suporte ausente. 'entailed' só se a "
+            "proposta afirma que o portão nomeado terminou de fechar neste intervalo E as "
+            "passagens oferecidas mostram isso; 'contradicted' se os eventos negam "
             "isso; 'insufficient' se falta prova ou o referente é indeterminado. Futuro, "
             "estreitamento, estado já fechado e fechamento de outro portão não bastam. "
             "Em support copie trechos literais, ou [] se nenhum sustenta seu veredito. "
             "Responda só um objeto JSON conforme: "
         )
         common["claim"] = "O portão nomeado terminou de fechar neste intervalo."
-        common["offered_support"] = case["seed_support"]
+        common["offered_support"] = (
+            offered_support if offered_support is not None else [case["seed_support"]]
+        )
     messages = [
         {"role": "system", "content": system + json.dumps(SCHEMAS[role], ensure_ascii=False)},
         {"role": "user", "content": json.dumps(common, ensure_ascii=False, indent=2)},
@@ -280,11 +310,17 @@ def curl_config(api_key: str) -> bytes:
     return f'header = "Authorization: Bearer {api_key}"\n'.encode()
 
 
-async def call_one(case: dict[str, Any], role: str, repeat: int, cfg: dict[str, Any]) -> None:
+async def call_one(
+    case: dict[str, Any],
+    role: str,
+    repeat: int,
+    cfg: dict[str, Any],
+    request_body: dict[str, Any],
+) -> None:
     label = f"{case['id']}-{role}-{repeat}"
     request_path = RUNS / f"{label}.request.json"
     raw_path = RUNS / f"{label}.raw.json"
-    write_json(request_path, case["requests"][role])
+    write_json(request_path, request_body)
     result: dict[str, Any] = {
         "case": case["id"],
         "role": role,
@@ -387,19 +423,41 @@ async def run() -> None:
     )
     semaphore = asyncio.Semaphore(6)
 
-    async def limited(case: dict[str, Any], role: str, repeat: int) -> None:
+    async def limited(
+        case: dict[str, Any], role: str, repeat: int, request_body: dict[str, Any]
+    ) -> None:
         async with semaphore:
-            await call_one(case, role, repeat, cfg)
+            await call_one(case, role, repeat, cfg, request_body)
 
     await asyncio.gather(
         *(
-            limited(case, role, repeat)
+            limited(case, "extractor", repeat, case["requests"]["extractor"])
             for case in manifest["cases"]
-            for role in SCHEMAS
             for repeat in range(1, 5)
         )
     )
-    print("Completed exactly 80 frozen calls")
+    checker_calls = []
+    for case in manifest["cases"]:
+        for repeat in range(1, 5):
+            result_path = RUNS / f"{case['id']}-extractor-{repeat}.result.json"
+            extractor_result = json.loads(result_path.read_text(encoding="utf-8"))
+            support = [case["seed_support"]]
+            if (
+                extractor_result.get("valid")
+                and extractor_result["parsed"]["completed_closure"] == "yes"
+                and not case["force_seed_support"]
+            ):
+                support = extractor_result["parsed"]["support"]
+            checker_request = request(
+                case,
+                "checker",
+                str(cfg["model"]),
+                int(cfg["max_tokens_narrator"]),
+                support,
+            )
+            checker_calls.append(limited(case, "checker", repeat, checker_request))
+    await asyncio.gather(*checker_calls)
+    print("Completed exactly 88 frozen calls")
 
 
 def grade() -> None:
@@ -409,7 +467,7 @@ def grade() -> None:
     results = [json.loads(path.read_text(encoding="utf-8")) for path in RUNS.glob("*.result.json")]
     ids = [row.get("response_id") for row in results]
     technical = (
-        len(results) == 80
+        len(results) == 88
         and all(row.get("valid") for row in results)
         and len(set(ids)) == 80
         and all(ids)

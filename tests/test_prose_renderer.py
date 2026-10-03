@@ -272,6 +272,25 @@ class TestRepetitionRetry:
         assert result == FRESH_PARAGRAPH
 
 
+class TestOffstageFallback:
+    async def test_entirely_offstage_draft_is_not_restored(self, monkeypatch: Any) -> None:
+        fake = _FakeCompletion(["Vitor ergue a espada. Vitor atravessa a biblioteca."])
+        monkeypatch.setattr(prose, "call_agent", fake)
+        result = await render_narration(
+            None, ZONED_SCENE, CHARACTERS, CONTROLLED_ID, [], [], {}, viewers={"C1", "C2"}
+        )
+        assert result == ""
+        assert len(fake.calls) == 1
+
+    async def test_mixed_draft_keeps_only_this_view(self, monkeypatch: Any) -> None:
+        fake = _FakeCompletion(["Bruno abre a porta. Vitor ergue a espada."])
+        monkeypatch.setattr(prose, "call_agent", fake)
+        result = await render_narration(
+            None, ZONED_SCENE, CHARACTERS, CONTROLLED_ID, [], [], {}, viewers={"C1", "C2"}
+        )
+        assert result == "Bruno abre a porta."
+
+
 ZONED_SCENE = Scene(
     location="Mansão",
     time_of_day="Noite",

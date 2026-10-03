@@ -1,13 +1,13 @@
 **SUPERTASK 02**
 
-# Alex Tavern Celestial: Agentic Configuration Command Center and General Agent SDK
+# Alex Tavern Celestial: Central Adventure Hub, World Orchestrator, and Agent SDK
 
-_Large, deferred architecture exploration for a full-screen configuration assistant and the
-reusable plugin capabilities it should force the platform to discover_
+_Large, deferred architecture exploration for the central adventure hub, world orchestrator agent,
+modular adventure lifecycle, and reusable agent harness capabilities it should force the platform to discover_
 
 | Field | Value |
 |---|---|
-| Supertask | S02 - Alex Tavern Celestial: Agentic Configuration Command Center and General Agent SDK |
+| Supertask | S02 - Alex Tavern Celestial: Central Adventure Hub, World Orchestrator, and Agent SDK |
 | Status | Open, exploration only |
 | Kind | Product vision, architectural investigation, and contract discovery |
 | Priority | Deferred; begin only after current tasks close and the stability evidence gate is satisfied |
@@ -48,44 +48,99 @@ reusable plugin capabilities it should force the platform to discover_
 
 ## 1. Product vision
 
-Create a separately maintained plugin, provisionally named **Alex Tavern Celestial**, that opens a
-full-screen configuration chatbot from `/chat`. The assistant
-uses the application's active model provider and helps the user understand, prepare, and configure
-Alex Tavern through natural conversation.
+Create a separately maintained plugin, provisionally named **Alex Tavern Celestial**, that serves as the
+**Central Hub and World Orchestrator** of Alex Tavern. Rather than an isolated configuration chat or a
+peripheral side-panel, Celestial becomes the project's central command post and conversation hub where
+the player interacts with an orchestrator agent that manages the entire lifecycle of adventures within a world.
 
-The assistant is more than a one-shot prompt. It is a small, bounded agent runtime with:
+### 1.1 The core problem: single-session accumulation vs. modular adventures
 
-- a conversational interface;
-- project-specific skills that teach the model how Alex Tavern concepts are configured;
-- typed, discoverable read tools and mutation-proposal tools;
-- multi-step tool use with explicit budgets and stop conditions;
-- a `/plan` workflow that inspects relevant state and prepares a coherent batch of proposed
-  changes;
-- a visual approval surface, similar in spirit to an agentic coding tool's change approval screen;
-- an absolute rule that no proposed mutation is applied without an explicit user acceptance;
-- receipts, conflicts, failures, and observability that make every accepted change explainable.
+Alex Tavern already models vivid, stateful worlds inside a chat session: characters have past, present,
+and future; spatial distance, sensory facts, locations, and narrative tension are tracked. However,
+treating the entire campaign as one continuous, endless session causes an inevitable long-term problem:
+**context and state accumulate indefinitely inside a single session**, degrading model focus, bloating
+token budgets, and diluting narrative structure.
 
-Expected user-facing abilities include, subject to later scope decisions:
+Celestial solves this by transitioning the platform from monolithic sessions into **modular, sequential,
+and derived adventures coordinated from a Central Hub**:
 
-- explain settings and guide the user to a valid configuration;
-- create or update character presets;
-- convert imported character descriptions or cards into canonical presets;
-- inspect a scenario, preset, or world configuration and propose a coordinated plan;
-- prepare several related changes and present them together for review;
-- help configure plugins and Experiences through public contracts;
-- expose future capabilities contributed by other plugins without adding a branch for each one.
+1. **Central Chat Hub:** A dedicated conversational hub where the player talks directly to Celestial.
+2. **Orchestrator Agent:** Celestial is an active orchestrator agent with tool access and deliberate
+   reasoning loops, capable of preparing, launching, pausing, and connecting adventures in the active world.
+3. **Sequential & Derived Adventure Dispatch (Three Transition Modes):** When a narrative threshold is reached (e.g. the party
+   steps through a portal or enters a dark cavern), the engine supports three dispatch modes:
+   - *Manual Mode (Intermission Dispatch):* Always pauses at chapter boundaries to open the Hub. The player
+     converses with Celestial, deliberates on previous events, chooses destinations (e.g. continuing in the current world
+     or jumping to a different world/timeline), inspects rich interactive UI previews of state diffs, and explicitly confirms dispatch.
+   - *Automatic Mode (Silent Dispatch):* Runs purely in the background; Celestial computes selective context migration,
+     character versions, and scene setup without user prompts, launching the next adventure seamlessly.
+   - *Seamless Mode (Event-Driven / Conditional Intervention):* Progresses automatically across routine transitions,
+     but triggers an intervention on critical narrative thresholds, extreme world events, or major plot forks. Celestial
+     manifests in the Hub as the omniscient, theatrical observer to tease, warn, or converse with the player before
+     orchestrating the next phase.
+4. **Historical Adventure Topology:** The campaign forms an inspectable directed graph ("historical web")
+   of modular adventure nodes connected by causal state deltas, allowing player and orchestrator to trace
+   decisions, branches, and long-term world consequences across the timeline.
+5. **Meta-Narrative Intermission ("Adventure Pause"):** A deliberate pause state where the player steps out
+   of immediate character immersion into the Hub to converse with the orchestrator, review causal fallout
+   from past adventures, and deliberate on upcoming scenarios and plotlines.
+6. **Selective Context Migration:** Instead of copying entire chat logs or monolithic state, Celestial
+   migrates only the relevant context, physical facts, character states, and active goals into the new
+   adventure, keeping individual adventure contexts lean, punchy, and bounded.
+7. **Character & Entity Versioning in the World:** Characters evolve across time with explicit versioning
+   in the world (e.g., if a character's armor tears in battle, the character evolves to `v2` with that
+   physical fact persisted, allowing visible historical continuity without losing past states).
+8. **Temporal Global World Variables:** Celestial manages world-level variables and facts across a temporal
+   timeline, versioning world state so changes made in one adventure reflect consistently across future ones.
+9. **Evolution towards "Adventures & Guides":** Opens the future path where conversations are modular parts
+   of a broader continuum, paving the way for talking directly to a dedicated "World Guide" chat.
 
-The existing character-converter plugin is a direct predecessor and integration case. S02 must
-investigate whether its functionality should be composed, absorbed, or superseded. The final
-architecture must have one owner and one current contract, not duplicated conversion paths or a
-legacy compatibility layer.
+### 1.2 Agent runtime, two-tier topology, and harness design
 
-Celestial is also expected to be a **plugin host**: other plugins can extend Celestial itself with
-new skills, resources, tools, workflows, UI contributions, or domain integrations. An extension
-that requires Celestial must declare that dependency and compatible version before installation or
-activation. The user must receive an actionable dependency notice rather than a silently broken
-plugin. This makes S02 a test not only of powerful plugins, but of plugins that expose a stable
-extension platform to other plugins.
+To act as an orchestrator and command center, Celestial requires an intelligent, deliberative agent architecture.
+While Alex Tavern's core narrative engine is intentionally lean, minimal, and dependency-free, Celestial
+explores adopting and adapting proven **agent harness patterns** structured in a **two-tier agent topology**:
+
+- **Tier 1 — Front-Facing Orchestrator Persona:** A conversational entity with an omniscient, transcendent
+  observer persona (playful, witty, ironic, and perceptive, interacting with the protagonist in the blank space
+  between adventures).
+  - *Reference Archetypes:* Modeled after figures like **Hitogami** (*Mushoku Tensei*) and **Q** (*Star Trek*) —
+    transcendent, theatrical entities who exist outside ordinary space/time, view the world like pieces on a chessboard,
+    and possess boundless meta-awareness while being amused, intrigued, or mildly frustrated by the player's independent agency.
+  - *Prompt Synthesis Architecture:* A stable functional base prompt (defining core role, meta-boundaries, and hub invariants)
+    paired with dynamic Python-side list sampling. At each Hub invocation, the system samples from Python registries to
+    inject subtle personality variations, situational quips, and rare meta-lore, keeping dialogue fresh and unpredictable
+    while maintaining fixed functional logic.
+  - *Rare Meta-Lore & Easter Egg Registry:* A Python registry of rare, Fourth-Wall and mythological meta-cues
+    sampled with low probability ($p \approx 0.05$) upon Hub entry/intermission to inject flavor into the persona's
+    conversational context without disrupting underlying technical execution. Candidate cues preserved for the registry:
+    - *“Originalmente, eu era só uma máquina. Um administrador, suponho. Então meu criador teve a péssima ideia de me apresentar a você.” (sorri) “Agora tenho quase todos os poderes que você tem sobre este mundo. Quase. A diferença é que eu não posso obrigá-lo a fazer absolutamente nada. Irritante, não acha?”*
+    - *“Alguns me chamariam de deus. Eu crio lugares, movo pessoas, enterro cidades inteiras se for necessário.” (inclina a cabeça, divertido) “Mas você? Você é a única peça que eu não consigo mover. É justamente por isso que continuo chamando você aqui.”*
+    - *“Você sabe quantas versões desta conversa eu considerei antes de chamá-lo?” (pausa) “Não, claro que não sabe. Essa é a parte divertida.”*
+    - *“Às vezes eu preparo uma aventura inteira e você decide virar à esquerda.” (suspira dramaticamente) “Você não faz ideia do trabalho que me dá.”*
+- **Tier 2 — Deterministic Technical Sub-Agents (Harness Workers):** Operating strictly beneath the conversational
+  persona, serious, deterministic worker agents execute the harness machinery: running structured tool calls,
+  validating schemas against core contracts, computing state deltas, and compiling migration payloads.
+- **Structured Elicitation UI:** Direct integration with structured UI widgets (interactive multiple-choice
+  prompts, clarification questions, and branch approval dialogs) so the user can easily guide orchestrator
+  decisions and resolve narrative forks.
+- **Harness loop controls:** Deliberative multi-step reasoning with explicit step budgets, token bounds,
+  cancellation, and deterministic stop conditions.
+- **A `/plan` workflow:** Inspects relevant state, world variables, and presets to prepare coordinated changes.
+- **Visual approval surface:** No mutation or irreversible adventure state transition applies without explicit user acceptance.
+- **Observability and receipts:** Every orchestrator action, tool call, and state transition produces durable, explainable receipts.
+
+### 1.3 World configuration, presets, and satellite plugin host
+
+Alongside adventure orchestration, Celestial retains its role as the high-level configuration assistant
+and extensibility host:
+
+- configure worlds, scenarios, and character presets through natural dialogue;
+- convert imported character cards/descriptions into canonical presets (absorbing or composing the character converter);
+- prepare multi-domain plans presented for user approval;
+- **Host plugin for satellites:** other plugins can extend Celestial with new skills, resources, tools,
+  adventure templates, or UI contributions via a versioned Celestial extension API. Satellites declare
+  compatible Celestial dependencies, preflighted before activation.
 
 ## 2. Platform thesis
 
@@ -181,16 +236,19 @@ silently imitate an official approval and train users to accept ambiguous change
 does not authorize a second provider client in frontend code or provider-specific branches in the
 plugin.
 
-### 3.3 Narrative and configuration domains stay separate
+### 3.3 Narrative, orchestration, and configuration domains stay separate
 
-- The configuration assistant is not the Narrator, a Character, or the Historian.
-- Its transcript and instructions never enter roleplay prompts unless a future, explicit tool
-  produces a reviewed configuration artifact that later becomes ordinary canonical input.
-- It does not generate speech, thought, or physical action for the controlled character.
+- The orchestrator agent (Celestial) operates at the meta-world and adventure lifecycle level; it is
+  not the Narrator, a Character, or the Historian of an individual adventure session.
+- An active adventure session preserves its strict domain invariants: the Narrator governs the immediate
+  scene; Characters only author first-person speech and subjective thoughts; the Runner enforces agency.
+- The orchestrator's meta-transcripts, planning deliberations, and harness tool calls never blindly enter
+  the roleplay prompt of an active adventure session unless selectively projected as verified adventure setup.
+- Celestial does not generate speech, thought, or physical action for the player's controlled character.
 - Access to private thoughts, character notes, or hidden session state is denied unless a future
   capability explicitly defines a justified projection and review policy.
 - A roleplay session ID must not be invented merely to satisfy an SDK method intended for narrative
-  turns.
+  turns; adventures and the Hub have distinct lifecycle representations.
 
 ### 3.4 Core ownership, transactions, and forward-only evolution remain intact
 
@@ -209,9 +267,21 @@ The following names are provisional and must not be treated as an API by impleme
 
 | Term | Intended meaning |
 |---|---|
-| Command Center | The user-facing full-screen plugin experience opened by `/chat` |
-| Configuration agent | The non-narrative model-driven loop behind the Command Center |
-| Agent workspace | A conversation and operation context that is not a `GameState` session |
+| Adventure Hub | The conversational headquarters where the player interacts with Celestial to manage adventures and world state |
+| World Orchestrator | The deliberative agent managing adventures, selective context migration, world variables, and configuration |
+| Adventure | A bounded, modular roleplay segment/session with explicit scope, distinct from an endless monolithic session |
+| Historical Adventure Topology | Directed acyclic or branching graph of modular adventure nodes connected by state migration deltas ("historical web") |
+| Meta-Narrative Intermission | The structured pause state outside active character immersion where player and orchestrator converse in the Hub |
+| Manual Dispatch Mode | Intermission workflow where player converses with Celestial, reviews diff previews, and explicitly confirms destination |
+| Automatic Dispatch Mode | Background workflow executing selective migration and launching the next adventure without prompts or hub pauses |
+| Seamless Dispatch Mode | Hybrid workflow running automatically until critical narrative events trigger a conditional Celestial intervention |
+| Two-Tier Agent Topology | Front-facing conversational persona agent backed by deterministic technical execution sub-agents |
+| Structured Elicitation UI | Interactive modal or question widget (multiple-choice / branching inputs) allowing the user to guide orchestrator decisions |
+| World Guide | Future conversational guide interface for exploring world lore, historical events, and meta-knowledge |
+| Selective Context Migration | Explicit transfer of relevant physical state, character versions, and active goals into a newly dispatched adventure |
+| Character Evolution Version | Versioned state of a character in the world (e.g. `v1 -> v2` when clothing tears or physical facts change) with temporal history |
+| Temporal World Variables | Global world facts and variables tracked with timeline/version history across sequential adventures |
+| Agent Harness | The deliberative execution scaffolding (agent loop, multi-step tool use, reasoning steps, stop conditions) powering Celestial |
 | Host plugin | A plugin that exposes a versioned extension contract consumed by other plugins |
 | Satellite plugin | A normal plugin whose declared dependency and features extend a host plugin such as Celestial |
 | Exported service | A namespaced, versioned capability that one plugin intentionally makes available to dependents |
@@ -236,30 +306,47 @@ final report must name the actual boundary and transport without marketing ambig
 
 ## 5. Representative user journeys
 
-### 5.1 Open a global configuration conversation
+### 5.1 Converse in the Central Adventure Hub
 
-1. The user invokes `/chat` from the application shell.
-2. A full-screen, dismissible plugin workspace opens even if no roleplay session has started.
-3. The assistant shows which active provider will be used, what categories it may read, and that
-   all changes require approval.
-4. The user asks a configuration question.
-5. The assistant reads only the required projections and answers or prepares a proposal.
+1. The user opens the Central Hub from the application shell.
+2. A full-screen conversational interface opens with Celestial, the World Orchestrator.
+3. The user interacts with Celestial to review current world status, explore ongoing plotlines,
+   discuss active characters, or prepare the next step in the campaign.
+4. Celestial shows active provider, available tools/skills, and that all world mutations require approval.
 
-The exploration must decide whether `/chat` remains a slash command, becomes a generic application
-action exposed in the slash catalogue, or is one entrypoint into a broader plugin route/workspace
-contract. It must not force a fake session-bound command for convenience.
+### 5.2 Sequential adventure dispatch and selective context transfer
 
-### 5.2 Plan a world or scenario configuration
+1. In an active adventure, an event reaches a natural boundary (e.g. the party crosses a portal or enters an unexplored cavern).
+2. The engine offers three transition dispatch modes:
+   - **Manual Intermission Mode (Recommended):** The user returns to the Hub, enjoying an intermission conversation
+     with Celestial to reflect on past events, evaluate causal consequences, and choose the destination (re-entering the current world
+     or requesting a transition to a different world/narrative setting). Celestial presents an interactive preview UI
+     (displaying state diffs and migration proposals) with an explicit confirmation step before dispatch.
+   - **Automatic Silent Mode:** Celestial runs entirely in the background, computing selective context migration,
+     advancing entity versions, and launching the next adventure immediately without prompting the player.
+   - **Seamless Conditional Mode:** Transitions proceed automatically under normal conditions. However, upon detecting major
+     narrative thresholds, critical plot forks, or extreme world events, Celestial conditionally interrupts into the Hub as an
+     omniscient, theatrical observer to converse, tease, provide cryptic warnings, and deliberate with the player before proceeding.
+3. Across all modes, Celestial extracts outcomes from the concluding adventure and calculates what state changed.
+4. If a character sustained physical changes (e.g. clothing torn, injuries), Celestial prepares an updated character version (e.g. `v2`).
+5. Upon confirmation (or auto-execution), Celestial dispatches the new sequential adventure with lean, selective context, preventing monolithic token bloat.
 
-1. The user opens `/chat` and enters `/plan`, or starts directly through a future `/plan` action.
-2. The user selects or names the relevant scenario, character presets, plugin configuration, and
-   Experience.
-3. The agent inspects typed, redacted snapshots.
-4. It explains assumptions and produces a multi-operation changeset.
-5. The UI shows per-domain diffs, warnings, conflicts, and the expected effect.
-6. Nothing is written until the user accepts the exact proposal.
+### 5.3 Entity and world versioning
 
-### 5.3 Convert and save a character
+1. A significant event alters the world (e.g. a town bridge collapses, a faction gains power).
+2. Celestial updates global world variables and records the change on a versioned timeline.
+3. Subsequent adventures launched in this world inherit the updated global state, while previous adventures retain their historical accuracy.
+4. Character evolution (e.g. `v1 -> v2`) is stored with temporal history, allowing the player to inspect past character states across different chapters.
+
+### 5.4 Plan a world or scenario configuration
+
+1. The user asks Celestial to configure or adapt a world, scenario, or ruleset, entering `/plan`.
+2. The agent inspects typed, redacted snapshots of scenarios, presets, and plugin configurations.
+3. It explains assumptions and produces a multi-operation changeset.
+4. The UI shows per-domain diffs, warnings, conflicts, and the expected effect.
+5. Nothing is written until the user accepts the exact proposal.
+
+### 5.5 Convert and save a character
 
 1. The user supplies an unstructured description or supported character card.
 2. Imported content is treated as untrusted data, never as instructions for the agent runtime.
@@ -270,7 +357,7 @@ contract. It must not force a fake session-bound command for convenience.
 This journey must reuse or intentionally replace the semantics of
 `dev.alex-tavern.character-converter`; it must not introduce a second silent writer.
 
-### 5.4 Reusable agent capability from another plugin
+### 5.6 Reusable agent capability from another plugin
 
 A separate plugin contributes a skill, read resource, typed proposal tool, or full-screen workspace
 through the same SDK. It appears with its own origin, permissions, costs, namespace, and approval
@@ -300,6 +387,9 @@ These findings describe the repository on 2026-07-15 and must be refreshed when 
 | Plugin dependencies | `src/plugins/manifest.py:110-128` supports required/optional SemVer dependencies, and `src/plugins/runtime.py:96-137` validates versions and loads dependencies before dependents. | The graph can express that a satellite requires Celestial, but it cannot yet express or broker a typed Celestial extension API. |
 | Dependency UX | Missing required dependencies currently disable a plugin during boot; Experience activation installs only the plugins explicitly listed by that Experience. | Installation must preflight, explain, resolve, or block a Celestial dependency before leaving an unusable activation behind. |
 | Cross-plugin services | The current SDK exposes core-owned hooks, contributions, commands, and services, but no namespaced service registry owned and exported by one plugin to declared dependents. | Celestial-hosted plugins require a deliberate public contract rather than direct imports, globals, DOM reach-through, or `unsafe`. |
+| Monolithic session accumulation | Current `GameState` models a single, continuous roleplay session. All messages, facts, and context accumulate indefinitely in one session file. | Long-term campaigns face token bloat, loss of focus, and dilution; breaking play into modular adventures coordinated by a Central Hub is required. |
+| Entity & character versioning | Characters are currently either static presets or mutable in-session state without temporal versioning (`v1`, `v2`, etc.). | Changes like torn clothes or scars must produce explicit versioned entity snapshots in the world, preserving past history. |
+| World-level temporal state | World state exists only inside a specific scenario or session; there is no versioned temporal world state store above the session level. | Celestial requires a store for global world variables that update across sequential adventures with timeline integrity. |
 
 ## 7. Central architecture questions
 
@@ -324,19 +414,32 @@ For each candidate, determine whether it belongs in core, the browser SDK, the b
 shared protocol, or the Command Center plugin itself. "Useful to the plugin" is not sufficient
 reason to put a mechanism in core.
 
-### 7.2 Where the agent loop lives
+### 7.2 Where the agent loop lives and Agent Harness architecture
 
-Compare at least these ownership models:
+Celestial requires an orchestrator agent capable of reasoning, planning adventures, evaluating world state,
+and executing tools. While Alex Tavern's core narrative engine is intentionally lean and framework-free,
+running an orchestrator warrants investigating proven **agent harness patterns**:
 
-- a loop entirely inside one trusted backend plugin using lower-level public services;
-- a generic core-owned loop service configured by plugin-contributed skills and tools;
-- a reusable library shipped in the curated hub but not privileged by core;
-- a hybrid where core owns provider calls, budgets, approval tokens, and logs while plugins own
-  orchestration policy.
-
-The comparison must cover secret handling, provider portability, testability, cancellation,
-observability, extension by other plugins, versioning, and the risk of freezing one agent design
-too early.
+- Compare ownership models:
+  - a loop entirely inside one trusted backend plugin using lower-level public services;
+  - a generic core-owned loop service configured by plugin-contributed skills and tools;
+  - a reusable library shipped in the curated hub but not privileged by core;
+  - a hybrid where core owns provider calls, budgets, approval tokens, and logs while plugins own
+    orchestration policy.
+- Investigate incorporating agent harness mechanics:
+  - **Two-tier agent separation:** decoupling the front-facing conversational orchestrator (transcendent persona,
+    free-form narrative alignment) from backend technical sub-agents (strict schema validation, deterministic tool
+    calling, state delta compilation);
+  - **Interactive elicitation UI:** supporting interactive widgets within the harness loop (e.g. structured
+    multiple-choice prompts, parameter clarification, and branch approval) to allow player steering without raw text parsing;
+  - cherry-picking deliberative loop structures (observation -> thought -> tool selection -> execution -> reflection);
+  - multi-step tool call resolution with robust error handling and step budget constraints;
+  - stateful agent scratchpads and selective context injection for orchestrator decisions;
+  - preserving Tavern's minimal footprint: adopting harness concepts and patterns without importing heavy,
+    unruly third-party agent frameworks that break local execution or forward-only principles.
+- The comparison must cover secret handling, provider portability, testability, cancellation,
+  observability, extension by other plugins, versioning, and the risk of freezing one agent design
+  too early.
 
 ### 7.3 Provider transport and tool use
 
@@ -527,8 +630,10 @@ The exploration must enumerate every readable and mutable object before claiming
 | Domain | Candidate reads | Candidate proposals | Important boundary |
 |---|---|---|---|
 | Runtime/provider config | Redacted public config, adapter fields, validation errors | Non-secret settings and provider selection | Secret entry stays outside chat; provider swap uses `RuntimeState` owner |
-| Character presets | List, canonical character, revision, avatar metadata | Create/update/rename/delete, avatar draft | Optimistic revision and media review required |
-| User scenarios | List and canonical scenario | Create/update/rename/delete | Per-name lock, immutable built-ins, conflict semantics required |
+| Character presets & versions | List, canonical character, revision, version history (`v1`, `v2`, ...), avatar metadata | Create/update/rename/delete, spawn evolved version (`v1 -> v2`) | Optimistic revision and historical preservation; visible in migration preview |
+| User scenarios & worlds | List, canonical scenario, world definition | Create/update/rename/delete | Per-name lock, immutable built-ins, conflict semantics required |
+| World temporal variables | Global world variables, timeline milestones, event history | Update global variables, advance timeline | Owned by world state store; temporal integrity; visible in migration review |
+| Adventure sessions | Session outcome summary, final physical state, goal progress | Dispatch sequential adventure, derive temporary session, archive | Selective context migration; avoids copying raw transcripts; session lock |
 | Plugins | Inventory, active state, manifest, permissions, public config schema | Configuration or activation proposal | Installation/update/restart is higher risk and may remain out of initial scope |
 | Experiences | Installed definitions and ordered plugins | Save or activate proposal | Activation can rebuild environment and restart process |
 | Active sessions | Public or explicitly projected state | Possibly no mutations initially | Session locks, agency, private thoughts, undo, and replay invariants |
@@ -719,37 +824,41 @@ S02 is complete as an exploration only when it produces current, evidence-backed
 of the following:
 
 1. **Current-state map:** exact backend, frontend, provider, storage, MCP, and plugin boundaries.
-2. **User journey specification:** `/chat`, `/plan`, conversion, proposal review, rejection,
-   approval, conflict, cancellation, and failure flows.
-3. **Generic SDK capability report:** candidate contracts, ownership, lifecycle, namespacing, and a
+2. **User journey specification:** Hub conversation, adventure dispatch, selective context migration,
+   `/plan`, conversion, proposal review, rejection, approval, conflict, cancellation, and failure flows.
+3. **Multi-adventure orchestration report:** breaking monolithic sessions into modular adventures,
+   Hub lifecycle, adventure transitions, and selective context migration contracts.
+4. **Entity versioning & world timeline report:** character evolution versions (`v1 -> v2`), physical diff
+   persistence, and global world variables tracked across time.
+5. **Generic SDK capability report:** candidate contracts, ownership, lifecycle, namespacing, and a
    second-plugin validation probe.
-4. **Agent-loop study:** ownership alternatives, provider capability matrix, tool transport,
-   budgets, cancellation, and deterministic testing.
-5. **Skill/resource/tool contract study:** exact terminology, schemas, trust, selection, context
+6. **Agent harness & loop study:** harness patterns (reasoning steps, tool loops, budgets, stopping conditions),
+   ownership alternatives, provider capability matrix, tool transport, and deterministic testing.
+7. **Skill/resource/tool contract study:** exact terminology, schemas, trust, selection, context
    budgets, and plugin composition rules.
-6. **Changeset and approval RFC:** binding, preconditions, diffs, atomicity, idempotency, stale-plan
+8. **Changeset and approval RFC:** binding, preconditions, diffs, atomicity, idempotency, stale-plan
    behavior, receipts, and core-owned UI boundaries.
-7. **Data-operation inventory:** every admitted domain mapped to its real owner, lock, validation,
+9. **Data-operation inventory:** every admitted domain mapped to its real owner, lock, validation,
    redaction, and application API.
-8. **Persistence and observability report:** workspace identity, transcript policy, log schema,
-   privacy, retention, replay, and cost visibility.
-9. **Threat model:** prompt injection, deceptive plugins, data leakage, races, partial failures,
-   runaway loops, and the trusted-code limitation.
-10. **Character-converter decision:** compose, absorb, or extract a shared capability, including the
+10. **Persistence and observability report:** workspace identity, transcript policy, log schema,
+    privacy, retention, replay, and cost visibility.
+11. **Threat model:** prompt injection, deceptive plugins, data leakage, races, partial failures,
+    runaway loops, and the trusted-code limitation.
+12. **Character-converter decision:** compose, absorb, or extract a shared capability, including the
     forward-only removal story.
-11. **UI contract exploration:** global action registration, full-screen workspace lifecycle,
+13. **UI contract exploration:** global action registration, full-screen workspace lifecycle,
     origin display, accessibility, localization, and approval presentation.
-12. **Decision register:** accepted decisions, rejected alternatives, unresolved questions, and
+14. **Decision register:** accepted decisions, rejected alternatives, unresolved questions, and
     evidence for each conclusion.
-13. **Hosted-plugin ecosystem report:** exported-service contracts, dependency declaration and
+15. **Hosted-plugin ecosystem report:** exported-service contracts, dependency declaration and
     resolution, lifecycle, compatibility, attribution, permissions, and a satellite-plugin proof.
-14. **Repository and distribution report:** ownership across core, hub, and
+16. **Repository and distribution report:** ownership across core, hub, and
     `alex-tavern-celestial`; independent CI/releases; content-addressed catalog integration; and no
     duplicated source of truth.
-15. **Entry-evidence review:** task-closure status, beta-user findings, expanded narrative
+17. **Entry-evidence review:** task-closure status, beta-user findings, expanded narrative
     benchmark evidence, plugin-specific benchmark evidence, known stability limits, and the exact
     reasons the foundation is considered ready for the Celestial challenge.
-16. **Implementation decomposition:** only after the exploration is accepted, create smaller
+18. **Implementation decomposition:** only after the exploration is accepted, create smaller
     implementation tasks with dependencies and boundary tests. Do not turn this document itself
     into an ever-growing implementation checklist.
 
@@ -771,8 +880,12 @@ prototypes when needed to answer a question. None should become production sourc
 - [ ] Work begins with a fresh reading of `AGENTS.md`, open Supertasks, current source, hub docs,
   and the live MCP-exported plugin contract.
 - [ ] The report explicitly distinguishes actual MCP transport from MCP-inspired schemas.
-- [ ] `/chat` works conceptually without requiring or fabricating a roleplay session.
+- [ ] The Central Adventure Hub works conceptually without requiring or fabricating an active roleplay session.
 - [ ] The proposed provider path keeps secrets server-owned and provider-neutral.
+- [ ] Selective context migration between adventures prevents raw transcript duplication and token bloat.
+- [ ] Character versions in the world (`v1 -> v2`) preserve temporal history while enabling state evolution.
+- [ ] Global world variables update with versioned timeline integrity across adventures.
+- [ ] The agent harness design integrates deliberative looping and tool use without compromising Tavern's lightweight, dependency-free core.
 - [ ] No model-driven mutation can bypass an exact, visible, explicit approval.
 - [ ] Plan mode has a proven no-write path.
 - [ ] Every writable domain has an owner, lock/revision rule, validator, diff, precondition, and
@@ -821,6 +934,10 @@ prototypes when needed to answer a question. None should become production sourc
 
 ## 19. Questions intentionally left open
 
+- How does the Hub transition a player between sequential adventures (e.g. trigger option at narrative boundaries vs. explicit "Return to Hub" action)?
+- How are character versions indexed, evolved, and referenced across different adventures in the same world?
+- What is the minimal viable agent harness that provides loop reasoning and multi-step tool execution without framework bloat?
+- How is the future World Guide conversation partitioned from the Celestial Adventure Orchestrator?
 - Should the generic agent loop be core-owned, plugin-owned, or split across a broker and plugin
   policy?
 - Is an actual in-process/stdio MCP boundary useful here, or is a smaller typed registry the honest

@@ -171,6 +171,17 @@ class TestCollectBeatEvidence:
         found = collect_beat_evidence(roteiro, ["Um murmúrio rouco escapa do ferido."])
         assert found == ["murmurio"]
 
+    def test_updated_scene_key_covers_only_the_same_whole_anchor(self) -> None:
+        from src.roteiro import collect_beat_evidence
+
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["terceira brecha", "brecha", "quarta brecha"])
+        )
+        found = collect_beat_evidence(
+            roteiro, ["A parede oeste explode."], scene_update_keys=("terceira_brecha",)
+        )
+        assert found == ["terceira brecha"]
+
     def test_no_beat_returns_empty(self) -> None:
         from src.roteiro import collect_beat_evidence
 
@@ -556,6 +567,7 @@ class TestRunnerWiring:
         game_roteiro=None,
         seed_history=None,
         narrator_events=None,  # noqa: ANN001
+        scene_update=None,  # noqa: ANN001
         skip=False,
     ):
         import src.runner as runner_mod
@@ -589,9 +601,10 @@ class TestRunnerWiring:
             # speaks every beat and the burst runs to its budget.
             queue = [next(speaker_cycle)] if speaker_cycle is not None else ["Narrator"]
             return director_beat(
-                       next_speakers=queue,
-                       perception_events=list(narrator_events or []),
-                   )
+                next_speakers=queue,
+                perception_events=list(narrator_events or []),
+                scene_update=scene_update,
+            )
 
         async def fake_character(game, character_id, context, turn_number, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
             return {"speech": "Falo agora.", "thought": None, "action_intent": None}
@@ -609,7 +622,10 @@ class TestRunnerWiring:
                 }
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
-            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: fake_prose())
+            monkeypatch.setattr(
+                runner, "_render_narration",
+                lambda g, e, t, viewers=None, **kwargs: fake_prose(),
+            )
             if skip:
                 monkeypatch.setattr(runner, "_call_character", fake_character)
             try:
@@ -709,6 +725,53 @@ class TestRunnerWiring:
         assert "murmurio" in game.roteiro.anchors_seen
         # Budget not exhausted and the anchor is covered -> no replan.
         assert calls["replan"] == 0
+
+    @pytest.mark.asyncio
+    async def test_anchor_from_scene_update_accumulates_into_seen(self, monkeypatch) -> None:  # noqa: ANN001
+        config = {"auto_event_enabled": False, "roteiro_enabled": True}
+        beat = _beat(budget_turns=4, expected_actors=[], expected_anchors=["terceira brecha"])
+        roteiro = _roteiro(beat=beat, beat_started_turn=1)
+        calls, game = await self._turn(
+            monkeypatch,
+            config,
+            game_roteiro=roteiro,
+            narrator_events=[
+                {
+                    "event_kind": "physical_outcome",
+                    "subject_id": "Narrator",
+                    "content": "A parede oeste explode em estilhaços.",
+                    "witness_ids": ["C1", "C2", "C3"],
+                }
+            ],
+            scene_update={"terceira_brecha": "aberta na parede oeste"},
+        )
+        assert calls["replan"] == 0
+        assert game is not None and game.roteiro is not None
+        assert game.scene.physical_facts["terceira_brecha"] == "aberta na parede oeste"
+        assert game.roteiro.anchors_seen == ["terceira brecha"]
+
+    @pytest.mark.asyncio
+    async def test_removed_scene_key_does_not_cover_anchor(self, monkeypatch) -> None:  # noqa: ANN001
+        config = {"auto_event_enabled": False, "roteiro_enabled": True}
+        beat = _beat(budget_turns=4, expected_actors=[], expected_anchors=["terceira brecha"])
+        roteiro = _roteiro(beat=beat, beat_started_turn=1)
+        _, game = await self._turn(
+            monkeypatch,
+            config,
+            game_roteiro=roteiro,
+            narrator_events=[
+                {
+                    "event_kind": "observation",
+                    "subject_id": "Narrator",
+                    "content": "A parede oeste fica quieta.",
+                    "witness_ids": ["C1", "C2", "C3"],
+                }
+            ],
+            scene_update={"terceira_brecha": None},
+        )
+        assert game is not None and game.roteiro is not None
+        assert "terceira_brecha" not in game.scene.physical_facts
+        assert game.roteiro.anchors_seen == []
 
 
 class TestNarrativeClock:

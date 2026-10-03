@@ -1,5 +1,14 @@
 # Task 75 — A critic at the end of the turn
 
+**Owner style feedback, 2026-10-02:** “é mais o narrador que tá meio duro”,
+clarified as “rigidez eu digo, muito técnico pra um narrador”. The owner
+separately praised the characters' personalities and voices. Retain this
+as a reader-reported target for future prose evaluation: narration should
+read naturally as storytelling. This feedback has no controlled style
+sample or comparative result, does not diagnose model capacity, and does
+not establish that an inline critic repairs it. This proposal remains in
+backlog.
+
 > **Status:** backlog, **proposed 2026-08-05** by the owner, enabled by the budget
 > rule (`AGENTS.md` §2). **Not scheduled**, and **half of it is already rejected
 > on this project's own evidence** — see §2.

@@ -1,5 +1,23 @@
 # Task 64 — Return control to the protagonist
 
+> **2026-10-01, target meaning unresolved.** In archived `54bcdace` T11,
+> `return_control=true` stops the burst for controlled Link after the
+> Director routed Maelis, Asword and Mirella. The Director's own events
+> focus a creature on Asword and direct Mirella's petition to Maelis; no
+> event specifically asks Link to decide. The logged prompt defines the
+> boolean through a pending choice, danger or question for **one named
+> person**, but returns no target identity, and the Runner maps the boolean
+> to a human handoff. This is an interface ambiguity, not proof that the
+> handoff was bad: Link could still initiate an action in the open group
+> scene. The earlier literary statement below that all ten returns chose
+> the right moment now needs an interactive read; two text-only readers
+> found no Link-specific invitation but cannot judge player affordance.
+> T11 is not an unambiguous named-person positive control for another
+> wording test; its previous A-arm `true` appeared in only 1/4 fresh calls
+> and that screen separately failed its 40/40 technical gate. No prompt or
+> schema change follows from this case. See the
+> [source read](../../plans/artifacts/64-return-control-calibration/T11-TARGET-BOUNDARY-READ.md).
+>
 > **2026-09-24, calibration screen stopped.** A preregistered five-payload,
 > 40-call wording comparison had 37/40 valid Director decisions despite 40 HTTP
 > 200 responses (two overlong speaker queues and one response with extra data

@@ -38,7 +38,7 @@ from src.agents.perspective import (
     revise_memory,
     update_identity,
 )
-from src.agents.prose import render_narration
+from src.agents.prose import prose_events_for_viewers, prose_history_for_viewers, render_narration
 from src.agents.suggest import suggest_moves
 from src.agents.summarizer import summarize
 from src.alignment import derive_alignment_impulse
@@ -965,7 +965,7 @@ class Runner:
 
                 _stamp_undo_anchor(game, step, beat_anchor)
                 game = await self._commit_beat(
-                    game, narrator_raw, character_responses, step, injected_event
+                    game, narrator_raw, character_responses, step, injected_event, scene_up
                 )
 
                 burst.beats.append(
@@ -1228,7 +1228,7 @@ class Runner:
 
     async def _resolve_beat_hint(
         self, game: GameState, step: int, beat_index: int, turn: TurnInput, pending: str
-    ) -> tuple[str, bool]:
+    ) -> tuple[str, bool, bool]:
         """Decide this beat's UPCOMING EVENT line, and whether the code injected it.
 
         Four producers share one blind channel, in strict precedence:
@@ -1604,10 +1604,8 @@ class Runner:
             )
             return ""
         clusters = self._narration_clusters(game, narrator_raw["perception_events"])
-        # An unsplit scene calls the renderer with exactly the pre-71 signature.
-        # Not merely for tidiness: it keeps every injected renderer that predates
-        # this task working, and makes "the majority of turns are untouched" a
-        # property of the code rather than a claim in a doc.
+        # A public scene with identical reader inputs needs one render. Private
+        # entitlement can split readers even when their physical room is shared.
         # Task 79: the Director's own blocking, for THIS turn's renderer only.
         # Never persisted, never seen by perception - `_blocking_lines` filters it
         # by the same cluster that scopes the cast, so cluster A cannot be told
@@ -1618,11 +1616,21 @@ class Runner:
         # working, and "turns without blocking are untouched" is a property of the
         # code rather than a claim in a doc.
         extra = {"blocking": narrator_raw.get("blocking")} if narrator_raw.get("blocking") else {}
+        physical_groups = [set(group) for group in perception_clusters(game.scene, game.characters)]
+
+        def render_scope(cluster: set[str] | None) -> dict[str, Any]:
+            options = dict(extra)
+            if cluster is not None:
+                parent = next((group for group in physical_groups if cluster <= group), cluster)
+                if cluster != parent:
+                    options["staging_viewers"] = parent
+            return options
+
         renders = [
             self._render_narration(game, narrator_raw["perception_events"], step, **extra)
             if cluster is None
             else self._render_narration(
-                game, narrator_raw["perception_events"], step, cluster, **extra
+                game, narrator_raw["perception_events"], step, cluster, **render_scope(cluster)
             )
             for cluster in clusters
         ]
@@ -1662,40 +1670,18 @@ class Runner:
     def _narration_clusters(
         game: GameState, events: list[dict[str, Any]] | None = None
     ) -> list[set[str] | None]:
-        """Who each narration render is for, in append order (task 71).
+        """Group readers by physical reach and identical prose inputs.
 
-        ``[None]`` — the whole scene, one public record, the pre-71 behaviour
-        byte for byte. Returned whenever the scene does not split, which after
-        task 67 is most turns and every flat-scene turn.
-
-        Otherwise one entry per perception cluster. **Singleton clusters are
-        folded**: a lone character already learns their surroundings through
-        perception events and memory, both per-viewer today, and nobody reads
-        their paragraph. That is the redundancy argument, not a cost argument -
-        `AGENTS.md` §2 - and after task 67 the singleton population measured
-        ZERO across four live sessions, so this branch is a guard against the
-        shape returning, not a saving.
-
-        **A cluster with no events of its own is folded too.** Same rule the
-        burst path above already applies to a whole beat, and the comment there
-        names the reason: the atmospheric fallback only re-describes the
-        standing tableau, which is a null recap turn.
-
-        Read on `c76037ff`, which is what put this branch here: the five-person
-        cluster received sixteen narrations and **eight of them had zero scoped
-        events**. What came back was the same room, over and over -
-        ``quietude`` in 44% of them against 3% of the main cluster's, ``penumbra``
-        50% against 0%, ``halos`` 19% against 0%. Sequence similarity between
-        consecutive ones is **0.02**, so no repetition guard here can see it; a
-        reader sees one paragraph four times. Nothing was happening to those
-        five people, and the honest render of that is silence.
-
-        The controlled character's cluster is NEVER folded, whatever its size and
-        whether or not it has events. Folding it would hand the one human reader
-        an empty turn, which is a worse failure than the leak this task closes.
+        A physical group may contain readers with different restricted history
+        or event audiences. Those readers need separate renders while retaining
+        their shared visible stage. Only a full group with identical inputs uses
+        the public record. The existing folds for silent distant groups and lone
+        distant characters apply before reader refinement; the controlled group
+        is always retained. A singleton created by privacy refinement can receive
+        its public events without inheriting someone else's private narration.
         """
         clusters = perception_clusters(game.scene, game.characters)
-        if len(clusters) <= 1:
+        if not clusters:
             return [None]
         controlled = game.player.controlled_character_id
 
@@ -1708,11 +1694,28 @@ class Runner:
                 for event in events
             )
 
-        return [
-            set(cluster)
-            for cluster in clusters
-            if controlled in cluster or (len(cluster) > 1 and has_events(cluster))
-        ]
+        refined: list[set[str]] = []
+        for parent in clusters:
+            if controlled not in parent and (len(parent) == 1 or not has_events(parent)):
+                continue
+            groups: dict[tuple[tuple[int, ...], tuple[int, ...]], set[str]] = {}
+            for viewer in parent:
+                readers = {viewer}
+                history_scope = tuple(
+                    id(r) for r in prose_history_for_viewers(game.history, readers)
+                )
+                event_scope = tuple(
+                    id(e) for e in prose_events_for_viewers(events or [], readers)
+                )
+                groups.setdefault((history_scope, event_scope), set()).add(viewer)
+            refined.extend(
+                group
+                for group in groups.values()
+                if controlled in group or has_events(list(group))
+            )
+        if len(clusters) == 1 and len(refined) == 1 and refined[0] == set(clusters[0]):
+            return [None]
+        return list(refined)
 
     def _callable_speakers(self, game: GameState, queue: list[str]) -> list[str]:
         """The queue entries the runner may actually voice, in order.
@@ -1971,12 +1974,12 @@ class Runner:
         )
         # Persisted in the Director's order, never in completion order: the
         # gather is a latency device and must not become a source of nondeterminism.
-        for (event, spoken, heard_by), line in zip(pending, routed, strict=True):
+        for (event, spoken, heard_by), routed_line in zip(pending, routed, strict=True):
             subject = str(event["subject_id"])
-            if isinstance(line, BaseException) or not line:
+            if isinstance(routed_line, BaseException) or not routed_line:
                 self._report_speech(game, subject, spoken, heard_by, step, "routing_failed")
                 continue
-            if not _carries_intent(line, spoken):
+            if not _carries_intent(routed_line, spoken):
                 # NOT "mandate_ignored". That name belongs to case C above, and
                 # the two outcomes carry different falsifiers: case C failing
                 # says the mandate riding into an existing call does not work,
@@ -1989,7 +1992,13 @@ class Runner:
                 self._report_speech(game, subject, spoken, heard_by, step, "routed_intent_missing")
                 continue
             self._append_history(
-                game, subject, line, "speech", step, audience=heard_by, audience_origin="zone"
+                game,
+                subject,
+                routed_line,
+                "speech",
+                step,
+                audience=heard_by,
+                audience_origin="zone",
             )
 
     async def _route_speech_intent(
@@ -2042,6 +2051,7 @@ class Runner:
         character_responses: list[dict[str, Any]],
         step: int,
         injected_event: bool,
+        scene_up: dict[str, Any] | None,
     ) -> GameState:
         """Apply the beat's remaining state and save it as one transaction."""
         mood_updates = narrator_raw.get("mood_updates")
@@ -2076,7 +2086,20 @@ class Runner:
                     evidence_texts.append(response["speech"])
                 if response.get("action_intent"):
                     evidence_texts.append(response["action_intent"])
-            newly_seen = collect_beat_evidence(game.roteiro, evidence_texts)
+            updated_keys = (
+                tuple(
+                    key
+                    for key, value in scene_up.items()
+                    if key in game.scene.physical_facts
+                    and value is not None
+                    and game.scene.physical_facts[key] == value
+                )
+                if scene_up
+                else ()
+            )
+            newly_seen = collect_beat_evidence(
+                game.roteiro, evidence_texts, scene_update_keys=updated_keys
+            )
             if newly_seen:
                 game.roteiro.anchors_seen.extend(newly_seen)
         game.narrative_tick += 1
@@ -3026,6 +3049,7 @@ class Runner:
         turn_number: int,
         viewers: set[str] | None = None,
         blocking: dict[str, str] | None = None,
+        staging_viewers: set[str] | None = None,
     ) -> str:
         """Blind prose renderer boundary (Task 36) — injectable like the other agents."""
         return await render_narration(
@@ -3040,6 +3064,7 @@ class Runner:
             turn_number=turn_number,
             viewers=viewers,
             blocking=blocking,
+            staging_viewers=staging_viewers,
         )
 
     async def _ensure_perspective(

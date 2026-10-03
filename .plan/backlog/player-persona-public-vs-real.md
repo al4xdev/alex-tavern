@@ -1,5 +1,13 @@
 # Backlog — Player character: split PUBLIC persona from REAL persona
 
+**Owner feedback, 2026-10-02:** “as personas do personagens estão ótimas”;
+about Sofia with a local model, “a forma de falar pegou bem no que escrevi
+dela”. The owner also mentioned a missed hole in the scene. These are
+reported play impressions, not controlled acceptance results. Preserve the
+distinction: this item concerns public identity, concealment and perception;
+it is not a mandate to rewrite character personalities or voices. It remains
+in backlog.
+
 **Status:** Backlog — design note, not started (captured 2026-07-20 from live play).
 **Origin:** owner observation on session `17b66db3` (Academia, seleção), turns 1-2.
 **Related:** 29.2 (subjective state / perspective ledgers), 35 (perception

@@ -195,7 +195,10 @@ async def _drive(monkeypatch, actions: int, max_beats: int = BURST_BEATS):  # no
         )
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(runner, "_call_character", fake_character)
-        monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _prose())
+        monkeypatch.setattr(
+            runner, "_render_narration",
+            lambda g, e, t, viewers=None, **kwargs: _prose(),
+        )
         try:
             game = await runner.get_state(sid)
             assert game is not None

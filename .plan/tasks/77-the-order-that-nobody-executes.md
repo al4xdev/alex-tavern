@@ -1,5 +1,12 @@
 # Task 77 — The order that nobody executes
 
+**Additional content read, 2026-10-01:** a reconstructed detector window in
+`55d03896` T17–T19 has fixed recorded positions and similar orders, while
+the fiction depicts a new breach, swarm and defensive action; T20 adds a
+golem and breaks the formation. This selected hit cannot be read as literal
+physical immobility. A separate opening/restaging ambiguity belongs to Task
+69. See [source read](../../plans/artifacts/77-content-audit/CASE-55D-T17-T20.md).
+
 **Content correction, 2026-09-24:** the three cited windows were reread as
 continuous fiction and checked against accepted Director output and committed
 positions. In `09aabf25` T30–T35, Link and Asword advance within the hall but

@@ -24,7 +24,7 @@ import pytest
 
 from src.agents.prose import build_prose_messages
 from src.models import CharacterPerspective, Scene, TurnRecord, deepcopy_scene
-from src.perception import perception_clusters
+from src.perception import eligible_witnesses, perception_clusters
 from src.runner import Runner
 from src.store.sessions import delete_session
 from tests.factories import director_beat, make_cast, make_game, make_scene
@@ -210,7 +210,13 @@ class TestTheProsePromptIsScopedToOneCluster:
 
 
 class TestTheRunnerRendersAndPersistsPerCluster:
-    async def _turn(self, monkeypatch, scene: Scene, controlled: str = "C1"):  # noqa: ANN001, ANN202
+    async def _turn(
+        self,
+        monkeypatch,  # noqa: ANN001
+        scene: Scene,
+        controlled: str = "C1",
+        empty_cluster: set[str] | None = None,
+    ):  # noqa: ANN202
         import src.runner as runner_mod
 
         async def fake_init(client, viewer_id, characters, cfg, **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
@@ -222,8 +228,8 @@ class TestTheRunnerRendersAndPersistsPerCluster:
         monkeypatch.setattr(runner_mod, "initialize_perspective", fake_init)
 
         async def fake_narrator(game, turn_number, forced_speaker=None, narrator_hint="", **kwargs):  # noqa: ANN001, ANN003, ANN202, ARG001
-            # An event reaching EACH cluster, or the events-fold below suppresses
-            # the far one and these tests stop testing the split.
+            # Events shared by their whole physical group isolate room splitting.
+            # Restricted audiences inside a room have separate entitlement tests.
             return director_beat(
                 next_speakers=["Narrator"],
                 perception_events=[
@@ -231,13 +237,17 @@ class TestTheRunnerRendersAndPersistsPerCluster:
                         "event_kind": "observation",
                         "subject_id": "C1",
                         "content": "Uma tocha cai no salao.",
-                        "witness_ids": ["C3"],
+                        "witness_ids": sorted(
+                            eligible_witnesses(game.scene, game.characters, "C1")
+                        ),
                     },
                     {
                         "event_kind": "observation",
-                        "subject_id": "C2",
+                        "subject_id": "C3",
                         "content": "O teto do corredor racha.",
-                        "witness_ids": ["C4"],
+                        "witness_ids": sorted(
+                            eligible_witnesses(game.scene, game.characters, "C3")
+                        ),
                     },
                 ],
             )
@@ -246,6 +256,8 @@ class TestTheRunnerRendersAndPersistsPerCluster:
 
         async def fake_prose(game, events, turn_number, viewers=None):  # noqa: ANN001, ANN202, ARG001
             calls.append(viewers)
+            if empty_cluster is not None and viewers == empty_cluster:
+                return ""
             who = "todos" if viewers is None else "-".join(sorted(viewers))
             return f"Prosa para {who}."
 
@@ -293,6 +305,17 @@ class TestTheRunnerRendersAndPersistsPerCluster:
         # two are the same record shape - a paragraph of prose and a one-line
         # report that somebody spoke. Caught on a live session.
         assert {r.audience_origin for r in narrations} == {"cluster"}
+
+    @pytest.mark.asyncio
+    async def test_empty_cluster_narration_creates_no_record(self, monkeypatch) -> None:  # noqa: ANN001
+        game, calls = await self._turn(monkeypatch, _split_scene(), empty_cluster={"C1", "C2"})
+        assert {frozenset(viewers or set()) for viewers in calls} == {
+            frozenset({"C1", "C2"}),
+            frozenset({"C3", "C4"}),
+        }
+        narrations = [record for record in game.history if record.content_type == "narration"]
+        assert len(narrations) == 1
+        assert narrations[0].audience == ["C3", "C4"]
 
     @pytest.mark.asyncio
     async def test_the_far_cluster_cannot_read_the_players_narration(self, monkeypatch) -> None:  # noqa: ANN001
@@ -396,7 +419,7 @@ class TestOffstageActorsAreStrippedDeterministically:
         assert _strip_offstage_actors(text, self._scene(), cast, "C1", {"C1", "C3"}) == text
 
     def test_a_paragraph_that_is_entirely_offstage_returns_empty(self) -> None:
-        """The caller then keeps the draft, exactly as the echo guard does."""
+        """The Runner omits an empty cluster narration instead of leaking it."""
         text = "Marta Ferrolume ergue a cabeca. Marta Ferrolume solta a chave."
         assert self._strip(text) == ""
 

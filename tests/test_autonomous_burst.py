@@ -77,7 +77,10 @@ async def _run(monkeypatch, config, director_beats, skip=True, force=None, speec
         )
         monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
         monkeypatch.setattr(runner, "_call_character", fake_character)
-        monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
+        monkeypatch.setattr(
+            runner, "_render_narration",
+            lambda g, e, t, viewers=None, **kwargs: _fake_prose(),
+        )
         try:
             result = await runner.player_turn(sid, speech=speech, skip=skip, force_speaker=force)
             game = await runner.get_state(sid)
@@ -128,7 +131,10 @@ class TestBurst:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(runner, "_call_character", fake_character)
-            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
+            monkeypatch.setattr(
+                runner, "_render_narration",
+                lambda g, e, t, viewers=None, **kwargs: _fake_prose(),
+            )
             try:
                 await runner.player_turn(sid, skip=True)
             finally:
@@ -189,7 +195,7 @@ class TestBurst:
         # prose renderer is never invited to re-describe the standing tableau.
         assert game is not None
         narration_turns = [r.turn_number for r in game.history if r.content_type == "narration"]
-        assert narration_turns == [1]
+        assert set(narration_turns) == {1}  # Audience-scoped prose can share one beat.
         # And it consumed no turn number: every reported beat has records.
         recorded = {r.turn_number for r in game.history}
         assert {b["turn_number"] for b in result["beats"]} <= recorded
@@ -275,7 +281,10 @@ class TestBurst:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(runner, "_call_character", fake_character)
-            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
+            monkeypatch.setattr(
+                runner, "_render_narration",
+                lambda g, e, t, viewers=None, **kwargs: _fake_prose(),
+            )
             try:
                 result = await runner.player_turn(sid, skip=True)
                 assert len(result["beats"]) == 2
@@ -372,7 +381,10 @@ class TestACrashLeavesOnlyCompleteBeats:
             )
             monkeypatch.setattr(runner, "_call_narrator", exploding_narrator)
             monkeypatch.setattr(runner, "_call_character", fake_character)
-            monkeypatch.setattr(runner, "_render_narration", lambda g, e, t: _fake_prose())
+            monkeypatch.setattr(
+                runner, "_render_narration",
+                lambda g, e, t, viewers=None, **kwargs: _fake_prose(),
+            )
             try:
                 with pytest.raises(RuntimeError, match="provider died mid-burst"):
                     await runner.player_turn(sid, skip=True)
