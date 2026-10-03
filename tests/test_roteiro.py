@@ -606,8 +606,7 @@ class TestConfidentialityAndConsumption:
         assert "Marta" in user_prompt  # actor rendered by name, not internal ID
 
     def test_director_block_lists_only_pending_anchors(self) -> None:
-        """An anchor already in play is not re-listed — that would invite the
-        Director to stage the same prop twice."""
+        """Only elements awaiting coverage in this beat are re-listed."""
         seen = _roteiro(
             beat=_beat(expected_anchors=["carta lacrada", "adaga"]),
             anchors_seen=["carta lacrada"],
@@ -621,7 +620,7 @@ class TestConfidentialityAndConsumption:
             beat=_beat(expected_anchors=["carta lacrada"]), anchors_seen=["carta lacrada"]
         )
         lines = "\n".join(describe_roteiro_for_director(seen, CHARACTERS))
-        assert "Not in play yet" not in lines
+        assert "Beat elements awaiting coverage" not in lines
 
     def test_prose_and_character_builders_have_no_roteiro_surface(self) -> None:
         """Confidentiality is structural: the other prompt builders cannot even

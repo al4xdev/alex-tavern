@@ -312,11 +312,9 @@ def describe_roteiro_for_director(roteiro: Roteiro, characters: dict) -> list[st
         lines.append(f"    Give stage time to: {actor_names}")
     pending = [a for a in beat.expected_anchors if a not in roteiro.anchors_seen]
     if pending:
-        # Only what has NOT landed yet: an anchor already in play would just
-        # invite the Director to stage the same prop twice.
-        lines.append(
-            f"    Not in play yet — introduce as concrete perception events: {', '.join(pending)}"
-        )
+        # Coverage belongs to this beat; an uncovered element can already
+        # exist in the world or have appeared during a previous beat.
+        lines.append(f"    Beat elements awaiting coverage: {', '.join(pending)}")
     if beat.exit_condition:
         lines.append(f"    The beat ends when: {beat.exit_condition}")
     lines.append(

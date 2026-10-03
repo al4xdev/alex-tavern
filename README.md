@@ -491,6 +491,8 @@ confirmed recent events after that plan and its status.
 Compiler and next-beat schemas constrain `expected_actors` to the full roster's IDs.
 Names and unknown references trigger the shared client's validation/retry before
 normalization can discard actor hints; the Runner still applies its agency exclusion.
+The Director's pending-anchor list describes coverage within the current beat;
+it does not claim that an uncovered element is absent from the world.
 
 Alex Tavern therefore treats “should characters serve the drama?” as an explicit product choice
 instead of hiding the railroading. **Free simulation** preserves independent action but may produce
