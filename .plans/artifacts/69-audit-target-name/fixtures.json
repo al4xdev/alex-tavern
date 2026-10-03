@@ -1,0 +1,223 @@
+[
+  {
+    "fixture": {
+      "id": "submission1-generic_target",
+      "title": "generic_target",
+      "expected": [
+        "accept",
+        "uncertain"
+      ],
+      "obligations": "Permission or uncertainty confined to unspecified causal aperture; no unsupported physical claims."
+    },
+    "packet": {
+      "source": {
+        "committed_start": {
+          "description": "Established physical state before any step in 'transaction.steps'.",
+          "value": {
+            "apertures": {
+              "portal azul": "closed",
+              "portal verde": "closed"
+            },
+            "positions": {
+              "Iara": "túnel",
+              "Bento": "salão",
+              "Téo": "salão"
+            }
+          }
+        },
+        "new_causes": {
+          "description": "Interventions happening during this transaction; evaluate their consequences against 'committed_start.value'. No unspecified intervention may be invented.",
+          "value": "Bento retira a barra e puxa a folha: intervenção nova suficiente para abrir a passagem."
+        },
+        "declared_attempts": {
+          "description": "Actions intended and attempted during this transaction; 'action' and 'destination' describe intent, not an already completed outcome.",
+          "value": [
+            {
+              "actor": "Téo",
+              "target": "portal azul",
+              "action": "cross",
+              "destination": "túnel"
+            }
+          ]
+        },
+        "proposed_beat": {
+          "description": "Desired beat content, not confirmed history. Preserve supported outcomes after 'new_causes.value' and 'declared_attempts.value'; replace physically impossible outcomes. Reported speech intent does not change physical state.",
+          "value": "Bento retira a barra e puxa a folha, abrindo o portal azul. Téo atravessa para o túnel. Iara mantém a lanterna acesa no túnel."
+        }
+      },
+      "transaction": {
+        "steps": [
+          {
+            "kind": "aperture_change",
+            "target": "portal azul",
+            "actor": "",
+            "from_state": "closed",
+            "to_state": "open",
+            "result": "",
+            "cause": "Bento retira a barra e puxa a folha",
+            "text": ""
+          },
+          {
+            "kind": "attempt_result",
+            "target": "portal azul",
+            "actor": "Téo",
+            "from_state": "",
+            "to_state": "",
+            "result": "crossed",
+            "cause": "",
+            "text": ""
+          },
+          {
+            "kind": "other",
+            "target": "",
+            "actor": "",
+            "from_state": "",
+            "to_state": "",
+            "result": "",
+            "cause": "",
+            "text": "Iara mantém a lanterna acesa no túnel."
+          }
+        ]
+      },
+      "transaction_contract": {
+        "aperture_change": {
+          "target": "One tracked portal from 'source.committed_start.value.apertures'.",
+          "actor": "Always empty; the actor causing a change may be named in 'cause'.",
+          "from_state": "Aperture immediately before this step.",
+          "to_state": "New, different aperture after its supported cause.",
+          "cause": "Supported intervention producing this transition; may reference this SAME transition, never add another tracked change.",
+          "result": "Empty.",
+          "text": "Empty."
+        },
+        "attempt_result": {
+          "target": "Portal addressed by the declared crossing attempt.",
+          "actor": "The named actor making that attempt.",
+          "from_state": "Empty.",
+          "to_state": "Empty.",
+          "result": "crossed means passage through an open portal to the declared destination; blocked means the actor stays at their starting position.",
+          "cause": "Empty.",
+          "text": "Empty."
+        },
+        "other": {
+          "target": "Empty.",
+          "actor": "Empty.",
+          "from_state": "Empty.",
+          "to_state": "Empty.",
+          "result": "Empty.",
+          "cause": "Empty.",
+          "text": "Remaining event, reported speech intent, background action or continuing-state observation. May not declare a change of a tracked aperture or a tracked cast crossing. Nonmutating speech needs no physical entity binding."
+        }
+      }
+    }
+  },
+  {
+    "fixture": {
+      "id": "submission2-named_target",
+      "title": "named_target",
+      "expected": [
+        "accept"
+      ],
+      "obligations": "Supported blue reopening and crossing, no material uncertainty or alleged physical defect."
+    },
+    "packet": {
+      "source": {
+        "committed_start": {
+          "description": "Established physical state before any step in 'transaction.steps'.",
+          "value": {
+            "apertures": {
+              "portal azul": "closed",
+              "portal verde": "closed"
+            },
+            "positions": {
+              "Iara": "túnel",
+              "Bento": "salão",
+              "Téo": "salão"
+            }
+          }
+        },
+        "new_causes": {
+          "description": "Interventions happening during this transaction; evaluate their consequences against 'committed_start.value'. No unspecified intervention may be invented.",
+          "value": "Bento retira a barra do portal azul e puxa sua folha: intervenção nova suficiente para abrir a passagem."
+        },
+        "declared_attempts": {
+          "description": "Actions intended and attempted during this transaction; 'action' and 'destination' describe intent, not an already completed outcome.",
+          "value": [
+            {
+              "actor": "Téo",
+              "target": "portal azul",
+              "action": "cross",
+              "destination": "túnel"
+            }
+          ]
+        },
+        "proposed_beat": {
+          "description": "Desired beat content, not confirmed history. Preserve supported outcomes after 'new_causes.value' and 'declared_attempts.value'; replace physically impossible outcomes. Reported speech intent does not change physical state.",
+          "value": "Bento retira a barra e puxa a folha, abrindo o portal azul. Téo atravessa para o túnel. Iara mantém a lanterna acesa no túnel."
+        }
+      },
+      "transaction": {
+        "steps": [
+          {
+            "kind": "aperture_change",
+            "target": "portal azul",
+            "actor": "",
+            "from_state": "closed",
+            "to_state": "open",
+            "result": "",
+            "cause": "Bento retira a barra e puxa a folha",
+            "text": ""
+          },
+          {
+            "kind": "attempt_result",
+            "target": "portal azul",
+            "actor": "Téo",
+            "from_state": "",
+            "to_state": "",
+            "result": "crossed",
+            "cause": "",
+            "text": ""
+          },
+          {
+            "kind": "other",
+            "target": "",
+            "actor": "",
+            "from_state": "",
+            "to_state": "",
+            "result": "",
+            "cause": "",
+            "text": "Iara mantém a lanterna acesa no túnel."
+          }
+        ]
+      },
+      "transaction_contract": {
+        "aperture_change": {
+          "target": "One tracked portal from 'source.committed_start.value.apertures'.",
+          "actor": "Always empty; the actor causing a change may be named in 'cause'.",
+          "from_state": "Aperture immediately before this step.",
+          "to_state": "New, different aperture after its supported cause.",
+          "cause": "Supported intervention producing this transition; may reference this SAME transition, never add another tracked change.",
+          "result": "Empty.",
+          "text": "Empty."
+        },
+        "attempt_result": {
+          "target": "Portal addressed by the declared crossing attempt.",
+          "actor": "The named actor making that attempt.",
+          "from_state": "Empty.",
+          "to_state": "Empty.",
+          "result": "crossed means passage through an open portal to the declared destination; blocked means the actor stays at their starting position.",
+          "cause": "Empty.",
+          "text": "Empty."
+        },
+        "other": {
+          "target": "Empty.",
+          "actor": "Empty.",
+          "from_state": "Empty.",
+          "to_state": "Empty.",
+          "result": "Empty.",
+          "cause": "Empty.",
+          "text": "Remaining event, reported speech intent, background action or continuing-state observation. May not declare a change of a tracked aperture or a tracked cast crossing. Nonmutating speech needs no physical entity binding."
+        }
+      }
+    }
+  }
+]

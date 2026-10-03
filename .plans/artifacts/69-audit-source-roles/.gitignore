@@ -1,0 +1,4 @@
+*.json
+!fixtures.json
+*.bak
+__pycache__/
