@@ -202,6 +202,46 @@ class TestBeatProgress:
         progress = measure_beat_progress(roteiro, history, "C1")
         assert progress.anchors_hit == ("carta lacrada",)
 
+    @pytest.mark.parametrize("content_type", ["narration", "speech", "action"])
+    def test_authoritative_anchor_requires_recorded_coverage(self, content_type: str) -> None:
+        roteiro = _roteiro(beat=_beat(expected_anchors=["porta aberta", "carta lacrada"]))
+        history = [_record(1, "C2", "A porta aberta revela a carta lacrada.", content_type)]
+        progress = measure_beat_progress(
+            roteiro, history, "C1", authoritative_anchors={"porta aberta"}
+        )
+        assert progress.anchors_hit == ("carta lacrada",)
+        assert progress.anchors_missing == ("porta aberta",)
+
+    def test_authoritative_coverage_can_advance_without_a_textual_mention(self) -> None:
+        roteiro = _roteiro(
+            beat=_beat(expected_anchors=["porta aberta"]), anchors_seen=["porta aberta"]
+        )
+        decision = evaluate_roteiro(
+            roteiro,
+            [_record(1, "C2", "Podemos seguir.")],
+            "C1",
+            2,
+            authoritative_anchors={"porta aberta"},
+        )
+        assert decision.action == "advance"
+        assert decision.reason == "coverage_complete"
+
+    def test_text_alone_cannot_trigger_full_or_partial_authoritative_coverage(self) -> None:
+        roteiro = _roteiro(beat=_beat(expected_anchors=["porta aberta", "ponte erguida"]))
+        history = [_record(1, "C2", "A porta aberta dá acesso à ponte erguida.")]
+        default = evaluate_roteiro(roteiro, history, "C1", 2)
+        protected = evaluate_roteiro(
+            roteiro,
+            history,
+            "C1",
+            2,
+            authoritative_anchors={"porta aberta", "ponte erguida"},
+        )
+        assert default.reason == "coverage_complete"
+        assert protected.action is None
+        assert protected.progress is not None
+        assert protected.progress.anchors_missing == ("porta aberta", "ponte erguida")
+
     def test_player_speaker_maps_to_controlled_id(self) -> None:
         roteiro = _roteiro(beat=_beat(expected_actors=["C1"]))
         history = [_record(1, "Player", "Eu abro a porta.")]

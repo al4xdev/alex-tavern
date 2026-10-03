@@ -2090,25 +2090,8 @@ class Runner:
         # lossy prose. Audible speech never reaches the renderer, so the prose can
         # never be the coverage surface without punishing the Director for obeying.
         if game.roteiro is not None and game.roteiro.beat is not None:
-            evidence_texts = [event["content"] for event in narrator_raw["perception_events"]]
-            for response in character_responses:
-                if response.get("speech"):
-                    evidence_texts.append(response["speech"])
-                if response.get("action_intent"):
-                    evidence_texts.append(response["action_intent"])
-            updated_keys = (
-                tuple(
-                    key
-                    for key, value in scene_up.items()
-                    if key in game.scene.physical_facts
-                    and value is not None
-                    and game.scene.physical_facts[key] == value
-                )
-                if scene_up
-                else ()
-            )
-            newly_seen = collect_beat_evidence(
-                game.roteiro, evidence_texts, scene_update_keys=updated_keys
+            newly_seen = self._collect_beat_evidence(
+                game, narrator_raw, character_responses, scene_up
             )
             if newly_seen:
                 game.roteiro.anchors_seen.extend(newly_seen)
@@ -2120,6 +2103,35 @@ class Runner:
         save_game(game)
         await self.plugins.hooks.action(Hook.TURN_AFTER_COMMIT, {"game": game, "kind": "turn"})
         return game
+
+    def _collect_beat_evidence(
+        self,
+        game: GameState,
+        narrator_raw: dict[str, Any],
+        character_responses: list[dict[str, Any]],
+        scene_up: dict[str, Any] | None,
+    ) -> list[str]:
+        """Collect authoritative coverage without owning the commit transaction."""
+        if game.roteiro is None or game.roteiro.beat is None:
+            return []
+        evidence_texts = [event["content"] for event in narrator_raw["perception_events"]]
+        for response in character_responses:
+            if response.get("speech"):
+                evidence_texts.append(response["speech"])
+            if response.get("action_intent"):
+                evidence_texts.append(response["action_intent"])
+        updated_keys = (
+            tuple(
+                key
+                for key, value in scene_up.items()
+                if key in game.scene.physical_facts
+                and value is not None
+                and game.scene.physical_facts[key] == value
+            )
+            if scene_up
+            else ()
+        )
+        return collect_beat_evidence(game.roteiro, evidence_texts, scene_update_keys=updated_keys)
 
     def _beat_settled(
         self,
@@ -2983,9 +2995,7 @@ class Runner:
                     actors_missing=[],
                 )
             return world_event or None
-        decision = evaluate_roteiro(
-            game.roteiro, game.history, game.player.controlled_character_id, next_turn
-        )
+        decision = self._evaluate_roteiro(game, next_turn)
         log_roteiro_decision(
             game.session_id,
             turn_number,
@@ -3005,6 +3015,13 @@ class Runner:
                 current_tick=game.narrative_tick,
             )
         return None
+
+    def _evaluate_roteiro(self, game: GameState, next_turn: int) -> ReplanDecision:
+        """Evaluate planning coverage separately from applying the replan."""
+        assert game.roteiro is not None
+        return evaluate_roteiro(
+            game.roteiro, game.history, game.player.controlled_character_id, next_turn
+        )
 
     async def _call_narrator(
         self,

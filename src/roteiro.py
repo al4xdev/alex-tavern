@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import unicodedata
+from collections.abc import Collection
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
@@ -161,12 +162,16 @@ def measure_beat_progress(
     roteiro: Roteiro,
     history: list[TurnRecord],
     controlled_id: str,
+    *,
+    authoritative_anchors: Collection[str] = (),
 ) -> BeatProgress:
     """Coverage of the rolling beat: which anchors/actors the story has touched.
 
     Anchors come from ``roteiro.anchors_seen`` (accumulated from authoritative
     evidence, see ``collect_beat_evidence``) plus this beat's history records,
-    so an anchor a character speaks about also counts. An actor counts when
+    so an anchor a character speaks about also counts. Explicitly authoritative
+    anchors require recorded coverage and cannot be proved by historical text.
+    An actor counts when
     they themselves spoke or acted since the beat began. The disengaged streak
     counts trailing turn numbers where NOTHING touched the beat (drift input).
     """
@@ -181,7 +186,10 @@ def measure_beat_progress(
         anchor
         for anchor in beat.expected_anchors
         if anchor in roteiro.anchors_seen
-        or any(anchor_matched(anchor, rec.content) for rec in records)
+        or (
+            anchor not in authoritative_anchors
+            and any(anchor_matched(anchor, rec.content) for rec in records)
+        )
     }
     actors_hit = {
         actor
@@ -227,6 +235,8 @@ def evaluate_roteiro(
     history: list[TurnRecord],
     controlled_id: str,
     next_turn: int,
+    *,
+    authoritative_anchors: Collection[str] = (),
 ) -> ReplanDecision:
     """The deterministic replan engine — pure code, no model judgment.
 
@@ -238,7 +248,9 @@ def evaluate_roteiro(
     """
     if roteiro.beat is None:
         return ReplanDecision(action="replan_beat", reason="no_beat")
-    progress = measure_beat_progress(roteiro, history, controlled_id)
+    progress = measure_beat_progress(
+        roteiro, history, controlled_id, authoritative_anchors=authoritative_anchors
+    )
 
     covered = not progress.anchors_missing and not progress.actors_missing
     if covered and (roteiro.beat.expected_anchors or roteiro.beat.expected_actors):
