@@ -383,7 +383,7 @@ export async function skipTurn() {
             for (const beat of beats) {
                 if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
                 for (const entry of (beat.character_responses || [])) {
-                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
+                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought, action: entry.action_intent }, 'response', { animate: true });
                 }
             }
         }
@@ -546,7 +546,7 @@ export async function sendTurn(isRetry = false) {
             for (const beat of beats) {
                 if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
                 for (const entry of (beat.character_responses || [])) {
-                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought }, 'response', { animate: true });
+                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought, action: entry.action_intent }, 'response', { animate: true });
                 }
             }
         }
