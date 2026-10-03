@@ -50,7 +50,8 @@ def test_event_input_is_separate_from_confirmed_history_and_output_schema():
     }
     assert "first manifestation must happen in the next turn" in messages[0]["content"]
     assert "has not happened yet" in messages[0]["content"]
-    assert "event" not in roteiro_mod.build_roteiro_schema()["schema"]["properties"]
+    schema = roteiro_mod.build_roteiro_schema(list(game.characters))
+    assert "event" not in schema["schema"]["properties"]
     assert game.history == []
 
 

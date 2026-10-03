@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 
 import httpx
@@ -29,6 +30,7 @@ from src.roteiro import (
     anchor_matched,
     describe_roteiro_for_director,
     evaluate_roteiro,
+    generate_roteiro,
     measure_beat_progress,
     replan_roteiro,
 )
@@ -91,6 +93,81 @@ def _game(**overrides) -> GameState:  # noqa: ANN003
     }
     fields.update(overrides)
     return GameState(**fields)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["compile", "replan"])
+async def test_actor_names_are_rejected_before_normalization(operation: str) -> None:
+    """Names must trigger schema retry instead of silently erasing actor hints."""
+    game = _game(roteiro=_roteiro())
+    requests: list[dict] = []
+    beat = {
+        "beat_id": "new-beat",
+        "intent": "Uma rajada abre a janela.",
+        "expected_anchors": ["janela aberta"],
+        "exit_condition": "A rajada cessa.",
+        "budget_turns": 4,
+    }
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(json.loads(request.content))
+        actors = ["Marta"] if len(requests) == 1 else ["C1", "C2"]
+        planned = {**beat, "expected_actors": actors}
+        if operation == "compile":
+            output = {
+                "premise": "Uma rajada perturba a estalagem.",
+                "acts": [
+                    {
+                        "act_id": "a1",
+                        "summary": "Lidar com a rajada.",
+                        "exit_condition": "A rajada cessa.",
+                        "duration_ticks": 0,
+                        "world_event": "A janela bate.",
+                    }
+                ],
+                "first_beat": planned,
+            }
+        else:
+            output = {"act_completed": False, "beat": planned}
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "message": {
+                            "content": json.dumps(output),
+                        }
+                    }
+                ]
+            },
+        )
+
+    config = {
+        "provider": "deepseek",
+        "api_base": "https://api.deepseek.com",
+        "thinking_enabled": True,
+    }
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        if operation == "compile":
+            updated = await generate_roteiro(client, game, config, 3)
+        else:
+            updated = await replan_roteiro(
+                client, game, ReplanDecision("advance", "coverage_complete"), config, 3
+            )
+    assert len(requests) == 2
+    assert updated.beat is not None
+    assert updated.beat.expected_actors == ["C2"]
+    # Every roster member is represented equally, including the controlled one.
+    embedded = json.loads(
+        requests[0]["messages"][0]["content"].split(
+            "Do not add markdown or keys outside the schema:\n", 1
+        )[1]
+    )
+    key = "first_beat" if operation == "compile" else "beat"
+    assert embedded["properties"][key]["properties"]["expected_actors"]["items"] == {
+        "type": "string",
+        "enum": ["C1", "C2", "C3"],
+    }
 
 
 class TestAnchorMatching:
@@ -623,7 +700,8 @@ class TestRunnerWiring:
             )
             monkeypatch.setattr(runner, "_call_narrator", fake_narrator)
             monkeypatch.setattr(
-                runner, "_render_narration",
+                runner,
+                "_render_narration",
                 lambda g, e, t, viewers=None, **kwargs: fake_prose(),
             )
             if skip:
@@ -1089,9 +1167,7 @@ class TestNarrativeClock:
             await client.aclose()
 
     @pytest.mark.asyncio
-    async def test_terminal_act_regenerates_instead_of_repeating_forever(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_terminal_act_regenerates_instead_of_repeating_forever(self, monkeypatch) -> None:  # noqa: ANN001
         """The last act must not re-fire its climax every `duration_ticks`.
 
         The old code guarded the index advance but still reset `act_started_tick`
@@ -1139,9 +1215,7 @@ class TestNarrativeClock:
             await client.aclose()
 
     @pytest.mark.asyncio
-    async def test_a_regeneration_that_yields_nothing_stops_the_clock(
-        self, monkeypatch
-    ) -> None:  # noqa: ANN001
+    async def test_a_regeneration_that_yields_nothing_stops_the_clock(self, monkeypatch) -> None:  # noqa: ANN001
         """The safety valve: no new act must stop the clock, never re-fire it.
 
         Without it one bad generation trades a repeated event for a repeated

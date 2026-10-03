@@ -488,6 +488,9 @@ Roteiro schemas describe each field locally: `act_completed` explains both boole
 These descriptions guide the model; they do not validate narrative correctness.
 Next-beat planning labels the superseded guidance `PREVIOUS BEAT PLAN` and places
 confirmed recent events after that plan and its status.
+Compiler and next-beat schemas constrain `expected_actors` to the full roster's IDs.
+Names and unknown references trigger the shared client's validation/retry before
+normalization can discard actor hints; the Runner still applies its agency exclusion.
 
 Alex Tavern therefore treats “should characters serve the drama?” as an explicit product choice
 instead of hiding the railroading. **Free simulation** preserves independent action but may produce

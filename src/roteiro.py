@@ -513,7 +513,17 @@ def build_roteiro_messages(game: GameState, *, event: str = "") -> list[dict]:
     ]
 
 
-def build_roteiro_schema() -> dict:
+def _beat_schema_properties(character_ids: list[str]) -> dict:
+    return {
+        **_BEAT_SCHEMA_PROPERTIES,
+        "expected_actors": {
+            **_BEAT_SCHEMA_PROPERTIES["expected_actors"],
+            "items": {"type": "string", "enum": character_ids},
+        },
+    }
+
+
+def build_roteiro_schema(character_ids: list[str]) -> dict:
     return {
         "name": "roteiro",
         "schema": {
@@ -576,7 +586,7 @@ def build_roteiro_schema() -> dict:
                             **prop,
                             "description": prop["description"].replace("'beat'", "'first_beat'"),
                         }
-                        for name, prop in _BEAT_SCHEMA_PROPERTIES.items()
+                        for name, prop in _beat_schema_properties(character_ids).items()
                     },
                     "required": _BEAT_REQUIRED,
                     "additionalProperties": False,
@@ -602,7 +612,7 @@ async def generate_roteiro(
         config,
         build_roteiro_messages(game, event=event),
         agent="roteiro:event" if event else "roteiro:compile",
-        json_schema=build_roteiro_schema(),
+        json_schema=build_roteiro_schema(list(game.characters)),
         max_tokens=1536,
         session_id=game.session_id,
         turn_number=turn_number,
@@ -716,7 +726,7 @@ def build_next_beat_messages(
     ]
 
 
-def build_next_beat_schema(scope: str) -> dict:
+def build_next_beat_schema(scope: str, character_ids: list[str]) -> dict:
     properties: dict = {
         "act_completed": {
             "type": "boolean",
@@ -732,14 +742,14 @@ def build_next_beat_schema(scope: str) -> dict:
                 "available act; if false, continue the current act. "
                 "Start from the confirmed world state."
             ),
-            "properties": _BEAT_SCHEMA_PROPERTIES,
+            "properties": _beat_schema_properties(character_ids),
             "required": _BEAT_REQUIRED,
             "additionalProperties": False,
         },
     }
     required = ["act_completed", "beat"]
     if scope == "act":
-        properties["acts"] = build_roteiro_schema()["schema"]["properties"]["acts"]
+        properties["acts"] = build_roteiro_schema(character_ids)["schema"]["properties"]["acts"]
         properties["acts"]["description"] = "Rewritten acts after the current act, in story order."
         required.append("acts")
     return {
@@ -772,7 +782,7 @@ async def replan_roteiro(
         config,
         build_next_beat_messages(game, roteiro, decision.reason, scope),
         agent="roteiro:replan",
-        json_schema=build_next_beat_schema(scope),
+        json_schema=build_next_beat_schema(scope, list(game.characters)),
         max_tokens=1024,
         session_id=game.session_id,
         turn_number=turn_number,
