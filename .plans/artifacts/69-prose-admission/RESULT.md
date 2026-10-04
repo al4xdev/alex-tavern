@@ -95,3 +95,10 @@ the report claims session-lock use, not complete RuntimeState fidelity. A
 renderer can omit an admitted event, so the counterfactual canary is not an
 impossible pipeline state. No aggregate error rate, parameter-scale mechanism
 or universal automated narrative guarantee is adopted from this review.
+
+Later reading qualification: the [Pro challenger](../69-prose-challenger/RESULT.md)
+uses these same retained sources and records independent disagreement over the
+weather constraint. The parent false-positive labels describe the primary and
+original reader interpretation, not settled universal ground truth. Its missed
+confirmed event and failed gate are unchanged; no original call is rescored or
+removed. The new experiment must clarify this input ambiguity explicitly.
