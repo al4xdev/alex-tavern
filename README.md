@@ -4,6 +4,10 @@
 
 # 🎭 Alex Tavern: A Blind-Narrator Multi-Agent Roleplay Kernel — and the harness that proves it
 
+Conversation input and presentation use typed plugin boundaries. See
+[conversation boundaries](docs/conversation-boundaries.md) for the translation
+plugin, canonical persistence and retry behavior.
+
 Alex Tavern is a **rigid multi-agent kernel** for roleplay, built around blind agents: no model
 ever knows which character is controlled by a human. A blind **Director** decides what physically
 happens as typed events (with deterministic zone/witness clamps), a blind **prose renderer** turns

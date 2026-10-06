@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import httpx
@@ -65,6 +65,14 @@ from src.durable_state import (
     bootstrap_physical_entities,
     validate_durable_state,
 )
+from src.engine_io import (
+    EngineBoundaryError,
+    EngineInput,
+    EngineOutput,
+    Operation,
+    OutputProjection,
+    PresentationUnavailableError,
+)
 from src.llm.debug_log import (
     log_audible_speech_drop,
     log_burst,
@@ -102,6 +110,7 @@ from src.models import (
     dict_to_turn_record,
     game_state_to_dict,
     perspective_to_dict,
+    record_visible_to,
     validate_present_characters,
 )
 from src.perception import (
@@ -124,6 +133,7 @@ from src.roteiro import (
     replan_roteiro,
     rewrite_future_from_event,
 )
+from src.store.jsonfile import read_json, write_json
 from src.store.locks import session_lock
 from src.store.sessions import (
     SessionNotFoundError,
@@ -132,6 +142,7 @@ from src.store.sessions import (
     load_game,
     next_compaction_id,
     save_game,
+    session_dir,
     write_compaction_checkpoint,
 )
 from src.watcher import (
@@ -479,31 +490,6 @@ def _adopt_state(target: GameState, source: GameState) -> None:
     """
     for field_info in fields(GameState):
         setattr(target, field_info.name, copy.deepcopy(getattr(source, field_info.name)))
-
-
-@dataclass(slots=True)
-class TurnInput:
-    """One submitted move, after the plugin filter and routing resolution.
-
-    ``event`` is a manual change consumed once by the planner on the first
-    beat. Later burst beats resolve autonomous stimuli separately.
-    """
-
-    speech: str
-    thought: str
-    action: str
-    force_speaker: str | None
-    event: str
-    skip: bool
-    audience: list[str] | None
-    transformed_fields: list[str]
-    # None when the requested speaker is absent or unknown: the Director routes.
-    effective_force_speaker: str | None
-
-    @property
-    def effective_input(self) -> dict[str, str]:
-        """What the frontend echoes back as the move that actually happened."""
-        return {"speech": self.speech, "thought": self.thought, "action": self.action}
 
 
 @dataclass(slots=True)
@@ -1001,7 +987,7 @@ class Runner:
             # A skip whose very first beat produced nothing leaves no beat at
             # all; the caller still gets a coherent, honest answer.
             last_beat = burst.beats[-1] if burst.beats else _EMPTY_BEAT
-            return {
+            result = {
                 **last_beat,
                 "beats": burst.beats,
                 "burst_stop_reason": burst.stop_reason if max_beats > 1 else None,
@@ -1009,6 +995,7 @@ class Runner:
                 "transformed_fields": turn.transformed_fields,
                 "automatic_compaction": automatic_compaction,
             }
+            return cast(dict, await self._present_output(game, "turn", result, retain=True))
 
     # ── Turn stages ───────────────────────────────────────────────────────
     # player_turn above reads as the sequence of these; each one owns a single
@@ -1044,21 +1031,14 @@ class Runner:
         event: str,
         skip: bool,
         audience: list[str] | None,
-    ) -> TurnInput:
+    ) -> EngineInput:
         """Log the raw submission, run the plugin filter, resolve the routing.
 
         Both the submitted and the effective input are logged: a plugin that
         rewrites a turn must be auditable against what the human actually sent.
         """
-        raw: dict[str, Any] = {
-            "speech": speech,
-            "thought": thought,
-            "action": action,
-            "force_speaker": force_speaker,
-            "event": event,
-            "skip": skip,
-        }
-        original = copy.deepcopy(raw)
+        turn = EngineInput(speech, thought, action, force_speaker, event, skip, audience)
+        original = turn.texts
         log_turn_input(
             session_id=game.session_id,
             turn_number=step,
@@ -1069,44 +1049,40 @@ class Runner:
             event=event,
             skip=skip,
         )
-        filtered = await self.plugins.hooks.filter(
-            Hook.TURN_INPUT, raw, {"game": game, "turn_number": step, "runner": self}
-        )
-        raw_force = filtered["force_speaker"]
-        resolved_force = str(raw_force) if raw_force is not None else None
+        try:
+            filtered: EngineInput = await self.plugins.hooks.filter_strict(
+                Hook.ENGINE_INPUT,
+                turn,
+                {"game": game, "turn_number": step, "runner": self, "operation_id": uuid4().hex},
+                retryable=True,
+                validate=lambda source, candidate: source.validate_transform(candidate),
+            )
+        except Exception as error:
+            raise EngineBoundaryError("input", "turn") from error
+        turn = filtered
+        resolved_force = turn.force_speaker
         force_speaker_present = (
             resolved_force in game.characters and resolved_force in game.scene.present_characters
         )
-        turn = TurnInput(
-            speech=str(filtered["speech"]),
-            thought=str(filtered["thought"]),
-            action=str(filtered["action"]),
-            force_speaker=resolved_force,
-            event=str(filtered["event"]),
-            skip=bool(filtered["skip"]),
-            audience=audience,
-            transformed_fields=[
-                field
-                for field in ("speech", "thought", "action")
-                if filtered[field] != original[field]
-            ],
-            effective_force_speaker=(
-                resolved_force
-                if resolved_force and (force_speaker_present or resolved_force == "Narrator")
-                else None
-            ),
+        turn.transformed_fields = [
+            name for name in ("speech", "thought", "action") if turn.texts[name] != original[name]
+        ]
+        turn.effective_force_speaker = (
+            resolved_force
+            if resolved_force and (force_speaker_present or resolved_force == "Narrator")
+            else None
         )
         log_effective_turn_input(
             game.session_id,
             step,
-            filtered,
+            turn.logged_input(),
             effective_force_speaker=turn.effective_force_speaker,
             transformed_fields=turn.transformed_fields,
         )
         return turn
 
     async def _maybe_automatic_compaction(
-        self, game: GameState, turn: TurnInput, step: int
+        self, game: GameState, turn: EngineInput, step: int
     ) -> dict[str, Any] | None:
         """Compact before the turn commits when the estimated context is too large.
 
@@ -1204,7 +1180,7 @@ class Runner:
             "undo_depth": len(game.compaction_stack),
         }
 
-    def _persist_player_input(self, game: GameState, turn: TurnInput, step: int) -> None:
+    def _persist_player_input(self, game: GameState, turn: EngineInput, step: int) -> None:
         """Commit the human's move BEFORE the Narrator sees it (it stays blind).
 
         A skip persists nothing: the Narrator reacts to the current state alone.
@@ -1228,7 +1204,7 @@ class Runner:
                 )
 
     async def _resolve_beat_hint(
-        self, game: GameState, step: int, beat_index: int, turn: TurnInput, pending: str
+        self, game: GameState, step: int, beat_index: int, turn: EngineInput, pending: str
     ) -> tuple[str, bool, bool]:
         """Decide this beat's UPCOMING EVENT line, and whether the code injected it.
 
@@ -1322,7 +1298,7 @@ class Runner:
         self,
         game: GameState,
         step: int,
-        turn: TurnInput,
+        turn: EngineInput,
         beat_index: int,
         hint: str,
         *,
@@ -1750,7 +1726,7 @@ class Runner:
         game: GameState,
         queue: list[str],
         narrator_raw: dict[str, Any],
-        turn: TurnInput,
+        turn: EngineInput,
         step: int,
         intents: dict[str, list[str]] | None = None,
     ) -> list[dict[str, Any]]:
@@ -2163,6 +2139,162 @@ class Runner:
             return True
         return False
 
+    @staticmethod
+    def _reader_history(game: GameState, limit: int | None = None) -> list[TurnRecord]:
+        viewer = game.player.controlled_character_id
+        # Preserve the existing human-facing thought view. Agent thought
+        # containment is a separate prompt boundary, not a UI translation rule.
+        records = [
+            record
+            for record in game.history
+            if record.speaker == "Player" or record_visible_to(record, viewer)
+        ]
+        return records if limit is None else records[-limit:]
+
+    @staticmethod
+    def _reader_turn(game: GameState, payload: dict[str, Any]) -> dict[str, Any]:
+        result = copy.deepcopy(payload)
+        viewer = game.player.controlled_character_id
+
+        def project(beat: dict[str, Any]) -> None:
+            for entry in beat.get("character_responses", []):
+                for name, kind in (("speech", "speech"), ("action_intent", "action")):
+                    text = entry.get(name)
+                    if not text:
+                        continue
+                    matching = [
+                        record
+                        for record in game.history
+                        if record.turn_number == beat.get("turn_number")
+                        and record.speaker == entry["character_id"]
+                        and record.content_type == kind
+                        and record.content == text
+                    ]
+                    if matching and not any(
+                        record_visible_to(record, viewer) for record in matching
+                    ):
+                        entry[name] = None
+
+        project(result)
+        for beat in result.get("beats") or []:
+            project(beat)
+        return result
+
+    async def _present_output(
+        self,
+        game: GameState,
+        operation: Operation,
+        payload: Any,
+        *,
+        retain: bool = False,
+        operation_id: str | None = None,
+    ) -> Any:
+        """Project/filter one response while the caller owns the session lock."""
+        if operation == "turn":
+            payload = self._reader_turn(game, payload)
+        operation_id = operation_id or uuid4().hex
+        if retain:
+            try:
+                path = session_dir(game.session_id) / "presentation.json"
+                stored = read_json(path)
+                if stored is None:
+                    stored = {"schema_version": 1, "operations": {}}
+                if stored["schema_version"] != 1:
+                    raise ValueError("Unsupported presentation schema")
+                stored["operations"][operation] = {
+                    "operation_id": operation_id,
+                    "revision": game.revision,
+                    "viewer_id": game.player.controlled_character_id,
+                    "payload": payload,
+                }
+                write_json(path, stored)
+            except Exception as error:
+                raise EngineBoundaryError(
+                    "output", operation, committed=operation == "turn"
+                ) from error
+        projection = OutputProjection(operation, game.player.controlled_character_id, payload)
+        try:
+            output: EngineOutput = await self.plugins.hooks.filter_strict(
+                Hook.ENGINE_OUTPUT,
+                projection.output,
+                {
+                    "game": game,
+                    "turn_number": max(1, _next_turn_number(game) - 1),
+                    "runner": self,
+                    "operation_id": operation_id,
+                },
+                retryable=True,
+                validate=lambda source, candidate: source.validate_transform(candidate),
+            )
+            return projection.render(output)
+        except Exception as error:
+            raise EngineBoundaryError(
+                "output",
+                operation,
+                operation_id=operation_id
+                if operation in {"turn", "suggestions", "opening-suggestions"}
+                else None,
+                committed=operation == "turn",
+            ) from error
+
+    async def retry_presentation(
+        self,
+        session_id: str,
+        operation: Operation,
+        operation_id: str,
+    ) -> Any:
+        """Re-read a retained result; never call the narrative generators."""
+        async with session_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                raise SessionNotFoundError(session_id)
+            stored = read_json(session_dir(session_id) / "presentation.json")
+            if stored is None or operation not in stored["operations"]:
+                raise PresentationUnavailableError("No retained presentation for this operation")
+            result = stored["operations"][operation]
+            if (
+                result["operation_id"] != operation_id
+                or result["revision"] != game.revision
+                or result["viewer_id"] != game.player.controlled_character_id
+            ):
+                raise PresentationUnavailableError("Presentation superseded; reload the session")
+            return await self._present_output(
+                game,
+                operation,
+                result["payload"],
+                operation_id=operation_id,
+            )
+
+    async def get_presented_state(self, session_id: str) -> dict[str, Any]:
+        async with session_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                raise SessionNotFoundError(session_id)
+            return await self._present_state(game)
+
+    async def _present_state(self, game: GameState) -> dict[str, Any]:
+        payload = game_state_to_dict(game)
+        payload["history"] = [asdict(record) for record in self._reader_history(game)]
+        result: dict[str, Any] = await self._present_output(game, "state", payload)
+        return result
+
+    async def get_presented_history(self, session_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        async with session_lock(session_id):
+            game = load_game(session_id)
+            if game is None:
+                raise SessionNotFoundError(session_id)
+            payload = [
+                {
+                    "turn_number": record.turn_number,
+                    "speaker": record.speaker,
+                    "content": record.content,
+                    "content_type": record.content_type,
+                }
+                for record in self._reader_history(game, limit)
+            ]
+            result: list[dict[str, Any]] = await self._present_output(game, "history", payload)
+            return result
+
     async def get_state(self, session_id: str) -> GameState | None:
         """Load one consistent state snapshot after active mutations finish."""
         async with session_lock(session_id):
@@ -2190,7 +2322,6 @@ class Runner:
             Dict with ``state`` (serialized GameState) and ``undone`` (bool).
             If there is nothing to undo, returns ``{"undone": False}``.
         """
-        from src.models import game_state_to_dict
 
         async with session_lock(session_id):
             game = load_game(session_id)
@@ -2242,7 +2373,7 @@ class Runner:
                 {"game": game, "turn_number": last_turn_number, "removed": removed},
             )
             log_undo(session_id, last_turn_number, removed)
-            return {"undone": True, "state": game_state_to_dict(game)}
+            return {"undone": True, "state": await self._present_state(game)}
 
     async def suggest_actions(self, session_id: str) -> dict:
         """Asks Character for three editable alternatives for the controlled character.
@@ -2279,7 +2410,12 @@ class Runner:
                 suggestions,
                 {"game": game, "target_id": target_id, "runner": self},
             )
-            return {"suggestions": suggestions}
+            return cast(
+                dict,
+                await self._present_output(
+                    game, "suggestions", {"suggestions": suggestions}, retain=True
+                ),
+            )
 
     async def suggest_openings(self, session_id: str) -> dict:
         """Generate three ephemeral scenario-only hints before the first turn."""
@@ -2298,7 +2434,12 @@ class Runner:
                 narrator_directives=game.narrator_directives,
                 session_id=game.session_id,
             )
-            return {"suggestions": suggestions}
+            return cast(
+                dict,
+                await self._present_output(
+                    game, "opening-suggestions", {"suggestions": suggestions}, retain=True
+                ),
+            )
 
     async def compact_session(
         self,
@@ -2757,7 +2898,7 @@ class Runner:
                 if before != after:
                     changed_fields.append(field_name)
             if not changed_fields:
-                return {"changed": False, "state": game_state_to_dict(game)}
+                return {"changed": False, "state": await self._present_state(game)}
             game.characters = copy.deepcopy(characters)
             game.scene = copy.deepcopy(scene)
             game.narrator_directives = narrator_directives
@@ -2771,7 +2912,7 @@ class Runner:
                 fields=changed_fields,
                 turn_number=_current_turn(game),
             )
-            return {"changed": True, "state": game_state_to_dict(game)}
+            return {"changed": True, "state": await self._present_state(game)}
 
     async def undo_last_presence_edit(self, session_id: str) -> dict:
         """Undo the newest out-of-band admin presence edit — strictly LIFO.

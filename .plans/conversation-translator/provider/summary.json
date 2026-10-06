@@ -1,0 +1,74 @@
+[
+  {
+    "case": "pt-en",
+    "run": 1,
+    "transport_ok": true,
+    "schema_valid": true,
+    "translation": {
+      "text0": "I do not promise to open the Portal de Âmbar today, Lyra.",
+      "text1": "Maybe Garran is mistaken; only I know the aurora-17 password.",
+      "text2": "I try to reach the key, without touching the door.",
+      "text3": "Rui's lamp goes out, but the door remains closed."
+    }
+  },
+  {
+    "case": "pt-en",
+    "run": 2,
+    "transport_ok": true,
+    "schema_valid": true,
+    "translation": {
+      "text0": "I do not promise to open the Portal de Âmbar today, Lyra.",
+      "text1": "Maybe Garran is mistaken; only I know the password aurora-17.",
+      "text2": "I try to reach the key, without touching the door.",
+      "text3": "Rui's lamp goes out, but the door remains closed."
+    }
+  },
+  {
+    "case": "pt-en",
+    "run": 3,
+    "transport_ok": true,
+    "schema_valid": true,
+    "translation": {
+      "text0": "I do not promise to open the Portal de Âmbar today, Lyra.",
+      "text1": "Maybe Garran is mistaken; only I know the aurora-17 password.",
+      "text2": "I try to reach the key, without touching the door.",
+      "text3": "Rui's lamp goes out, but the door remains closed."
+    }
+  },
+  {
+    "case": "en-pt",
+    "run": 1,
+    "transport_ok": true,
+    "schema_valid": true,
+    "translation": {
+      "text0": "Não vou abrir o Portal de Âmbar esta noite, Lyra.",
+      "text1": "Talvez Garran esteja enganado; só eu sei a senha aurora-17.",
+      "text2": "Tento alcançar a chave sem tocar na porta.",
+      "text3": "A lâmpada de Rui se apaga, mas a porta permanece fechada."
+    }
+  },
+  {
+    "case": "en-pt",
+    "run": 2,
+    "transport_ok": true,
+    "schema_valid": true,
+    "translation": {
+      "text0": "Eu não vou abrir o Portal de Âmbar esta noite, Lyra.",
+      "text1": "Talvez Garran esteja enganado; só eu sei a senha aurora-17.",
+      "text2": "Tento alcançar a chave sem tocar na porta.",
+      "text3": "A lâmpada de Rui se apaga, mas a porta permanece fechada."
+    }
+  },
+  {
+    "case": "en-pt",
+    "run": 3,
+    "transport_ok": true,
+    "schema_valid": true,
+    "translation": {
+      "text0": "Não vou abrir o Portal de Âmbar esta noite, Lyra.",
+      "text1": "Talvez Garran esteja enganado; só eu sei a senha aurora-17.",
+      "text2": "Eu tento alcançar a chave sem tocar na porta.",
+      "text3": "A lâmpada de Rui apaga, mas a porta permanece fechada."
+    }
+  }
+]

@@ -70,12 +70,26 @@ HOOK_CONTRACTS: dict[str, dict[str, Any]] = {
         "commit": "before",
         "description": "Replace, surround, or bypass the complete Character call.",
     },
-    "turn.input": {
+    "engine.input": {
         "kind": "filter",
-        "value": "dict",
-        "context": ["game", "turn_number", "runner"],
+        "value": "EngineInput",
+        "context": ["game", "turn_number", "runner", "operation_id"],
         "commit": "before",
-        "description": "Rewrite speech, thought, action, routing, event, or skip.",
+        "description": (
+            "Transform speech, thought, action and event; preserve routing and audience. "
+            "Required, retryable: failure aborts input without disabling the filter."
+        ),
+    },
+    "engine.output": {
+        "kind": "filter",
+        "value": "EngineOutput (operation, viewer_id, texts)",
+        "context": ["game", "turn_number", "runner", "operation_id"],
+        "commit": "none",
+        "description": (
+            "Transform selected reader texts after visibility projection; preserve keys and "
+            "wire structure. Failure retains the canonical result for presentation retry "
+            "and does not disable the filter."
+        ),
     },
     "narrator.output": {
         "kind": "filter",
@@ -173,7 +187,8 @@ class Hook:
     NARRATOR_SCHEMA = "narrator.schema"
     NARRATOR_RESULT = "narrator.result"
     CHARACTER_CALL = "character.call"
-    TURN_INPUT = "turn.input"
+    ENGINE_INPUT = "engine.input"
+    ENGINE_OUTPUT = "engine.output"
     NARRATOR_OUTPUT = "narrator.output"
     CHARACTER_OUTPUT = "character.output"
     TURN_BEFORE_COMMIT = "turn.before_commit"
@@ -353,5 +368,9 @@ def exported_contract() -> dict[str, Any]:
         "crash_policy": {
             "before_commit": "discard plugin draft, disable plugin for boot, continue clean",
             "after_commit": "record and disable plugin; never retry committed work",
+            "engine_boundaries": (
+                "abort required transformation; retain filter for retry; "
+                "never replay committed work"
+            ),
         },
     }

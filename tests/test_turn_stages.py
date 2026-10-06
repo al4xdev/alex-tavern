@@ -12,12 +12,13 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from src.engine_io import EngineInput
 from src.models import (
     GameState,
     Player,
     Scene,
 )
-from src.runner import CLOCK_SKIP_INVITE, BurstState, Runner, TurnInput
+from src.runner import CLOCK_SKIP_INVITE, BurstState, Runner
 from tests.factories import make_character
 
 
@@ -35,7 +36,7 @@ def _game() -> GameState:
     )
 
 
-def _turn(**overrides: object) -> TurnInput:
+def _turn(**overrides: object) -> EngineInput:
     base = {
         "speech": "",
         "thought": "",
@@ -47,7 +48,7 @@ def _turn(**overrides: object) -> TurnInput:
         "transformed_fields": [],
         "effective_force_speaker": None,
     }
-    return TurnInput(**{**base, **overrides})  # type: ignore[arg-type]
+    return EngineInput(**{**base, **overrides})  # type: ignore[arg-type]
 
 
 @pytest.fixture

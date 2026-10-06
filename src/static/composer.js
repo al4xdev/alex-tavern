@@ -348,8 +348,60 @@ if (whisperBtn) {
 }
 
 
+async function applyTurnResult(data, { echo = true } = {}) {
+    const historyWasReconciled = await Compaction.reconcileAutomatic(data);
+    if (!historyWasReconciled && echo) {
+        updatePlayerEcho(
+            state.lastEchoMessage,
+            data.effective_input,
+            Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
+        );
+    } else {
+        state.lastEchoMessage = null;
+    }
+
+    if (String(data.effective_input?.speech || '').trim()) {
+        state.playerHasSpoken = true;
+        updateSpeechPlaceholder();
+    }
+
+    if (state.debug) DebugDrawer.refreshDebugLog();
+
+    if (!historyWasReconciled) {
+        const beats = data.beats || [data];
+        for (const beat of beats) {
+            if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
+            for (const entry of (beat.character_responses || [])) {
+                addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought, action: entry.action_intent }, 'response', { animate: true });
+            }
+        }
+    }
+
+    if (data.scene_update) {
+        try {
+            const gameState = await api.getState(state.sessionId);
+            deps.renderScene(gameState.scene, Object.keys(data.scene_update));
+        } catch { /* scene refresh is non-critical */ }
+    }
+
+    if (echo) {
+        inputSpeech.value = '';
+        inputThought.value = '';
+        inputAction.value = '';
+        clearWhisperSelection();
+        if (!isCompactLayout()) inputSpeech.focus();
+    }
+    state.storyEvent = '';
+    state.presentationRetry = null;
+    state.lastTurnFailed = false;
+    state.canUndo = true;
+    updateActionPopup();
+}
+
 export async function skipTurn() {
     if (!state.sessionId) return;
+    if (presentationPending()) return retryTurn();
+    state.lastInputs = { skip: true, storyEvent: state.storyEvent || '' };
     hideActionPopup();
     deps.setLoading(true, { multiStep: true });  // only a continuation runs several beats
     clearSuggestions();
@@ -383,35 +435,18 @@ export async function skipTurn() {
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
-        const historyWasReconciled = await Compaction.reconcileAutomatic(data);
-        if (state.debug) DebugDrawer.refreshDebugLog();
-        if (!historyWasReconciled) {
-            const beats = data.beats || [data];
-            for (const beat of beats) {
-                if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
-                for (const entry of (beat.character_responses || [])) {
-                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought, action: entry.action_intent }, 'response', { animate: true });
-                }
-            }
-        }
-        if (data.scene_update) {
-            try {
-                const gameState = await api.getState(state.sessionId);
-                deps.renderScene(gameState.scene, Object.keys(data.scene_update));
-            } catch { /* non-critical */ }
-        }
-
-        state.storyEvent = '';
-        state.lastTurnFailed = false;
-        state.canUndo = true;
-        updateActionPopup();
+        await applyTurnResult(data, { echo: false });
     } catch (err) {
+        rememberPresentationFailure(err, false);
         if (err.name === 'AbortError') {
             deps.notify(t('turn.stopped'), 'info', 2500);
             state.lastTurnFailed = false;
         } else {
             state.lastTurnFailed = true;
-            deps.notify(t('turn.failed', { error: err.message }), 'error', 6000);
+            const message = presentationPending()
+                ? t('turn.presentationFailed', { error: err.message })
+                : t('turn.failed', { error: err.message });
+            deps.notify(message, 'error', 6000);
         }
         updateActionPopup();
     } finally {
@@ -438,6 +473,7 @@ export async function undoLastTurn() {
             deps.ingestState(gameState);
         }
         state.lastTurnFailed = false;
+        state.presentationRetry = null;
         state.canUndo = !!(data.state && data.state.history && data.state.history.length > 0);
         updateActionPopup();
 
@@ -459,20 +495,70 @@ export async function undoLastTurn() {
     }
 }
 
-export function retryTurn() {
-    if (!state.lastInputs) return;
+function presentationPending() {
+    return state.presentationRetry?.sessionId === state.sessionId;
+}
+
+function rememberPresentationFailure(error, echo = true) {
+    if (error.phase === 'output' && error.committed) {
+        state.presentationRetry = {
+            sessionId: state.sessionId,
+            operationId: error.operationId,
+            echo,
+        };
+        state.canUndo = true;
+    }
+}
+
+export async function retryTurn() {
     hideActionPopup();
-    // Restore inputs (they may have been cleared on error)
+    if (presentationPending()) {
+        deps.setLoading(true);
+        try {
+            const pending = state.presentationRetry;
+            if (pending.operationId) {
+                let data = await api.retryPresentation(state.sessionId, 'turn', pending.operationId);
+                data = await PluginRuntime.runHook('turn.output', data, { state });
+                await applyTurnResult(data, { echo: pending.echo });
+            } else {
+                // Recovery payload was superseded or could not be written.
+                // Reload only; this branch must never submit the old move again.
+                let gameState = await api.getState(state.sessionId);
+                gameState = await PluginRuntime.runHook('session.state', gameState, { state });
+                deps.ingestState(gameState);
+                renderHistory(gameState.history);
+                state.lastEchoMessage = null;
+                state.presentationRetry = null;
+                state.lastTurnFailed = false;
+                state.canUndo = !!gameState.history?.length;
+                state.storyEvent = '';
+            }
+        } catch (error) {
+            if (error.code === 'presentation_unavailable') {
+                // Undo/edit superseded the response: retry only the current view.
+                state.presentationRetry.operationId = null;
+            }
+            state.lastTurnFailed = true;
+            deps.notify(t('turn.presentationFailed', { error: error.message }), 'error', 6000);
+        } finally {
+            updateActionPopup();
+            deps.setLoading(false);
+        }
+        return;
+    }
+    if (!state.lastInputs) return;
     inputSpeech.value = state.lastInputs.speech || '';
     inputThought.value = state.lastInputs.thought || '';
     inputAction.value = state.lastInputs.action || '';
     if (forceSpeakerSelect) forceSpeakerSelect.value = state.lastInputs.forceSpeaker || '';
     state.storyEvent = state.lastInputs.storyEvent || '';
-    sendTurn(true);
+    if (state.lastInputs.skip) await skipTurn();
+    else await sendTurn(true);
 }
 
 export async function sendTurn(isRetry = false) {
     if (!state.sessionId) return;
+    if (presentationPending()) return retryTurn();
     if (!isRetry && await SlashCommands.interceptSend()) return;
     const speech = inputSpeech.value.trim();
     const thought = inputThought.value.trim();
@@ -530,57 +616,17 @@ export async function sendTurn(isRetry = false) {
         let data = await api.turn(state.sessionId, payload, ac.signal);
         data = await PluginRuntime.runHook('turn.output', data, { state });
 
-        const historyWasReconciled = await Compaction.reconcileAutomatic(data);
-        if (!historyWasReconciled) {
-            updatePlayerEcho(
-                state.lastEchoMessage,
-                data.effective_input,
-                Array.isArray(data.transformed_fields) && data.transformed_fields.length > 0,
-            );
-        } else {
-            state.lastEchoMessage = null;
-        }
-
-        if (String(data.effective_input?.speech || '').trim()) {
-            state.playerHasSpoken = true;
-            updateSpeechPlaceholder();
-        }
-
-        if (state.debug) DebugDrawer.refreshDebugLog();
-
-        if (!historyWasReconciled) {
-            const beats = data.beats || [data];
-            for (const beat of beats) {
-                if (beat.narration) addMessage('Narrator', beat.narration, 'narration', { animate: true });
-                for (const entry of (beat.character_responses || [])) {
-                    addMessage(entry.character_id, { speech: entry.speech, thought: entry.thought, action: entry.action_intent }, 'response', { animate: true });
-                }
-            }
-        }
-
-        if (data.scene_update) {
-            try {
-                const gameState = await api.getState(state.sessionId);
-                deps.renderScene(gameState.scene, Object.keys(data.scene_update));
-            } catch { /* scene refresh is non-critical */ }
-        }
-
-        inputSpeech.value = '';
-        inputThought.value = '';
-        inputAction.value = '';
-        state.storyEvent = '';
-        if (!isCompactLayout()) inputSpeech.focus();
-        state.lastTurnFailed = false;
-        state.canUndo = true;
-        clearWhisperSelection();
-        updateActionPopup();
+        await applyTurnResult(data);
     } catch (err) {
-        try {
-            let gameState = await api.getState(state.sessionId);
-            gameState = await PluginRuntime.runHook('session.state', gameState, { state });
-            deps.ingestState(gameState);
-            renderHistory(gameState.history);
-        } catch { /* best-effort reconciliation after an ambiguous turn failure */ }
+        rememberPresentationFailure(err);
+        if (!presentationPending()) {
+            try {
+                let gameState = await api.getState(state.sessionId);
+                gameState = await PluginRuntime.runHook('session.state', gameState, { state });
+                deps.ingestState(gameState);
+                renderHistory(gameState.history);
+            } catch { /* best-effort reconciliation after an ambiguous turn failure */ }
+        }
         if (err.name === 'AbortError') {
             // User pressed stop — don't treat as failure, keep inputs
             deps.notify(t('turn.stopped'), 'info', 2500);
@@ -588,7 +634,10 @@ export async function sendTurn(isRetry = false) {
         } else {
             state.lastTurnFailed = true;
             // Keep inputs in fields so user can edit and retry
-            deps.notify(t('turn.failed', { error: err.message }), 'error', 6000);
+            const message = presentationPending()
+                ? t('turn.presentationFailed', { error: err.message })
+                : t('turn.failed', { error: err.message });
+            deps.notify(message, 'error', 6000);
         }
         updateActionPopup();
     } finally {

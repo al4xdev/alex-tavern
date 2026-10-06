@@ -196,6 +196,7 @@ async function loadSession(sessionId) {
 
         state.sessionId = sessionId;
         state.lastInputs = null;
+        state.presentationRetry = null;
         state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = gameState.history && gameState.history.length > 0;
@@ -389,6 +390,7 @@ async function startSession(cfg) {
         const gameState = await PluginRuntime.runHook('session.state', data.state, { state });
         state.sessionId = data.session_id;
         state.lastInputs = null;
+        state.presentationRetry = null;
         state.lastEchoMessage = null;
         state.lastTurnFailed = false;
         state.canUndo = false;

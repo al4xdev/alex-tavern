@@ -59,9 +59,36 @@ async function apiFetch(url, options = {}) {
         const detail = (data && (data.detail || data.error || data.reason)) || `HTTP ${res.status}`;
         const err = new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
         err.status = res.status;
+        err.code = data?.error;
+        err.phase = data?.phase;
+        err.operation = data?.operation;
+        err.operationId = data?.operation_id;
+        err.committed = data?.committed === true;
         throw err;
     }
     return data;
+}
+
+// Failed suggestion presentation retains the generator's result on the server.
+// Clicking the same action again reads that result rather than generating another.
+const pendingSuggestions = new Map();
+async function presentedSuggestion(sessionId, operation, generate) {
+    const key = `${sessionId}/${operation}`;
+    const pending = pendingSuggestions.get(key);
+    try {
+        const result = pending
+            ? await apiFetch(`/session/${sessionId}/presentation/${operation}?operation_id=${encodeURIComponent(pending)}`)
+            : await generate();
+        pendingSuggestions.delete(key);
+        return result;
+    } catch (error) {
+        if (error.phase === 'output' && error.operationId) {
+            pendingSuggestions.set(key, error.operationId);
+        } else if (error.code === 'presentation_unavailable') {
+            pendingSuggestions.delete(key);
+        }
+        throw error;
+    }
 }
 
 async function compactStream(sessionId, onProgress = () => {}, signal = null) {
@@ -213,11 +240,16 @@ export const api = {
     },
 
     suggest(sessionId) {
-        return apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' });
+        return presentedSuggestion(sessionId, 'suggestions',
+            () => apiFetch(`/session/${sessionId}/suggest`, { method: 'POST' }));
     },
 
     suggestOpenings(sessionId) {
-        return apiFetch(`/session/${sessionId}/opening-suggestions`, { method: 'POST' });
+        return presentedSuggestion(sessionId, 'opening-suggestions',
+            () => apiFetch(`/session/${sessionId}/opening-suggestions`, { method: 'POST' }));
+    },
+    retryPresentation(sessionId, operation, operationId) {
+        return apiFetch(`/session/${sessionId}/presentation/${operation}?operation_id=${encodeURIComponent(operationId)}`);
     },
 
     compact(sessionId, onProgress = () => {}, signal = null) {

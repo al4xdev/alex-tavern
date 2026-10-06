@@ -231,10 +231,10 @@ async def test_effective_plugin_input_drives_probe(monkeypatch) -> None:  # noqa
     hooks = HookRegistry()
 
     def transform(value, _context):  # noqa: ANN001, ANN202
-        value["speech"] = "PLUGIN_EXPANDED_SPEECH"
+        value.speech = "PLUGIN_EXPANDED_SPEECH"
         return value
 
-    hooks.register("input-expander", "turn.input", "filter", transform)
+    hooks.register("input-expander", "engine.input", "filter", transform)
     plugins = SimpleNamespace(hooks=hooks)
     runner = Runner(httpx.AsyncClient(), _runner_config(), plugins=plugins)
     probes: list[str] = []

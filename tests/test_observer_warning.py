@@ -4,8 +4,7 @@ ROOT = Path(__file__).parents[1]
 # The observer warning spans the turn flow (app.js) and the transcript render,
 # so the assertions read the view as a whole rather than one file.
 APP = "\n".join(
-    (ROOT / "src/static" / name).read_text()
-    for name in ("app.js", "transcript.js", "composer.js")
+    (ROOT / "src/static" / name).read_text() for name in ("app.js", "transcript.js", "composer.js")
 )
 I18N = (ROOT / "src/static/i18n.js").read_text()
 
@@ -21,8 +20,10 @@ def test_observer_warning_is_derived_from_canonical_player_speech() -> None:
 def test_only_successful_effective_speech_dismisses_warning() -> None:
     success = "String(data.effective_input?.speech || '').trim()"
     assert success in APP
-    assert APP.index(success) > APP.index("let data = await api.turn")
-    assert "state.playerHasSpoken = true;\n            updateSpeechPlaceholder();" in APP
+    handler = APP[APP.index("async function applyTurnResult") :]
+    assert success in handler
+    assert "state.playerHasSpoken = true;\n        updateSpeechPlaceholder();" in handler
+    assert "await applyTurnResult(data" in APP
 
 
 def test_warning_copy_is_localized_and_updates_on_locale_change() -> None:

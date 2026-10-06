@@ -27,8 +27,9 @@ from src.config import (
     resolve_active_config,
 )
 from src.durable_state import PhysicalDimension, PhysicalKind
+from src.engine_io import EngineBoundaryError, PresentationUnavailableError
 from src.llm.debug_log import read_entries
-from src.models import Scene, dict_to_character, game_state_to_dict
+from src.models import Scene, dict_to_character
 from src.paths import EXPERIENCES_DIR, STATIC_DIR
 from src.plugins.commands import CommandError
 from src.plugins.experiences import (
@@ -172,6 +173,35 @@ async def conversation_started_handler(
     return JSONResponse(
         status_code=409,
         content={"code": "conversation_started", "message": str(exc)},
+    )
+
+
+@app.exception_handler(EngineBoundaryError)
+async def engine_boundary_handler(request: Request, exc: EngineBoundaryError) -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "engine_transform_failed",
+            "detail": str(exc),
+            "phase": exc.phase,
+            "operation": exc.operation,
+            "operation_id": exc.operation_id,
+            "committed": exc.committed,
+        },
+    )
+
+
+@app.exception_handler(PresentationUnavailableError)
+async def presentation_unavailable_handler(
+    request: Request,
+    exc: PresentationUnavailableError,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": "presentation_unavailable",
+            "detail": str(exc),
+        },
     )
 
 
@@ -564,7 +594,7 @@ async def start_session(req: StartSessionRequest) -> dict:
     game = await active_runner.get_state(session_id)
     if game is None:  # pragma: no cover - the session was just committed
         raise RuntimeError(f"Session {session_id} vanished right after creation")
-    return {"session_id": session_id, "state": game_state_to_dict(game)}
+    return {"session_id": session_id, "state": await active_runner.get_presented_state(session_id)}
 
 
 @app.post("/session/{session_id}/turn", response_model=PlayerTurnResponse)
@@ -747,12 +777,18 @@ async def undo_presence(session_id: str) -> dict:
 
 @app.get("/session/{session_id}/state")
 async def get_state(session_id: str) -> dict:
-    """Returns the complete session state."""
-    game = await _runtime().runner.get_state(session_id)
-    if game is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+    """Return state with its reader history passed through the output boundary."""
+    return await _runtime().runner.get_presented_state(session_id)
 
-    return game_state_to_dict(game)
+
+@app.get("/session/{session_id}/presentation/{operation}")
+async def retry_presentation(
+    session_id: str,
+    operation: Literal["turn", "suggestions", "opening-suggestions"],
+    operation_id: str,
+):  # noqa: ANN201
+    """Retry presentation only, without replaying any narrative operation."""
+    return await _runtime().runner.retry_presentation(session_id, operation, operation_id)
 
 
 @app.put("/session/{session_id}/setup")
@@ -791,16 +827,7 @@ async def get_history(
     limit: Annotated[int, Query(ge=1, le=MAX_READ_LIMIT)] = 50,
 ) -> list[dict]:
     """Returns the turn history of the session."""
-    records = await _runtime().runner.get_history(session_id, limit=limit)
-    return [
-        {
-            "turn_number": r.turn_number,
-            "speaker": r.speaker,
-            "content": r.content,
-            "content_type": r.content_type,
-        }
-        for r in records
-    ]
+    return await _runtime().runner.get_presented_history(session_id, limit=limit)
 
 
 @app.get("/scenario-defaults")

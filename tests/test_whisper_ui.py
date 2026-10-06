@@ -38,7 +38,13 @@ class TestComposerControl:
     def test_selection_never_silently_persists(self) -> None:
         # Cleared on the committed-turn success path.
         assert "clearWhisperSelection();" in APP
-        assert APP.index("state.canUndo = true;\n        clearWhisperSelection();") > 0
+        success = APP[
+            APP.index("async function applyTurnResult") : APP.index(
+                "export async function skipTurn"
+            )
+        ]
+        assert "clearWhisperSelection();" in success
+        assert "state.canUndo = true;" in success
 
     def test_controlled_character_is_never_a_whisper_target(self) -> None:
         populate = APP[APP.index("function populateWhisperOptions") :]
@@ -77,8 +83,9 @@ def _function_body(name: str) -> str:
     pair, and the first match is `skipTurn` - which never touches the composer
     inputs at all, so assertions about them pass for the wrong reason.
     """
-    start = APP.index(f"export async function {name}(")
-    end = APP.index("\nexport ", start + 1) if "\nexport " in APP[start + 1 :] else len(APP)
+    start = APP.index(f"async function {name}(")
+    next_function = re.search(r"\n(?:export )?(?:async )?function \w+\(", APP[start + 1 :])
+    end = start + 1 + next_function.start() if next_function else len(APP)
     return APP[start:end]
 
 
@@ -105,8 +112,8 @@ class TestTheRejectedTurnKeepsWhatTheUserTyped:
     def test_the_anchor_really_is_the_submit_path(self) -> None:
         """Guards the test itself: skipTurn shares the success-path statements."""
         body = _function_body("sendTurn")
-        assert "clearWhisperSelection();" in body, "not the function that owns the whisper reset"
-        assert "inputSpeech.value = ''" in body, "not the function that clears the composer"
+        assert "await applyTurnResult(data);" in body, "submit must apply the shared success result"
+        assert "inputSpeech.value = ''" in _function_body("applyTurnResult")
         assert "} finally {" in body, "the slice must reach the finally block"
 
     def test_the_inputs_are_cleared_only_on_the_success_path(self) -> None:

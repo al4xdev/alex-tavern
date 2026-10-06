@@ -183,6 +183,7 @@ class PluginModel:
             permission="model.call",
             session_id=session_id,
             turn_number=turn_number,
+            operation_id=hook_context.get("operation_id", ""),
             max_tokens=max_tokens,
             schema=json_schema.get("name", ""),
         )
@@ -196,6 +197,7 @@ class PluginModel:
             session_id=session_id,
             turn_number=turn_number,
             use_configured_language=use_configured_language,
+            operation_id=hook_context.get("operation_id", ""),
         )
 
 
@@ -247,6 +249,10 @@ class PluginContext:
         before: tuple[str, ...] | None = None,
         after: tuple[str, ...] | None = None,
     ) -> None:
+        from src.plugins.contracts import HOOK_CONTRACTS
+
+        if hook not in HOOK_CONTRACTS or HOOK_CONTRACTS[hook]["kind"] != kind:
+            raise ValueError(f"Unsupported plugin hook registration: {hook} ({kind})")
         self._hooks.register(
             self.plugin_id,
             hook,

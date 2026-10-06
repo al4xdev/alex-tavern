@@ -25,7 +25,7 @@ async def test_inspection_endpoints_forward_maximum_allowed_limit(monkeypatch) -
     observed: dict[str, int] = {}
 
     class StubRunner:
-        async def get_history(self, session_id: str, limit: int):  # noqa: ANN201
+        async def get_presented_history(self, session_id: str, limit: int):  # noqa: ANN201
             assert session_id == "abc"
             observed["history"] = limit
             return []

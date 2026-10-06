@@ -150,17 +150,38 @@ class HookRegistry:
             current = draft if candidate is None else candidate
         return current
 
-    async def filter_strict(self, hook: str, value: Any, context: Any) -> Any:
-        """Run isolated drafts but abort the host transaction on a filter failure."""
+    async def filter_strict(
+        self,
+        hook: str,
+        value: Any,
+        context: Any,
+        *,
+        retryable: bool = False,
+        validate: Callable[[Any, Any], None] | None = None,
+    ) -> Any:
+        """Abort on failure; retryable frontiers retain their registrations."""
         current = value
         for registration in self.ordered(hook, "filter"):
             draft = deepcopy(current)
             try:
                 candidate = await _await(registration.handler(draft, context))
-            except BaseException as error:
-                await self._failed(registration, error)
+                candidate = draft if candidate is None else candidate
+                if validate is not None:
+                    validate(current, candidate)
+            except Exception as error:
+                if retryable:
+                    from src.plugins.journal import emit
+
+                    emit(
+                        "required_filter_failed",
+                        registration.plugin_id,
+                        hook=hook,
+                        error_type=type(error).__name__,
+                    )
+                else:
+                    await self._failed(registration, error)
                 raise
-            current = draft if candidate is None else candidate
+            current = candidate
         return current
 
     async def filter_for_plugin(

@@ -202,6 +202,7 @@ class TestAgentCallContract:
             # Empty unless an agent chose a second structured call after reading
             # the first answer (task 54, finding 7).
             "guard_retry": "",
+            "operation_id": "",
             "provider": "deepseek",
             "api_base": "https://api.deepseek.com/v1",
             "api_key": "secret",

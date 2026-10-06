@@ -178,6 +178,7 @@ class LlmCallRequest:
     # only that field reports "zero retries" for a turn that called the model
     # twice (task 54, finding 7).
     guard_retry: str = ""
+    operation_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +213,7 @@ def log_llm_call(
         session_id,
         request.agent,
         turn_number,
+        operation_id=request.operation_id,
         provider=request.provider,
         model=request.model,
         request={

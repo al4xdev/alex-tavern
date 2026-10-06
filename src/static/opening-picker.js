@@ -154,7 +154,12 @@ async function startWithOpening() {
     render();
     state.storyEvent = opening;
     await deps.skipTurn();
-    if (state.lastTurnFailed) {
+    if (state.presentationRetry?.sessionId === state.sessionId) {
+        // The opening already happened. Offer the turn's presentation retry,
+        // not a second scenario opening against a committed first turn.
+        reset();
+        setVisible(false);
+    } else if (state.lastTurnFailed) {
         busy = false;
         render();
     } else {

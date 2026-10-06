@@ -594,10 +594,10 @@ async def test_turn_input_filter_records_raw_and_effective_values() -> None:
 
     async def correct(value, context):  # noqa: ANN001, ANN202
         assert context["turn_number"] == 1
-        value["thought"] = "Eu estou aqui."
+        value.thought = "Eu estou aqui."
         return value
 
-    runtime.hooks.register("dev.test.correct", "turn.input", "filter", correct)
+    runtime.hooks.register("dev.test.correct", "engine.input", "filter", correct)
     async with httpx.AsyncClient() as client:
         runner = Runner(client, {}, runtime)
         _stub_turn_pipeline(runner)
