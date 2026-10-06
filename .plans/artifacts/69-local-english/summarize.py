@@ -180,7 +180,10 @@ def main() -> None:
                 )
             for speech in turn["character_speech"]:
                 transcript.append("Bento: " + speech + "\n")
-    (HERE / "TRANSCRIPTS.md").write_text("\n".join(transcript))
+    # Markdown presentation removes trailing whitespace; raw provider strings
+    # remain unchanged in response files and reader packets.
+    display = "\n".join(line.rstrip() for line in "\n".join(transcript).splitlines()) + "\n"
+    (HERE / "TRANSCRIPTS.md").write_text(display)
     print(json.dumps(comparison, ensure_ascii=False, indent=2))
 
 
